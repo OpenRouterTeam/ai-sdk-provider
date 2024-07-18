@@ -111,7 +111,7 @@ const provider = createOpenRouter({
   compatibility: "strict",
 });
 
-const model = provider.chat("openai/gpt-3.5-turbo");
+const model = provider.chat("anthropic/claude-3.5-sonnet");
 
 describe("doGenerate", () => {
   const server = new JsonTestServer(
@@ -278,7 +278,7 @@ describe("doGenerate", () => {
     });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "openai/gpt-3.5-turbo",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [{ role: "user", content: "Hello" }],
     });
   });
@@ -339,7 +339,7 @@ describe("doGenerate", () => {
     });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "openai/gpt-3.5-turbo",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [{ role: "user", content: "Hello" }],
       tools: [
         {
@@ -762,7 +762,7 @@ describe("doStream", () => {
     expect(await server.getRequestBodyJson()).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
-      model: "openai/gpt-3.5-turbo",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [{ role: "user", content: "Hello" }],
     });
   });
