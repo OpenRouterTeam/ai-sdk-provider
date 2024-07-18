@@ -1,6 +1,6 @@
 # OpenRouter Provider for Vercel AI SDK
 
-The OpenRouter provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs)
+The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs)
 contains 160+ language model support for the OpenRouter chat and completion APIs.
 
 ## Setup
