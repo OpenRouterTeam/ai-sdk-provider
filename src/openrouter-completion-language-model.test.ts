@@ -44,7 +44,7 @@ const provider = createOpenRouter({
   compatibility: "strict",
 });
 
-const model = provider.completion("gpt-3.5-turbo-instruct");
+const model = provider.completion("openai/gpt-3.5-turbo-instruct");
 
 describe("doGenerate", () => {
   const server = new JsonTestServer(
@@ -80,7 +80,7 @@ describe("doGenerate", () => {
       id: "cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB",
       object: "text_completion",
       created: 1711363706,
-      model: "gpt-3.5-turbo-instruct",
+      model: "openai/gpt-3.5-turbo-instruct",
       choices: [
         {
           text: content,
@@ -129,7 +129,7 @@ describe("doGenerate", () => {
     const provider = createOpenRouter({ apiKey: "test-api-key" });
 
     const response = await provider
-      .completion("gpt-3.5-turbo", { logprobs: 1 })
+      .completion("openai/gpt-3.5-turbo", { logprobs: 1 })
       .doGenerate({
         inputFormat: "prompt",
         mode: { type: "regular" },
@@ -147,7 +147,7 @@ describe("doGenerate", () => {
     });
 
     const { finishReason } = await provider
-      .completion("gpt-3.5-turbo-instruct")
+      .completion("openai/gpt-3.5-turbo-instruct")
       .doGenerate({
         inputFormat: "prompt",
         mode: { type: "regular" },
@@ -164,7 +164,7 @@ describe("doGenerate", () => {
     });
 
     const { finishReason } = await provider
-      .completion("gpt-3.5-turbo-instruct")
+      .completion("openai/gpt-3.5-turbo-instruct")
       .doGenerate({
         inputFormat: "prompt",
         mode: { type: "regular" },
@@ -207,7 +207,7 @@ describe("doGenerate", () => {
     });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "gpt-3.5-turbo-instruct",
+      model: "openai/gpt-3.5-turbo-instruct",
       prompt: "Hello",
     });
   });
@@ -224,7 +224,7 @@ describe("doGenerate", () => {
       },
     });
 
-    await provider.completion("gpt-3.5-turbo-instruct").doGenerate({
+    await provider.completion("openai/gpt-3.5-turbo-instruct").doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
@@ -280,15 +280,15 @@ describe("doStream", () => {
       ...content.map((text) => {
         return (
           `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,` +
-          `"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"gpt-3.5-turbo-instruct"}\n\n`
+          `"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`
         );
       }),
       `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,` +
         `"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
           logprobs
-        )},"finish_reason":"${finish_reason}"}],"model":"gpt-3.5-turbo-instruct"}\n\n`,
+        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
       `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,` +
-        `"model":"gpt-3.5-turbo-instruct","usage":${JSON.stringify(
+        `"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
           usage
         )},"choices":[]}\n\n`,
       "data: [DONE]\n\n",
@@ -426,7 +426,7 @@ describe("doStream", () => {
     expect(await server.getRequestBodyJson()).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
-      model: "gpt-3.5-turbo-instruct",
+      model: "openai/gpt-3.5-turbo-instruct",
       prompt: "Hello",
     });
   });
@@ -443,7 +443,7 @@ describe("doStream", () => {
       },
     });
 
-    await provider.completion("gpt-3.5-turbo-instruct").doStream({
+    await provider.completion("openai/gpt-3.5-turbo-instruct").doStream({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,

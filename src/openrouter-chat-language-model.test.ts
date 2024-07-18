@@ -112,7 +112,7 @@ const provider = createOpenRouter({
   compatibility: "strict",
 });
 
-const model = provider.chat("gpt-3.5-turbo");
+const model = provider.chat("openai/gpt-3.5-turbo");
 
 describe("doGenerate", () => {
   const server = new JsonTestServer(
@@ -205,7 +205,7 @@ describe("doGenerate", () => {
     });
 
     const response = await provider
-      .chat("gpt-3.5-turbo", { logprobs: 1 })
+      .chat("openai/gpt-3.5-turbo", { logprobs: 1 })
       .doGenerate({
         inputFormat: "prompt",
         mode: { type: "regular" },
@@ -279,7 +279,7 @@ describe("doGenerate", () => {
     });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "gpt-3.5-turbo",
+      model: "openai/gpt-3.5-turbo",
       messages: [{ role: "user", content: "Hello" }],
     });
   });
@@ -288,7 +288,7 @@ describe("doGenerate", () => {
     prepareJsonResponse();
 
     await provider
-      .chat("gpt-3.5-turbo", {
+      .chat("openai/gpt-3.5-turbo", {
         logitBias: { 50256: -100 },
         logprobs: 2,
         parallelToolCalls: false,
@@ -301,7 +301,7 @@ describe("doGenerate", () => {
       });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "gpt-3.5-turbo",
+      model: "openai/gpt-3.5-turbo",
       messages: [{ role: "user", content: "Hello" }],
       logprobs: true,
       top_logprobs: 2,
@@ -340,7 +340,7 @@ describe("doGenerate", () => {
     });
 
     expect(await server.getRequestBodyJson()).toStrictEqual({
-      model: "gpt-3.5-turbo",
+      model: "openai/gpt-3.5-turbo",
       messages: [{ role: "user", content: "Hello" }],
       tools: [
         {
@@ -376,7 +376,7 @@ describe("doGenerate", () => {
       },
     });
 
-    await provider.chat("gpt-3.5-turbo").doGenerate({
+    await provider.chat("openai/gpt-3.5-turbo").doGenerate({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,
@@ -763,7 +763,7 @@ describe("doStream", () => {
     expect(await server.getRequestBodyJson()).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
-      model: "gpt-3.5-turbo",
+      model: "openai/gpt-3.5-turbo",
       messages: [{ role: "user", content: "Hello" }],
     });
   });
@@ -780,7 +780,7 @@ describe("doStream", () => {
       },
     });
 
-    await provider.chat("gpt-3.5-turbo").doStream({
+    await provider.chat("openai/gpt-3.5-turbo").doStream({
       inputFormat: "prompt",
       mode: { type: "regular" },
       prompt: TEST_PROMPT,

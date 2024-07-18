@@ -12,7 +12,7 @@ import type {
 
 export interface OpenRouterProvider {
   (
-    modelId: "gpt-3.5-turbo-instruct",
+    modelId: "openai/gpt-3.5-turbo-instruct",
     settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   (
@@ -21,7 +21,7 @@ export interface OpenRouterProvider {
   ): OpenRouterChatLanguageModel;
 
   languageModel(
-    modelId: "gpt-3.5-turbo-instruct",
+    modelId: "openai/gpt-3.5-turbo-instruct",
     settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   languageModel(
@@ -149,7 +149,7 @@ export function createOpenRouter(
       );
     }
 
-    if (modelId === "gpt-3.5-turbo-instruct") {
+    if (modelId === "openai/gpt-3.5-turbo-instruct") {
       return createCompletionModel(
         modelId,
         settings as OpenRouterCompletionSettings
