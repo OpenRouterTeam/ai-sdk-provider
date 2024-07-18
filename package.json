@@ -1,6 +1,6 @@
 {
-  "private": true,
-  "version": "0.0.36",
+  "name": "openrouter-ai-provider",
+  "version": "0.0.3",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",

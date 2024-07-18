@@ -6,7 +6,14 @@ contains 160+ language model support for the OpenRouter chat and completion APIs
 ## Setup
 
 ```bash
-npm install https://github.com/OpenRouterTeam/openrouter-ai-provider.git
+# For pnpm
+pnpm add openrouter-ai-provider
+
+# For npm
+npm install openrouter-ai-provider
+
+# For yarn
+yarn add openrouter-ai-provider
 ```
 
 ## Provider Instance
