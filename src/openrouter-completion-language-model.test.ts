@@ -1,5 +1,4 @@
 import type { LanguageModelV1Prompt } from "@ai-sdk/provider";
-import { describe, expect, it } from "@jest/globals";
 import {
   JsonTestServer,
   StreamingTestServer,
@@ -187,7 +186,7 @@ describe("doGenerate", () => {
 
     expect(rawResponse?.headers).toStrictEqual({
       // default headers:
-      "content-length": "266",
+      "content-length": "273",
       "content-type": "application/json",
 
       // custom header
@@ -376,7 +375,7 @@ describe("doStream", () => {
     const elements = await convertReadableStreamToArray(stream);
 
     expect(elements.length).toBe(2);
-    expect(elements[0].type).toBe("error");
+    expect(elements[0]?.type).toBe("error");
     expect(elements[1]).toStrictEqual({
       finishReason: "error",
       logprobs: undefined,

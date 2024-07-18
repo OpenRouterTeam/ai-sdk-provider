@@ -1,7 +1,5 @@
 import { convertToOpenRouterChatMessages } from "./convert-to-openrouter-chat-messages";
 
-import { describe, expect, it } from "@jest/globals";
-
 describe("user messages", () => {
   it("should convert messages with image parts to multiple parts", async () => {
     const result = convertToOpenRouterChatMessages([

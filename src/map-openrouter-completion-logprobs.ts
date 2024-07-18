@@ -9,7 +9,7 @@ export function mapOpenRouterCompletionLogProbs(
 ) {
   return logprobs?.tokens.map((token, index) => ({
     token,
-    logprob: logprobs.token_logprobs[index],
+    logprob: logprobs.token_logprobs[index] ?? 0,
     topLogprobs: logprobs.top_logprobs
       ? Object.entries(logprobs.top_logprobs[index] ?? {}).map(
           ([token, logprob]) => ({
