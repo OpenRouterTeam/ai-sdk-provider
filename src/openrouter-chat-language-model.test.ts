@@ -116,7 +116,7 @@ const model = provider.chat("openai/gpt-3.5-turbo");
 
 describe("doGenerate", () => {
   const server = new JsonTestServer(
-    "https://api.openrouter.com/v1/chat/completions"
+    "https://openrouter.ai/api/v1/chat/completions"
   );
 
   server.setupTestEnvironment();
@@ -400,7 +400,7 @@ describe("doGenerate", () => {
 
 describe("doStream", () => {
   const server = new StreamingTestServer(
-    "https://api.openrouter.com/v1/chat/completions"
+    "https://openrouter.ai/api/v1/chat/completions"
   );
 
   server.setupTestEnvironment();

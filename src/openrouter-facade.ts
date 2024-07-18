@@ -17,7 +17,7 @@ import type { OpenRouterProviderSettings } from "./openrouter-provider";
 export class OpenRouter {
   /**
 Use a different URL prefix for API calls, e.g. to use proxy servers.
-The default prefix is `https://api.openrouter.com/v1`.
+The default prefix is `https://openrouter.ai/api/v1`.
    */
   readonly baseURL: string;
 
@@ -48,7 +48,7 @@ Custom headers to include in the requests.
   constructor(options: OpenRouterProviderSettings = {}) {
     this.baseURL =
       withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-      "https://api.openrouter.com/v1";
+      "https://openrouter.ai/api/v1";
     this.apiKey = options.apiKey;
     this.organization = options.organization;
     this.project = options.project;

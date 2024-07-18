@@ -47,9 +47,7 @@ const provider = createOpenRouter({
 const model = provider.completion("openai/gpt-3.5-turbo-instruct");
 
 describe("doGenerate", () => {
-  const server = new JsonTestServer(
-    "https://api.openrouter.com/v1/completions"
-  );
+  const server = new JsonTestServer("https://openrouter.ai/api/v1/completions");
 
   server.setupTestEnvironment();
 
@@ -248,7 +246,7 @@ describe("doGenerate", () => {
 
 describe("doStream", () => {
   const server = new StreamingTestServer(
-    "https://api.openrouter.com/v1/completions"
+    "https://openrouter.ai/api/v1/completions"
   );
 
   server.setupTestEnvironment();

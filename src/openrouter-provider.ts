@@ -99,7 +99,7 @@ export function createOpenRouter(
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    "https://api.openrouter.com/v1";
+    "https://openrouter.ai/api/v1";
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? "compatible";
