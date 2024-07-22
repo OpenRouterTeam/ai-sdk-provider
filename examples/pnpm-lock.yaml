@@ -17,7 +17,7 @@ importers:
       openai:
         specifier: 4.52.7
         version: 4.52.7
-      openrouter-ai-provider:
+      @openrouter/ai-sdk-provider:
         specifier: 0.0.3
         version: 0.0.3(zod@3.23.8)
       react:
@@ -463,7 +463,7 @@ packages:
     resolution: {integrity: sha512-dgxA6UZHary6NXUHEDj5TWt8ogv0+ibH+b4pT5RrWMjiRZVylNwLcw/2ubDrX5n0oUmHX/ZgudMJeemxzOvz7A==}
     hasBin: true
 
-  openrouter-ai-provider@0.0.3:
+  @openrouter/ai-sdk-provider@0.0.3:
     resolution: {integrity: sha512-wb8Cclk7J48pRZjaLORbJPdNjpKgGrH3b0xtbUluUDrNBvW7T763Hq3BSheDy0ERuy9v1CBrgDYKOCwZxyGU2Q==}
     engines: {node: '>=18'}
     peerDependencies:
@@ -1008,7 +1008,7 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  openrouter-ai-provider@0.0.3(zod@3.23.8):
+  @openrouter/ai-sdk-provider@0.0.3(zod@3.23.8):
     dependencies:
       '@ai-sdk/provider': 0.0.12
       '@ai-sdk/provider-utils': 1.0.2(zod@3.23.8)

@@ -5,7 +5,7 @@ To test the examples:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd openrouter-ai-provider/examples
+cd ai-sdk-provider/examples
 
 # Install dependencies
 pnpm install

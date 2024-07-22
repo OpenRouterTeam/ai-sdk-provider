@@ -56,13 +56,13 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/OpenRouterTeam/openrouter-ai-provider",
+  "homepage": "https://github.com/OpenRouterTeam/ai-sdk-provider",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenRouterTeam/openrouter-ai-provider.git"
+    "url": "git+https://github.com/OpenRouterTeam/ai-sdk-provider.git"
   },
   "bugs": {
-    "url": "https://github.com/OpenRouterTeam/openrouter-ai-provider/issues"
+    "url": "https://github.com/OpenRouterTeam/ai-sdk-provider/issues"
   },
   "keywords": [
     "ai"

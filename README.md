@@ -7,27 +7,27 @@ contains 160+ language model support for the OpenRouter chat and completion APIs
 
 ```bash
 # For pnpm
-pnpm add openrouter-ai-provider
+pnpm add @openrouter/ai-sdk-provider
 
 # For npm
-npm install openrouter-ai-provider
+npm install @openrouter/ai-sdk-provider
 
 # For yarn
-yarn add openrouter-ai-provider
+yarn add @openrouter/ai-sdk-provider
 ```
 
 ## Provider Instance
 
-You can import the default provider instance `openrouter` from `openrouter-ai-provider`:
+You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
 
 ```ts
-import { openrouter } from "openrouter-ai-provider";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 ```
 
 ## Example
 
 ```ts
-import { openrouter } from "openrouter-ai-provider";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { generateText } from "ai";
 
 const { text } = await generateText({
