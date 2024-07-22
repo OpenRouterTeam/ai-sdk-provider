@@ -38,7 +38,7 @@ const { text } = await generateText({
 
 ## Supported models
 
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models to our system.  
+This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.  
 You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
 
 | Model                                         | ID                                          | Input Price ($/1M tokens) | Output Price ($/1M tokens) | Context Window | Moderation |
