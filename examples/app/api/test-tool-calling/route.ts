@@ -8,7 +8,7 @@ export const revalidate = 0;
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const modelName = searchParams.get("modelName") || "openai/gpt-4o";
+    const modelName = searchParams.get("modelName") || "anthropic/claude-3.5-sonnet";
     return getWeather(modelName);
   } catch (e: unknown) {
     console.error(e);

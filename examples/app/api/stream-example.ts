@@ -1,5 +1,5 @@
 import { streamText } from "ai";
-import { createOpenRouter } from "openrouter-ai-provider";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
 
 export const getLasagnaRecipe = async (modelName: string) => {
