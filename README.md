@@ -191,3 +191,33 @@ You can find the latest list of models supported by OpenRouter [here](https://op
 | Mistral: Mistral 7B Instruct (free)           | mistralai/mistral-7b-instruct:free          | $0 (100% off)             | $0 (100% off)              | 32,768         | None       |
 | Pygmalion: Mythalion 13B                      | pygmalionai/mythalion-13b                   | $1.125 (25% off)          | $1.125 (25% off)           | 8,192          | None       |
 | OpenAI: GPT-3.5 Turbo 16k                     | openai/gpt-3.5-turbo-16k                    | $3                        | $4                         | 16,385         | Moderated  |
+
+## Models with Tool Calling Capabilities Compatible with AI SDK
+
+_Last Update: 2024-08-09_
+
+This list is not a definitive list of tool calling models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
+
+- openai/gpt-3.5-turbo
+- openai/gpt-3.5-turbo-0125
+- openai/gpt-3.5-turbo-1106
+- openai/gpt-3.5-turbo-0613
+- openai/gpt-3.5-turbo-16k
+- openai/gpt-4o
+- openai/gpt-4o-2024-05-13
+- openai/gpt-4o-2024-08-06
+- openai/gpt-4o-mini
+- openai/gpt-4o-mini-2024-07-18
+- openai/gpt-4-turbo-preview
+- openai/gpt-4-1106-preview
+- openai/gpt-4
+- openai/gpt-4-32k
+- openai/gpt-4-vision-preview
+- anthropic/claude-3-opus
+- anthropic/claude-3-opus:beta
+- anthropic/claude-3-sonnet
+- anthropic/claude-3-sonnet:beta
+- anthropic/claude-3.5-sonnet
+- anthropic/claude-3.5-sonnet:beta
+- anthropic/claude-3-haiku
+- anthropic/claude-3-haiku:beta
