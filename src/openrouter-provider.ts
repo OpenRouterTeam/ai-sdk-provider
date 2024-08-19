@@ -107,7 +107,7 @@ export function createOpenRouter(
   const getHeaders = () => ({
     Authorization: `Bearer ${loadApiKey({
       apiKey: options.apiKey,
-      environmentVariableName: "OPENAI_API_KEY",
+      environmentVariableName: "OPENROUTER_API_KEY",
       description: "OpenRouter",
     })}`,
     "OpenRouter-Organization": options.organization,

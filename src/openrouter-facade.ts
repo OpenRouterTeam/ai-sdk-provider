@@ -23,7 +23,7 @@ The default prefix is `https://openrouter.ai/api/v1`.
 
   /**
 API key that is being send using the `Authorization` header.
-It defaults to the `OPENAI_API_KEY` environment variable.
+It defaults to the `OPENROUTER_API_KEY` environment variable.
  */
   readonly apiKey?: string;
 
@@ -62,7 +62,7 @@ Custom headers to include in the requests.
       headers: () => ({
         Authorization: `Bearer ${loadApiKey({
           apiKey: this.apiKey,
-          environmentVariableName: "OPENAI_API_KEY",
+          environmentVariableName: "OPENROUTER_API_KEY",
           description: "OpenRouter",
         })}`,
         "OpenRouter-Organization": this.organization,
