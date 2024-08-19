@@ -1,7 +1,4 @@
-// https://platform.openrouter.com/docs/models
-export type OpenRouterCompletionModelId =
-  | "openai/gpt-3.5-turbo-instruct"
-  | (string & {});
+export type OpenRouterCompletionModelId = string & {};
 
 export interface OpenRouterCompletionSettings {
   /**
