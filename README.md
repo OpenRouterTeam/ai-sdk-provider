@@ -194,7 +194,7 @@ You can find the latest list of models supported by OpenRouter [here](https://op
 
 ## Models with Tool Calling Capabilities Compatible with AI SDK
 
-_Last Update: 2024-08-09_
+_Last Update: 2024-08-19_
 
 This list is not a definitive list of tool calling models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
 
@@ -208,11 +208,19 @@ This list is not a definitive list of tool calling models supported by OpenRoute
 - openai/gpt-4o-2024-08-06
 - openai/gpt-4o-mini
 - openai/gpt-4o-mini-2024-07-18
+- openai/gpt-4-turbo
 - openai/gpt-4-turbo-preview
 - openai/gpt-4-1106-preview
 - openai/gpt-4
 - openai/gpt-4-32k
 - openai/gpt-4-vision-preview
+- google/gemini-pro
+- google/gemini-pro-vision
+- google/gemini-pro-1.5
+- google/gemini-flash-1.5
+- mistralai/mistral-small
+- mistralai/mistral-large
+- 01-ai/yi-large-fc
 - anthropic/claude-3-opus
 - anthropic/claude-3-opus:beta
 - anthropic/claude-3-sonnet
@@ -221,3 +229,5 @@ This list is not a definitive list of tool calling models supported by OpenRoute
 - anthropic/claude-3.5-sonnet:beta
 - anthropic/claude-3-haiku
 - anthropic/claude-3-haiku:beta
+- meta-llama/llama-3-8b-instruct
+- mistralai/mixtral-8x22b-instruct
