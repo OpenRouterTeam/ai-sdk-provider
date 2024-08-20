@@ -232,3 +232,30 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 - anthropic/claude-3-haiku:beta
 - meta-llama/llama-3-8b-instruct
 - mistralai/mixtral-8x22b-instruct
+
+## Passing Extra Body to OpenRouter
+
+When you want to pass extra body to OpenRouter or to the upstream provider, you can do so by setting the `extraBody` property on the language model.
+
+```typescript
+import { createOpenRouter } from "@ai-sdk/openrouter";
+
+const provider = createOpenRouter({
+  apiKey: "your-api-key",
+  // Extra body to pass to OpenRouter
+  extraBody: {
+    custom_field: "custom_value",
+    providers: {
+      anthropic: {
+        custom_field: "custom_value",
+      },
+    },
+  },
+});
+const model = provider.chat("anthropic/claude-3.5-sonnet");
+const response = await model.doStream({
+  inputFormat: "prompt",
+  mode: { type: "regular" },
+  prompt: [{ role: "user", content: "Hello" }],
+});
+```
