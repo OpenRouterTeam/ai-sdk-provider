@@ -196,7 +196,8 @@ You can find the latest list of models supported by OpenRouter [here](https://op
 
 _Last Update: 2024-08-19_
 
-This list is not a definitive list of tool calling models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
+This list is not a definitive list of tool-calling models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
+You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools).
 
 - openai/gpt-3.5-turbo
 - openai/gpt-3.5-turbo-0125
