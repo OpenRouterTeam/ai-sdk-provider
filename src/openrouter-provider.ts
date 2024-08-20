@@ -63,16 +63,6 @@ API key for authenticating requests.
   apiKey?: string;
 
   /**
-OpenRouter Organization.
-     */
-  organization?: string;
-
-  /**
-OpenRouter project.
-     */
-  project?: string;
-
-  /**
 Custom headers to include in the requests.
      */
   headers?: Record<string, string>;
@@ -89,6 +79,11 @@ Custom fetch implementation. You can use it as a middleware to intercept request
 or to provide a custom fetch implementation for e.g. testing.
     */
   fetch?: typeof fetch;
+
+  /**
+A JSON object to send as the request body to access OpenRouter features & upstream provider features.
+  */
+  extraBody?: Record<string, unknown>;
 }
 
 /**
@@ -110,8 +105,6 @@ export function createOpenRouter(
       environmentVariableName: "OPENROUTER_API_KEY",
       description: "OpenRouter",
     })}`,
-    "OpenRouter-Organization": options.organization,
-    "OpenRouter-Project": options.project,
     ...options.headers,
   });
 
@@ -125,6 +118,7 @@ export function createOpenRouter(
       headers: getHeaders,
       compatibility,
       fetch: options.fetch,
+      extraBody: options.extraBody,
     });
 
   const createCompletionModel = (
@@ -137,6 +131,7 @@ export function createOpenRouter(
       headers: getHeaders,
       compatibility,
       fetch: options.fetch,
+      extraBody: options.extraBody,
     });
 
   const createLanguageModel = (

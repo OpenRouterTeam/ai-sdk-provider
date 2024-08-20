@@ -31,6 +31,7 @@ type OpenRouterCompletionConfig = {
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
+  extraBody?: Record<string, unknown>;
 };
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
@@ -103,6 +104,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
       // stop sequences:
       stop: stopSequences,
+
+      // extra body:
+      ...this.config.extraBody,
     };
 
     switch (type) {

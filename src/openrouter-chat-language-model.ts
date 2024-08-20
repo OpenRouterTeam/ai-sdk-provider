@@ -34,6 +34,7 @@ type OpenRouterChatConfig = {
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
+  extraBody?: Record<string, unknown>;
 };
 
 export class OpenRouterChatLanguageModel implements LanguageModelV1 {
@@ -103,6 +104,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
+
+      // extra body:
+      ...this.config.extraBody,
     };
 
     switch (type) {

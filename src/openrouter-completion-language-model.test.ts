@@ -214,8 +214,6 @@ describe("doGenerate", () => {
 
     const provider = createOpenRouter({
       apiKey: "test-api-key",
-      organization: "test-organization",
-      project: "test-project",
       headers: {
         "Custom-Provider-Header": "provider-header-value",
       },
@@ -237,8 +235,6 @@ describe("doGenerate", () => {
       "content-type": "application/json",
       "custom-provider-header": "provider-header-value",
       "custom-request-header": "request-header-value",
-      "openrouter-organization": "test-organization",
-      "openrouter-project": "test-project",
     });
   });
 });
@@ -433,8 +429,6 @@ describe("doStream", () => {
 
     const provider = createOpenRouter({
       apiKey: "test-api-key",
-      organization: "test-organization",
-      project: "test-project",
       headers: {
         "Custom-Provider-Header": "provider-header-value",
       },
@@ -456,8 +450,36 @@ describe("doStream", () => {
       "content-type": "application/json",
       "custom-provider-header": "provider-header-value",
       "custom-request-header": "request-header-value",
-      "openrouter-organization": "test-organization",
-      "openrouter-project": "test-project",
     });
+  });
+
+  it("should pass extra body", async () => {
+    prepareStreamResponse({ content: [] });
+
+    const provider = createOpenRouter({
+      apiKey: "test-api-key",
+      extraBody: {
+        custom_field: "custom_value",
+        providers: {
+          anthropic: {
+            custom_field: "custom_value",
+          },
+        },
+      },
+    });
+
+    await provider.completion("openai/gpt-4o").doStream({
+      inputFormat: "prompt",
+      mode: { type: "regular" },
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.getRequestBodyJson();
+
+    expect(requestBody).toHaveProperty("custom_field", "custom_value");
+    expect(requestBody).toHaveProperty(
+      "providers.anthropic.custom_field",
+      "custom_value"
+    );
   });
 });
