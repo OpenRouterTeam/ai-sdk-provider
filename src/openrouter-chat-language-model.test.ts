@@ -368,7 +368,6 @@ describe("doGenerate", () => {
 
     const provider = createOpenRouter({
       apiKey: "test-api-key",
-      organization: "test-organization",
       project: "test-project",
       headers: {
         "Custom-Provider-Header": "provider-header-value",
@@ -770,7 +769,6 @@ describe("doStream", () => {
 
     const provider = createOpenRouter({
       apiKey: "test-api-key",
-      organization: "test-organization",
       project: "test-project",
       headers: {
         "Custom-Provider-Header": "provider-header-value",

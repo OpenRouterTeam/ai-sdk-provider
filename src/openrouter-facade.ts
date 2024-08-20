@@ -28,16 +28,6 @@ It defaults to the `OPENROUTER_API_KEY` environment variable.
   readonly apiKey?: string;
 
   /**
-OpenRouter Organization.
-   */
-  readonly organization?: string;
-
-  /**
-OpenRouter project.
-   */
-  readonly project?: string;
-
-  /**
 Custom headers to include in the requests.
    */
   readonly headers?: Record<string, string>;
@@ -50,14 +40,11 @@ Custom headers to include in the requests.
       withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
       "https://openrouter.ai/api/v1";
     this.apiKey = options.apiKey;
-    this.organization = options.organization;
-    this.project = options.project;
     this.headers = options.headers;
   }
 
   private get baseConfig() {
     return {
-      organization: this.organization,
       baseURL: this.baseURL,
       headers: () => ({
         Authorization: `Bearer ${loadApiKey({
@@ -65,8 +52,6 @@ Custom headers to include in the requests.
           environmentVariableName: "OPENROUTER_API_KEY",
           description: "OpenRouter",
         })}`,
-        "OpenRouter-Organization": this.organization,
-        "OpenRouter-Project": this.project,
         ...this.headers,
       }),
     };
