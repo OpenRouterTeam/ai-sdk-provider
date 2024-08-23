@@ -194,7 +194,7 @@ You can find the latest list of models supported by OpenRouter [here](https://op
 
 ## Models with Tool Calling Capabilities Compatible with AI SDK
 
-_Last Update: 2024-08-19_
+_Last Update: 2024-08-24_
 
 This list is not a definitive list of tool-calling models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
 You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
@@ -231,6 +231,14 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 - [anthropic/claude-3-haiku](https://openrouter.ai/models/anthropic/claude-3-haiku)
 - [anthropic/claude-3-haiku:beta](https://openrouter.ai/models/anthropic/claude-3-haiku:beta)
 - [meta-llama/llama-3-8b-instruct](https://openrouter.ai/models/meta-llama/llama-3-8b-instruct)
+- [meta-llama/llama-3-70b-instruct](https://openrouter.ai/models/meta-llama/llama-3-70b-instruct)
+- [meta-llama/llama-3.1-8b-instruct](https://openrouter.ai/models/meta-llama/llama-3.1-8b-instruct)
+- [meta-llama/llama-3.1-70b-instruct](https://openrouter.ai/models/meta-llama/llama-3.1-70b-instruct)
+- [meta-llama/llama-3.1-405b-instruct](https://openrouter.ai/models/meta-llama/llama-3.1-405b-instruct)
+- [mistralai/mixtral-8x7b-instruct](https://openrouter.ai/models/mistralai/mixtral-8x7b-instruct)
+- [mistralai/mistral-nemo](https://openrouter.ai/models/mistralai/mistral-nemo)
+- [mistralai/mistral-7b-instruct](https://openrouter.ai/models/mistralai/mistral-7b-instruct)
+- [mistralai/mistral-7b-instruct-v0.3](https://openrouter.ai/models/mistralai/mistral-7b-instruct-v0.3)
 - [mistralai/mixtral-8x22b-instruct](https://openrouter.ai/models/mistralai/mixtral-8x22b-instruct)
 
 ## Passing Extra Body to OpenRouter
