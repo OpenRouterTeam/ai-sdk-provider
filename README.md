@@ -246,7 +246,7 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 When you want to pass extra body to OpenRouter or to the upstream provider, you can do so by setting the `extraBody` property on the language model.
 
 ```typescript
-import { createOpenRouter } from "@ai-sdk/openrouter";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 const provider = createOpenRouter({
   apiKey: "your-api-key",
