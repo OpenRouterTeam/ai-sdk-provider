@@ -31,7 +31,10 @@ export const getWeather = async (modelName: string) => {
             .describe("The city and state, e.g. San Francisco, CA"),
           unit: z.enum(["celsius", "fahrenheit"]).optional(),
         }),
-        execute: async ({ location, unit = "celsius" }) => {
+        execute: async ({ location, unit = "celsius" }: {
+          location: "Boston, MA" | "San Francisco, CA";
+          unit?: "celsius" | "fahrenheit";
+        }) => {
           // Mock response for the weather
           const weatherData = {
             "Boston, MA": {
@@ -42,7 +45,7 @@ export const getWeather = async (modelName: string) => {
               celsius: "18°C",
               fahrenheit: "64°F",
             },
-          };
+          } as const;
 
           const weather = weatherData[location];
           if (!weather) {

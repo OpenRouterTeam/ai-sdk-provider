@@ -138,15 +138,12 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
         });
       }
 
-      case "object-grammar": {
-        throw new UnsupportedFunctionalityError({
-          functionality: "object-grammar mode",
-        });
-      }
-
+      // Handle all non-text types with a single default case
       default: {
         const _exhaustiveCheck: never = type;
-        throw new Error(`Unsupported type: ${_exhaustiveCheck}`);
+        throw new UnsupportedFunctionalityError({
+          functionality: `${_exhaustiveCheck} mode`,
+        });
       }
     }
   }

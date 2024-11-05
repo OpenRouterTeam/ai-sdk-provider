@@ -61,6 +61,15 @@ export function convertToOpenRouterCompletionPrompt({
                   functionality: "images",
                 });
               }
+              case "file": {
+                throw new UnsupportedFunctionalityError({
+                  functionality: "file attachments",
+                });
+              }
+              default: {
+                const _exhaustiveCheck: never = part;
+                throw new Error(`Unsupported content type: ${_exhaustiveCheck}`);
+              }
             }
           })
           .join("");
@@ -80,6 +89,10 @@ export function convertToOpenRouterCompletionPrompt({
                 throw new UnsupportedFunctionalityError({
                   functionality: "tool-call messages",
                 });
+              }
+              default: {
+                const _exhaustiveCheck: never = part;
+                throw new Error(`Unsupported content type: ${_exhaustiveCheck}`);
               }
             }
           })
