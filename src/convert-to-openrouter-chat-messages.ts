@@ -1,6 +1,9 @@
 import type { LanguageModelV1Prompt } from "@ai-sdk/provider";
 import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils";
-import type { OpenRouterChatPrompt, ChatCompletionContentPart } from "./openrouter-chat-prompt";
+import type {
+  OpenRouterChatPrompt,
+  ChatCompletionContentPart,
+} from "./openrouter-chat-prompt";
 
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt
@@ -20,37 +23,45 @@ export function convertToOpenRouterChatMessages(
           break;
         }
 
-        const contentParts: ChatCompletionContentPart[] = content.map((part) => {
-          switch (part.type) {
-            case "text":
-              return {
-                type: "text" as const,
-                text: part.text
-              };
-            case "image":
-              return {
-                type: "image_url" as const,
-                image_url: {
-                  url: part.image instanceof URL
-                    ? part.image.toString()
-                    : `data:${part.mimeType ?? "image/jpeg"};base64,${convertUint8ArrayToBase64(part.image)}`
-                }
-              };
-            case "file":
-              return {
-                type: "text" as const,
-                text: `[File content]`
-              };
-            default: {
-              const _exhaustiveCheck: never = part;
-              throw new Error(`Unsupported content part type: ${_exhaustiveCheck}`);
+        const contentParts: ChatCompletionContentPart[] = content.map(
+          (part) => {
+            switch (part.type) {
+              case "text":
+                return {
+                  type: "text" as const,
+                  text: part.text,
+                };
+              case "image":
+                return {
+                  type: "image_url" as const,
+                  image_url: {
+                    url:
+                      part.image instanceof URL
+                        ? part.image.toString()
+                        : `data:${
+                            part.mimeType ?? "image/jpeg"
+                          };base64,${convertUint8ArrayToBase64(part.image)}`,
+                  },
+                };
+              case "file":
+                return {
+                  type: "text" as const,
+                  text:
+                    part.data instanceof URL ? part.data.toString() : part.data,
+                };
+              default: {
+                const _exhaustiveCheck: never = part;
+                throw new Error(
+                  `Unsupported content part type: ${_exhaustiveCheck}`
+                );
+              }
             }
           }
-        });
+        );
 
         messages.push({
           role: "user",
-          content: contentParts
+          content: contentParts,
         });
 
         break;
