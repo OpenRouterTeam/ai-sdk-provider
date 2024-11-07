@@ -4,6 +4,8 @@ import {
   type LanguageModelV1FinishReason,
   type LanguageModelV1LogProbs,
   type LanguageModelV1StreamPart,
+  type LanguageModelV1FunctionTool,
+  type LanguageModelV1ProviderDefinedTool,
   UnsupportedFunctionalityError,
 } from "@ai-sdk/provider";
 import type { ParseResult } from "@ai-sdk/provider-utils";
@@ -27,6 +29,10 @@ import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
 } from "./openrouter-error";
+
+function isFunctionTool(tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool): tool is LanguageModelV1FunctionTool {
+  return 'parameters' in tool;
+}
 
 type OpenRouterChatConfig = {
   provider: string;
@@ -138,19 +144,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         };
       }
 
-      case "object-grammar": {
-        throw new UnsupportedFunctionalityError({
-          functionality: "object-grammar mode",
-        });
-      }
-
+      // Handle all non-text types with a single default case
       default: {
         const _exhaustiveCheck: never = type;
-        throw new Error(`Unsupported type: ${_exhaustiveCheck}`);
+        throw new UnsupportedFunctionalityError({
+          functionality: `${_exhaustiveCheck} mode`,
+        });
       }
     }
   }
-
   async doGenerate(
     options: Parameters<LanguageModelV1["doGenerate"]>[0]
   ): Promise<Awaited<ReturnType<LanguageModelV1["doGenerate"]>>> {
@@ -547,14 +549,25 @@ function prepareToolsAndToolChoice(
     return { tools: undefined, tool_choice: undefined };
   }
 
-  const mappedTools = tools.map((tool) => ({
-    type: "function",
-    function: {
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.parameters,
-    },
-  }));
+  const mappedTools = tools.map((tool) => {
+    if (isFunctionTool(tool)) {
+      return {
+        type: "function" as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      };
+    } else {
+      return {
+        type: "function" as const,
+        function: {
+          name: tool.name,
+        },
+      };
+    }
+  });
 
   const toolChoice = mode.toolChoice;
 
