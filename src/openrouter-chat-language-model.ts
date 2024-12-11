@@ -180,6 +180,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       throw new Error("No choice in response");
     }
 
+    const mappedFinishReason = mapOpenRouterFinishReason(choice.finish_reason, this.provider);
+    const finishReason: LanguageModelV1FinishReason = mappedFinishReason ?? "other";
+
     return {
       text: choice.message.content ?? undefined,
       toolCalls: choice.message.tool_calls?.map((toolCall) => ({
@@ -188,7 +191,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         toolName: toolCall.function.name,
         args: toolCall.function.arguments!,
       })),
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      finishReason,
       usage: {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,
@@ -204,6 +207,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     options: Parameters<LanguageModelV1["doStream"]>[0]
   ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
     const args = this.getArgs(options);
+    const provider = this.provider;  // Capture provider for use in transform
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -280,7 +284,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             const choice = value.choices[0];
 
             if (choice?.finish_reason != null) {
-              finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              const mappedFinishReason = mapOpenRouterFinishReason(choice.finish_reason, provider);
+              // Default to "other" if null to maintain backward compatibility
+              finishReason = mappedFinishReason ?? "other";
             }
 
             if (choice?.delta == null) {

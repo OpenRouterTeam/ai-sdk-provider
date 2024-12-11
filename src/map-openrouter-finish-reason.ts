@@ -1,8 +1,15 @@
 import type { LanguageModelV1FinishReason } from "@ai-sdk/provider";
+import { logUnknownFinishReason } from "./utils/logging";
 
 export function mapOpenRouterFinishReason(
-  finishReason: string | null | undefined
-): LanguageModelV1FinishReason {
+  finishReason: string | null | undefined,
+  provider?: string
+): LanguageModelV1FinishReason | null {
+  // Handle null/undefined cases
+  if (finishReason == null) {
+    return null;
+  }
+
   switch (finishReason) {
     case "stop":
       return "stop";
@@ -14,6 +21,9 @@ export function mapOpenRouterFinishReason(
     case "tool_calls":
       return "tool-calls";
     default:
-      return "unknown";
+      // Log unknown values for tracking
+      logUnknownFinishReason(finishReason, provider ?? "unknown");
+      // Default to "stop" for unrecognized strings
+      return "stop";
   }
 }

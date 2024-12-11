@@ -145,7 +145,7 @@ describe("doGenerate", () => {
           }[]
         | null;
     } | null;
-    finish_reason?: string;
+    finish_reason?: string | null;
   } = {}) {
     server.responseBodyJson = {
       id: "chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd",
@@ -233,7 +233,7 @@ describe("doGenerate", () => {
   it("should support unknown finish reason", async () => {
     prepareJsonResponse({
       content: "",
-      finish_reason: "eos",
+      finish_reason: "unknown_value",
     });
 
     const response = await model.doGenerate({
@@ -242,8 +242,24 @@ describe("doGenerate", () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual("unknown");
+    expect(response.finishReason).toStrictEqual("stop");
   });
+
+  it("should handle null finish reason", async () => {
+    prepareJsonResponse({
+      content: "",
+      finish_reason: null,
+    });
+
+    const response = await model.doGenerate({
+      inputFormat: "prompt",
+      mode: { type: "regular" },
+      prompt: TEST_PROMPT,
+    });
+
+    expect(response.finishReason).toStrictEqual("other");
+  });
+
 
   it("should expose the raw response headers", async () => {
     prepareJsonResponse({ content: "" });

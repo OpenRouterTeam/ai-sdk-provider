@@ -37,10 +37,10 @@
     }
   },
   "dependencies": {
-    "@ai-sdk/provider": "0.0.26",
     "@ai-sdk/provider-utils": "1.0.22"
   },
   "devDependencies": {
+    "@ai-sdk/provider": "0.0.26",
     "@edge-runtime/vm": "4.0.2",
     "@types/jest": "^29.5.11",
     "@types/node": "20.14.11",

@@ -71,7 +71,7 @@ describe("doGenerate", () => {
       token_logprobs: number[];
       top_logprobs: Record<string, number>[];
     } | null;
-    finish_reason?: string;
+    finish_reason?: string | null;
   }) {
     server.responseBodyJson = {
       id: "cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB",
@@ -157,7 +157,7 @@ describe("doGenerate", () => {
   it("should support unknown finish reason", async () => {
     prepareJsonResponse({
       content: "",
-      finish_reason: "eos",
+      finish_reason: "unknown_value",
     });
 
     const { finishReason } = await provider
@@ -168,7 +168,24 @@ describe("doGenerate", () => {
         prompt: TEST_PROMPT,
       });
 
-    expect(finishReason).toStrictEqual("unknown");
+    expect(finishReason).toStrictEqual("stop");
+  });
+
+  it("should handle null finish reason", async () => {
+    prepareJsonResponse({
+      content: "",
+      finish_reason: null,
+    });
+
+    const { finishReason } = await provider
+      .completion("openai/gpt-3.5-turbo-instruct")
+      .doGenerate({
+        inputFormat: "prompt",
+        mode: { type: "regular" },
+        prompt: TEST_PROMPT,
+      });
+
+    expect(finishReason).toStrictEqual("other");
   });
 
   it("should expose the raw response headers", async () => {

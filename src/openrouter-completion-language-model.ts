@@ -175,13 +175,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       throw new Error("No choice in OpenRouter completion response");
     }
 
+    // Default to "other" if null to maintain backward compatibility with LanguageModelV1
+    const mappedFinishReason = mapOpenRouterFinishReason(choice.finish_reason, this.provider);
+    const finishReason: LanguageModelV1FinishReason = mappedFinishReason ?? "other";
+
     return {
       text: choice.text,
       usage: {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,
       },
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      finishReason,
       logprobs: mapOpenRouterCompletionLogProbs(choice.logprobs),
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
@@ -193,6 +197,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     options: Parameters<LanguageModelV1["doStream"]>[0]
   ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
     const args = this.getArgs(options);
+    const provider = this.provider;  // Capture provider for use in transform
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -201,9 +206,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: {
-        ...this.getArgs(options),
+        ...args,
         stream: true,
-
         // only include stream_options when in strict compatibility mode:
         stream_options:
           this.config.compatibility === "strict"
@@ -260,7 +264,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
             const choice = value.choices[0];
 
             if (choice?.finish_reason != null) {
-              finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              const mappedFinishReason = mapOpenRouterFinishReason(choice.finish_reason, provider);
+              finishReason = mappedFinishReason ?? "other";
             }
 
             if (choice?.text != null) {
@@ -270,9 +275,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
               });
             }
 
-            const mappedLogprobs = mapOpenRouterCompletionLogProbs(
-              choice?.logprobs
-            );
+            const mappedLogprobs = mapOpenRouterCompletionLogProbs(choice?.logprobs);
             if (mappedLogprobs?.length) {
               if (logprobs === undefined) logprobs = [];
               logprobs.push(...mappedLogprobs);
@@ -295,14 +298,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     };
   }
 }
-
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 const openAICompletionResponseSchema = z.object({
   choices: z.array(
     z.object({
       text: z.string(),
-      finish_reason: z.string(),
+      finish_reason: z.string().nullable(),
       logprobs: z
         .object({
           tokens: z.array(z.string()),
