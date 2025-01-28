@@ -41,4 +41,11 @@ A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
   user?: string;
+
+  /**
+List of model IDs to try in order if the primary model fails. If no fallback model is specified 
+but route: "fallback" is included, OpenRouter will try the most appropriate open-source model 
+available, with pricing less than the primary model (or very close to it).
+*/
+  models?: string[];
 }

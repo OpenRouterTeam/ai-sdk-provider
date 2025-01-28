@@ -99,6 +99,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
           : undefined,
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
+      models: this.settings.models,
 
       // standardized settings:
       max_tokens: maxTokens,
