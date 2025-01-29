@@ -81,6 +81,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     const baseArgs = {
       // model id:
       model: this.modelId,
+      models: this.settings.models,
 
       // model specific settings:
       logit_bias: this.settings.logitBias,

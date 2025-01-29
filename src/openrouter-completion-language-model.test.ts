@@ -209,6 +209,26 @@ describe("doGenerate", () => {
     });
   });
 
+  it("should pass the models array when provided", async () => {
+    prepareJsonResponse({ content: "" });
+
+    const customModel = provider.completion("openai/gpt-3.5-turbo-instruct", {
+      models: ["openai/gpt-4", "anthropic/claude-2"]
+    });
+
+    await customModel.doGenerate({
+      inputFormat: "prompt",
+      mode: { type: "regular" },
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.getRequestBodyJson()).toStrictEqual({
+      model: "openai/gpt-3.5-turbo-instruct",
+      models: ["openai/gpt-4", "anthropic/claude-2"],
+      prompt: "Hello",
+    });
+  });
+
   it("should pass headers", async () => {
     prepareJsonResponse({ content: "" });
 

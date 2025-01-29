@@ -76,6 +76,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     const baseArgs = {
       // model id:
       model: this.modelId,
+      models: this.settings.models,
 
       // model specific settings:
       echo: this.settings.echo,

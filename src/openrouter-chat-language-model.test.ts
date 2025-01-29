@@ -283,6 +283,26 @@ describe("doGenerate", () => {
     });
   });
 
+  it("should pass the models array when provided", async () => {
+    prepareJsonResponse({ content: "" });
+
+    const customModel = provider.chat("anthropic/claude-3.5-sonnet", {
+      models: ["anthropic/claude-2", "gryphe/mythomax-l2-13b"]
+    });
+
+    await customModel.doGenerate({
+      inputFormat: "prompt",
+      mode: { type: "regular" },
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.getRequestBodyJson()).toStrictEqual({
+      model: "anthropic/claude-3.5-sonnet",
+      models: ["anthropic/claude-2", "gryphe/mythomax-l2-13b"],
+      messages: [{ role: "user", content: "Hello" }],
+    });
+  });
+
   it("should pass settings", async () => {
     prepareJsonResponse();
 

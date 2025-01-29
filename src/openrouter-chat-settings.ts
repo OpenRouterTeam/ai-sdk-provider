@@ -41,4 +41,9 @@ A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
   user?: string;
+
+  /**
+   * List of model IDs to try in order if the primary model fails, e.g. ["anthropic/claude-2","gryphe/mythomax-l2-13b"]
+   */
+  models?: string[];
 }
