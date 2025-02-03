@@ -7,11 +7,10 @@ export const getLasagnaRecipe = async (modelName: string) => {
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
-  const result = await streamText({
+  return streamText({
     model: openrouter(modelName),
     prompt: "Write a vegetarian lasagna recipe for 4 people.",
-  });
-  return result.toAIStreamResponse();
+  }).toDataStreamResponse();
 };
 
 export const getWeather = async (modelName: string) => {
@@ -19,7 +18,7 @@ export const getWeather = async (modelName: string) => {
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
-  const result = await streamText({
+  const result = streamText({
     model: openrouter(modelName),
     prompt: "What is the weather in San Francisco, CA in Fahrenheit?",
     tools: {
@@ -57,5 +56,5 @@ export const getWeather = async (modelName: string) => {
       },
     },
   });
-  return result.toAIStreamResponse();
+  return result.toTextStreamResponse();
 };
