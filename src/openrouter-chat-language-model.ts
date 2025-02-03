@@ -271,6 +271,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               return;
             }
 
+            if (value.id) {
+              controller.enqueue({
+                type: "response-metadata",
+                id: value.id,
+              });
+            }
+
             if (value.usage != null) {
               usage = {
                 promptTokens: value.usage.prompt_tokens,
@@ -485,6 +492,7 @@ const openAIChatResponseSchema = z.object({
 // this approach limits breakages when the API changes and increases efficiency
 const openrouterChatChunkSchema = z.union([
   z.object({
+    id: z.string().optional(),
     choices: z.array(
       z.object({
         delta: z
