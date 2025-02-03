@@ -112,6 +112,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
 
+      // OpenAI specific settings:
+      include_reasoning: this.settings.includeReasoning,
+      
       // extra body:
       ...this.config.extraBody,
     };
@@ -301,6 +304,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               controller.enqueue({
                 type: "text-delta",
                 textDelta: delta.content,
+              });
+            }
+
+            if (delta.reasoning != null) {
+              controller.enqueue({
+                type: "reasoning",
+                textDelta: delta.reasoning,
               });
             }
 
@@ -499,6 +509,7 @@ const openrouterChatChunkSchema = z.union([
           .object({
             role: z.enum(["assistant"]).optional(),
             content: z.string().nullish(),
+            reasoning: z.string().nullish(),
             tool_calls: z
               .array(
                 z.object({

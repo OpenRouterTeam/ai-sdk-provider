@@ -50,4 +50,6 @@ monitor and detect abuse. Learn more.
    * List of model IDs to try in order if the primary model fails, e.g. ["openai/gpt-4","anthropic/claude-2"]
    */
   models?: string[];
+
+  includeReasoning?: boolean;
 }

@@ -106,6 +106,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // stop sequences:
       stop: stopSequences,
 
+      // OpenRouter settings:
+      include_reasoning: this.settings.includeReasoning,
+
       // extra body:
       ...this.config.extraBody,
     };
@@ -178,6 +181,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
     return {
       text: choice.text,
+      reasoning: choice.reasoning || undefined,
       usage: {
         promptTokens: response.usage.prompt_tokens,
         completionTokens: response.usage.completion_tokens,
@@ -303,6 +307,7 @@ const openAICompletionResponseSchema = z.object({
   choices: z.array(
     z.object({
       text: z.string(),
+      reasoning: z.string().nullable(),
       finish_reason: z.string(),
       logprobs: z
         .object({
