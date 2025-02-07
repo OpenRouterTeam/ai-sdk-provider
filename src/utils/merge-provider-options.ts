@@ -8,7 +8,8 @@ export function mergeProviderOptions(
     const { provider, ...rest } = providerOptions.openrouter;
     Object.assign(result, rest);
     if (provider) {
-      result.provider = provider;
+      result.provider = {};
+      Object.assign(result.provider, provider);
     }
   }
   
