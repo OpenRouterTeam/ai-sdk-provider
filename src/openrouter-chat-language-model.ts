@@ -84,7 +84,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     frequencyPenalty,
     presencePenalty,
     seed,
-  }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
+  }: Parameters<LanguageModelV1["doGenerate"]>[0]): Record<string, unknown> {
     const type = mode.type;
 
     const baseArgs = {
@@ -125,11 +125,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       include_reasoning: this.settings.includeReasoning,
       
       // merge extraBody and providerOptions:
-      ...(() => {
-        const merged = mergeProviderOptions(this.config.extraBody, this.config.providerOptions);
-        console.log('Merged options:', JSON.stringify(merged, null, 2));
-        return merged;
-      })(),
+      ...mergeProviderOptions(this.config.extraBody, this.config.providerOptions),
     };
 
     switch (type) {
@@ -222,6 +218,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     options: Parameters<LanguageModelV1["doStream"]>[0]
   ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
     const args = this.getArgs(options);
+    console.log('Stream args:', JSON.stringify(args, null, 2));
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -230,7 +227,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: {
-        ...args,
+        ...this.getArgs(options),
         stream: true,
 
         // only include stream_options when in strict compatibility mode:
