@@ -284,12 +284,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               return;
             }
 
-            if (value.id) {
-              controller.enqueue({
-                type: "response-metadata",
-                id: value.id,
-              });
-            }
+            // Skip response metadata
 
             if (value.usage != null) {
               usage = {
