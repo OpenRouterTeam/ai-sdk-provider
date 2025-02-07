@@ -136,6 +136,7 @@ export function createOpenRouter(
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
+      providerOptions: options.providerOptions,
     });
 
   const createCompletionModel = (
@@ -149,6 +150,7 @@ export function createOpenRouter(
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
+      providerOptions: options.providerOptions,
     });
 
   const createLanguageModel = (
