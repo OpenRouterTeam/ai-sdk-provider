@@ -10,6 +10,8 @@ export function mergeProviderOptions(
     if (provider && typeof provider === 'object') {
       const providerObj = provider as Record<string, unknown>;
       result.provider = { sort: providerObj.sort };
+      console.log('Provider options:', JSON.stringify(providerOptions, null, 2));
+      console.log('Result:', JSON.stringify(result, null, 2));
     }
   }
   

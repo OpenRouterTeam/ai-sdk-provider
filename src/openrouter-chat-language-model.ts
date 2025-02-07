@@ -235,6 +235,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             ? { include_usage: true }
             : undefined,
       },
+      // Log request body for debugging
+      onBeforeRequest: (body) => {
+        console.log('Request body:', JSON.stringify(body, null, 2));
+      },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
         openrouterChatChunkSchema
