@@ -31,7 +31,15 @@ type OpenRouterCompletionConfig = {
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
+  /**
+   * @deprecated Use `providerOptions` instead. Will be removed in next major version.
+   */
   extraBody?: Record<string, unknown>;
+  /**
+   * Provider-specific options to be passed in the request body.
+   * The outer key is the provider name (e.g. 'openrouter').
+   */
+  providerOptions?: Record<string, Record<string, unknown>>;
 };
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
