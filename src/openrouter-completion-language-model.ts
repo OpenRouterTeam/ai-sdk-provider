@@ -316,7 +316,7 @@ const openAICompletionResponseSchema = z.object({
   choices: z.array(
     z.object({
       text: z.string(),
-      reasoning: z.string().nullable(),
+      reasoning: z.string().nullish(),
       finish_reason: z.string(),
       logprobs: z
         .object({
