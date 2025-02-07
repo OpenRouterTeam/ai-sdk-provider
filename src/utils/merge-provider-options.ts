@@ -5,11 +5,7 @@ export function mergeProviderOptions(
   const result = { ...extraBody };
   
   if (providerOptions?.openrouter) {
-    const { provider, ...rest } = providerOptions.openrouter;
-    Object.assign(result, rest);
-    if (provider) {
-      result.provider = provider;
-    }
+    Object.assign(result, providerOptions.openrouter);
   }
   
   return result;
