@@ -25,6 +25,7 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from "./openrouter-chat-settings";
+import { mergeProviderOptions } from "./utils/merge-provider-options";
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
@@ -40,7 +41,15 @@ type OpenRouterChatConfig = {
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
+  /**
+   * @deprecated Use `providerOptions` instead. Will be removed in next major version.
+   */
   extraBody?: Record<string, unknown>;
+  /**
+   * Provider-specific options to be passed in the request body.
+   * The outer key is the provider name (e.g. 'openrouter').
+   */
+  providerOptions?: Record<string, Record<string, unknown>>;
 };
 
 export class OpenRouterChatLanguageModel implements LanguageModelV1 {
@@ -75,7 +84,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     frequencyPenalty,
     presencePenalty,
     seed,
-  }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
+  }: Parameters<LanguageModelV1["doGenerate"]>[0]): Record<string, unknown> {
     const type = mode.type;
 
     const baseArgs = {
@@ -115,8 +124,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // OpenAI specific settings:
       include_reasoning: this.settings.includeReasoning,
       
-      // extra body:
-      ...this.config.extraBody,
+      // merge extraBody and providerOptions:
+      ...(() => {
+        const merged = mergeProviderOptions(this.config.extraBody, this.config.providerOptions);
+        console.log('Config:', JSON.stringify(this.config, null, 2));
+        console.log('Merged:', JSON.stringify(merged, null, 2));
+        return merged;
+      })(),
     };
 
     switch (type) {
@@ -209,6 +223,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     options: Parameters<LanguageModelV1["doStream"]>[0]
   ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
     const args = this.getArgs(options);
+    console.log('Stream args:', JSON.stringify(args, null, 2));
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
@@ -217,7 +232,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: {
-        ...args,
+        ...this.getArgs(options),
         stream: true,
 
         // only include stream_options when in strict compatibility mode:
@@ -275,12 +290,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               return;
             }
 
-            if (value.id) {
-              controller.enqueue({
-                type: "response-metadata",
-                id: value.id,
-              });
-            }
+            // Skip response metadata
 
             if (value.usage != null) {
               usage = {
@@ -457,7 +467,7 @@ const openAIChatResponseSchema = z.object({
       message: z.object({
         role: z.literal("assistant"),
         content: z.string().nullable().optional(),
-        reasoning: z.string().nullable().optional(),
+        reasoning: z.string().nullish(),
         tool_calls: z
           .array(
             z.object({

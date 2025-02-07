@@ -20,6 +20,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from "./openrouter-completion-settings";
+import { mergeProviderOptions } from "./utils/merge-provider-options";
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
@@ -31,7 +32,15 @@ type OpenRouterCompletionConfig = {
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
+  /**
+   * @deprecated Use `providerOptions` instead. Will be removed in next major version.
+   */
   extraBody?: Record<string, unknown>;
+  /**
+   * Provider-specific options to be passed in the request body.
+   * The outer key is the provider name (e.g. 'openrouter').
+   */
+  providerOptions?: Record<string, Record<string, unknown>>;
 };
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
@@ -109,8 +118,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // OpenRouter settings:
       include_reasoning: this.settings.includeReasoning,
 
-      // extra body:
-      ...this.config.extraBody,
+      // merge extraBody and providerOptions:
+      ...mergeProviderOptions(this.config.extraBody, this.config.providerOptions),
     };
 
     switch (type) {
@@ -307,7 +316,7 @@ const openAICompletionResponseSchema = z.object({
   choices: z.array(
     z.object({
       text: z.string(),
-      reasoning: z.string().nullable(),
+      reasoning: z.string().nullish(),
       finish_reason: z.string(),
       logprobs: z
         .object({

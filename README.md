@@ -241,7 +241,27 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 - [mistralai/mistral-7b-instruct-v0.3](https://openrouter.ai/models/mistralai/mistral-7b-instruct-v0.3)
 - [mistralai/mixtral-8x22b-instruct](https://openrouter.ai/models/mistralai/mixtral-8x22b-instruct)
 
-## Passing Extra Body to OpenRouter
+## Provider Options
+
+When you want to pass provider-specific options to OpenRouter or to the upstream provider, you can do so by setting the `providerOptions` property:
+
+```ts
+const provider = createOpenRouter({
+  providerOptions: {
+    openrouter: {
+      provider: {
+        sort: "throughput"
+      }
+    }
+  }
+});
+```
+
+The `providerOptions` object allows you to configure provider-specific options per provider. The outer key is the provider name (e.g. 'openrouter') and the inner object contains the provider-specific options.
+
+> Note: The `extraBody` property is deprecated and will be removed in the next major version. Please use `providerOptions` instead.
+
+## Legacy: Passing Extra Body to OpenRouter
 
 When you want to pass extra body to OpenRouter or to the upstream provider, you can do so by setting the `extraBody` property on the language model.
 
@@ -250,7 +270,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 const provider = createOpenRouter({
   apiKey: "your-api-key",
-  // Extra body to pass to OpenRouter
+  // Extra body to pass to OpenRouter (deprecated)
   extraBody: {
     custom_field: "custom_value",
     providers: {
