@@ -125,7 +125,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       include_reasoning: this.settings.includeReasoning,
       
       // merge extraBody and providerOptions:
-      ...mergeProviderOptions(this.config.extraBody, this.config.providerOptions),
+      ...(() => {
+        const merged = mergeProviderOptions(this.config.extraBody, this.config.providerOptions);
+        console.log('Merged options:', JSON.stringify(merged, null, 2));
+        return merged;
+      })(),
     };
 
     switch (type) {

@@ -6,10 +6,13 @@ export function mergeProviderOptions(
   
   if (providerOptions?.openrouter) {
     const { provider, ...rest } = providerOptions.openrouter;
-    if (provider && typeof provider === 'object') {
-      result.provider = { ...provider as Record<string, unknown> };
-    }
     Object.assign(result, rest);
+    if (provider && typeof provider === 'object') {
+      const providerObj = provider as Record<string, unknown>;
+      console.log('Provider options:', JSON.stringify(providerOptions, null, 2));
+      console.log('Provider object:', JSON.stringify(providerObj, null, 2));
+      result.provider = providerObj;
+    }
   }
   
   return result;
