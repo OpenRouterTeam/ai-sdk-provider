@@ -25,6 +25,7 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from "./openrouter-chat-settings";
+import { mergeProviderOptions } from "./utils/merge-provider-options";
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
@@ -123,8 +124,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // OpenAI specific settings:
       include_reasoning: this.settings.includeReasoning,
       
-      // extra body:
-      ...this.config.extraBody,
+      // merge extraBody and providerOptions:
+      ...mergeProviderOptions(this.config.extraBody, this.config.providerOptions),
     };
 
     switch (type) {
