@@ -20,6 +20,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from "./openrouter-completion-settings";
+import { mergeProviderOptions } from "./utils/merge-provider-options";
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
@@ -117,8 +118,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // OpenRouter settings:
       include_reasoning: this.settings.includeReasoning,
 
-      // extra body:
-      ...this.config.extraBody,
+      // merge extraBody and providerOptions:
+      ...mergeProviderOptions(this.config.extraBody, this.config.providerOptions),
     };
 
     switch (type) {
