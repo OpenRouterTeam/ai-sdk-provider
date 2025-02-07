@@ -502,4 +502,28 @@ describe("doStream", () => {
       "custom_value"
     );
   });
+
+  it("should pass providerOptions", async () => {
+    prepareStreamResponse({ content: [] });
+
+    const provider = createOpenRouter({
+      apiKey: "test-api-key",
+      providerOptions: {
+        openrouter: {
+          provider: {
+            sort: "throughput"
+          }
+        }
+      }
+    });
+
+    await provider.completion("openai/gpt-4o").doStream({
+      inputFormat: "prompt",
+      mode: { type: "regular" },
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.getRequestBodyJson();
+    expect(requestBody).toHaveProperty("provider.sort", "throughput");
+  });
 });
