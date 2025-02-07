@@ -19,7 +19,7 @@ importers:
         specifier: 5.0.0
         version: 5.0.0
       '@types/jest':
-        specifier: ^29.5.14
+        specifier: 29.5.14
         version: 29.5.14
       '@types/node':
         specifier: 22.12.0
