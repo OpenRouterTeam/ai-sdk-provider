@@ -81,9 +81,26 @@ or to provide a custom fetch implementation for e.g. testing.
   fetch?: typeof fetch;
 
   /**
+@deprecated Use `providerOptions` instead. Will be removed in next major version.
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
-  */
+   */
   extraBody?: Record<string, unknown>;
+
+  /**
+Provider-specific options to be passed in the request body.
+The outer key is the provider name (e.g. 'openrouter').
+Example:
+```ts
+{
+  openrouter: {
+    provider: {
+      sort: 'throughput'
+    }
+  }
+}
+```
+   */
+  providerOptions?: Record<string, Record<string, unknown>>;
 }
 
 /**
