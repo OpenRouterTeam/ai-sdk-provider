@@ -12,7 +12,7 @@ import type {
 
 export interface OpenRouterProvider {
   (
-    modelId: "openai/gpt-3.5-turbo-instruct",
+    modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   (
@@ -21,7 +21,7 @@ export interface OpenRouterProvider {
   ): OpenRouterChatLanguageModel;
 
   languageModel(
-    modelId: "openai/gpt-3.5-turbo-instruct",
+    modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   languageModel(
