@@ -1,11 +1,8 @@
-export type OpenRouterCompletionModelId = string & {};
+import type { OpenRouterSharedSettings } from "./types";
 
-export interface OpenRouterCompletionSettings {
-  /**
-Echo back the prompt in addition to the completion.
-   */
-  echo?: boolean;
+export type OpenRouterCompletionModelId = string;
 
+export type OpenRouterCompletionSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -39,29 +36,4 @@ tokens that were generated.
 The suffix that comes after a completion of inserted text.
    */
   suffix?: string;
-
-  /**
-A unique identifier representing your end-user, which can help OpenRouter to
-monitor and detect abuse. Learn more.
-   */
-  user?: string;
-
-  /**
-   * List of model IDs to try in order if the primary model fails, e.g. ["openai/gpt-4","anthropic/claude-2"]
-   */
-  models?: string[];
-
-  /**
-   * @deprecated use `reasoning` instead
-   */
-  includeReasoning?: boolean;
-
-  reasoning?: {
-    exclude?: boolean;
-    max_tokens?: number;
-    effort?: 'high' | 'medium' | 'low';
-  }
-
-  extraBody?: Record<string, any>;
-
-}
+} & OpenRouterSharedSettings;

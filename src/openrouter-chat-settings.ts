@@ -1,7 +1,9 @@
+import type { OpenRouterSharedSettings } from "./types";
+
 // https://openrouter.ai/api/v1/models
 export type OpenRouterChatModelId = string;
 
-export interface OpenRouterChatSettings {
+export type OpenRouterChatSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -41,22 +43,4 @@ A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
   user?: string;
-
-  /**
-   * List of model IDs to try in order if the primary model fails, e.g. ["anthropic/claude-2","gryphe/mythomax-l2-13b"]
-   */
-  models?: string[];
-
-  /**
-   * @deprecated use `reasoning` instead
-   */
-  includeReasoning?: boolean;
-
-  reasoning?: {
-    exclude?: boolean;
-    max_tokens?: number;
-    effort?: 'high' | 'medium' | 'low';
-  }
-
-  extraBody?: Record<string, any>;
-}
+} & OpenRouterSharedSettings;

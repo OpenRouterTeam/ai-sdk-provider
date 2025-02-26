@@ -73,8 +73,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
 
-    const { prompt: completionPrompt } =
-      convertToOpenRouterCompletionPrompt({ prompt, inputFormat });
+    const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
+      prompt,
+      inputFormat,
+    });
 
     const baseArgs = {
       // model id:
@@ -82,7 +84,6 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       models: this.settings.models,
 
       // model specific settings:
-      echo: this.settings.echo,
       logit_bias: this.settings.logitBias,
       logprobs:
         typeof this.settings.logprobs === "number"
@@ -109,7 +110,6 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
       // prompt:
       prompt: completionPrompt,
-
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,

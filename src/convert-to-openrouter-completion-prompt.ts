@@ -67,7 +67,9 @@ export function convertToOpenRouterCompletionPrompt({
               }
               default: {
                 const _exhaustiveCheck: never = part;
-                throw new Error(`Unsupported content type: ${_exhaustiveCheck}`);
+                throw new Error(
+                  `Unsupported content type: ${_exhaustiveCheck}`
+                );
               }
             }
           })
@@ -89,9 +91,23 @@ export function convertToOpenRouterCompletionPrompt({
                   functionality: "tool-call messages",
                 });
               }
+              case "reasoning": {
+                throw new UnsupportedFunctionalityError({
+                  functionality: "reasoning messages",
+                });
+              }
+
+              case "redacted-reasoning": {
+                throw new UnsupportedFunctionalityError({
+                  functionality: "redacted reasoning messages",
+                });
+              }
+
               default: {
                 const _exhaustiveCheck: never = part;
-                throw new Error(`Unsupported content type: ${_exhaustiveCheck}`);
+                throw new Error(
+                  `Unsupported content type: ${_exhaustiveCheck}`
+                );
               }
             }
           })

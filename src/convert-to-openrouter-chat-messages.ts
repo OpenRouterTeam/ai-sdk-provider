@@ -92,6 +92,10 @@ export function convertToOpenRouterChatMessages(
               });
               break;
             }
+            // TODO: Handle reasoning and redacted-reasoning
+            case "reasoning":
+            case "redacted-reasoning":
+              break;
             default: {
               const _exhaustiveCheck: never = part;
               throw new Error(`Unsupported part: ${_exhaustiveCheck}`);

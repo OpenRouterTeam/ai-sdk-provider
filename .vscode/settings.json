@@ -1,0 +1,28 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/node_modules": true,
+    "**/.turbo": true,
+    "**/.expo": true,
+    "**/expo-env.d.ts": true,
+    "**/.next": true,
+    "**/next-env.d.ts": true,
+    "**/.swc": true,
+    "**/*.log": true
+  },
+  "workbench.colorCustomizations": {
+    "titleBar.activeForeground": "#eee",
+    "titleBar.activeBackground": "#f4f" // Change this color!
+  },
+  "editor.formatOnSave": true,
+  "files.insertFinalNewline": true,
+  "editor.defaultFormatter": "Jota0222.multi-formatter",
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
+}
