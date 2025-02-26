@@ -1,4 +1,4 @@
-import type { OpenRouterSharedSettings } from "./types";
+import type { OpenRouterSharedSettings } from './types';
 
 // https://openrouter.ai/api/v1/models
 export type OpenRouterChatModelId = string;

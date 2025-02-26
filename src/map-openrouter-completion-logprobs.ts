@@ -5,7 +5,7 @@ type OpenRouterCompletionLogProps = {
 };
 
 export function mapOpenRouterCompletionLogProbs(
-  logprobs: OpenRouterCompletionLogProps | null | undefined
+  logprobs: OpenRouterCompletionLogProps | null | undefined,
 ) {
   return logprobs?.tokens.map((token, index) => ({
     token,
@@ -15,7 +15,7 @@ export function mapOpenRouterCompletionLogProbs(
           ([token, logprob]) => ({
             token,
             logprob,
-          })
+          }),
         )
       : [],
   }));
