@@ -75,6 +75,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     frequencyPenalty,
     presencePenalty,
     seed,
+    stopSequences,
+    responseFormat,
+    topK
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
 
@@ -108,6 +111,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       frequency_penalty: frequencyPenalty,
       presence_penalty: presencePenalty,
       seed,
+
+      stop: stopSequences,
+      response_format: responseFormat,
+      top_k: topK,
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
@@ -622,3 +629,4 @@ function prepareToolsAndToolChoice(
     }
   }
 }
+

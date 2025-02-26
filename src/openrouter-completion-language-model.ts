@@ -67,10 +67,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     frequencyPenalty,
     presencePenalty,
     seed,
+    responseFormat,
+    topK,
+    stopSequences,
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
 
-    const { prompt: completionPrompt, stopSequences } =
+    const { prompt: completionPrompt } =
       convertToOpenRouterCompletionPrompt({ prompt, inputFormat });
 
     const baseArgs = {
@@ -100,11 +103,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       presence_penalty: presencePenalty,
       seed,
 
+      stop: stopSequences,
+      response_format: responseFormat,
+      top_k: topK,
+
       // prompt:
       prompt: completionPrompt,
 
-      // stop sequences:
-      stop: stopSequences,
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
