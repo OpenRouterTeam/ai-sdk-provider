@@ -287,7 +287,7 @@ describe("doGenerate", () => {
     prepareJsonResponse({ content: "" });
 
     const customModel = provider.chat("anthropic/claude-3.5-sonnet", {
-      models: ["anthropic/claude-2", "gryphe/mythomax-l2-13b"]
+      models: ["anthropic/claude-2", "gryphe/mythomax-l2-13b"],
     });
 
     await customModel.doGenerate({
@@ -450,7 +450,7 @@ describe("doStream", () => {
     server.responseChunks = [
       `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
         `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
-      ...content.map((text) => {
+      ...content.flatMap((text) => {
         return (
           `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
           `"system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
@@ -488,10 +488,34 @@ describe("doStream", () => {
 
     // note: space moved to last chunk bc of trimming
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
       { type: "text-delta", textDelta: "" },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
       { type: "text-delta", textDelta: "Hello" },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
       { type: "text-delta", textDelta: ", " },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
       { type: "text-delta", textDelta: "World!" },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
       {
         type: "finish",
         finishReason: "stop",
@@ -558,11 +582,23 @@ describe("doStream", () => {
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
         type: "tool-call-delta",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
         toolName: "test-tool",
         argsTextDelta: '{"',
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
       },
       {
         type: "tool-call-delta",
@@ -572,11 +608,20 @@ describe("doStream", () => {
         argsTextDelta: "value",
       },
       {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+
+      {
         type: "tool-call-delta",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
         toolName: "test-tool",
         argsTextDelta: '":"',
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
       },
       {
         type: "tool-call-delta",
@@ -586,6 +631,10 @@ describe("doStream", () => {
         argsTextDelta: "Spark",
       },
       {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
         type: "tool-call-delta",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
@@ -593,11 +642,19 @@ describe("doStream", () => {
         argsTextDelta: "le",
       },
       {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
         type: "tool-call-delta",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
         toolName: "test-tool",
         argsTextDelta: " Day",
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
       },
       {
         type: "tool-call-delta",
@@ -612,6 +669,14 @@ describe("doStream", () => {
         toolCallType: "function",
         toolName: "test-tool",
         args: '{"value":"Sparkle Day"}',
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
       },
       {
         type: "finish",
@@ -658,6 +723,10 @@ describe("doStream", () => {
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
         type: "tool-call-delta",
         toolCallId: "call_O17Uplv4lJvD6DVdIvFFeRMw",
         toolCallType: "function",
@@ -670,6 +739,14 @@ describe("doStream", () => {
         toolCallType: "function",
         toolName: "test-tool",
         args: '{"value":"Sparkle Day"}',
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
+      },
+      {
+        type: "response-metadata",
+        id: "chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP",
       },
       {
         type: "finish",

@@ -1,28 +1,58 @@
-import { OpenRouterChatLanguageModel } from "./openrouter-chat-language-model";
+import type { LanguageModelV1Prompt } from "@ai-sdk/provider";
+import { createTestServer } from "@ai-sdk/provider-utils/test";
+import { describe, expect, it, vi } from "vitest";
 import { createOpenRouter } from "./openrouter-provider";
-import { describe, it, expect, vi, type Mock } from "vitest";
-
+import { streamText } from "ai";
 // Add type assertions for the mocked classes
-const OpenRouterChatLanguageModelMock =
-  OpenRouterChatLanguageModel as unknown as Mock;
-
-vi.mock("@ai-sdk/provider-utils", () => ({
-  loadSetting: vi.fn().mockImplementation(() => "us-east-1"),
-  withoutTrailingSlash: vi.fn((url) => url),
-  generateId: vi.fn().mockReturnValue("mock-id"),
-}));
+const TEST_MESSAGES: LanguageModelV1Prompt = [
+  { role: "user", content: [{ type: "text", text: "Hello" }] },
+];
 
 describe("providerOptions", () => {
-  it("should set providerOptions openrouter to extra body", async () => {
-    const provider = createOpenRouter();
-    provider("anthropic/claude-3.7-sonnet");
+  const server = createTestServer({
+    "https://openrouter.ai/api/v1/chat/completions": {
+      response: {
+        type: "stream-chunks",
+        chunks: [],
+      },
+    },
+  });
 
-    const constructorCall = OpenRouterChatLanguageModelMock.mock.calls[0];
-    expect(constructorCall?.[0]).toBe("anthropic.claude-v2");
-    expect(constructorCall?.[1]).toEqual({});
-    expect(constructorCall?.[2].headers).toEqual({});
-    expect(constructorCall?.[2].baseUrl()).toBe(
-      "https://bedrock-runtime.us-east-1.amazonaws.com"
-    );
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should set providerOptions openrouter to extra body", async () => {
+    const openrouter = createOpenRouter({
+      apiKey: "test",
+    });
+    const model = openrouter("anthropic/claude-3.7-sonnet");
+
+    await streamText({
+      model,
+      messages: TEST_MESSAGES,
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            max_tokens: 1000,
+          },
+        },
+      },
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBody).toStrictEqual({
+      messages: [
+        {
+          content: "Hello",
+          role: "user",
+        },
+      ],
+      reasoning: {
+        max_tokens: 1000,
+      },
+      temperature: 0,
+      model: "anthropic/claude-3.7-sonnet",
+      stream: true,
+    });
   });
 });
