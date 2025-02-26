@@ -520,7 +520,7 @@ const openrouterChatChunkSchema = z.union([
           .object({
             role: z.enum(["assistant"]).optional(),
             content: z.string().nullish(),
-            reasoning: z.string().nullish(),
+            reasoning: z.string().nullish().optional(),
             tool_calls: z
               .array(
                 z.object({
