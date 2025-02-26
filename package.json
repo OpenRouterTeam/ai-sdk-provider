@@ -1,14 +1,13 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist/**/*",
-    "internal/dist/**/*"
+    "dist/**/*"
   ],
   "scripts": {
     "build": "tsup",
@@ -20,8 +19,8 @@
     "format": "prettier --write \"**/*.{ts,mts,tsx,md,mdx,mjs}\"",
     "prepublish": "pnpm run build",
     "test": "pnpm test:node && pnpm test:edge",
-    "test:edge": "vitest --config vitest.edge.config.js --run",
-    "test:node": "vitest --config vitest.node.config.js --run"
+    "test:edge": "vitest --config vitest.edge.config.ts --run",
+    "test:node": "vitest --config vitest.node.config.ts --run"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -31,10 +30,10 @@
       "require": "./dist/index.js"
     },
     "./internal": {
-      "types": "./internal/dist/index.d.ts",
-      "import": "./internal/dist/index.mjs",
-      "module": "./internal/dist/index.mjs",
-      "require": "./internal/dist/index.js"
+      "types": "./dist/internal/index.d.ts",
+      "import": "./dist/internal/index.mjs",
+      "module": "./dist/internal/index.mjs",
+      "require": "./dist/internal/index.js"
     }
   },
   "dependencies": {
