@@ -6,7 +6,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "@openrouter/ai-sdk-provider": "0.2.2",
+    "@openrouter/ai-sdk-provider": "0.3.0",
     "ai": "4.1.46",
     "next": "15.1.7",
     "openai": "4.85.4",

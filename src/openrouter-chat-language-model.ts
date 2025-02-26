@@ -114,11 +114,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
       // OpenAI specific settings:
       include_reasoning: this.settings.includeReasoning,
-      
+      reasoning: this.settings.reasoning,
 
-      ...this.settings.extraBody,
       // extra body:
       ...this.config.extraBody,
+      ...this.settings.extraBody,
     };
 
     switch (type) {

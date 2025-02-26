@@ -108,9 +108,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
       // OpenRouter settings:
       include_reasoning: this.settings.includeReasoning,
+      reasoning: this.settings.reasoning,
 
       // extra body:
       ...this.config.extraBody,
+      ...this.settings.extraBody,
     };
 
     switch (type) {
