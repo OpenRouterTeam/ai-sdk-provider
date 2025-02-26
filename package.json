@@ -15,7 +15,7 @@
     "clean": "rm -rf dist && rm -rf internal/dist",
     "dev": "tsup --watch",
     "lint": "eslint \"./**/*.ts*\"",
-    "type-check": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "prettier-check": "prettier --check \"./**/*.ts*\"",
     "prepublish": "pnpm run build",
     "test": "pnpm test:node && pnpm test:edge",
