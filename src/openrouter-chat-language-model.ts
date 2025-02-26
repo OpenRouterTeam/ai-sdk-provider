@@ -112,7 +112,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
 
-      // OpenAI specific settings:
+      // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
 

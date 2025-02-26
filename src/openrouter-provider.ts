@@ -10,6 +10,8 @@ import type {
   OpenRouterCompletionSettings,
 } from "./openrouter-completion-settings";
 
+export type { OpenRouterCompletionSettings };
+
 export interface OpenRouterProvider {
   (
     modelId: OpenRouterChatModelId,

@@ -106,7 +106,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // stop sequences:
       stop: stopSequences,
 
-      // OpenRouter settings:
+      // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
 
