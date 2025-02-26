@@ -1,90 +1,91 @@
-import type { LanguageModelV1Prompt } from "@ai-sdk/provider";
-import { convertUint8ArrayToBase64 } from "@ai-sdk/provider-utils";
+import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
 import type {
-  OpenRouterChatPrompt,
   ChatCompletionContentPart,
-} from "./openrouter-chat-prompt";
+  OpenRouterChatPrompt,
+} from './openrouter-chat-prompt';
+
+import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV1Prompt
+  prompt: LanguageModelV1Prompt,
 ): OpenRouterChatPrompt {
   const messages: OpenRouterChatPrompt = [];
 
   for (const { role, content } of prompt) {
     switch (role) {
-      case "system": {
-        messages.push({ role: "system", content });
+      case 'system': {
+        messages.push({ role: 'system', content });
         break;
       }
 
-      case "user": {
-        if (content.length === 1 && content[0]?.type === "text") {
-          messages.push({ role: "user", content: content[0].text });
+      case 'user': {
+        if (content.length === 1 && content[0]?.type === 'text') {
+          messages.push({ role: 'user', content: content[0].text });
           break;
         }
 
         const contentParts: ChatCompletionContentPart[] = content.map(
           (part) => {
             switch (part.type) {
-              case "text":
+              case 'text':
                 return {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text: part.text,
                 };
-              case "image":
+              case 'image':
                 return {
-                  type: "image_url" as const,
+                  type: 'image_url' as const,
                   image_url: {
                     url:
                       part.image instanceof URL
                         ? part.image.toString()
                         : `data:${
-                            part.mimeType ?? "image/jpeg"
+                            part.mimeType ?? 'image/jpeg'
                           };base64,${convertUint8ArrayToBase64(part.image)}`,
                   },
                 };
-              case "file":
+              case 'file':
                 return {
-                  type: "text" as const,
+                  type: 'text' as const,
                   text:
                     part.data instanceof URL ? part.data.toString() : part.data,
                 };
               default: {
                 const _exhaustiveCheck: never = part;
                 throw new Error(
-                  `Unsupported content part type: ${_exhaustiveCheck}`
+                  `Unsupported content part type: ${_exhaustiveCheck}`,
                 );
               }
             }
-          }
+          },
         );
 
         messages.push({
-          role: "user",
+          role: 'user',
           content: contentParts,
         });
 
         break;
       }
 
-      case "assistant": {
-        let text = "";
+      case 'assistant': {
+        let text = '';
         const toolCalls: Array<{
           id: string;
-          type: "function";
+          type: 'function';
           function: { name: string; arguments: string };
         }> = [];
 
         for (const part of content) {
           switch (part.type) {
-            case "text": {
+            case 'text': {
               text += part.text;
               break;
             }
-            case "tool-call": {
+            case 'tool-call': {
               toolCalls.push({
                 id: part.toolCallId,
-                type: "function",
+                type: 'function',
                 function: {
                   name: part.toolName,
                   arguments: JSON.stringify(part.args),
@@ -93,8 +94,8 @@ export function convertToOpenRouterChatMessages(
               break;
             }
             // TODO: Handle reasoning and redacted-reasoning
-            case "reasoning":
-            case "redacted-reasoning":
+            case 'reasoning':
+            case 'redacted-reasoning':
               break;
             default: {
               const _exhaustiveCheck: never = part;
@@ -104,7 +105,7 @@ export function convertToOpenRouterChatMessages(
         }
 
         messages.push({
-          role: "assistant",
+          role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         });
@@ -112,10 +113,10 @@ export function convertToOpenRouterChatMessages(
         break;
       }
 
-      case "tool": {
+      case 'tool': {
         for (const toolResponse of content) {
           messages.push({
-            role: "tool",
+            role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content: JSON.stringify(toolResponse.result),
           });

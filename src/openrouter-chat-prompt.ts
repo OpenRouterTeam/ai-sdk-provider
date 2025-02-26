@@ -7,12 +7,12 @@ export type ChatCompletionMessageParam =
   | ChatCompletionToolMessageParam;
 
 export interface ChatCompletionSystemMessageParam {
-  role: "system";
+  role: 'system';
   content: string;
 }
 
 export interface ChatCompletionUserMessageParam {
-  role: "user";
+  role: 'user';
   content: string | Array<ChatCompletionContentPart>;
 }
 
@@ -21,25 +21,25 @@ export type ChatCompletionContentPart =
   | ChatCompletionContentPartImage;
 
 export interface ChatCompletionContentPartImage {
-  type: "image_url";
+  type: 'image_url';
   image_url: {
     url: string;
   };
 }
 
 export interface ChatCompletionContentPartText {
-  type: "text";
+  type: 'text';
   text: string;
 }
 
 export interface ChatCompletionAssistantMessageParam {
-  role: "assistant";
+  role: 'assistant';
   content?: string | null;
   tool_calls?: Array<ChatCompletionMessageToolCall>;
 }
 
 export interface ChatCompletionMessageToolCall {
-  type: "function";
+  type: 'function';
   id: string;
   function: {
     arguments: string;
@@ -48,7 +48,7 @@ export interface ChatCompletionMessageToolCall {
 }
 
 export interface ChatCompletionToolMessageParam {
-  role: "tool";
+  role: 'tool';
   content: string;
   tool_call_id: string;
 }

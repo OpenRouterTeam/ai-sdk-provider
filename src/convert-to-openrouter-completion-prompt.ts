@@ -1,17 +1,18 @@
+import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+
 import {
   InvalidPromptError,
-  type LanguageModelV1Prompt,
   UnsupportedFunctionalityError,
-} from "@ai-sdk/provider";
+} from '@ai-sdk/provider';
 
 export function convertToOpenRouterCompletionPrompt({
   prompt,
   inputFormat,
-  user = "user",
-  assistant = "assistant",
+  user = 'user',
+  assistant = 'assistant',
 }: {
   prompt: LanguageModelV1Prompt;
-  inputFormat: "prompt" | "messages";
+  inputFormat: 'prompt' | 'messages';
   user?: string;
   assistant?: string;
 }): {
@@ -19,107 +20,107 @@ export function convertToOpenRouterCompletionPrompt({
 } {
   // When the user supplied a prompt input, we don't transform it:
   if (
-    inputFormat === "prompt" &&
+    inputFormat === 'prompt' &&
     prompt.length === 1 &&
     prompt[0] &&
-    prompt[0].role === "user" &&
+    prompt[0].role === 'user' &&
     prompt[0].content.length === 1 &&
     prompt[0].content[0] &&
-    prompt[0].content[0].type === "text"
+    prompt[0].content[0].type === 'text'
   ) {
     return { prompt: prompt[0].content[0].text };
   }
 
   // otherwise transform to a chat message format:
-  let text = "";
+  let text = '';
 
   // if first message is a system message, add it to the text:
-  if (prompt[0] && prompt[0].role === "system") {
+  if (prompt[0] && prompt[0].role === 'system') {
     text += `${prompt[0].content}\n\n`;
     prompt = prompt.slice(1);
   }
 
   for (const { role, content } of prompt) {
     switch (role) {
-      case "system": {
+      case 'system': {
         throw new InvalidPromptError({
-          message: "Unexpected system message in prompt: ${content}",
+          message: 'Unexpected system message in prompt: ${content}',
           prompt,
         });
       }
 
-      case "user": {
+      case 'user': {
         const userMessage = content
           .map((part) => {
             switch (part.type) {
-              case "text": {
+              case 'text': {
                 return part.text;
               }
-              case "image": {
+              case 'image': {
                 throw new UnsupportedFunctionalityError({
-                  functionality: "images",
+                  functionality: 'images',
                 });
               }
-              case "file": {
+              case 'file': {
                 throw new UnsupportedFunctionalityError({
-                  functionality: "file attachments",
+                  functionality: 'file attachments',
                 });
               }
               default: {
                 const _exhaustiveCheck: never = part;
                 throw new Error(
-                  `Unsupported content type: ${_exhaustiveCheck}`
+                  `Unsupported content type: ${_exhaustiveCheck}`,
                 );
               }
             }
           })
-          .join("");
+          .join('');
 
         text += `${user}:\n${userMessage}\n\n`;
         break;
       }
 
-      case "assistant": {
+      case 'assistant': {
         const assistantMessage = content
           .map((part) => {
             switch (part.type) {
-              case "text": {
+              case 'text': {
                 return part.text;
               }
-              case "tool-call": {
+              case 'tool-call': {
                 throw new UnsupportedFunctionalityError({
-                  functionality: "tool-call messages",
+                  functionality: 'tool-call messages',
                 });
               }
-              case "reasoning": {
+              case 'reasoning': {
                 throw new UnsupportedFunctionalityError({
-                  functionality: "reasoning messages",
+                  functionality: 'reasoning messages',
                 });
               }
 
-              case "redacted-reasoning": {
+              case 'redacted-reasoning': {
                 throw new UnsupportedFunctionalityError({
-                  functionality: "redacted reasoning messages",
+                  functionality: 'redacted reasoning messages',
                 });
               }
 
               default: {
                 const _exhaustiveCheck: never = part;
                 throw new Error(
-                  `Unsupported content type: ${_exhaustiveCheck}`
+                  `Unsupported content type: ${_exhaustiveCheck}`,
                 );
               }
             }
           })
-          .join("");
+          .join('');
 
         text += `${assistant}:\n${assistantMessage}\n\n`;
         break;
       }
 
-      case "tool": {
+      case 'tool': {
         throw new UnsupportedFunctionalityError({
-          functionality: "tool messages",
+          functionality: 'tool messages',
         });
       }
 

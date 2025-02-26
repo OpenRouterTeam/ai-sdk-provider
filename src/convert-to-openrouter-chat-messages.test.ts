@@ -1,16 +1,16 @@
-import { convertToOpenRouterChatMessages } from "./convert-to-openrouter-chat-messages";
+import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
-describe("user messages", () => {
-  it("should convert messages with image parts to multiple parts", async () => {
+describe('user messages', () => {
+  it('should convert messages with image parts to multiple parts', async () => {
     const result = convertToOpenRouterChatMessages([
       {
-        role: "user",
+        role: 'user',
         content: [
-          { type: "text", text: "Hello" },
+          { type: 'text', text: 'Hello' },
           {
-            type: "image",
+            type: 'image',
             image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: "image/png",
+            mimeType: 'image/png',
           },
         ],
       },
@@ -18,26 +18,26 @@ describe("user messages", () => {
 
     expect(result).toEqual([
       {
-        role: "user",
+        role: 'user',
         content: [
-          { type: "text", text: "Hello" },
+          { type: 'text', text: 'Hello' },
           {
-            type: "image_url",
-            image_url: { url: "data:image/png;base64,AAECAw==" },
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
           },
         ],
       },
     ]);
   });
 
-  it("should convert messages with only a text part to a string content", async () => {
+  it('should convert messages with only a text part to a string content', async () => {
     const result = convertToOpenRouterChatMessages([
       {
-        role: "user",
-        content: [{ type: "text", text: "Hello" }],
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
       },
     ]);
 
-    expect(result).toEqual([{ role: "user", content: "Hello" }]);
+    expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
   });
 });

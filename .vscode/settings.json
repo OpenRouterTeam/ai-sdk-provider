@@ -21,7 +21,7 @@
   },
   "editor.formatOnSave": true,
   "files.insertFinalNewline": true,
-  "editor.defaultFormatter": "Jota0222.multi-formatter",
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   }

@@ -1,7 +1,6 @@
 # OpenRouter Provider for Vercel AI SDK
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs)
-gives access to over 300 large language model on the OpenRouter chat and completion APIs.
+The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs.
 
 ## Setup
 
@@ -21,18 +20,18 @@ yarn add @openrouter/ai-sdk-provider
 You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
 
 ```ts
-import { openrouter } from "@openrouter/ai-sdk-provider";
+import { openrouter } from '@openrouter/ai-sdk-provider';
 ```
 
 ## Example
 
 ```ts
-import { openrouter } from "@openrouter/ai-sdk-provider";
-import { generateText } from "ai";
+import { openrouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
 
 const { text } = await generateText({
-  model: openrouter("openai/gpt-4o"),
-  prompt: "Write a vegetarian lasagna recipe for 4 people.",
+  model: openrouter('openai/gpt-4o'),
+  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
 });
 ```
 
@@ -48,24 +47,24 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 When you want to pass extra body to OpenRouter or to the upstream provider, you can do so by setting the `extraBody` property on the language model.
 
 ```typescript
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
 const provider = createOpenRouter({
-  apiKey: "your-api-key",
+  apiKey: 'your-api-key',
   // Extra body to pass to OpenRouter
   extraBody: {
-    custom_field: "custom_value",
+    custom_field: 'custom_value',
     providers: {
       anthropic: {
-        custom_field: "custom_value",
+        custom_field: 'custom_value',
       },
     },
   },
 });
-const model = provider.chat("anthropic/claude-3.5-sonnet");
+const model = provider.chat('anthropic/claude-3.5-sonnet');
 const response = await model.doStream({
-  inputFormat: "prompt",
-  mode: { type: "regular" },
-  prompt: [{ role: "user", content: "Hello" }],
+  inputFormat: 'prompt',
+  mode: { type: 'regular' },
+  prompt: [{ role: 'user', content: 'Hello' }],
 });
 ```

@@ -1,15 +1,17 @@
-import { loadApiKey, withoutTrailingSlash } from "@ai-sdk/provider-utils";
-import { OpenRouterChatLanguageModel } from "./openrouter-chat-language-model";
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from "./openrouter-chat-settings";
-import { OpenRouterCompletionLanguageModel } from "./openrouter-completion-language-model";
+} from './openrouter-chat-settings';
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from "./openrouter-completion-settings";
-import type { OpenRouterProviderSettings } from "./openrouter-provider";
+} from './openrouter-completion-settings';
+import type { OpenRouterProviderSettings } from './openrouter-provider';
+
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+
+import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
+import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
 
 /**
 @deprecated Use `createOpenRouter` instead.
@@ -38,7 +40,7 @@ Custom headers to include in the requests.
   constructor(options: OpenRouterProviderSettings = {}) {
     this.baseURL =
       withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-      "https://openrouter.ai/api/v1";
+      'https://openrouter.ai/api/v1';
     this.apiKey = options.apiKey;
     this.headers = options.headers;
   }
@@ -49,8 +51,8 @@ Custom headers to include in the requests.
       headers: () => ({
         Authorization: `Bearer ${loadApiKey({
           apiKey: this.apiKey,
-          environmentVariableName: "OPENROUTER_API_KEY",
-          description: "OpenRouter",
+          environmentVariableName: 'OPENROUTER_API_KEY',
+          description: 'OpenRouter',
         })}`,
         ...this.headers,
       }),
@@ -59,21 +61,21 @@ Custom headers to include in the requests.
 
   chat(modelId: OpenRouterChatModelId, settings: OpenRouterChatSettings = {}) {
     return new OpenRouterChatLanguageModel(modelId, settings, {
-      provider: "openrouter.chat",
+      provider: 'openrouter.chat',
       ...this.baseConfig,
-      compatibility: "strict",
+      compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
     });
   }
 
   completion(
     modelId: OpenRouterCompletionModelId,
-    settings: OpenRouterCompletionSettings = {}
+    settings: OpenRouterCompletionSettings = {},
   ) {
     return new OpenRouterCompletionLanguageModel(modelId, settings, {
-      provider: "openrouter.completion",
+      provider: 'openrouter.completion',
       ...this.baseConfig,
-      compatibility: "strict",
+      compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
     });
   }

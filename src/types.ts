@@ -1,4 +1,4 @@
-import type { LanguageModelV1 } from "@ai-sdk/provider";
+import type { LanguageModelV1 } from '@ai-sdk/provider';
 
 // Re-export the LanguageModelV1 type to ensure proper type compatibility
 export type { LanguageModelV1 };
@@ -21,7 +21,7 @@ export type OpenRouterProviderOptions = {
         max_tokens: number;
       }
     | {
-        effort: "high" | "medium" | "low";
+        effort: 'high' | 'medium' | 'low';
       }
   );
 

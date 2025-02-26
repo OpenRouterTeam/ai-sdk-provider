@@ -1,14 +1,21 @@
+import type {
+  LanguageModelV1,
+  LanguageModelV1FinishReason,
+  LanguageModelV1FunctionTool,
+  LanguageModelV1LogProbs,
+  LanguageModelV1ProviderDefinedTool,
+  LanguageModelV1StreamPart,
+} from '@ai-sdk/provider';
+import type { ParseResult } from '@ai-sdk/provider-utils';
+import type {
+  OpenRouterChatModelId,
+  OpenRouterChatSettings,
+} from './openrouter-chat-settings';
+
 import {
   InvalidResponseDataError,
-  type LanguageModelV1,
-  type LanguageModelV1FinishReason,
-  type LanguageModelV1LogProbs,
-  type LanguageModelV1StreamPart,
-  type LanguageModelV1FunctionTool,
-  type LanguageModelV1ProviderDefinedTool,
   UnsupportedFunctionalityError,
-} from "@ai-sdk/provider";
-import type { ParseResult } from "@ai-sdk/provider-utils";
+} from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -16,29 +23,26 @@ import {
   generateId,
   isParsableJson,
   postJsonToApi,
-} from "@ai-sdk/provider-utils";
-import { z } from "zod";
-import { convertToOpenRouterChatMessages } from "./convert-to-openrouter-chat-messages";
-import { mapOpenRouterChatLogProbsOutput } from "./map-openrouter-chat-logprobs";
-import { mapOpenRouterFinishReason } from "./map-openrouter-finish-reason";
-import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from "./openrouter-chat-settings";
+} from '@ai-sdk/provider-utils';
+import { z } from 'zod';
+
+import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
+import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,
-} from "./openrouter-error";
+} from './openrouter-error';
 
 function isFunctionTool(
-  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool
+  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool,
 ): tool is LanguageModelV1FunctionTool {
-  return "parameters" in tool;
+  return 'parameters' in tool;
 }
 
 type OpenRouterChatConfig = {
   provider: string;
-  compatibility: "strict" | "compatible";
+  compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
@@ -46,8 +50,8 @@ type OpenRouterChatConfig = {
 };
 
 export class OpenRouterChatLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = "v1";
-  readonly defaultObjectGenerationMode = "tool";
+  readonly specificationVersion = 'v1';
+  readonly defaultObjectGenerationMode = 'tool';
 
   readonly modelId: OpenRouterChatModelId;
   readonly settings: OpenRouterChatSettings;
@@ -57,7 +61,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   constructor(
     modelId: OpenRouterChatModelId,
     settings: OpenRouterChatSettings,
-    config: OpenRouterChatConfig
+    config: OpenRouterChatConfig,
   ) {
     this.modelId = modelId;
     this.settings = settings;
@@ -81,9 +85,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     responseFormat,
     topK,
     providerMetadata,
-  }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
+  }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
-    const extraCallingBody = providerMetadata?.["openrouter"] ?? {};
+    const extraCallingBody = providerMetadata?.['openrouter'] ?? {};
 
     const baseArgs = {
       // model id:
@@ -94,17 +98,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       logit_bias: this.settings.logitBias,
       logprobs:
         this.settings.logprobs === true ||
-        typeof this.settings.logprobs === "number"
+        typeof this.settings.logprobs === 'number'
           ? true
           : undefined,
       top_logprobs:
-        typeof this.settings.logprobs === "number"
+        typeof this.settings.logprobs === 'number'
           ? this.settings.logprobs
-          : typeof this.settings.logprobs === "boolean"
-          ? this.settings.logprobs
-            ? 0
-            : undefined
-          : undefined,
+          : typeof this.settings.logprobs === 'boolean'
+            ? this.settings.logprobs
+              ? 0
+              : undefined
+            : undefined,
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
 
@@ -134,24 +138,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     };
 
     switch (type) {
-      case "regular": {
+      case 'regular': {
         return { ...baseArgs, ...prepareToolsAndToolChoice(mode) };
       }
 
-      case "object-json": {
+      case 'object-json': {
         return {
           ...baseArgs,
-          response_format: { type: "json_object" },
+          response_format: { type: 'json_object' },
         };
       }
 
-      case "object-tool": {
+      case 'object-tool': {
         return {
           ...baseArgs,
-          tool_choice: { type: "function", function: { name: mode.tool.name } },
+          tool_choice: { type: 'function', function: { name: mode.tool.name } },
           tools: [
             {
-              type: "function",
+              type: 'function',
               function: {
                 name: mode.tool.name,
                 description: mode.tool.description,
@@ -172,20 +176,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     }
   }
   async doGenerate(
-    options: Parameters<LanguageModelV1["doGenerate"]>[0]
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doGenerate"]>>> {
+    options: Parameters<LanguageModelV1['doGenerate']>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
     const args = this.getArgs(options);
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
-        path: "/chat/completions",
+        path: '/chat/completions',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        openAIChatResponseSchema
+        openAIChatResponseSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -195,14 +199,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     const choice = response.choices[0];
 
     if (choice == null) {
-      throw new Error("No choice in response");
+      throw new Error('No choice in response');
     }
 
     return {
       text: choice.message.content ?? undefined,
       reasoning: choice.message.reasoning ?? undefined,
       toolCalls: choice.message.tool_calls?.map((toolCall) => ({
-        toolCallType: "function",
+        toolCallType: 'function',
         toolCallId: toolCall.id ?? generateId(),
         toolName: toolCall.function.name,
         args: toolCall.function.arguments!,
@@ -220,13 +224,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   }
 
   async doStream(
-    options: Parameters<LanguageModelV1["doStream"]>[0]
-  ): Promise<Awaited<ReturnType<LanguageModelV1["doStream"]>>> {
+    options: Parameters<LanguageModelV1['doStream']>[0],
+  ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
     const args = this.getArgs(options);
 
     const { responseHeaders, value: response } = await postJsonToApi({
       url: this.config.url({
-        path: "/chat/completions",
+        path: '/chat/completions',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
@@ -236,13 +240,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
         // only include stream_options when in strict compatibility mode:
         stream_options:
-          this.config.compatibility === "strict"
+          this.config.compatibility === 'strict'
             ? { include_usage: true }
             : undefined,
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        openrouterChatChunkSchema
+        openrouterChatChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -252,14 +256,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
     const toolCalls: Array<{
       id: string;
-      type: "function";
+      type: 'function';
       function: {
         name: string;
         arguments: string;
       };
     }> = [];
 
-    let finishReason: LanguageModelV1FinishReason = "other";
+    let finishReason: LanguageModelV1FinishReason = 'other';
     let usage: { promptTokens: number; completionTokens: number } = {
       promptTokens: Number.NaN,
       completionTokens: Number.NaN,
@@ -275,23 +279,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = "error";
-              controller.enqueue({ type: "error", error: chunk.error });
+              finishReason = 'error';
+              controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
 
             const value = chunk.value;
 
             // handle error chunks:
-            if ("error" in value) {
-              finishReason = "error";
-              controller.enqueue({ type: "error", error: value.error });
+            if ('error' in value) {
+              finishReason = 'error';
+              controller.enqueue({ type: 'error', error: value.error });
               return;
             }
 
             if (value.id) {
               controller.enqueue({
-                type: "response-metadata",
+                type: 'response-metadata',
                 id: value.id,
               });
             }
@@ -317,20 +321,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
             if (delta.content != null) {
               controller.enqueue({
-                type: "text-delta",
+                type: 'text-delta',
                 textDelta: delta.content,
               });
             }
 
             if (delta.reasoning != null) {
               controller.enqueue({
-                type: "reasoning",
+                type: 'reasoning',
                 textDelta: delta.reasoning,
               });
             }
 
             const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
-              choice?.logprobs
+              choice?.logprobs,
             );
             if (mappedLogprobs?.length) {
               if (logprobs === undefined) logprobs = [];
@@ -343,7 +347,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
                 // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
                 if (toolCalls[index] == null) {
-                  if (toolCallDelta.type !== "function") {
+                  if (toolCallDelta.type !== 'function') {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
                       message: `Expected 'function' type.`,
@@ -366,17 +370,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
                   toolCalls[index] = {
                     id: toolCallDelta.id,
-                    type: "function",
+                    type: 'function',
                     function: {
                       name: toolCallDelta.function.name,
-                      arguments: toolCallDelta.function.arguments ?? "",
+                      arguments: toolCallDelta.function.arguments ?? '',
                     },
                   };
 
                   const toolCall = toolCalls[index];
 
                   if (toolCall == null) {
-                    throw new Error("Tool call is missing");
+                    throw new Error('Tool call is missing');
                   }
 
                   // check if tool call is complete (some providers send the full tool call in one chunk)
@@ -387,8 +391,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                   ) {
                     // send delta
                     controller.enqueue({
-                      type: "tool-call-delta",
-                      toolCallType: "function",
+                      type: 'tool-call-delta',
+                      toolCallType: 'function',
                       toolCallId: toolCall.id,
                       toolName: toolCall.function.name,
                       argsTextDelta: toolCall.function.arguments,
@@ -396,8 +400,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
                     // send tool call
                     controller.enqueue({
-                      type: "tool-call",
-                      toolCallType: "function",
+                      type: 'tool-call',
+                      toolCallType: 'function',
                       toolCallId: toolCall.id ?? generateId(),
                       toolName: toolCall.function.name,
                       args: toolCall.function.arguments,
@@ -411,21 +415,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 const toolCall = toolCalls[index];
 
                 if (toolCall == null) {
-                  throw new Error("Tool call is missing");
+                  throw new Error('Tool call is missing');
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function!.arguments +=
-                    toolCallDelta.function?.arguments ?? "";
+                    toolCallDelta.function?.arguments ?? '';
                 }
 
                 // send delta
                 controller.enqueue({
-                  type: "tool-call-delta",
-                  toolCallType: "function",
+                  type: 'tool-call-delta',
+                  toolCallType: 'function',
                   toolCallId: toolCall.id,
                   toolName: toolCall.function.name,
-                  argsTextDelta: toolCallDelta.function.arguments ?? "",
+                  argsTextDelta: toolCallDelta.function.arguments ?? '',
                 });
 
                 // check if tool call is complete
@@ -435,8 +439,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                   isParsableJson(toolCall.function.arguments)
                 ) {
                   controller.enqueue({
-                    type: "tool-call",
-                    toolCallType: "function",
+                    type: 'tool-call',
+                    toolCallType: 'function',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     args: toolCall.function.arguments,
@@ -448,13 +452,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
           flush(controller) {
             controller.enqueue({
-              type: "finish",
+              type: 'finish',
               finishReason,
               logprobs,
               usage,
             });
           },
-        })
+        }),
       ),
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
@@ -469,19 +473,19 @@ const openAIChatResponseSchema = z.object({
   choices: z.array(
     z.object({
       message: z.object({
-        role: z.literal("assistant"),
+        role: z.literal('assistant'),
         content: z.string().nullable().optional(),
         reasoning: z.string().nullable().optional(),
         tool_calls: z
           .array(
             z.object({
               id: z.string().optional().nullable(),
-              type: z.literal("function"),
+              type: z.literal('function'),
               function: z.object({
                 name: z.string(),
                 arguments: z.string(),
               }),
-            })
+            }),
           )
           .optional(),
       }),
@@ -497,16 +501,16 @@ const openAIChatResponseSchema = z.object({
                   z.object({
                     token: z.string(),
                     logprob: z.number(),
-                  })
+                  }),
                 ),
-              })
+              }),
             )
             .nullable(),
         })
         .nullable()
         .optional(),
       finish_reason: z.string().optional().nullable(),
-    })
+    }),
   ),
   usage: z.object({
     prompt_tokens: z.number(),
@@ -523,7 +527,7 @@ const openrouterChatChunkSchema = z.union([
       z.object({
         delta: z
           .object({
-            role: z.enum(["assistant"]).optional(),
+            role: z.enum(['assistant']).optional(),
             content: z.string().nullish(),
             reasoning: z.string().nullish().optional(),
             tool_calls: z
@@ -531,12 +535,12 @@ const openrouterChatChunkSchema = z.union([
                 z.object({
                   index: z.number(),
                   id: z.string().nullish(),
-                  type: z.literal("function").optional(),
+                  type: z.literal('function').optional(),
                   function: z.object({
                     name: z.string().nullish(),
                     arguments: z.string().nullish(),
                   }),
-                })
+                }),
               )
               .nullish(),
           })
@@ -552,16 +556,16 @@ const openrouterChatChunkSchema = z.union([
                     z.object({
                       token: z.string(),
                       logprob: z.number(),
-                    })
+                    }),
                   ),
-                })
+                }),
               )
               .nullable(),
           })
           .nullish(),
         finish_reason: z.string().nullable().optional(),
         index: z.number(),
-      })
+      }),
     ),
     usage: z
       .object({
@@ -574,9 +578,9 @@ const openrouterChatChunkSchema = z.union([
 ]);
 
 function prepareToolsAndToolChoice(
-  mode: Parameters<LanguageModelV1["doGenerate"]>[0]["mode"] & {
-    type: "regular";
-  }
+  mode: Parameters<LanguageModelV1['doGenerate']>[0]['mode'] & {
+    type: 'regular';
+  },
 ) {
   // when the tools array is empty, change it to undefined to prevent errors:
   const tools = mode.tools?.length ? mode.tools : undefined;
@@ -588,7 +592,7 @@ function prepareToolsAndToolChoice(
   const mappedTools = tools.map((tool) => {
     if (isFunctionTool(tool)) {
       return {
-        type: "function" as const,
+        type: 'function' as const,
         function: {
           name: tool.name,
           description: tool.description,
@@ -597,7 +601,7 @@ function prepareToolsAndToolChoice(
       };
     } else {
       return {
-        type: "function" as const,
+        type: 'function' as const,
         function: {
           name: tool.name,
         },
@@ -614,15 +618,15 @@ function prepareToolsAndToolChoice(
   const type = toolChoice.type;
 
   switch (type) {
-    case "auto":
-    case "none":
-    case "required":
+    case 'auto':
+    case 'none':
+    case 'required':
       return { tools: mappedTools, tool_choice: type };
-    case "tool":
+    case 'tool':
       return {
         tools: mappedTools,
         tool_choice: {
-          type: "function",
+          type: 'function',
           function: {
             name: toolChoice.toolName,
           },
