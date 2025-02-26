@@ -1,9 +1,10 @@
 import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
-import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatPrompt,
 } from './openrouter-chat-prompt';
+
+import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,

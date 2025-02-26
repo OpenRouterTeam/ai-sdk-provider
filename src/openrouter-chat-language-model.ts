@@ -1,14 +1,21 @@
+import type {
+  LanguageModelV1,
+  LanguageModelV1FinishReason,
+  LanguageModelV1FunctionTool,
+  LanguageModelV1LogProbs,
+  LanguageModelV1ProviderDefinedTool,
+  LanguageModelV1StreamPart,
+} from '@ai-sdk/provider';
+import type { ParseResult } from '@ai-sdk/provider-utils';
+import type {
+  OpenRouterChatModelId,
+  OpenRouterChatSettings,
+} from './openrouter-chat-settings';
+
 import {
   InvalidResponseDataError,
   UnsupportedFunctionalityError,
-  type LanguageModelV1,
-  type LanguageModelV1FinishReason,
-  type LanguageModelV1FunctionTool,
-  type LanguageModelV1LogProbs,
-  type LanguageModelV1ProviderDefinedTool,
-  type LanguageModelV1StreamPart,
 } from '@ai-sdk/provider';
-import type { ParseResult } from '@ai-sdk/provider-utils';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -18,13 +25,10 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
+
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
-import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './openrouter-chat-settings';
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,

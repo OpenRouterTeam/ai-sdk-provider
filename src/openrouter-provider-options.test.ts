@@ -1,7 +1,9 @@
 import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
+
 import { createOpenRouter } from './openrouter-provider';
 
 // Add type assertions for the mocked classes

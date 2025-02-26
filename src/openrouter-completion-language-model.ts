@@ -1,11 +1,16 @@
-import {
-  UnsupportedFunctionalityError,
-  type LanguageModelV1,
-  type LanguageModelV1FinishReason,
-  type LanguageModelV1LogProbs,
-  type LanguageModelV1StreamPart,
+import type {
+  LanguageModelV1,
+  LanguageModelV1FinishReason,
+  LanguageModelV1LogProbs,
+  LanguageModelV1StreamPart,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
+import type {
+  OpenRouterCompletionModelId,
+  OpenRouterCompletionSettings,
+} from './openrouter-completion-settings';
+
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -13,13 +18,10 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
+
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
-import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './openrouter-completion-settings';
 import {
   openAIErrorDataSchema,
   openrouterFailedResponseHandler,

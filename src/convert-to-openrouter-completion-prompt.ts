@@ -1,7 +1,8 @@
+import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+
 import {
   InvalidPromptError,
   UnsupportedFunctionalityError,
-  type LanguageModelV1Prompt,
 } from '@ai-sdk/provider';
 
 export function convertToOpenRouterCompletionPrompt({
