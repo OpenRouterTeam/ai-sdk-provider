@@ -19,7 +19,9 @@ jobs:
           scope: "@openrouter"
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm test
       - run: pnpm publish --provenance --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
