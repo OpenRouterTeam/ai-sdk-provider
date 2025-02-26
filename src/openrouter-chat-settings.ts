@@ -47,5 +47,16 @@ monitor and detect abuse. Learn more.
    */
   models?: string[];
 
+  /**
+   * @deprecated use `reasoning` instead
+   */
   includeReasoning?: boolean;
+
+  reasoning?: {
+    exclude?: boolean;
+    max_tokens?: number;
+    effort?: 'high' | 'medium' | 'low';
+  }
+
+  extraBody?: Record<string, any>;
 }
