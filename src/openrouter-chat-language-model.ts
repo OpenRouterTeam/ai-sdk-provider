@@ -74,8 +74,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     topP,
     frequencyPenalty,
     presencePenalty,
-    stopSequences,
     seed,
+    stopSequences,
+    responseFormat,
+    topK
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
 
@@ -110,17 +112,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       presence_penalty: presencePenalty,
       seed,
 
-      // stop sequences:
       stop: stopSequences,
+      response_format: responseFormat,
+      top_k: topK,
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
 
-      // OpenAI specific settings:
+      // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      
+      reasoning: this.settings.reasoning,
+
       // extra body:
       ...this.config.extraBody,
+      ...this.settings.extraBody,
     };
 
     switch (type) {
@@ -624,3 +629,4 @@ function prepareToolsAndToolChoice(
     }
   }
 }
+

@@ -16,7 +16,6 @@ export function convertToOpenRouterCompletionPrompt({
   assistant?: string;
 }): {
   prompt: string;
-  stopSequences?: string[];
 } {
   // When the user supplied a prompt input, we don't transform it:
   if (
@@ -120,6 +119,5 @@ export function convertToOpenRouterCompletionPrompt({
 
   return {
     prompt: text,
-    stopSequences: [`\n${user}:`],
   };
 }
