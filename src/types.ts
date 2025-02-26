@@ -6,16 +6,8 @@ export type { LanguageModelV1 };
 // Export our model types with explicit type constraints
 export type OpenRouterLanguageModel = LanguageModelV1;
 
-export type OpenRouterSharedSettings = {
-  /**
-   * List of model IDs to try in order if the primary model fails, e.g. ["anthropic/claude-2","gryphe/mythomax-l2-13b"]
-   */
+export type OpenRouterProviderOptions = {
   models?: string[];
-
-  /**
-   * @deprecated use `reasoning` instead
-   */
-  includeReasoning?: boolean;
 
   /**
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
@@ -33,11 +25,18 @@ export type OpenRouterSharedSettings = {
       }
   );
 
-  extraBody?: Record<string, any>;
-
   /**
-A unique identifier representing your end-user, which can help OpenRouter to
-monitor and detect abuse.
+   * A unique identifier representing your end-user, which can
+   * help OpenRouter to monitor and detect abuse.
    */
   user?: string;
+};
+
+export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
+  /**
+   * @deprecated use `reasoning` instead
+   */
+  includeReasoning?: boolean;
+
+  extraBody?: Record<string, any>;
 };

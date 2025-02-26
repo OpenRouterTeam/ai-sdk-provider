@@ -70,8 +70,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     responseFormat,
     topK,
     stopSequences,
+    providerMetadata,
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
+
+    const extraCallingBody = providerMetadata?.["openrouter"] ?? {};
 
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
@@ -118,6 +121,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...extraCallingBody,
     };
 
     switch (type) {

@@ -1,6 +1,6 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -44,6 +44,7 @@
     "@edge-runtime/vm": "5.0.0",
     "@types/jest": "29.5.14",
     "@types/node": "22.13.5",
+    "ai": "4.1.46",
     "tsup": "8.4.0",
     "typescript": "5.7.3",
     "vitest": "3.0.7",

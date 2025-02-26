@@ -30,8 +30,10 @@ import {
   openrouterFailedResponseHandler,
 } from "./openrouter-error";
 
-function isFunctionTool(tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool): tool is LanguageModelV1FunctionTool {
-  return 'parameters' in tool;
+function isFunctionTool(
+  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool
+): tool is LanguageModelV1FunctionTool {
+  return "parameters" in tool;
 }
 
 type OpenRouterChatConfig = {
@@ -77,9 +79,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     seed,
     stopSequences,
     responseFormat,
-    topK
+    topK,
+    providerMetadata,
   }: Parameters<LanguageModelV1["doGenerate"]>[0]) {
     const type = mode.type;
+    const extraCallingBody = providerMetadata?.["openrouter"] ?? {};
 
     const baseArgs = {
       // model id:
@@ -126,6 +130,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...extraCallingBody,
     };
 
     switch (type) {
@@ -629,4 +634,3 @@ function prepareToolsAndToolChoice(
     }
   }
 }
-
