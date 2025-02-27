@@ -1,4 +1,7 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type {
+  LanguageModelV1Prompt,
+  LanguageModelV1ProviderMetadata,
+} from '@ai-sdk/provider';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatPrompt,
@@ -6,31 +9,64 @@ import type {
 
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
+// Type for OpenRouter Cache Control following Anthropic's pattern
+export type OpenRouterCacheControl = { type: 'ephemeral' };
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,
 ): OpenRouterChatPrompt {
   const messages: OpenRouterChatPrompt = [];
 
-  for (const { role, content } of prompt) {
+  function getCacheControl(
+    providerMetadata: LanguageModelV1ProviderMetadata | undefined,
+  ): OpenRouterCacheControl | undefined {
+    const anthropic = providerMetadata?.anthropic;
+
+    // Allow both cacheControl and cache_control:
+    const cacheControlValue =
+      anthropic?.cacheControl ?? anthropic?.cache_control;
+
+    // Return the cache control object if it exists
+    return cacheControlValue as OpenRouterCacheControl | undefined;
+  }
+
+  for (const { role, content, providerMetadata } of prompt) {
     switch (role) {
       case 'system': {
-        messages.push({ role: 'system', content });
+        messages.push({
+          role: 'system',
+          content,
+          cache_control: getCacheControl(providerMetadata),
+        });
         break;
       }
 
       case 'user': {
         if (content.length === 1 && content[0]?.type === 'text') {
-          messages.push({ role: 'user', content: content[0].text });
+          messages.push({
+            role: 'user',
+            content: content[0].text,
+            cache_control:
+              getCacheControl(providerMetadata) ??
+              getCacheControl(content[0].providerMetadata),
+          });
           break;
         }
 
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part) => {
+          (part, index) => {
+            // For the last part of a message, check also if the message has cache control
+            const isLastPart = index === content.length - 1;
+            const cacheControl =
+              getCacheControl(part.providerMetadata) ??
+              (isLastPart ? getCacheControl(providerMetadata) : undefined);
+
             switch (part.type) {
               case 'text':
                 return {
                   type: 'text' as const,
                   text: part.text,
+                  cache_control: cacheControl,
                 };
               case 'image':
                 return {
@@ -39,16 +75,18 @@ export function convertToOpenRouterChatMessages(
                     url:
                       part.image instanceof URL
                         ? part.image.toString()
-                        : `data:${
-                            part.mimeType ?? 'image/jpeg'
-                          };base64,${convertUint8ArrayToBase64(part.image)}`,
+                        : `data:${part.mimeType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
+                            part.image,
+                          )}`,
                   },
+                  cache_control: cacheControl,
                 };
               case 'file':
                 return {
                   type: 'text' as const,
                   text:
                     part.data instanceof URL ? part.data.toString() : part.data,
+                  cache_control: cacheControl,
                 };
               default: {
                 const _exhaustiveCheck: never = part;
@@ -63,6 +101,7 @@ export function convertToOpenRouterChatMessages(
         messages.push({
           role: 'user',
           content: contentParts,
+          cache_control: getCacheControl(providerMetadata),
         });
 
         break;
@@ -108,6 +147,7 @@ export function convertToOpenRouterChatMessages(
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+          cache_control: getCacheControl(providerMetadata),
         });
 
         break;
@@ -119,6 +159,9 @@ export function convertToOpenRouterChatMessages(
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content: JSON.stringify(toolResponse.result),
+            cache_control:
+              getCacheControl(providerMetadata) ??
+              getCacheControl(toolResponse.providerMetadata),
           });
         }
         break;

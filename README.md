@@ -107,3 +107,39 @@ There are 3 ways to pass extra body to OpenRouter:
      messages: [{ role: 'user', content: 'Hello' }],
    });
    ```
+
+## Anthropic Prompt Caching
+
+You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
+
+### Basic Usage
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('anthropic/<supported-caching-model>');
+
+await streamText({
+  model,
+  messages: [
+    {
+      role: 'system',
+      content: 'You are a helpful assistant.',
+      // Add provider options at the message level
+      providerMetadata: {
+        openrouter: {
+          // cache_control also works
+          // cache_control: { type: 'ephemeral' }
+          cacheControl: { type: 'ephemeral' },
+        },
+      },
+    },
+    {
+      role: 'user',
+      content: 'Hello, how are you?',
+    },
+  ],
+});
+```
