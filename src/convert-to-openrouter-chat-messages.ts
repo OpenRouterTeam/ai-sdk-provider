@@ -53,20 +53,18 @@ export function convertToOpenRouterChatMessages(
           break;
         }
 
-        const contentParts: ChatCompletionContentPart[] = content.map(
-          (part, index) => {
-            // For the last part of a message, check also if the message has cache control
-            const isLastPart = index === content.length - 1;
-            const cacheControl =
-              getCacheControl(part.providerMetadata) ??
-              (isLastPart ? getCacheControl(providerMetadata) : undefined);
+        // Get message level cache control
+        const messageCacheControl = getCacheControl(providerMetadata);
 
+        const contentParts: ChatCompletionContentPart[] = content.map(
+          (part) => {
             switch (part.type) {
               case 'text':
                 return {
                   type: 'text' as const,
                   text: part.text,
-                  cache_control: cacheControl,
+                  // For text parts, only use part-specific cache control
+                  cache_control: getCacheControl(part.providerMetadata),
                 };
               case 'image':
                 return {
@@ -79,14 +77,19 @@ export function convertToOpenRouterChatMessages(
                             part.image,
                           )}`,
                   },
-                  cache_control: cacheControl,
+                  // For image parts, use part-specific or message-level cache control
+                  cache_control:
+                    getCacheControl(part.providerMetadata) ??
+                    messageCacheControl,
                 };
               case 'file':
                 return {
                   type: 'text' as const,
                   text:
                     part.data instanceof URL ? part.data.toString() : part.data,
-                  cache_control: cacheControl,
+                  cache_control:
+                    getCacheControl(part.providerMetadata) ??
+                    messageCacheControl,
                 };
               default: {
                 const _exhaustiveCheck: never = part;
@@ -98,10 +101,10 @@ export function convertToOpenRouterChatMessages(
           },
         );
 
+        // For multi-part messages, don't add cache_control at the root level
         messages.push({
           role: 'user',
           content: contentParts,
-          cache_control: getCacheControl(providerMetadata),
         });
 
         break;

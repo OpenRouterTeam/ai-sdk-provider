@@ -122,7 +122,153 @@ describe('cache control', () => {
             cache_control: { type: 'ephemeral' },
           },
         ],
-        cache_control: { type: 'ephemeral' },
+      },
+    ]);
+  });
+
+  it('should pass cache control to multiple image parts from user message provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image',
+            image: new Uint8Array([0, 1, 2, 3]),
+            mimeType: 'image/png',
+          },
+          {
+            type: 'image',
+            image: new Uint8Array([4, 5, 6, 7]),
+            mimeType: 'image/jpeg',
+          },
+        ],
+        providerMetadata: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: undefined,
+          },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/jpeg;base64,BAUGBw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control to file parts from user message provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: 'file content',
+            mimeType: 'text/plain',
+          },
+        ],
+        providerMetadata: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: undefined,
+          },
+          {
+            type: 'text',
+            text: 'file content',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should handle mixed part-specific and message-level cache control for multiple parts', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            // No part-specific provider metadata
+          },
+          {
+            type: 'image',
+            image: new Uint8Array([0, 1, 2, 3]),
+            mimeType: 'image/png',
+            providerMetadata: {
+              anthropic: {
+                cacheControl: { type: 'ephemeral' },
+              },
+            },
+          },
+          {
+            type: 'file',
+            data: 'file content',
+            mimeType: 'text/plain',
+            // No part-specific provider metadata
+          },
+        ],
+        providerMetadata: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: undefined,
+          },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'text',
+            text: 'file content',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
