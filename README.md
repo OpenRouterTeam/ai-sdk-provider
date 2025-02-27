@@ -44,27 +44,66 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 
 ## Passing Extra Body to OpenRouter
 
-When you want to pass extra body to OpenRouter or to the upstream provider, you can do so by setting the `extraBody` property on the language model.
+There are 3 ways to pass extra body to OpenRouter:
 
-```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+1. Via the `providerOptions.openrouter` property:
 
-const provider = createOpenRouter({
-  apiKey: 'your-api-key',
-  // Extra body to pass to OpenRouter
-  extraBody: {
-    custom_field: 'custom_value',
-    providers: {
-      anthropic: {
-        custom_field: 'custom_value',
-      },
-    },
-  },
-});
-const model = provider.chat('anthropic/claude-3.5-sonnet');
-const response = await model.doStream({
-  inputFormat: 'prompt',
-  mode: { type: 'regular' },
-  prompt: [{ role: 'user', content: 'Hello' }],
-});
-```
+   ```typescript
+   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { streamText } from 'ai';
+
+   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   await streamText({
+     model,
+     messages: [{ role: 'user', content: 'Hello' }],
+     providerOptions: {
+       openrouter: {
+         reasoning: {
+           max_tokens: 10,
+         },
+       },
+     },
+   });
+   ```
+
+2. Via the `extraBody` property in the model settings:
+
+   ```typescript
+   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { streamText } from 'ai';
+
+   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
+     extraBody: {
+       reasoning: {
+         max_tokens: 10,
+       },
+     },
+   });
+   await streamText({
+     model,
+     messages: [{ role: 'user', content: 'Hello' }],
+   });
+   ```
+
+3. Via the `extraBody` property in the model factory.
+
+   ```typescript
+   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { streamText } from 'ai';
+
+   const openrouter = createOpenRouter({
+     apiKey: 'your-api-key',
+     extraBody: {
+       reasoning: {
+         max_tokens: 10,
+       },
+     },
+   });
+   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   await streamText({
+     model,
+     messages: [{ role: 'user', content: 'Hello' }],
+   });
+   ```
