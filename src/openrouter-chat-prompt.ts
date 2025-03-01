@@ -1,3 +1,6 @@
+// Type for OpenRouter Cache Control following Anthropic's pattern
+export type OpenRouterCacheControl = { type: 'ephemeral' };
+
 export type OpenRouterChatPrompt = Array<ChatCompletionMessageParam>;
 
 export type ChatCompletionMessageParam =
@@ -9,11 +12,13 @@ export type ChatCompletionMessageParam =
 export interface ChatCompletionSystemMessageParam {
   role: 'system';
   content: string;
+  cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionUserMessageParam {
   role: 'user';
   content: string | Array<ChatCompletionContentPart>;
+  cache_control?: OpenRouterCacheControl;
 }
 
 export type ChatCompletionContentPart =
@@ -25,17 +30,20 @@ export interface ChatCompletionContentPartImage {
   image_url: {
     url: string;
   };
+  cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
+  cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | null;
   tool_calls?: Array<ChatCompletionMessageToolCall>;
+  cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionMessageToolCall {
@@ -51,4 +59,5 @@ export interface ChatCompletionToolMessageParam {
   role: 'tool';
   content: string;
   tool_call_id: string;
+  cache_control?: OpenRouterCacheControl;
 }

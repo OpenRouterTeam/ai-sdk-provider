@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2]
+
+### Added
+
+- Anthropic cache control
+
 ## [Unreleased]
 
 ### Fixed
