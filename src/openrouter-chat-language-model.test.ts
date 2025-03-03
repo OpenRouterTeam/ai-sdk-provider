@@ -494,20 +494,36 @@ describe('doStream', () => {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
+      },
       { type: 'text-delta', textDelta: '' },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
       },
       { type: 'text-delta', textDelta: 'Hello' },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
+      },
       { type: 'text-delta', textDelta: ', ' },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
       },
       { type: 'text-delta', textDelta: 'World!' },
       {
@@ -516,7 +532,15 @@ describe('doStream', () => {
       },
       {
         type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
+      },
+      {
+        type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0613',
       },
       {
         type: 'finish',
@@ -589,7 +613,15 @@ describe('doStream', () => {
       },
       {
         type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'tool-call-delta',
@@ -603,6 +635,10 @@ describe('doStream', () => {
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-call-delta',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolCallType: 'function',
@@ -613,7 +649,10 @@ describe('doStream', () => {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
-
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
       {
         type: 'tool-call-delta',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
@@ -624,6 +663,10 @@ describe('doStream', () => {
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'tool-call-delta',
@@ -637,6 +680,10 @@ describe('doStream', () => {
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-call-delta',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolCallType: 'function',
@@ -648,6 +695,10 @@ describe('doStream', () => {
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-call-delta',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolCallType: 'function',
@@ -657,6 +708,10 @@ describe('doStream', () => {
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'tool-call-delta',
@@ -678,7 +733,15 @@ describe('doStream', () => {
       },
       {
         type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',
@@ -729,6 +792,10 @@ describe('doStream', () => {
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-call-delta',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolCallType: 'function',
@@ -748,7 +815,15 @@ describe('doStream', () => {
       },
       {
         type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',

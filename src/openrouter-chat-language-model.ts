@@ -30,7 +30,7 @@ import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-me
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
 import {
-  openAIErrorDataSchema,
+  OpenRouterErrorResponseSchema,
   openrouterFailedResponseHandler,
 } from './openrouter-error';
 
@@ -189,7 +189,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        openAIChatResponseSchema,
+        OpenRouterNonStreamChatCompletionResponseSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -198,11 +198,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     const { messages: rawPrompt, ...rawSettings } = args;
     const choice = response.choices[0];
 
-    if (choice == null) {
+    if (!choice) {
       throw new Error('No choice in response');
     }
 
     return {
+      response: {
+        id: response.id,
+        modelId: response.model,
+      },
       text: choice.message.content ?? undefined,
       reasoning: choice.message.reasoning ?? undefined,
       toolCalls: choice.message.tool_calls?.map((toolCall) => ({
@@ -213,8 +217,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       })),
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
       },
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
@@ -246,7 +250,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        openrouterChatChunkSchema,
+        OpenRouterStreamChatCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -273,7 +277,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     return {
       stream: response.pipeThrough(
         new TransformStream<
-          ParseResult<z.infer<typeof openrouterChatChunkSchema>>,
+          ParseResult<
+            z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
+          >,
           LanguageModelV1StreamPart
         >({
           transform(chunk, controller) {
@@ -297,6 +303,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               controller.enqueue({
                 type: 'response-metadata',
                 id: value.id,
+              });
+            }
+
+            if (value.model) {
+              controller.enqueue({
+                type: 'response-metadata',
+                modelId: value.model,
               });
             }
 
@@ -467,62 +480,70 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   }
 }
 
-// limited version of the schema, focussed on what is needed for the implementation
-// this approach limits breakages when the API changes and increases efficiency
-const openAIChatResponseSchema = z.object({
-  choices: z.array(
-    z.object({
-      message: z.object({
-        role: z.literal('assistant'),
-        content: z.string().nullable().optional(),
-        reasoning: z.string().nullable().optional(),
-        tool_calls: z
-          .array(
-            z.object({
-              id: z.string().optional().nullable(),
-              type: z.literal('function'),
-              function: z.object({
-                name: z.string(),
-                arguments: z.string(),
-              }),
-            }),
-          )
-          .optional(),
-      }),
-      index: z.number(),
-      logprobs: z
-        .object({
-          content: z
-            .array(
-              z.object({
-                token: z.string(),
-                logprob: z.number(),
-                top_logprobs: z.array(
-                  z.object({
-                    token: z.string(),
-                    logprob: z.number(),
-                  }),
-                ),
-              }),
-            )
-            .nullable(),
-        })
-        .nullable()
-        .optional(),
-      finish_reason: z.string().optional().nullable(),
-    }),
-  ),
-  usage: z.object({
-    prompt_tokens: z.number(),
-    completion_tokens: z.number(),
-  }),
+const OpenRouterChatCompletionBaseResponseSchema = z.object({
+  id: z.string().optional(),
+  model: z.string().optional(),
+  usage: z
+    .object({
+      prompt_tokens: z.number(),
+      completion_tokens: z.number(),
+      total_tokens: z.number(),
+    })
+    .nullish(),
 });
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
-const openrouterChatChunkSchema = z.union([
-  z.object({
-    id: z.string().optional(),
+const OpenRouterNonStreamChatCompletionResponseSchema =
+  OpenRouterChatCompletionBaseResponseSchema.extend({
+    choices: z.array(
+      z.object({
+        message: z.object({
+          role: z.literal('assistant'),
+          content: z.string().nullable().optional(),
+          reasoning: z.string().nullable().optional(),
+          tool_calls: z
+            .array(
+              z.object({
+                id: z.string().optional().nullable(),
+                type: z.literal('function'),
+                function: z.object({
+                  name: z.string(),
+                  arguments: z.string(),
+                }),
+              }),
+            )
+            .optional(),
+        }),
+        index: z.number(),
+        logprobs: z
+          .object({
+            content: z
+              .array(
+                z.object({
+                  token: z.string(),
+                  logprob: z.number(),
+                  top_logprobs: z.array(
+                    z.object({
+                      token: z.string(),
+                      logprob: z.number(),
+                    }),
+                  ),
+                }),
+              )
+              .nullable(),
+          })
+          .nullable()
+          .optional(),
+        finish_reason: z.string().optional().nullable(),
+      }),
+    ),
+  });
+
+// limited version of the schema, focussed on what is needed for the implementation
+// this approach limits breakages when the API changes and increases efficiency
+const OpenRouterStreamChatCompletionChunkSchema = z.union([
+  OpenRouterChatCompletionBaseResponseSchema.extend({
     choices: z.array(
       z.object({
         delta: z
@@ -567,14 +588,8 @@ const openrouterChatChunkSchema = z.union([
         index: z.number(),
       }),
     ),
-    usage: z
-      .object({
-        prompt_tokens: z.number(),
-        completion_tokens: z.number(),
-      })
-      .nullish(),
   }),
-  openAIErrorDataSchema,
+  OpenRouterErrorResponseSchema,
 ]);
 
 function prepareToolsAndToolChoice(
