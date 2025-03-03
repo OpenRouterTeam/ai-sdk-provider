@@ -23,7 +23,7 @@ import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-com
 import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
 import {
-  openAIErrorDataSchema,
+  OpenRouterErrorResponseSchema,
   openrouterFailedResponseHandler,
 } from './openrouter-error';
 
@@ -179,13 +179,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        openAICompletionResponseSchema,
+        OpenRouterCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     });
 
     const { prompt: rawPrompt, ...rawSettings } = args;
+    if ('error' in response) {
+      throw new Error(`${response.error.message}`);
+    }
+
     const choice = response.choices[0];
 
     if (!choice) {
@@ -193,11 +197,15 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     }
 
     return {
-      text: choice.text,
+      response: {
+        id: response.id,
+        modelId: response.model,
+      },
+      text: choice.text ?? '',
       reasoning: choice.reasoning || undefined,
       usage: {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
       },
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       logprobs: mapOpenRouterCompletionLogProbs(choice.logprobs),
@@ -230,7 +238,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        openrouterCompletionChunkSchema,
+        OpenRouterCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -248,7 +256,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     return {
       stream: response.pipeThrough(
         new TransformStream<
-          ParseResult<z.infer<typeof openrouterCompletionChunkSchema>>,
+          ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
           LanguageModelV1StreamPart
         >({
           transform(chunk, controller) {
@@ -316,35 +324,14 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
-const openAICompletionResponseSchema = z.object({
-  choices: z.array(
-    z.object({
-      text: z.string(),
-      reasoning: z.string().nullish().optional(),
-      finish_reason: z.string(),
-      logprobs: z
-        .object({
-          tokens: z.array(z.string()),
-          token_logprobs: z.array(z.number()),
-          top_logprobs: z.array(z.record(z.string(), z.number())).nullable(),
-        })
-        .nullable()
-        .optional(),
-    }),
-  ),
-  usage: z.object({
-    prompt_tokens: z.number(),
-    completion_tokens: z.number(),
-  }),
-});
-
-// limited version of the schema, focussed on what is needed for the implementation
-// this approach limits breakages when the API changes and increases efficiency
-const openrouterCompletionChunkSchema = z.union([
+const OpenRouterCompletionChunkSchema = z.union([
   z.object({
+    id: z.string().optional(),
+    model: z.string().optional(),
     choices: z.array(
       z.object({
         text: z.string(),
+        reasoning: z.string().nullish().optional(),
         finish_reason: z.string().nullish(),
         index: z.number(),
         logprobs: z
@@ -365,5 +352,5 @@ const openrouterCompletionChunkSchema = z.union([
       .optional()
       .nullable(),
   }),
-  openAIErrorDataSchema,
+  OpenRouterErrorResponseSchema,
 ]);
