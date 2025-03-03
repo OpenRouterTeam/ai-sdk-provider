@@ -217,8 +217,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       })),
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: {
-        promptTokens: response.usage.prompt_tokens,
-        completionTokens: response.usage.completion_tokens,
+        promptTokens: response.usage?.prompt_tokens ?? 0,
+        completionTokens: response.usage?.completion_tokens ?? 0,
       },
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
