@@ -114,7 +114,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: undefined,
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
@@ -158,7 +158,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: undefined,
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
@@ -202,7 +202,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: undefined,
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'text',
@@ -256,7 +256,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: undefined,
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
