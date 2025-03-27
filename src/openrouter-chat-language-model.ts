@@ -265,6 +265,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         name: string;
         arguments: string;
       };
+
+      sent: boolean;
     }> = [];
 
     let finishReason: LanguageModelV1FinishReason = 'other';
@@ -388,6 +390,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                       name: toolCallDelta.function.name,
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
+                    sent: false,
                   };
 
                   const toolCall = toolCalls[index];
@@ -419,6 +422,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                       toolName: toolCall.function.name,
                       args: toolCall.function.arguments,
                     });
+
+                    toolCall.sent = true;
                   }
 
                   continue;
@@ -458,12 +463,33 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     toolName: toolCall.function.name,
                     args: toolCall.function.arguments,
                   });
+
+                  toolCall.sent = true;
                 }
               }
             }
           },
 
           flush(controller) {
+            // Forward any unsent tool calls if finish reason is 'tool-calls'
+            if (finishReason === 'tool-calls') {
+              for (const toolCall of toolCalls) {
+                if (!toolCall.sent) {
+                  controller.enqueue({
+                    type: 'tool-call',
+                    toolCallType: 'function',
+                    toolCallId: toolCall.id ?? generateId(),
+                    toolName: toolCall.function.name,
+                    // Coerce invalid arguments to an empty JSON object
+                    args: isParsableJson(toolCall.function.arguments)
+                      ? toolCall.function.arguments
+                      : '{}',
+                  });
+                  toolCall.sent = true;
+                }
+              }
+            }
+
             controller.enqueue({
               type: 'finish',
               finishReason,

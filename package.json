@@ -1,6 +1,6 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
