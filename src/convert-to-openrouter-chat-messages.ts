@@ -12,23 +12,23 @@ import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
+function getCacheControl(
+  providerMetadata: LanguageModelV1ProviderMetadata | undefined,
+): OpenRouterCacheControl | undefined {
+  const anthropic = providerMetadata?.anthropic;
+  const openrouter = providerMetadata?.openrouter;
+
+  // Allow both cacheControl and cache_control:
+  return (openrouter?.cacheControl ??
+    openrouter?.cache_control ??
+    anthropic?.cacheControl ??
+    anthropic?.cache_control) as OpenRouterCacheControl | undefined;
+}
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,
 ): OpenRouterChatPrompt {
   const messages: OpenRouterChatPrompt = [];
-
-  function getCacheControl(
-    providerMetadata: LanguageModelV1ProviderMetadata | undefined,
-  ): OpenRouterCacheControl | undefined {
-    const anthropic = providerMetadata?.anthropic;
-
-    // Allow both cacheControl and cache_control:
-    const cacheControlValue =
-      anthropic?.cacheControl ?? anthropic?.cache_control;
-
-    // Return the cache control object if it exists
-    return cacheControlValue as OpenRouterCacheControl | undefined;
-  }
 
   for (const { role, content, providerMetadata } of prompt) {
     switch (role) {
@@ -55,7 +55,6 @@ export function convertToOpenRouterChatMessages(
 
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerMetadata);
-
         const contentParts: ChatCompletionContentPart[] = content.map(
           (part) => {
             switch (part.type) {
@@ -64,7 +63,9 @@ export function convertToOpenRouterChatMessages(
                   type: 'text' as const,
                   text: part.text,
                   // For text parts, only use part-specific cache control
-                  cache_control: getCacheControl(part.providerMetadata),
+                  cache_control:
+                    getCacheControl(part.providerMetadata) ??
+                    messageCacheControl,
                 };
               case 'image':
                 return {

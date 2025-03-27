@@ -129,6 +129,7 @@ await streamText({
       content: 'You are a helpful assistant.',
       // Add provider options at the message level
       providerMetadata: {
+        // openrouter or anthropic
         openrouter: {
           // cache_control also works
           // cache_control: { type: 'ephemeral' }
