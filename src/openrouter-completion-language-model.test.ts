@@ -232,17 +232,19 @@ describe('doGenerate', () => {
 
     const tool = {
       type: 'function',
-      name: 'get_weather',
-      description: 'Get the weather for a location',
-      parameters: {
-        type: 'object',
-        properties: {
-          location: {
-            type: 'string',
-            description: 'The location to get the weather for',
+      function: {
+        name: 'get_weather',
+        description: 'Get the weather for a location',
+        parameters: {
+          type: 'object',
+          properties: {
+            location: {
+              type: 'string',
+              description: 'The location to get the weather for',
+            },
           },
+          required: ['location'],
         },
-        required: ['location'],
       },
     };
 
