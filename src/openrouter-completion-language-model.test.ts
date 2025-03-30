@@ -211,6 +211,75 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should support object-json mode', async () => {
+    prepareJsonResponse({ content: '{"result": "success"}' });
+
+    await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { type: 'object-json' },
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.getRequestBodyJson()).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      response_format: { type: 'json_object' },
+    });
+  });
+
+  it('should support object-tool mode', async () => {
+    prepareJsonResponse({ content: '{"result": "success"}' });
+
+    const tool = {
+      name: 'get_weather',
+      description: 'Get the weather for a location',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: {
+            type: 'string',
+            description: 'The location to get the weather for',
+          },
+        },
+        required: ['location'],
+      },
+    };
+
+    await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { 
+        type: 'object-tool',
+        tool,
+      },
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.getRequestBodyJson()).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      tool_choice: { type: 'function', function: { name: 'get_weather' } },
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            description: 'Get the weather for a location',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: {
+                  type: 'string',
+                  description: 'The location to get the weather for',
+                },
+              },
+              required: ['location'],
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it('should pass the models array when provided', async () => {
     prepareJsonResponse({ content: '' });
 

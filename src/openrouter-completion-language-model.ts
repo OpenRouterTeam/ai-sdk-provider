@@ -144,15 +144,27 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       }
 
       case 'object-json': {
-        throw new UnsupportedFunctionalityError({
-          functionality: 'object-json mode',
-        });
+        return {
+          ...baseArgs,
+          response_format: { type: 'json_object' },
+        };
       }
 
       case 'object-tool': {
-        throw new UnsupportedFunctionalityError({
-          functionality: 'object-tool mode',
-        });
+        return {
+          ...baseArgs,
+          tool_choice: { type: 'function', function: { name: mode.tool.name } },
+          tools: [
+            {
+              type: 'function',
+              function: {
+                name: mode.tool.name,
+                description: mode.tool.description,
+                parameters: mode.tool.parameters,
+              },
+            },
+          ],
+        };
       }
 
       // Handle all non-text types with a single default case
