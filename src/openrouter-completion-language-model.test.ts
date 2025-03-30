@@ -231,6 +231,7 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '{"result": "success"}' });
 
     const tool = {
+      type: 'function',
       name: 'get_weather',
       description: 'Get the weather for a location',
       parameters: {
