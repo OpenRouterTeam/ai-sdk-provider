@@ -126,20 +126,30 @@ await streamText({
   messages: [
     {
       role: 'system',
-      content: 'You are a helpful assistant.',
-      // Add provider options at the message level
-      providerMetadata: {
-        // openrouter or anthropic
-        openrouter: {
-          // cache_control also works
-          // cache_control: { type: 'ephemeral' }
-          cacheControl: { type: 'ephemeral' },
-        },
-      },
+      content:
+        'You are a podcast summary assistant. You are detail oriented and critical about the content.',
     },
     {
       role: 'user',
-      content: 'Hello, how are you?',
+      content: [
+        {
+          type: 'text',
+          text: 'Given the text body below:',
+        },
+        {
+          type: 'text',
+          text: `<LARGE BODY OF TEXT>`,
+          providerOptions: {
+            openrouter: {
+              cacheControl: { type: 'ephemeral' },
+            },
+          },
+        },
+        {
+          type: 'text',
+          text: 'Who're the speakers?',
+        },
+      ],
     },
   ],
 });
