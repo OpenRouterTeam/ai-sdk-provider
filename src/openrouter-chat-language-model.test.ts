@@ -995,4 +995,39 @@ describe('doStream', () => {
       'custom_value',
     );
   });
+
+  it('should pass llama provider options to the API', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: {
+        custom_field: 'custom_value',
+        providers: {
+          llama: {
+            baseURL: 'https://llama-api.com',
+            custom_field: 'llama_custom_value',
+          },
+        },
+      },
+    });
+
+    await provider.chat('llama/llama-3-70b-instruct').doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.getRequestBodyJson();
+
+    expect(requestBody).toHaveProperty('custom_field', 'custom_value');
+    expect(requestBody).toHaveProperty(
+      'providers.llama.baseURL',
+      'https://llama-api.com',
+    );
+    expect(requestBody).toHaveProperty(
+      'providers.llama.custom_field',
+      'llama_custom_value',
+    );
+  });
 });

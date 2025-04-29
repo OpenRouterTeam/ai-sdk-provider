@@ -1,6 +1,6 @@
 # OpenRouter Provider for Vercel AI SDK
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs.
+The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs, including direct access to the Llama API.
 
 ## Setup
 
@@ -107,6 +107,58 @@ There are 3 ways to pass extra body to OpenRouter:
      messages: [{ role: 'user', content: 'Hello' }],
    });
    ```
+
+## Llama API Integration
+
+You can use the Llama API directly through OpenRouter by specifying Llama-specific options in your provider configuration:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({
+  apiKey: 'your-api-key',
+  extraBody: {
+    providers: {
+      llama: {
+        baseURL: 'https://llama-api.com', // Replace with the actual Llama API base URL
+        // Add any other Llama-specific options here
+      },
+    },
+  },
+});
+
+const model = openrouter('llama/llama-3-70b-instruct');
+await streamText({
+  model,
+  messages: [{ role: 'user', content: 'Hello' }],
+});
+```
+
+You can also specify Llama-specific options for individual requests:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('llama/llama-3-70b-instruct');
+
+await streamText({
+  model,
+  messages: [{ role: 'user', content: 'Hello' }],
+  providerOptions: {
+    openrouter: {
+      providers: {
+        llama: {
+          baseURL: 'https://llama-api.com', // Replace with the actual Llama API base URL
+          // Add any other Llama-specific options here
+        },
+      },
+    },
+  },
+});
+```
 
 ## Anthropic Prompt Caching
 
