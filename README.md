@@ -147,7 +147,7 @@ await streamText({
         },
         {
           type: 'text',
-          text: 'Who're the speakers?',
+          text: 'List the speakers?',
         },
       ],
     },
