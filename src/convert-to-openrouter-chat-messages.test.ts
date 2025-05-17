@@ -183,7 +183,8 @@ describe('cache control', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: 'file content',
+            data: 'ZmlsZSBjb250ZW50',
+            filename: 'file.txt',
             mimeType: 'text/plain',
           },
         ],
@@ -205,8 +206,11 @@ describe('cache control', () => {
             cache_control: { type: 'ephemeral' },
           },
           {
-            type: 'text',
-            text: 'file content',
+            type: 'file',
+            file: {
+              filename: 'file.txt',
+              file_data: `data:text/plain;base64,ZmlsZSBjb250ZW50`,
+            },
             cache_control: { type: 'ephemeral' },
           },
         ],
@@ -236,7 +240,8 @@ describe('cache control', () => {
           },
           {
             type: 'file',
-            data: 'file content',
+            filename: 'file.txt',
+            data: 'ZmlsZSBjb250ZW50',
             mimeType: 'text/plain',
             // No part-specific provider metadata
           },
@@ -264,8 +269,11 @@ describe('cache control', () => {
             cache_control: { type: 'ephemeral' },
           },
           {
-            type: 'text',
-            text: 'file content',
+            type: 'file',
+            file: {
+              filename: 'file.txt',
+              file_data: `data:text/plain;base64,ZmlsZSBjb250ZW50`,
+            },
             cache_control: { type: 'ephemeral' },
           },
         ],
