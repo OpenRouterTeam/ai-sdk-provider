@@ -1,4 +1,5 @@
 import type {
+  LanguageModelV1FilePart,
   LanguageModelV1Prompt,
   LanguageModelV1ProviderMetadata,
 } from '@ai-sdk/provider';
@@ -85,9 +86,16 @@ export function convertToOpenRouterChatMessages(
                 };
               case 'file':
                 return {
-                  type: 'text' as const,
-                  text:
-                    part.data instanceof URL ? part.data.toString() : part.data,
+                  type: 'file',
+                  file: {
+                    filename: (
+                      part as LanguageModelV1FilePart & { filename: string }
+                    ).filename,
+                    file_data:
+                      part.data instanceof Uint8Array
+                        ? `data:${part.mimeType};base64,${convertUint8ArrayToBase64(part.data)}`
+                        : `data:${part.mimeType};base64,${part.data}`,
+                  },
                   cache_control:
                     getCacheControl(part.providerMetadata) ??
                     messageCacheControl,
