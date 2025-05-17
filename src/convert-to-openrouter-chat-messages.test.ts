@@ -184,8 +184,12 @@ describe('cache control', () => {
           {
             type: 'file',
             data: 'ZmlsZSBjb250ZW50',
-            filename: 'file.txt',
             mimeType: 'text/plain',
+            providerMetadata: {
+              openrouter: {
+                filename: 'file.txt',
+              },
+            },
           },
         ],
         providerMetadata: {
@@ -240,9 +244,13 @@ describe('cache control', () => {
           },
           {
             type: 'file',
-            filename: 'file.txt',
             data: 'ZmlsZSBjb250ZW50',
             mimeType: 'text/plain',
+            providerMetadata: {
+              openrouter: {
+                filename: 'file.txt',
+              },
+            },
             // No part-specific provider metadata
           },
         ],
