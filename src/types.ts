@@ -30,6 +30,15 @@ export type OpenRouterProviderOptions = {
    * help OpenRouter to monitor and detect abuse.
    */
   user?: string;
+};
+
+export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
+  /**
+   * @deprecated use `reasoning` instead
+   */
+  includeReasoning?: boolean;
+
+  extraBody?: Record<string, any>;
 
   /**
    * Enable usage accounting to get detailed token usage information.
@@ -41,13 +50,4 @@ export type OpenRouterProviderOptions = {
      */
     include: boolean;
   };
-};
-
-export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
-  /**
-   * @deprecated use `reasoning` instead
-   */
-  includeReasoning?: boolean;
-
-  extraBody?: Record<string, any>;
 };
