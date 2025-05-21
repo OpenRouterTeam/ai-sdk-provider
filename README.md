@@ -37,7 +37,7 @@ const { text } = await generateText({
 
 ## Supported models
 
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.  
+This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system.
 You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
 
 You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
@@ -153,4 +153,31 @@ await streamText({
     },
   ],
 });
+```
+
+## Use Cases
+
+### Usage Accounting
+
+The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
+
+```typescript
+// Enable usage accounting
+const model = openrouter('openai/gpt-3.5-turbo', {
+  usage: {
+    include: true,
+  }
+});
+
+// Access usage accounting data
+const result = await generateText({
+  model,
+  prompt: 'Hello, how are you today?',
+});
+
+// Provider-specific usage details (available in providerMetadata)
+if (result.providerMetadata?.openrouter?.usage) {
+  console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
+  console.log('Total Tokens:', result.providerMetadata.openrouter.usage.totalTokens);
+}
 ```

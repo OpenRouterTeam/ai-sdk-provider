@@ -30,6 +30,17 @@ export type OpenRouterProviderOptions = {
    * help OpenRouter to monitor and detect abuse.
    */
   user?: string;
+
+  /**
+   * Enable usage accounting to get detailed token usage information.
+   * https://openrouter.ai/docs/use-cases/usage-accounting
+   */
+  usage?: {
+    /**
+     * When true, includes token usage information in the response.
+     */
+    include: boolean;
+  };
 };
 
 export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
