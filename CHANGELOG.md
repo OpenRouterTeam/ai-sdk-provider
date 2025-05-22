@@ -2,7 +2,7 @@
 
 All notable changes to the OpenRouter AI SDK Provider will be documented in this file.
 
-## [0.5.0] - 2025-05-22
+## [Unreleased] - 2025-05-22
 
 ### Added
 
