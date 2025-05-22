@@ -1,6 +1,4 @@
-import type { z } from 'zod';
 import type { LanguageModelV1 } from '@ai-sdk/provider';
-import type { openRouterUsageAccountingSchema } from './openrouter-chat-language-model';
 
 // Re-export the LanguageModelV1 type to ensure proper type compatibility
 export type { LanguageModelV1 };
@@ -54,6 +52,19 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
   };
 };
 
-export type OpenRouterUsageAccounting = z.infer<
-  typeof openRouterUsageAccountingSchema
->;
+/**
+ * Usage accounting response
+ * @see https://openrouter.ai/docs/use-cases/usage-accounting
+ */
+export type OpenRouterUsageAccounting = {
+  promptTokens: number;
+  promptTokensDetails: {
+    cachedTokens: number;
+  };
+  completionTokens: number;
+  completionTokensDetails: {
+    reasoningTokens: number;
+  };
+  totalTokens: number;
+  cost: number;
+};

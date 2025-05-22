@@ -49,25 +49,6 @@ type OpenRouterChatConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export const openRouterUsageAccountingSchema = z
-  .object({
-    prompt_tokens: z.number(),
-    prompt_tokens_details: z
-      .object({
-        cached_tokens: z.number(),
-      })
-      .optional(),
-    completion_tokens: z.number(),
-    completion_tokens_details: z
-      .object({
-        reasoning_tokens: z.number(),
-      })
-      .optional(),
-    total_tokens: z.number(),
-    cost: z.number().optional(),
-  })
-  .nullish();
-
 export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   readonly specificationVersion = 'v1';
   readonly defaultObjectGenerationMode = 'tool';
@@ -631,7 +612,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
   model: z.string().optional(),
-  usage: openRouterUsageAccountingSchema,
+  usage: z
+    .object({
+      prompt_tokens: z.number(),
+      prompt_tokens_details: z
+        .object({
+          cached_tokens: z.number(),
+        })
+        .optional(),
+      completion_tokens: z.number(),
+      completion_tokens_details: z
+        .object({
+          reasoning_tokens: z.number(),
+        })
+        .optional(),
+      total_tokens: z.number(),
+      cost: z.number().optional(),
+    })
+    .nullish(),
 });
 
 // limited version of the schema, focussed on what is needed for the implementation
