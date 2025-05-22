@@ -39,15 +39,4 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
   includeReasoning?: boolean;
 
   extraBody?: Record<string, any>;
-
-  /**
-   * Enable usage accounting to get detailed token usage information.
-   * https://openrouter.ai/docs/use-cases/usage-accounting
-   */
-  usage?: {
-    /**
-     * When true, includes token usage information in the response.
-     */
-    include: boolean;
-  };
 };
