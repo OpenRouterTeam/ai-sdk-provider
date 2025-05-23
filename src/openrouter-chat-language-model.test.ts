@@ -995,4 +995,88 @@ describe('doStream', () => {
       'custom_value',
     );
   });
+
+  it('should handle truncated Qwen3 tool call arguments with reasoning field', async () => {
+    server.responseChunks = [
+      `data: {"id":"chatcmpl-qwen3-truncation-test","object":"chat.completion.chunk","created":1711357598,"model":"qwen/qwen3-235b",` +
+        `"system_fingerprint":"fp_qwen3_test","choices":[{"index":0,"delta":{"role":"assistant"},"logprobs":null,"finish_reason":null}]}\n\n`,
+      
+      `data: {"id":"chatcmpl-qwen3-truncation-test","object":"chat.completion.chunk","created":1711357598,"model":"qwen/qwen3-235b",` +
+        `"system_fingerprint":"fp_qwen3_test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_qwen3_search_tool","type":"function","function":{"name":"search"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+      
+      `data: {"id":"chatcmpl-qwen3-truncation-test","object":"chat.completion.chunk","created":1711357598,"model":"qwen/qwen3-235b",` +
+        `"system_fingerprint":"fp_qwen3_test","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"query\\": \\"latest news\\", \\"c"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+      
+      `data: {"id":"chatcmpl-qwen3-truncation-test","object":"chat.completion.chunk","created":1711357598,"model":"qwen/qwen3-235b",` +
+        `"system_fingerprint":"fp_qwen3_test","choices":[{"index":0,"delta":{"reasoning":"/tool_call>"},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+      
+      `data: {"id":"chatcmpl-qwen3-truncation-test","object":"chat.completion.chunk","created":1711357598,"model":"qwen/qwen3-235b",` +
+        `"system_fingerprint":"fp_qwen3_test","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+      
+      'data: [DONE]\n\n',
+    ];
+
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: {
+        type: 'regular',
+        tools: [
+          {
+            type: 'function',
+            name: 'search',
+            parameters: {
+              type: 'object',
+              properties: { 
+                query: { type: 'string' },
+                count: { type: 'integer' } 
+              },
+              required: ['query', 'count'],
+              additionalProperties: false,
+              $schema: 'http://json-schema.org/draft-07/schema#',
+            },
+          },
+        ],
+      },
+      prompt: TEST_PROMPT,
+    });
+
+    const streamOutput = await convertReadableStreamToArray(stream);
+    
+    const modelMetadata = streamOutput.find(
+      part => part.type === 'response-metadata' && 'modelId' in part
+    ) as { type: 'response-metadata'; modelId: string };
+    expect(modelMetadata.modelId).toBe('qwen/qwen3-235b');
+    
+    const toolCallDelta = streamOutput.find(
+      part => 
+        part.type === 'tool-call-delta' && 
+        'toolName' in part &&
+        part.toolName === 'search' && 
+        'argsTextDelta' in part &&
+        part.argsTextDelta.includes('{"query": "latest news", "c')
+    ) as { type: 'tool-call-delta'; toolName: string; argsTextDelta: string };
+    expect(toolCallDelta).toBeDefined();
+    
+    const reasoningPart = streamOutput.find(
+      part => 
+        part.type === 'reasoning' && 
+        'textDelta' in part &&
+        part.textDelta === '/tool_call>'
+    ) as { type: 'reasoning'; textDelta: string };
+    expect(reasoningPart).toBeDefined();
+    
+    const toolCall = streamOutput.find(
+      part => 
+        part.type === 'tool-call' && 
+        'toolName' in part &&
+        part.toolName === 'search'
+    ) as { type: 'tool-call'; toolName: string; args: string };
+    expect(toolCall).toBeDefined();
+    expect(toolCall.args).toBe('{}'); // Should be coerced to empty object
+    
+    const finishPart = streamOutput.find(
+      part => part.type === 'finish'
+    ) as { type: 'finish'; finishReason: string };
+    expect(finishPart.finishReason).toBe('tool-calls');
+  });
 });
