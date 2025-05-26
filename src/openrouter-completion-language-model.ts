@@ -76,7 +76,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
 
-    const extraCallingBody = providerMetadata?.['openrouter'] ?? {};
+    const extraCallingBody = providerMetadata?.openrouter ?? {};
 
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,

@@ -453,19 +453,14 @@ describe('doStream', () => {
       `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
         `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
       ...content.flatMap((text) => {
-        return (
-          `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
-          `"system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`
-        );
+        return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`;
       }),
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
-        `"system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
-          logprobs,
-        )}}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":${JSON.stringify(
-          usage,
-        )}}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
+        logprobs,
+      )}}]}\n\n`,
+      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":${JSON.stringify(
+        usage,
+      )}}\n\n`,
       'data: [DONE]\n\n',
     ];
   }
@@ -865,15 +860,15 @@ describe('doStream', () => {
         logprobs: undefined,
         type: 'finish',
         usage: {
-          completionTokens: NaN,
-          promptTokens: NaN,
+          completionTokens: Number.NaN,
+          promptTokens: Number.NaN,
         },
       },
     ]);
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.responseChunks = [`data: {unparsable}\n\n`, 'data: [DONE]\n\n'];
+    server.responseChunks = ['data: {unparsable}\n\n', 'data: [DONE]\n\n'];
 
     const { stream } = await model.doStream({
       inputFormat: 'prompt',
@@ -890,8 +885,8 @@ describe('doStream', () => {
       logprobs: undefined,
       type: 'finish',
       usage: {
-        completionTokens: NaN,
-        promptTokens: NaN,
+        completionTokens: Number.NaN,
+        promptTokens: Number.NaN,
       },
     });
   });

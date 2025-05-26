@@ -1,3 +1,4 @@
+import type { OpenRouterUsageAccounting } from '@/src/types';
 import type {
   LanguageModelV1,
   LanguageModelV1FinishReason,
@@ -87,7 +88,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     providerMetadata,
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
-    const extraCallingBody = providerMetadata?.['openrouter'] ?? {};
+    const extraCallingBody = providerMetadata?.openrouter ?? {};
 
     const baseArgs = {
       // model id:
@@ -130,6 +131,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
+      usage: this.settings.usage,
 
       // extra body:
       ...this.config.extraBody,
@@ -202,6 +204,52 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       throw new Error('No choice in response');
     }
 
+    // Extract detailed usage information
+    const usageInfo = response.usage
+      ? {
+          promptTokens: response.usage.prompt_tokens ?? 0,
+          completionTokens: response.usage.completion_tokens ?? 0,
+        }
+      : {
+          promptTokens: 0,
+          completionTokens: 0,
+        };
+
+    // Collect provider-specific metadata
+    const providerMetadata: {
+      openrouter?: Partial<{
+        usage: OpenRouterUsageAccounting;
+      }>;
+    } = {};
+
+    // Add OpenRouter usage accounting details if available AND usage accounting was requested
+    if (response.usage && this.settings.usage?.include) {
+      providerMetadata.openrouter = {
+        usage: {
+          promptTokens: response.usage.prompt_tokens,
+          promptTokensDetails: response.usage.prompt_tokens_details
+            ? {
+                cachedTokens:
+                  response.usage.prompt_tokens_details.cached_tokens ?? 0,
+              }
+            : undefined,
+          completionTokens: response.usage.completion_tokens,
+          completionTokensDetails: response.usage.completion_tokens_details
+            ? {
+                reasoningTokens:
+                  response.usage.completion_tokens_details.reasoning_tokens ??
+                  0,
+              }
+            : undefined,
+          cost: response.usage.cost,
+          totalTokens: response.usage.total_tokens ?? 0,
+        },
+      };
+    }
+
+    // Prepare the final result
+    const hasProviderMetadata = Object.keys(providerMetadata).length > 0;
+
     return {
       response: {
         id: response.id,
@@ -213,17 +261,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         toolCallType: 'function',
         toolCallId: toolCall.id ?? generateId(),
         toolName: toolCall.function.name,
-        args: toolCall.function.arguments!,
+        args: toolCall.function.arguments,
       })),
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      usage: {
-        promptTokens: response.usage?.prompt_tokens ?? 0,
-        completionTokens: response.usage?.completion_tokens ?? 0,
-      },
+      usage: usageInfo,
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
       warnings: [],
       logprobs: mapOpenRouterChatLogProbsOutput(choice.logprobs),
+      ...(hasProviderMetadata ? { providerMetadata } : {}),
     };
   }
 
@@ -245,7 +291,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         // only include stream_options when in strict compatibility mode:
         stream_options:
           this.config.compatibility === 'strict'
-            ? { include_usage: true }
+            ? {
+                include_usage: true,
+                // If user has requested usage accounting, make sure we get it in the stream
+                ...(this.settings.usage?.include
+                  ? { include_usage: true }
+                  : {}),
+              }
             : undefined,
       },
       failedResponseHandler: openrouterFailedResponseHandler,
@@ -275,6 +327,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       completionTokens: Number.NaN,
     };
     let logprobs: LanguageModelV1LogProbs;
+
+    // Track provider-specific usage information
+    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+
+    // Store usage accounting setting for reference in the transformer
+    const shouldIncludeUsageAccounting = !!this.settings.usage?.include;
 
     return {
       stream: response.pipeThrough(
@@ -320,6 +378,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 promptTokens: value.usage.prompt_tokens,
                 completionTokens: value.usage.completion_tokens,
               };
+
+              // Collect OpenRouter specific usage information
+              openrouterUsage.promptTokens = value.usage.prompt_tokens;
+              if (value.usage.prompt_tokens_details) {
+                openrouterUsage.promptTokensDetails = {
+                  cachedTokens:
+                    value.usage.prompt_tokens_details.cached_tokens ?? 0,
+                };
+              }
+
+              openrouterUsage.completionTokens = value.usage.completion_tokens;
+              if (value.usage.completion_tokens_details) {
+                openrouterUsage.completionTokensDetails = {
+                  reasoningTokens:
+                    value.usage.completion_tokens_details.reasoning_tokens ?? 0,
+                };
+              }
+
+              openrouterUsage.cost = value.usage.cost;
+              openrouterUsage.totalTokens = value.usage.total_tokens;
             }
 
             const choice = value.choices[0];
@@ -437,7 +515,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
-                  toolCall.function!.arguments +=
+                  toolCall.function.arguments +=
                     toolCallDelta.function?.arguments ?? '';
                 }
 
@@ -490,11 +568,38 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               }
             }
 
+            // Prepare provider metadata with OpenRouter usage accounting information
+            const providerMetadata: {
+              openrouter?: {
+                usage: Partial<OpenRouterUsageAccounting>;
+              };
+            } = {};
+
+            // Only add OpenRouter metadata if we have usage information AND usage accounting was requested
+            if (
+              shouldIncludeUsageAccounting &&
+              (openrouterUsage.totalTokens !== undefined ||
+                openrouterUsage.cost !== undefined ||
+                openrouterUsage.promptTokensDetails !== undefined ||
+                openrouterUsage.completionTokensDetails !== undefined)
+            ) {
+              providerMetadata.openrouter = {
+                usage: openrouterUsage,
+              };
+            }
+
+            // Only add providerMetadata if we have OpenRouter metadata and it is explicitly requested
+            // This is to maintain backward compatibility with existing tests and clients
+            const hasProviderMetadata =
+              Object.keys(providerMetadata).length > 0 &&
+              shouldIncludeUsageAccounting;
+
             controller.enqueue({
               type: 'finish',
               finishReason,
               logprobs,
               usage,
+              ...(hasProviderMetadata ? { providerMetadata } : {}),
             });
           },
         }),
@@ -512,8 +617,19 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
   usage: z
     .object({
       prompt_tokens: z.number(),
+      prompt_tokens_details: z
+        .object({
+          cached_tokens: z.number(),
+        })
+        .optional(),
       completion_tokens: z.number(),
+      completion_tokens_details: z
+        .object({
+          reasoning_tokens: z.number(),
+        })
+        .optional(),
       total_tokens: z.number(),
+      cost: z.number().optional(),
     })
     .nullish(),
 });
@@ -640,14 +756,14 @@ function prepareToolsAndToolChoice(
           parameters: tool.parameters,
         },
       };
-    } else {
-      return {
-        type: 'function' as const,
-        function: {
-          name: tool.name,
-        },
-      };
     }
+
+    return {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+      },
+    };
   });
 
   const toolChoice = mode.toolChoice;

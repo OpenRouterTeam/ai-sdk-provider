@@ -293,19 +293,14 @@ describe('doStream', () => {
   }) {
     server.responseChunks = [
       ...content.map((text) => {
-        return (
-          `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,` +
-          `"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`
-        );
+        return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`;
       }),
-      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,` +
-        `"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
-          logprobs,
-        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
-      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,` +
-        `"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
-          usage,
-        )},"choices":[]}\n\n`,
+      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
+        logprobs,
+      )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+      `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
+        usage,
+      )},"choices":[]}\n\n`,
       'data: [DONE]\n\n',
     ];
   }
@@ -374,15 +369,15 @@ describe('doStream', () => {
         logprobs: undefined,
         type: 'finish',
         usage: {
-          completionTokens: NaN,
-          promptTokens: NaN,
+          completionTokens: Number.NaN,
+          promptTokens: Number.NaN,
         },
       },
     ]);
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.responseChunks = [`data: {unparsable}\n\n`, 'data: [DONE]\n\n'];
+    server.responseChunks = ['data: {unparsable}\n\n', 'data: [DONE]\n\n'];
 
     const { stream } = await model.doStream({
       inputFormat: 'prompt',
@@ -399,8 +394,8 @@ describe('doStream', () => {
       logprobs: undefined,
       type: 'finish',
       usage: {
-        completionTokens: NaN,
-        promptTokens: NaN,
+        completionTokens: Number.NaN,
+        promptTokens: Number.NaN,
       },
     });
   });
