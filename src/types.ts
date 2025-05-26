@@ -38,7 +38,7 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
    */
   includeReasoning?: boolean;
 
-  extraBody?: Record<string, any>;
+  extraBody?: Record<string, unknown>;
 
   /**
    * Enable usage accounting to get detailed token usage information.
@@ -58,13 +58,13 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
  */
 export type OpenRouterUsageAccounting = {
   promptTokens: number;
-  promptTokensDetails: {
+  promptTokensDetails?: {
     cachedTokens: number;
   };
   completionTokens: number;
-  completionTokensDetails: {
+  completionTokensDetails?: {
     reasoningTokens: number;
   };
   totalTokens: number;
-  cost: number;
+  cost?: number;
 };

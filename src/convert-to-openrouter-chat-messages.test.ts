@@ -213,7 +213,7 @@ describe('cache control', () => {
             type: 'file',
             file: {
               filename: 'file.txt',
-              file_data: `data:text/plain;base64,ZmlsZSBjb250ZW50`,
+              file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
             cache_control: { type: 'ephemeral' },
           },
@@ -280,7 +280,7 @@ describe('cache control', () => {
             type: 'file',
             file: {
               filename: 'file.txt',
-              file_data: `data:text/plain;base64,ZmlsZSBjb250ZW50`,
+              file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
             cache_control: { type: 'ephemeral' },
           },

@@ -20,7 +20,8 @@
     "prepublish": "pnpm run build",
     "test": "pnpm test:node && pnpm test:edge",
     "test:edge": "vitest --config vitest.edge.config.ts --run",
-    "test:node": "vitest --config vitest.node.config.ts --run"
+    "test:node": "vitest --config vitest.node.config.ts --run",
+    "test:e2e": "vitest --config vitest.e2e.config.ts --run"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -41,6 +42,7 @@
     "@ai-sdk/provider-utils": "2.1.10"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@ianvs/prettier-plugin-sort-imports": "4.4.1",
     "@edge-runtime/vm": "5.0.0",
     "@types/jest": "29.5.14",
@@ -50,6 +52,8 @@
     "prettier": "3.5.2",
     "typescript": "5.7.3",
     "vitest": "3.0.7",
+    "vite-tsconfig-paths": "5.1.4",
+    "dotenv": "16.5.0",
     "zod": "3.24.2"
   },
   "peerDependencies": {

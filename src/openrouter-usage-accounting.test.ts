@@ -114,14 +114,22 @@ describe('OpenRouter Usage Accounting', () => {
 
     // Check for OpenRouter usage data
     expect(providerData?.openrouter).toBeDefined();
-    const openrouterData = providerData?.openrouter as Record<string, any>;
+    const openrouterData = providerData?.openrouter as Record<string, unknown>;
     expect(openrouterData.usage).toBeDefined();
 
     const usage = openrouterData.usage;
-    expect(usage.totalTokens).toBe(30);
-    expect(usage.cost).toBe(0.0015);
-    expect(usage.promptTokensDetails?.cachedTokens).toBe(5);
-    expect(usage.completionTokensDetails?.reasoningTokens).toBe(8);
+    expect(usage).toMatchObject({
+      promptTokens: 10,
+      completionTokens: 20,
+      totalTokens: 30,
+      cost: 0.0015,
+      promptTokensDetails: {
+        cachedTokens: 5,
+      },
+      completionTokensDetails: {
+        reasoningTokens: 8,
+      },
+    });
   });
 
   it('should not include provider-specific metadata when usage accounting is disabled', async () => {

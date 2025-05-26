@@ -1,3 +1,4 @@
+import type { OpenRouterUsageAccounting } from '@/src/types';
 import type {
   LanguageModelV1,
   LanguageModelV1FinishReason,
@@ -87,7 +88,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     providerMetadata,
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
-    const extraCallingBody = providerMetadata?.['openrouter'] ?? {};
+    const extraCallingBody = providerMetadata?.openrouter ?? {};
 
     const baseArgs = {
       // model id:
@@ -215,7 +216,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         };
 
     // Collect provider-specific metadata
-    const providerMetadata: Record<string, any> = {};
+    const providerMetadata: {
+      openrouter?: Partial<{
+        usage: OpenRouterUsageAccounting;
+      }>;
+    } = {};
 
     // Add OpenRouter usage accounting details if available AND usage accounting was requested
     if (response.usage && this.settings.usage?.include) {
@@ -256,7 +261,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
         toolCallType: 'function',
         toolCallId: toolCall.id ?? generateId(),
         toolName: toolCall.function.name,
-        args: toolCall.function.arguments!,
+        args: toolCall.function.arguments,
       })),
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: usageInfo,
@@ -324,14 +329,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     let logprobs: LanguageModelV1LogProbs;
 
     // Track provider-specific usage information
-    let openrouterUsage: {
-      promptTokens?: number;
-      promptTokensDetails?: { cachedTokens: number };
-      completionTokens?: number;
-      completionTokensDetails?: { reasoningTokens: number };
-      cost?: number;
-      totalTokens?: number;
-    } = {};
+    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
 
     // Store usage accounting setting for reference in the transformer
     const shouldIncludeUsageAccounting = !!this.settings.usage?.include;
@@ -517,7 +515,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
-                  toolCall.function!.arguments +=
+                  toolCall.function.arguments +=
                     toolCallDelta.function?.arguments ?? '';
                 }
 
@@ -571,7 +569,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             }
 
             // Prepare provider metadata with OpenRouter usage accounting information
-            const providerMetadata: Record<string, any> = {};
+            const providerMetadata: {
+              openrouter?: {
+                usage: Partial<OpenRouterUsageAccounting>;
+              };
+            } = {};
 
             // Only add OpenRouter metadata if we have usage information AND usage accounting was requested
             if (
@@ -754,14 +756,14 @@ function prepareToolsAndToolChoice(
           parameters: tool.parameters,
         },
       };
-    } else {
-      return {
-        type: 'function' as const,
-        function: {
-          name: tool.name,
-        },
-      };
     }
+
+    return {
+      type: 'function' as const,
+      function: {
+        name: tool.name,
+      },
+    };
   });
 
   const toolChoice = mode.toolChoice;

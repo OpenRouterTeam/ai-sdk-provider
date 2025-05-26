@@ -158,12 +158,10 @@ export function createOpenRouter(
     return createChatModel(modelId, settings as OpenRouterChatSettings);
   };
 
-  const provider = function (
+  const provider = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
-  ) {
-    return createLanguageModel(modelId, settings);
-  };
+  ) => createLanguageModel(modelId, settings);
 
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;

@@ -106,15 +106,18 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Verify metadata is included
     expect(finishChunk?.providerMetadata).toBeDefined();
-    const openrouterData = finishChunk?.providerMetadata?.openrouter as any;
+    const openrouterData = finishChunk?.providerMetadata?.openrouter;
     expect(openrouterData).toBeDefined();
 
-    const usage = openrouterData?.usage as any;
-    expect(usage).toBeDefined();
-    expect(usage.totalTokens).toBe(30);
-    expect(usage.cost).toBe(0.0015);
-    expect(usage.promptTokensDetails?.cachedTokens).toBe(5);
-    expect(usage.completionTokensDetails?.reasoningTokens).toBe(8);
+    const usage = openrouterData?.usage;
+    expect(usage).toMatchObject({
+      promptTokens: 10,
+      completionTokens: 20,
+      totalTokens: 30,
+      cost: 0.0015,
+      promptTokensDetails: { cachedTokens: 5 },
+      completionTokensDetails: { reasoningTokens: 8 },
+    });
   });
 
   it('should not include provider-specific metadata when usage accounting is disabled', async () => {
