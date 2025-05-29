@@ -29,7 +29,6 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,
 ): OpenRouterChatPrompt {
   const messages: OpenRouterChatPrompt = [];
-
   for (const { role, content, providerMetadata } of prompt) {
     switch (role) {
       case 'system': {
@@ -57,15 +56,16 @@ export function convertToOpenRouterChatMessages(
         const messageCacheControl = getCacheControl(providerMetadata);
         const contentParts: ChatCompletionContentPart[] = content.map(
           (part) => {
+            const cacheControl =
+              getCacheControl(part.providerMetadata) ?? messageCacheControl;
+
             switch (part.type) {
               case 'text':
                 return {
                   type: 'text' as const,
                   text: part.text,
                   // For text parts, only use part-specific cache control
-                  cache_control:
-                    getCacheControl(part.providerMetadata) ??
-                    messageCacheControl,
+                  cache_control: cacheControl,
                 };
               case 'image':
                 return {
@@ -79,9 +79,7 @@ export function convertToOpenRouterChatMessages(
                           )}`,
                   },
                   // For image parts, use part-specific or message-level cache control
-                  cache_control:
-                    getCacheControl(part.providerMetadata) ??
-                    messageCacheControl,
+                  cache_control: cacheControl,
                 };
               case 'file':
                 return {
@@ -95,9 +93,7 @@ export function convertToOpenRouterChatMessages(
                         ? `data:${part.mimeType};base64,${convertUint8ArrayToBase64(part.data)}`
                         : `data:${part.mimeType};base64,${part.data}`,
                   },
-                  cache_control:
-                    getCacheControl(part.providerMetadata) ??
-                    messageCacheControl,
+                  cache_control: cacheControl,
                 };
               default: {
                 const _exhaustiveCheck: never = part;
@@ -143,6 +139,7 @@ export function convertToOpenRouterChatMessages(
               });
               break;
             }
+            case 'file':
             // TODO: Handle reasoning and redacted-reasoning
             case 'reasoning':
             case 'redacted-reasoning':
