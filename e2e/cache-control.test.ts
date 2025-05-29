@@ -52,10 +52,6 @@ async function callLLM() {
           {
             type: "text",
             text: "a".repeat(4200),
-          },
-          {
-            type: "text",
-            text: 'How many "a" did I use in the previous message?',
             providerOptions: {
               openrouter: {
                 cache_control: {
@@ -63,6 +59,10 @@ async function callLLM() {
                 },
               },
             },
+          },
+          {
+            type: "text",
+            text: 'How many "a" did I use in the previous message?',
           },
         ],
       },
