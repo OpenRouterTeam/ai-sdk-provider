@@ -103,6 +103,11 @@ export function convertToOpenRouterCompletionPrompt({
                   functionality: 'redacted reasoning messages',
                 });
               }
+              case 'file': {
+                throw new UnsupportedFunctionalityError({
+                  functionality: 'file attachments',
+                });
+              }
 
               default: {
                 const _exhaustiveCheck: never = part;
