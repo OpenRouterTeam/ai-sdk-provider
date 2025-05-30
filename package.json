@@ -1,6 +1,6 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "0.6.0",
+  "version": "0.7.0-alpha.0",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -13,7 +13,7 @@
     "build": "tsup",
     "clean": "rm -rf dist && rm -rf internal/dist",
     "dev": "tsup --watch",
-    "lint": "eslint \"./**/*.ts*\"",
+    "lint": "pnpm biome lint",
     "typecheck": "tsc --noEmit",
     "stylecheck": "prettier --check \"**/*.{ts,mts,tsx,md,mdx,mjs}\"",
     "format": "prettier --write \"**/*.{ts,mts,tsx,md,mdx,mjs}\"",

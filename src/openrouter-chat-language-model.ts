@@ -1,4 +1,5 @@
-import type { OpenRouterUsageAccounting } from '@/src/types';
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   LanguageModelV1,
   LanguageModelV1FinishReason,
@@ -11,8 +12,12 @@ import type { ParseResult } from '@ai-sdk/provider-utils';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from './openrouter-chat-settings';
+} from './types/openrouter-chat-settings';
 
+import {
+  ReasoningDetailArraySchema,
+  ReasoningDetailType,
+} from '@/src/schemas/reasoning-details';
 import {
   InvalidResponseDataError,
   UnsupportedFunctionalityError,
@@ -49,6 +54,15 @@ type OpenRouterChatConfig = {
   fetch?: typeof fetch;
   extraBody?: Record<string, unknown>;
 };
+
+type DoGenerateOutput = Awaited<ReturnType<LanguageModelV1['doGenerate']>>;
+
+type LanguageModelV1ReasoningPartUnion = Extract<
+  DoGenerateOutput['reasoning'],
+  unknown[]
+>[number];
+
+type DoStreamOutput = Awaited<ReturnType<LanguageModelV1['doStream']>>;
 
 export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   readonly specificationVersion = 'v1';
@@ -177,9 +191,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       }
     }
   }
+
   async doGenerate(
     options: Parameters<LanguageModelV1['doGenerate']>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
+  ): Promise<DoGenerateOutput> {
     const args = this.getArgs(options);
 
     const { responseHeaders, value: response } = await postJsonToApi({
@@ -250,13 +265,65 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     // Prepare the final result
     const hasProviderMetadata = Object.keys(providerMetadata).length > 0;
 
+    const reasoningDetails = (choice.message.reasoning_details ??
+      []) as ReasoningDetailUnion[];
+
+    const reasoning: LanguageModelV1ReasoningPartUnion[] =
+      reasoningDetails.length > 0
+        ? reasoningDetails
+            .map((detail) => {
+              switch (detail.type) {
+                case ReasoningDetailType.Text: {
+                  if (detail.text) {
+                    return {
+                      type: 'text' as const,
+                      text: detail.text,
+                      signature: detail.signature ?? undefined,
+                    } satisfies LanguageModelV1ReasoningPartUnion;
+                  }
+                  break;
+                }
+                case ReasoningDetailType.Summary: {
+                  if (detail.summary) {
+                    return {
+                      type: 'text' as const,
+                      text: detail.summary,
+                    } satisfies LanguageModelV1ReasoningPartUnion;
+                  }
+                  break;
+                }
+                case ReasoningDetailType.Encrypted: {
+                  if (detail.data) {
+                    return {
+                      type: 'redacted' as const,
+                      data: detail.data,
+                    } satisfies LanguageModelV1ReasoningPartUnion;
+                  }
+                  break;
+                }
+                default: {
+                  detail satisfies never;
+                }
+              }
+              return null;
+            })
+            .filter((p) => p !== null)
+        : choice.message.reasoning
+          ? [
+              {
+                type: 'text' as const,
+                text: choice.message.reasoning,
+              } satisfies LanguageModelV1ReasoningPartUnion,
+            ]
+          : [];
+
     return {
       response: {
         id: response.id,
         modelId: response.model,
       },
       text: choice.message.content ?? undefined,
-      reasoning: choice.message.reasoning ?? undefined,
+      reasoning,
       toolCalls: choice.message.tool_calls?.map((toolCall) => ({
         toolCallType: 'function',
         toolCallId: toolCall.id ?? generateId(),
@@ -275,7 +342,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
   async doStream(
     options: Parameters<LanguageModelV1['doStream']>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
+  ): Promise<DoStreamOutput> {
     const args = this.getArgs(options);
 
     const { responseHeaders, value: response } = await postJsonToApi({
@@ -426,11 +493,56 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               });
             }
 
+            if (delta.reasoning_details && delta.reasoning_details.length > 0) {
+              for (const detail of delta.reasoning_details) {
+                switch (detail.type) {
+                  case ReasoningDetailType.Text: {
+                    if (detail.text) {
+                      controller.enqueue({
+                        type: 'reasoning',
+                        textDelta: detail.text,
+                      });
+                    }
+                    if (detail.signature) {
+                      controller.enqueue({
+                        type: 'reasoning-signature',
+                        signature: detail.signature,
+                      });
+                    }
+                    break;
+                  }
+                  case ReasoningDetailType.Encrypted: {
+                    if (detail.data) {
+                      controller.enqueue({
+                        type: 'redacted-reasoning',
+                        data: detail.data,
+                      });
+                    }
+                    break;
+                  }
+                  case ReasoningDetailType.Summary: {
+                    if (detail.summary) {
+                      controller.enqueue({
+                        type: 'reasoning',
+                        textDelta: detail.summary,
+                      });
+                    }
+                    break;
+                  }
+                  default: {
+                    detail satisfies never;
+                    break;
+                  }
+                }
+              }
+            }
             const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
               choice?.logprobs,
             );
             if (mappedLogprobs?.length) {
-              if (logprobs === undefined) logprobs = [];
+              if (logprobs === undefined) {
+                logprobs = [];
+              }
               logprobs.push(...mappedLogprobs);
             }
 
@@ -644,6 +756,8 @@ const OpenRouterNonStreamChatCompletionResponseSchema =
           role: z.literal('assistant'),
           content: z.string().nullable().optional(),
           reasoning: z.string().nullable().optional(),
+          reasoning_details: ReasoningDetailArraySchema.nullish(),
+
           tool_calls: z
             .array(
               z.object({
@@ -693,6 +807,7 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
             role: z.enum(['assistant']).optional(),
             content: z.string().nullish(),
             reasoning: z.string().nullish().optional(),
+            reasoning_details: ReasoningDetailArraySchema.nullish(),
             tool_calls: z
               .array(
                 z.object({
