@@ -1,4 +1,4 @@
-import type { OpenRouterChatSettings } from './openrouter-chat-settings';
+import type { OpenRouterChatSettings } from './types/openrouter-chat-settings';
 
 import {
   convertReadableStreamToArray,

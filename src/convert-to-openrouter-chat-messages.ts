@@ -1,12 +1,14 @@
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   LanguageModelV1Prompt,
   LanguageModelV1ProviderMetadata,
 } from '@ai-sdk/provider';
 import type {
   ChatCompletionContentPart,
-  OpenRouterChatPrompt,
-} from './openrouter-chat-prompt';
+  OpenRouterChatCompletionsInput,
+} from './types/openrouter-chat-completions-input';
 
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -27,8 +29,8 @@ function getCacheControl(
 
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,
-): OpenRouterChatPrompt {
-  const messages: OpenRouterChatPrompt = [];
+): OpenRouterChatCompletionsInput {
+  const messages: OpenRouterChatCompletionsInput = [];
   for (const { role, content, providerMetadata } of prompt) {
     switch (role) {
       case 'system': {
@@ -116,6 +118,8 @@ export function convertToOpenRouterChatMessages(
 
       case 'assistant': {
         let text = '';
+        let reasoning = '';
+        const reasoningDetails: ReasoningDetailUnion[] = [];
         const toolCalls: Array<{
           id: string;
           type: 'function';
@@ -139,10 +143,24 @@ export function convertToOpenRouterChatMessages(
               });
               break;
             }
+            case 'reasoning': {
+              reasoning += part.text;
+              reasoningDetails.push({
+                type: ReasoningDetailType.Text,
+                text: part.text,
+                signature: part.signature,
+              });
+
+              break;
+            }
+            case 'redacted-reasoning': {
+              reasoningDetails.push({
+                type: ReasoningDetailType.Encrypted,
+                data: part.data,
+              });
+              break;
+            }
             case 'file':
-            // TODO: Handle reasoning and redacted-reasoning
-            case 'reasoning':
-            case 'redacted-reasoning':
               break;
             default: {
               const _exhaustiveCheck: never = part;
@@ -155,6 +173,9 @@ export function convertToOpenRouterChatMessages(
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+          reasoning: reasoning || undefined,
+          reasoning_details:
+            reasoningDetails.length > 0 ? reasoningDetails : undefined,
           cache_control: getCacheControl(providerMetadata),
         });
 

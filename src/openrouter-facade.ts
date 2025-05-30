@@ -1,12 +1,12 @@
 import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './openrouter-chat-settings';
-import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './openrouter-completion-settings';
 import type { OpenRouterProviderSettings } from './openrouter-provider';
+import type {
+  OpenRouterChatModelId,
+  OpenRouterChatSettings,
+} from './types/openrouter-chat-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
