@@ -1,11 +1,11 @@
 import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './openrouter-chat-settings';
-import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './openrouter-completion-settings';
+import type {
+  OpenRouterChatModelId,
+  OpenRouterChatSettings,
+} from './types/openrouter-chat-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
@@ -158,12 +158,10 @@ export function createOpenRouter(
     return createChatModel(modelId, settings as OpenRouterChatSettings);
   };
 
-  const provider = function (
+  const provider = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
-  ) {
-    return createLanguageModel(modelId, settings);
-  };
+  ) => createLanguageModel(modelId, settings);
 
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;

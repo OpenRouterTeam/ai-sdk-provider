@@ -1,7 +1,9 @@
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
-export type OpenRouterChatPrompt = Array<ChatCompletionMessageParam>;
+export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>;
 
 export type ChatCompletionMessageParam =
   | ChatCompletionSystemMessageParam
@@ -46,12 +48,15 @@ export interface ChatCompletionContentPartImage {
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
+  reasoning?: string | null;
   cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | null;
+  reasoning?: string | null;
+  reasoning_details?: ReasoningDetailUnion[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
   cache_control?: OpenRouterCacheControl;
 }

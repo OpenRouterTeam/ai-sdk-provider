@@ -10,6 +10,7 @@ import type {
   OpenRouterCompletionSettings,
 } from './openrouter-completion-settings';
 
+import { ReasoningDetailArraySchema } from '@/src/schemas/reasoning-details';
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import {
   combineHeaders,
@@ -76,7 +77,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
 
-    const extraCallingBody = providerMetadata?.['openrouter'] ?? {};
+    const extraCallingBody = providerMetadata?.openrouter ?? {};
 
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
@@ -300,7 +301,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
               choice?.logprobs,
             );
             if (mappedLogprobs?.length) {
-              if (logprobs === undefined) logprobs = [];
+              if (logprobs === undefined) {
+                logprobs = [];
+              }
               logprobs.push(...mappedLogprobs);
             }
           },
@@ -332,6 +335,8 @@ const OpenRouterCompletionChunkSchema = z.union([
       z.object({
         text: z.string(),
         reasoning: z.string().nullish().optional(),
+        reasoning_details: ReasoningDetailArraySchema.nullish(),
+
         finish_reason: z.string().nullish(),
         index: z.number(),
         logprobs: z
