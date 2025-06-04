@@ -27,7 +27,6 @@ import {
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
-  isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
@@ -592,8 +591,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                   // check if tool call is complete (some providers send the full tool call in one chunk)
                   if (
                     toolCall.function?.name != null &&
-                    toolCall.function?.arguments != null &&
-                    isParsableJson(toolCall.function.arguments)
+                    toolCall.function?.arguments != null
                   ) {
                     // send delta
                     controller.enqueue({
@@ -604,7 +602,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                       argsTextDelta: toolCall.function.arguments,
                     });
 
-                    // send tool call
+                    // send tool call unconditionally to allow repair functionality
                     controller.enqueue({
                       type: 'tool-call',
                       toolCallType: 'function',
@@ -643,8 +641,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 // check if tool call is complete
                 if (
                   toolCall.function?.name != null &&
-                  toolCall.function?.arguments != null &&
-                  isParsableJson(toolCall.function.arguments)
+                  toolCall.function?.arguments != null
                 ) {
                   controller.enqueue({
                     type: 'tool-call',
@@ -670,10 +667,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     toolCallType: 'function',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
-                    // Coerce invalid arguments to an empty JSON object
-                    args: isParsableJson(toolCall.function.arguments)
-                      ? toolCall.function.arguments
-                      : '{}',
+                    args: toolCall.function.arguments,
                   });
                   toolCall.sent = true;
                 }
