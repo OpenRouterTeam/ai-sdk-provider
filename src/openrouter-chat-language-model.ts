@@ -27,6 +27,7 @@ import {
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
+  isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
@@ -591,7 +592,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                   // check if tool call is complete (some providers send the full tool call in one chunk)
                   if (
                     toolCall.function?.name != null &&
-                    toolCall.function?.arguments != null
+                    toolCall.function?.arguments != null &&
+                    isParsableJson(toolCall.function.arguments)
                   ) {
                     // send delta
                     controller.enqueue({
@@ -602,7 +604,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                       argsTextDelta: toolCall.function.arguments,
                     });
 
-                    // send tool call unconditionally to allow repair functionality
+                    // send tool call
                     controller.enqueue({
                       type: 'tool-call',
                       toolCallType: 'function',
@@ -641,7 +643,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 // check if tool call is complete
                 if (
                   toolCall.function?.name != null &&
-                  toolCall.function?.arguments != null
+                  toolCall.function?.arguments != null &&
+                  isParsableJson(toolCall.function.arguments)
                 ) {
                   controller.enqueue({
                     type: 'tool-call',
