@@ -733,13 +733,13 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
         .object({
           cached_tokens: z.number(),
         })
-        .optional(),
+        .nullish(),
       completion_tokens: z.number(),
       completion_tokens_details: z
         .object({
           reasoning_tokens: z.number(),
         })
-        .optional(),
+        .nullish(),
       total_tokens: z.number(),
       cost: z.number().optional(),
     })
