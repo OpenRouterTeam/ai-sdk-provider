@@ -1,39 +1,10 @@
 
 import type { 
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1CallWarning,
-  LanguageModelV1FinishReason,
-  LanguageModelV1FunctionToolCall,
-  LanguageModelV1LogProbs,
-  LanguageModelV1ProviderMetadata,
-  LanguageModelV1StreamPart,
+  LanguageModelV2,
+  LanguageModelV1 
 } from '@ai-sdk/provider';
 
-export type {
-  LanguageModelV1,
-  LanguageModelV1CallOptions,
-  LanguageModelV1CallWarning,
-  LanguageModelV1FinishReason,
-  LanguageModelV1FunctionToolCall,
-  LanguageModelV1LogProbs,
-  LanguageModelV1ProviderMetadata,
-  LanguageModelV1StreamPart,
-};
-
-export interface LanguageModelV2 {
-  readonly specificationVersion: 'v2';
-  readonly provider: string;
-  readonly modelId: string;
-  readonly maxTokensPerCall: number | undefined;
-  readonly supportsImageUrls: boolean;
-  readonly supportsUrl: boolean;
-  readonly supportedUrls: Record<string, string[]>;
-  readonly defaultObjectGenerationMode: 'json' | 'tool' | undefined;
-  
-  doGenerate(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>>;
-  doStream(options: LanguageModelV1CallOptions): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>>;
-}
+export type { LanguageModelV2, LanguageModelV1 };
 
 export type OpenRouterLanguageModel = LanguageModelV2;
 

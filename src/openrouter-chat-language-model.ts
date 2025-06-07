@@ -1,12 +1,9 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
-  LanguageModelV1,
-  LanguageModelV1FinishReason,
-  LanguageModelV1FunctionTool,
-  LanguageModelV1LogProbs,
-  LanguageModelV1ProviderDefinedTool,
-  LanguageModelV1StreamPart,
+  LanguageModelV2,
+  LanguageModelV2CallOptions,
+  LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
 
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -21,7 +18,6 @@ import {
 } from '@/src/schemas/reasoning-details';
 import {
   InvalidResponseDataError,
-  UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import {
   combineHeaders,
@@ -34,18 +30,14 @@ import {
 import { z } from 'zod';
 
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
-import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
+// import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
 import {
   OpenRouterErrorResponseSchema,
   openrouterFailedResponseHandler,
 } from './openrouter-error';
 
-function isFunctionTool(
-  tool: LanguageModelV1FunctionTool | LanguageModelV1ProviderDefinedTool,
-): tool is LanguageModelV1FunctionTool {
-  return 'parameters' in tool;
-}
+
 
 type OpenRouterChatConfig = {
   provider: string;
@@ -56,21 +48,18 @@ type OpenRouterChatConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-type DoGenerateOutput = Awaited<ReturnType<LanguageModelV1['doGenerate']>>;
 
-type LanguageModelV1ReasoningPartUnion = Extract<
-  DoGenerateOutput['reasoning'],
-  unknown[]
->[number];
 
-type DoStreamOutput = Awaited<ReturnType<LanguageModelV1['doStream']>>;
-
-export class OpenRouterChatLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = 'v1' as const;
+export class OpenRouterChatLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = 'V2' as const;
   readonly provider = 'openrouter';
-  readonly defaultObjectGenerationMode = 'tool';
+  readonly defaultObjectGenerationMode = 'tool' as const;
 
   readonly modelId: OpenRouterChatModelId;
+  readonly supportedUrls: Record<string, RegExp[]> = {
+    'image': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
+    'file': [/^data:/, /^https?:\/\/.+$/]
+  };
   readonly settings: OpenRouterChatSettings;
 
   private readonly config: OpenRouterChatConfig;
@@ -86,11 +75,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
   }
 
 
-
   private getArgs({
-    mode,
     prompt,
-    maxTokens,
+    maxOutputTokens,
     temperature,
     topP,
     frequencyPenalty,
@@ -99,10 +86,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     stopSequences,
     responseFormat,
     topK,
-    providerMetadata,
-  }: Parameters<LanguageModelV1['doGenerate']>[0]) {
-    const type = mode.type;
-    const extraCallingBody = providerMetadata?.openrouter ?? {};
+    tools,
+    toolChoice,
+  }: LanguageModelV2CallOptions) {
 
     const baseArgs = {
       // model id:
@@ -128,7 +114,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       parallel_tool_calls: this.settings.parallelToolCalls,
 
       // standardized settings:
-      max_tokens: maxTokens,
+      max_tokens: maxOutputTokens,
       temperature,
       top_p: topP,
       frequency_penalty: frequencyPenalty,
@@ -150,54 +136,58 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      ...extraCallingBody,
     };
 
-    switch (type) {
-      case 'regular': {
-        return { ...baseArgs, ...prepareToolsAndToolChoice(mode) };
-      }
-
-      case 'object-json': {
-        return {
-          ...baseArgs,
-          response_format: { type: 'json_object' },
-        };
-      }
-
-      case 'object-tool': {
-        return {
-          ...baseArgs,
-          tool_choice: { type: 'function', function: { name: mode.tool.name } },
-          tools: [
-            {
-              type: 'function',
-              function: {
-                name: mode.tool.name,
-                description: mode.tool.description,
-                parameters: mode.tool.parameters,
-              },
-            },
-          ],
-        };
-      }
-
-      // Handle all non-text types with a single default case
-      default: {
-        const _exhaustiveCheck: never = type;
-        throw new UnsupportedFunctionalityError({
-          functionality: `${_exhaustiveCheck} mode`,
-        });
-      }
+    if (responseFormat?.type === 'json') {
+      return {
+        ...baseArgs,
+        response_format: { type: 'json_object' },
+      };
     }
+
+    if (tools && tools.length > 0) {
+      const mappedTools = tools.map((tool: any) => ({
+        type: 'function' as const,
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }));
+
+      let tool_choice: any = undefined;
+      if (toolChoice) {
+        switch (toolChoice.type) {
+          case 'auto':
+          case 'none':
+          case 'required':
+            tool_choice = toolChoice.type;
+            break;
+          case 'tool':
+            tool_choice = {
+              type: 'function',
+              function: { name: toolChoice.toolName },
+            };
+            break;
+        }
+      }
+
+      return {
+        ...baseArgs,
+        tools: mappedTools,
+        tool_choice,
+      };
+    }
+
+    return baseArgs;
   }
 
   async doGenerate(
-    options: Parameters<LanguageModelV1['doGenerate']>[0],
-  ): Promise<DoGenerateOutput> {
+    options: LanguageModelV2CallOptions,
+  ): Promise<any> {
     const args = this.getArgs(options);
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -212,7 +202,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       fetch: this.config.fetch,
     });
 
-    const { messages: rawPrompt, ...rawSettings } = args;
     const choice = response.choices[0];
 
     if (!choice) {
@@ -268,7 +257,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     const reasoningDetails = (choice.message.reasoning_details ??
       []) as ReasoningDetailUnion[];
 
-    const reasoning: LanguageModelV1ReasoningPartUnion[] =
+    // const reasoning: any[] =
       reasoningDetails.length > 0
         ? reasoningDetails
             .map((detail) => {
@@ -279,7 +268,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                       type: 'text' as const,
                       text: detail.text,
                       signature: detail.signature ?? undefined,
-                    } satisfies LanguageModelV1ReasoningPartUnion;
+                    };
                   }
                   break;
                 }
@@ -288,7 +277,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     return {
                       type: 'text' as const,
                       text: detail.summary,
-                    } satisfies LanguageModelV1ReasoningPartUnion;
+                    };
                   }
                   break;
                 }
@@ -297,7 +286,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     return {
                       type: 'redacted' as const,
                       data: detail.data,
-                    } satisfies LanguageModelV1ReasoningPartUnion;
+                    };
                   }
                   break;
                 }
@@ -313,39 +302,49 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               {
                 type: 'text' as const,
                 text: choice.message.reasoning,
-              } satisfies LanguageModelV1ReasoningPartUnion,
+              },
             ]
           : [];
 
+    const content = [];
+    
+    if (choice.message.content) {
+      content.push({
+        type: 'text' as const,
+        text: choice.message.content,
+      });
+    }
+
+    if (choice.message.tool_calls) {
+      for (const toolCall of choice.message.tool_calls) {
+        content.push({
+          type: 'tool-call' as const,
+          toolCallId: toolCall.id ?? generateId(),
+          toolName: toolCall.function.name,
+          args: toolCall.function.arguments,
+        });
+      }
+    }
+
     return {
+      content,
+      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      usage: usageInfo,
+      warnings: [],
       response: {
         id: response.id,
         modelId: response.model,
       },
-      text: choice.message.content ?? undefined,
-      reasoning,
-      toolCalls: choice.message.tool_calls?.map((toolCall) => ({
-        toolCallType: 'function',
-        toolCallId: toolCall.id ?? generateId(),
-        toolName: toolCall.function.name,
-        args: toolCall.function.arguments,
-      })),
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      usage: usageInfo,
-      rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
-      warnings: [],
-      logprobs: mapOpenRouterChatLogProbsOutput(choice.logprobs),
       ...(hasProviderMetadata ? { providerMetadata } : {}),
     };
   }
 
   async doStream(
-    options: Parameters<LanguageModelV1['doStream']>[0],
-  ): Promise<DoStreamOutput> {
+    options: LanguageModelV2CallOptions,
+  ): Promise<any> {
     const args = this.getArgs(options);
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -375,8 +374,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       fetch: this.config.fetch,
     });
 
-    const { messages: rawPrompt, ...rawSettings } = args;
-
     const toolCalls: Array<{
       id: string;
       type: 'function';
@@ -388,12 +385,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       sent: boolean;
     }> = [];
 
-    let finishReason: LanguageModelV1FinishReason = 'other';
-    let usage: { promptTokens: number; completionTokens: number } = {
-      promptTokens: Number.NaN,
-      completionTokens: Number.NaN,
+    let finishReason: any = 'other';
+    let usage: any = {
+      inputTokens: Number.NaN,
+      outputTokens: Number.NaN,
+      totalTokens: Number.NaN,
     };
-    let logprobs: LanguageModelV1LogProbs;
+    let responseId: string | undefined;
+    let responseModel: string | undefined;
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
@@ -407,7 +406,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
           ParseResult<
             z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
           >,
-          LanguageModelV1StreamPart
+          LanguageModelV2StreamPart
         >({
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
@@ -427,6 +426,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             }
 
             if (value.id) {
+              responseId = value.id;
               controller.enqueue({
                 type: 'response-metadata',
                 id: value.id,
@@ -434,6 +434,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             }
 
             if (value.model) {
+              responseModel = value.model;
               controller.enqueue({
                 type: 'response-metadata',
                 modelId: value.model,
@@ -442,8 +443,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
 
             if (value.usage != null) {
               usage = {
-                promptTokens: value.usage.prompt_tokens,
-                completionTokens: value.usage.completion_tokens,
+                inputTokens: value.usage.prompt_tokens,
+                outputTokens: value.usage.completion_tokens,
+                totalTokens: value.usage.prompt_tokens + value.usage.completion_tokens,
               };
 
               // Collect OpenRouter specific usage information
@@ -530,21 +532,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     break;
                   }
                   default: {
-                    detail satisfies never;
+                    detail satisfies any;
                     break;
                   }
                 }
               }
             }
-            const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
-              choice?.logprobs,
-            );
-            if (mappedLogprobs?.length) {
-              if (logprobs === undefined) {
-                logprobs = [];
-              }
-              logprobs.push(...mappedLogprobs);
-            }
+            // const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
+            //   choice?.logprobs,
+            // );
+            // if (mappedLogprobs?.length) {
+            //   if (logprobs === undefined) {
+            //     logprobs = [];
+            //   }
+            //   logprobs.push(...mappedLogprobs);
+            // }
 
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
@@ -709,15 +711,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             controller.enqueue({
               type: 'finish',
               finishReason,
-              logprobs,
               usage,
+              warnings: [],
+              response: {
+                id: responseId,
+                modelId: responseModel,
+              },
               ...(hasProviderMetadata ? { providerMetadata } : {}),
             });
           },
         }),
       ),
-      rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
       warnings: [],
     };
   }
@@ -848,65 +852,3 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
   }),
   OpenRouterErrorResponseSchema,
 ]);
-
-function prepareToolsAndToolChoice(
-  mode: Parameters<LanguageModelV1['doGenerate']>[0]['mode'] & {
-    type: 'regular';
-  },
-) {
-  // when the tools array is empty, change it to undefined to prevent errors:
-  const tools = mode.tools?.length ? mode.tools : undefined;
-
-  if (tools == null) {
-    return { tools: undefined, tool_choice: undefined };
-  }
-
-  const mappedTools = tools.map((tool) => {
-    if (isFunctionTool(tool)) {
-      return {
-        type: 'function' as const,
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters,
-        },
-      };
-    }
-
-    return {
-      type: 'function' as const,
-      function: {
-        name: tool.name,
-      },
-    };
-  });
-
-  const toolChoice = mode.toolChoice;
-
-  if (toolChoice == null) {
-    return { tools: mappedTools, tool_choice: undefined };
-  }
-
-  const type = toolChoice.type;
-
-  switch (type) {
-    case 'auto':
-    case 'none':
-    case 'required':
-      return { tools: mappedTools, tool_choice: type };
-    case 'tool':
-      return {
-        tools: mappedTools,
-        tool_choice: {
-          type: 'function',
-          function: {
-            name: toolChoice.toolName,
-          },
-        },
-      };
-    default: {
-      const _exhaustiveCheck: never = type;
-      throw new Error(`Unsupported tool choice type: ${_exhaustiveCheck}`);
-    }
-  }
-}

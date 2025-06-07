@@ -1,4 +1,4 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import {
   InvalidPromptError,
@@ -11,7 +11,7 @@ export function convertToOpenRouterCompletionPrompt({
   user = 'user',
   assistant = 'assistant',
 }: {
-  prompt: LanguageModelV1Prompt;
+  prompt: LanguageModelV2Prompt;
   inputFormat: 'prompt' | 'messages';
   user?: string;
   assistant?: string;

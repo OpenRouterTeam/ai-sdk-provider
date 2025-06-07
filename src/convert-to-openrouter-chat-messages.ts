@@ -1,7 +1,7 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
-  LanguageModelV1Prompt,
-  LanguageModelV1ProviderMetadata,
+  LanguageModelV2Prompt,
+  LanguageModelV2ProviderMetadata,
 } from '@ai-sdk/provider';
 import type {
   ChatCompletionContentPart,
@@ -15,7 +15,7 @@ import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: LanguageModelV1ProviderMetadata | undefined,
+  providerMetadata: LanguageModelV2ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
@@ -28,7 +28,7 @@ function getCacheControl(
 }
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV1Prompt,
+  prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
   for (const { role, content, providerMetadata } of prompt) {

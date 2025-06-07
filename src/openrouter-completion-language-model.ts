@@ -1,8 +1,7 @@
 import type {
-  LanguageModelV1,
-  LanguageModelV1FinishReason,
-  LanguageModelV1LogProbs,
-  LanguageModelV1StreamPart,
+  LanguageModelV2,
+  LanguageModelV2CallOptions,
+  LanguageModelV2StreamPart,
 } from '@ai-sdk/provider';
 
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -22,7 +21,7 @@ import {
 import { z } from 'zod';
 
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
-import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
+
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
 import {
   OpenRouterErrorResponseSchema,
@@ -38,12 +37,15 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = 'v1' as const;
+export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = 'V2' as const;
   readonly provider = 'openrouter';
-  readonly defaultObjectGenerationMode = undefined;
-
   readonly modelId: OpenRouterCompletionModelId;
+  readonly supportedUrls: Record<string, RegExp[]> = {
+    'image': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
+    'file': [/^data:/, /^https?:\/\/.+$/]
+  };
+  readonly defaultObjectGenerationMode = undefined;
   readonly settings: OpenRouterCompletionSettings;
 
   private readonly config: OpenRouterCompletionConfig;
@@ -59,12 +61,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }
 
 
-
   private getArgs({
-    mode,
-    inputFormat,
     prompt,
-    maxTokens,
+    maxOutputTokens,
     temperature,
     topP,
     frequencyPenalty,
@@ -73,18 +72,28 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     responseFormat,
     topK,
     stopSequences,
-    providerMetadata,
-  }: Parameters<LanguageModelV1['doGenerate']>[0]) {
-    const type = mode.type;
-
-    const extraCallingBody = providerMetadata?.openrouter ?? {};
+    tools,
+    toolChoice,
+  }: LanguageModelV2CallOptions) {
 
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
-      inputFormat,
+      inputFormat: 'prompt',
     });
 
-    const baseArgs = {
+    if (tools?.length) {
+      throw new UnsupportedFunctionalityError({
+        functionality: 'tools',
+      });
+    }
+
+    if (toolChoice) {
+      throw new UnsupportedFunctionalityError({
+        functionality: 'toolChoice',
+      });
+    }
+
+    return {
       // model id:
       model: this.modelId,
       models: this.settings.models,
@@ -103,7 +112,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       user: this.settings.user,
 
       // standardized settings:
-      max_tokens: maxTokens,
+      max_tokens: maxOutputTokens,
       temperature,
       top_p: topP,
       frequency_penalty: frequencyPenalty,
@@ -124,54 +133,15 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      ...extraCallingBody,
     };
-
-    switch (type) {
-      case 'regular': {
-        if (mode.tools?.length) {
-          throw new UnsupportedFunctionalityError({
-            functionality: 'tools',
-          });
-        }
-
-        if (mode.toolChoice) {
-          throw new UnsupportedFunctionalityError({
-            functionality: 'toolChoice',
-          });
-        }
-
-        return baseArgs;
-      }
-
-      case 'object-json': {
-        throw new UnsupportedFunctionalityError({
-          functionality: 'object-json mode',
-        });
-      }
-
-      case 'object-tool': {
-        throw new UnsupportedFunctionalityError({
-          functionality: 'object-tool mode',
-        });
-      }
-
-      // Handle all non-text types with a single default case
-      default: {
-        const _exhaustiveCheck: never = type;
-        throw new UnsupportedFunctionalityError({
-          functionality: `${_exhaustiveCheck} mode`,
-        });
-      }
-    }
   }
 
   async doGenerate(
-    options: Parameters<LanguageModelV1['doGenerate']>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1['doGenerate']>>> {
+    options: LanguageModelV2CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
     const args = this.getArgs(options);
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       url: this.config.url({
         path: '/completions',
         modelId: this.modelId,
@@ -186,7 +156,6 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       fetch: this.config.fetch,
     });
 
-    const { prompt: rawPrompt, ...rawSettings } = args;
     if ('error' in response) {
       throw new Error(`${response.error.message}`);
     }
@@ -198,37 +167,35 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     }
 
     return {
-      response: {
-        id: response.id,
-        modelId: response.model,
-      },
-      text: choice.text ?? '',
-      reasoning: choice.reasoning || undefined,
-      usage: {
-        promptTokens: response.usage?.prompt_tokens ?? 0,
-        completionTokens: response.usage?.completion_tokens ?? 0,
-      },
+      content: [
+        {
+          type: 'text',
+          text: choice.text ?? '',
+        },
+      ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      logprobs: mapOpenRouterCompletionLogProbs(choice.logprobs),
-      rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
+      usage: {
+        inputTokens: response.usage?.prompt_tokens ?? 0,
+        outputTokens: response.usage?.completion_tokens ?? 0,
+        totalTokens: (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0),
+      },
       warnings: [],
     };
   }
 
   async doStream(
-    options: Parameters<LanguageModelV1['doStream']>[0],
-  ): Promise<Awaited<ReturnType<LanguageModelV1['doStream']>>> {
+    options: LanguageModelV2CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
     const args = this.getArgs(options);
 
-    const { responseHeaders, value: response } = await postJsonToApi({
+    const { value: response } = await postJsonToApi({
       url: this.config.url({
         path: '/completions',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: {
-        ...this.getArgs(options),
+        ...args,
         stream: true,
 
         // only include stream_options when in strict compatibility mode:
@@ -245,20 +212,20 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       fetch: this.config.fetch,
     });
 
-    const { prompt: rawPrompt, ...rawSettings } = args;
-
-    let finishReason: LanguageModelV1FinishReason = 'other';
-    let usage: { promptTokens: number; completionTokens: number } = {
-      promptTokens: Number.NaN,
-      completionTokens: Number.NaN,
+    let finishReason: any = 'other';
+    let usage: any = {
+      inputTokens: Number.NaN,
+      outputTokens: Number.NaN,
+      totalTokens: Number.NaN,
     };
-    let logprobs: LanguageModelV1LogProbs;
+    let responseId: string | undefined;
+    let responseModel: string | undefined;
 
     return {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
-          LanguageModelV1StreamPart
+          LanguageModelV2StreamPart
         >({
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
@@ -279,9 +246,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
             if (value.usage != null) {
               usage = {
-                promptTokens: value.usage.prompt_tokens,
-                completionTokens: value.usage.completion_tokens,
+                inputTokens: value.usage.prompt_tokens,
+                outputTokens: value.usage.completion_tokens,
+                totalTokens: value.usage.prompt_tokens + value.usage.completion_tokens,
               };
+            }
+
+            if (value.id) {
+              responseId = value.id;
+            }
+            if (value.model) {
+              responseModel = value.model;
             }
 
             const choice = value.choices[0];
@@ -292,34 +267,32 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
             if (choice?.text != null) {
               controller.enqueue({
-                type: 'text-delta',
-                textDelta: choice.text,
+                type: 'content-delta',
+                delta: {
+                  type: 'text',
+                  text: choice.text,
+                },
               });
             }
 
-            const mappedLogprobs = mapOpenRouterCompletionLogProbs(
-              choice?.logprobs,
-            );
-            if (mappedLogprobs?.length) {
-              if (logprobs === undefined) {
-                logprobs = [];
-              }
-              logprobs.push(...mappedLogprobs);
-            }
+
           },
 
           flush(controller) {
             controller.enqueue({
               type: 'finish',
               finishReason,
-              logprobs,
               usage,
+              warnings: [],
+              response: {
+                id: responseId,
+                modelId: responseModel,
+                headers: {},
+              },
             });
           },
         }),
       ),
-      rawCall: { rawPrompt, rawSettings },
-      rawResponse: { headers: responseHeaders },
       warnings: [],
     };
   }
