@@ -4,7 +4,7 @@ import type {
   LanguageModelV1LogProbs,
   LanguageModelV1StreamPart,
 } from '@ai-sdk/provider';
-import type { LanguageModelV2 } from './types/index';
+
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type {
   OpenRouterCompletionModelId,
@@ -38,9 +38,9 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
-  readonly supportedUrls = {} as const;
+export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
+  readonly specificationVersion = 'v1' as const;
+  readonly provider = 'openrouter';
   readonly defaultObjectGenerationMode = undefined;
 
   readonly modelId: OpenRouterCompletionModelId;
@@ -58,9 +58,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     this.config = config;
   }
 
-  get provider(): string {
-    return this.config.provider;
-  }
+
 
   private getArgs({
     mode,
