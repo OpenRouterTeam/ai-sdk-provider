@@ -1,4 +1,4 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from './openrouter-provider';
 
 // Add type assertions for the mocked classes
-const TEST_MESSAGES: LanguageModelV1Prompt = [
+const TEST_MESSAGES: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 

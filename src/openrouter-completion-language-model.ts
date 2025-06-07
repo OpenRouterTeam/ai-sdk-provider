@@ -38,12 +38,13 @@ type OpenRouterCompletionConfig = {
 };
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'V2' as const;
+  readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
-    'image': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
-    'file': [/^data:/, /^https?:\/\/.+$/]
+    'image/*': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
+    'text/*': [/^data:text\//, /^https?:\/\/.+$/],
+    'application/*': [/^data:application\//, /^https?:\/\/.+$/]
   };
   readonly defaultObjectGenerationMode = undefined;
   readonly settings: OpenRouterCompletionSettings;
@@ -179,7 +180,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         outputTokens: response.usage?.completion_tokens ?? 0,
         totalTokens: (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0),
       },
-      warnings: [],
+
     };
   }
 
@@ -218,8 +219,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       outputTokens: Number.NaN,
       totalTokens: Number.NaN,
     };
-    let responseId: string | undefined;
-    let responseModel: string | undefined;
+
 
     return {
       stream: response.pipeThrough(
@@ -252,12 +252,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
               };
             }
 
-            if (value.id) {
-              responseId = value.id;
-            }
-            if (value.model) {
-              responseModel = value.model;
-            }
+
 
             const choice = value.choices[0];
 
@@ -267,11 +262,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
             if (choice?.text != null) {
               controller.enqueue({
-                type: 'content-delta',
-                delta: {
-                  type: 'text',
-                  text: choice.text,
-                },
+                type: 'text',
+                text: choice.text,
               });
             }
 
@@ -283,17 +275,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
               type: 'finish',
               finishReason,
               usage,
-              warnings: [],
-              response: {
-                id: responseId,
-                modelId: responseModel,
-                headers: {},
-              },
             });
           },
         }),
       ),
-      warnings: [],
+
     };
   }
 }

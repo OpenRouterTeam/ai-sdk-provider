@@ -1,15 +1,14 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
 import { createOpenRouter } from './openrouter-provider';
 
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -116,11 +115,10 @@ const provider = createOpenRouter({
 const model = provider.chat('anthropic/claude-3.5-sonnet');
 
 describe('doGenerate', () => {
-  const server = new JsonTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
-  );
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': { response: {} },
+  });
 
-  server.setupTestEnvironment();
 
   function prepareJsonResponse({
     content = '',
@@ -149,8 +147,9 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   } = {}) {
-    server.responseBodyJson = {
-      id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
+    server.urls['https://openrouter.ai/api/v1/chat/completions'].response = {
+      body: {
+        id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
       object: 'chat.completion',
       created: 1711115037,
       model: 'gpt-3.5-turbo-0125',
@@ -167,6 +166,7 @@ describe('doGenerate', () => {
       ],
       usage,
       system_fingerprint: 'fp_3bc1b5746c',
+      },
     };
   }
 
@@ -416,11 +416,10 @@ describe('doGenerate', () => {
 });
 
 describe('doStream', () => {
-  const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
-  );
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': { response: {} },
+  });
 
-  server.setupTestEnvironment();
 
   function prepareStreamResponse({
     content,

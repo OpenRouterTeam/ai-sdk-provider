@@ -51,14 +51,15 @@ type OpenRouterChatConfig = {
 
 
 export class OpenRouterChatLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'V2' as const;
+  readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
   readonly defaultObjectGenerationMode = 'tool' as const;
 
   readonly modelId: OpenRouterChatModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
-    'image': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
-    'file': [/^data:/, /^https?:\/\/.+$/]
+    'image/*': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i],
+    'text/*': [/^data:text\//, /^https?:\/\/.+$/],
+    'application/*': [/^data:application\//, /^https?:\/\/.+$/]
   };
   readonly settings: OpenRouterChatSettings;
 

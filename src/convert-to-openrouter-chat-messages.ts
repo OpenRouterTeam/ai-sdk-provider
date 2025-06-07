@@ -1,7 +1,7 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   LanguageModelV2Prompt,
-  LanguageModelV2ProviderMetadata,
+  SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
 import type {
   ChatCompletionContentPart,
@@ -15,7 +15,7 @@ import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: LanguageModelV2ProviderMetadata | undefined,
+  providerMetadata: SharedV2ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
@@ -31,13 +31,13 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
-  for (const { role, content, providerMetadata } of prompt) {
+  for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
         messages.push({
           role: 'system',
           content,
-          cache_control: getCacheControl(providerMetadata),
+          cache_control: getCacheControl(providerOptions),
         });
         break;
       }
@@ -48,18 +48,18 @@ export function convertToOpenRouterChatMessages(
             role: 'user',
             content: content[0].text,
             cache_control:
-              getCacheControl(providerMetadata) ??
-              getCacheControl(content[0].providerMetadata),
+              getCacheControl(providerOptions) ??
+              getCacheControl(content[0].providerOptions),
           });
           break;
         }
 
         // Get message level cache control
-        const messageCacheControl = getCacheControl(providerMetadata);
+        const messageCacheControl = getCacheControl(providerOptions);
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part) => {
+          (part: any) => {
             const cacheControl =
-              getCacheControl(part.providerMetadata) ?? messageCacheControl;
+              getCacheControl(part.providerOptions) ?? messageCacheControl;
 
             switch (part.type) {
               case 'text':
@@ -69,39 +69,41 @@ export function convertToOpenRouterChatMessages(
                   // For text parts, only use part-specific cache control
                   cache_control: cacheControl,
                 };
-              case 'image':
-                return {
-                  type: 'image_url' as const,
-                  image_url: {
-                    url:
-                      part.image instanceof URL
-                        ? part.image.toString()
-                        : `data:${part.mimeType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
-                            part.image,
-                          )}`,
-                  },
-                  // For image parts, use part-specific or message-level cache control
-                  cache_control: cacheControl,
-                };
               case 'file':
+                if (part.mediaType?.startsWith('image/')) {
+                  return {
+                    type: 'image_url' as const,
+                    image_url: {
+                      url:
+                        part.data instanceof URL
+                          ? part.data.toString()
+                          : `data:${part.mediaType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
+                              part.data instanceof Uint8Array ? part.data : new Uint8Array(),
+                            )}`,
+                    },
+                    // For image parts, use part-specific or message-level cache control
+                    cache_control: cacheControl,
+                  };
+                }
                 return {
                   type: 'file' as const,
                   file: {
                     filename: String(
-                      part.providerMetadata?.openrouter?.filename,
+                      part.providerOptions?.openrouter?.filename,
                     ),
                     file_data:
                       part.data instanceof Uint8Array
-                        ? `data:${part.mimeType};base64,${convertUint8ArrayToBase64(part.data)}`
-                        : `data:${part.mimeType};base64,${part.data}`,
+                        ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                        : `data:${part.mediaType};base64,${part.data}`,
                   },
                   cache_control: cacheControl,
                 };
               default: {
-                const _exhaustiveCheck: never = part;
-                throw new Error(
-                  `Unsupported content part type: ${_exhaustiveCheck}`,
-                );
+                return {
+                  type: 'text' as const,
+                  text: '',
+                  cache_control: cacheControl,
+                };
               }
             }
           },
@@ -148,23 +150,15 @@ export function convertToOpenRouterChatMessages(
               reasoningDetails.push({
                 type: ReasoningDetailType.Text,
                 text: part.text,
-                signature: part.signature,
               });
 
               break;
             }
-            case 'redacted-reasoning': {
-              reasoningDetails.push({
-                type: ReasoningDetailType.Encrypted,
-                data: part.data,
-              });
-              break;
-            }
+
             case 'file':
               break;
             default: {
-              const _exhaustiveCheck: never = part;
-              throw new Error(`Unsupported part: ${_exhaustiveCheck}`);
+              break;
             }
           }
         }
@@ -176,7 +170,7 @@ export function convertToOpenRouterChatMessages(
           reasoning: reasoning || undefined,
           reasoning_details:
             reasoningDetails.length > 0 ? reasoningDetails : undefined,
-          cache_control: getCacheControl(providerMetadata),
+          cache_control: getCacheControl(providerOptions),
         });
 
         break;
@@ -189,16 +183,15 @@ export function convertToOpenRouterChatMessages(
             tool_call_id: toolResponse.toolCallId,
             content: JSON.stringify(toolResponse.result),
             cache_control:
-              getCacheControl(providerMetadata) ??
-              getCacheControl(toolResponse.providerMetadata),
+              getCacheControl(providerOptions) ??
+              getCacheControl(toolResponse.providerOptions),
           });
         }
         break;
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
+        break;
       }
     }
   }

@@ -1,4 +1,11 @@
-import type { LanguageModelV2LogProbs } from '@ai-sdk/provider';
+type LanguageModelV2LogProbs = Array<{
+  token: string;
+  logprob: number;
+  topLogprobs: Array<{
+    token: string;
+    logprob: number;
+  }>;
+}>;
 
 type OpenRouterChatLogProbs = {
   content:

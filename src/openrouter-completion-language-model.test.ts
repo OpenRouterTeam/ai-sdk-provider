@@ -1,15 +1,14 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 
 import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
 import { createOpenRouter } from './openrouter-provider';
 
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -48,7 +47,7 @@ const provider = createOpenRouter({
 const model = provider.completion('openai/gpt-3.5-turbo-instruct');
 
 describe('doGenerate', () => {
-  const server = new JsonTestServer('https://openrouter.ai/api/v1/completions');
+  const server = createTestServer('https://openrouter.ai/api/v1/completions');
 
   server.setupTestEnvironment();
 
@@ -262,7 +261,7 @@ describe('doGenerate', () => {
 });
 
 describe('doStream', () => {
-  const server = new StreamingTestServer(
+  const server = createTestServer(
     'https://openrouter.ai/api/v1/completions',
   );
 
