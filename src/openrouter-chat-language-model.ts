@@ -8,6 +8,7 @@ import type {
   LanguageModelV1ProviderDefinedTool,
   LanguageModelV1StreamPart,
 } from '@ai-sdk/provider';
+import type { LanguageModelV2 } from './types/index';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type {
   OpenRouterChatModelId,
@@ -64,9 +65,10 @@ type LanguageModelV1ReasoningPartUnion = Extract<
 
 type DoStreamOutput = Awaited<ReturnType<LanguageModelV1['doStream']>>;
 
-export class OpenRouterChatLanguageModel implements LanguageModelV1 {
-  readonly specificationVersion = 'v1';
-  readonly defaultObjectGenerationMode = 'tool';
+export class OpenRouterChatLanguageModel implements LanguageModelV2 {
+  readonly specificationVersion = 'v2' as const;
+  readonly supportedUrls = {} as const;
+  readonly defaultObjectGenerationMode = 'tool' as const;
 
   readonly modelId: OpenRouterChatModelId;
   readonly settings: OpenRouterChatSettings;

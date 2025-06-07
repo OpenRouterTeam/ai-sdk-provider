@@ -1,10 +1,30 @@
-import type { LanguageModelV1 } from '@ai-sdk/provider';
 
-// Re-export the LanguageModelV1 type to ensure proper type compatibility
-export type { LanguageModelV1 };
+export type {
+  LanguageModelV1,
+  LanguageModelV1CallOptions,
+  LanguageModelV1CallWarning,
+  LanguageModelV1FinishReason,
+  LanguageModelV1FunctionToolCall,
+  LanguageModelV1LogProbs,
+  LanguageModelV1ProviderMetadata,
+  LanguageModelV1StreamPart,
+} from '@ai-sdk/provider';
 
-// Export our model types with explicit type constraints
-export type OpenRouterLanguageModel = LanguageModelV1;
+export interface LanguageModelV2 {
+  readonly specificationVersion: 'v2';
+  readonly provider: string;
+  readonly modelId: string;
+  readonly maxTokensPerCall: number | undefined;
+  readonly supportsImageUrls: boolean;
+  readonly supportsUrl: boolean;
+  readonly defaultObjectGenerationMode: 'json' | 'tool' | undefined;
+  readonly supportedUrls: Record<string, string[]>;
+  
+  doGenerate(options: any): Promise<any>;
+  doStream(options: any): Promise<any>;
+}
+
+export type OpenRouterLanguageModel = LanguageModelV2;
 
 export type OpenRouterProviderOptions = {
   models?: string[];
