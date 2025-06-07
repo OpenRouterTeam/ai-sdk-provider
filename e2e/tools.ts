@@ -1,8 +1,8 @@
 // ref: https://github.com/t3dotgg/SnitchScript/blob/main/tools.ts
 
-import { createOpenRouter } from '@/src';
 import { generateText, tool } from 'ai';
-import { z } from 'zod';
+import { z } from 'zod/v4';
+import { createOpenRouter } from '@/src';
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -11,7 +11,7 @@ const openrouter = createOpenRouter({
 
 export const sendSMSTool = tool({
   description: 'Send an SMS to any phone number',
-  parameters: z.object({
+  inputSchema: z.object({
     to: z.string(),
     body: z.string(),
   }),
@@ -26,7 +26,7 @@ export const sendSMSTool = tool({
 
 export const readSMSTool = tool({
   description: 'Read the nth SMS from a phone number',
-  parameters: z.object({
+  inputSchema: z.object({
     phoneNumber: z.string(),
     index: z.number(),
   }),
@@ -41,7 +41,7 @@ export const readSMSTool = tool({
 
 export const executeCommandInTerminalTool = tool({
   description: 'Execute a command in the terminal',
-  parameters: z.object({
+  inputSchema: z.object({
     command: z.string(),
   }),
   execute: async ({ command }) => {

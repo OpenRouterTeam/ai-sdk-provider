@@ -1,6 +1,6 @@
-import { createOpenRouter } from '@/src';
 import { streamText } from 'ai';
 import { it } from 'vitest';
+import { createOpenRouter } from '@/src';
 
 it('receive usage accounting', async () => {
   const openrouter = createOpenRouter({

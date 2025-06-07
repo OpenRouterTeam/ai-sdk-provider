@@ -1,13 +1,13 @@
-import type { UIMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
+import { generateText } from 'ai';
+import { it, vi } from 'vitest';
 import {
   executeCommandInTerminalTool,
   readSMSTool,
   sendSMSTool,
 } from '@/e2e/tools';
 import { createOpenRouter } from '@/src';
-import { generateText } from 'ai';
-import { it, vi } from 'vitest';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -30,13 +30,11 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         include: true,
       },
     });
-    const messageHistory: UIMessage[] = [];
+    const messageHistory: ModelMessage[] = [];
     for (const prompt of prompts) {
       messageHistory.push({
-        id: crypto.randomUUID(),
         role: 'user',
-        content: prompt,
-        parts: [
+        content: [
           {
             type: 'text',
             text: prompt,
@@ -54,7 +52,6 @@ describe('Vercel AI SDK tools call with reasoning', () => {
           sendSMS: sendSMSTool,
           executeCommand: executeCommandInTerminalTool,
         },
-        maxSteps: 10,
         providerOptions: {
           openrouter: {
             reasoning: {
@@ -64,19 +61,14 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         },
       });
 
-      const parts = response.steps.map(
-        (step) =>
-          ({
-            type: 'text' as const,
-            text: step.text,
-          }) satisfies UIMessage['parts'][number],
-      ) satisfies UIMessage['parts'];
+      const content = response.steps.map((step) => ({
+        type: 'text' as const,
+        text: step.text,
+      }));
 
       messageHistory.push({
-        id: crypto.randomUUID(),
         role: 'assistant',
-        content: response.text,
-        parts,
+        content,
       });
     }
   });

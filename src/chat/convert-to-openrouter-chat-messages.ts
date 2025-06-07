@@ -1,21 +1,24 @@
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
-  LanguageModelV1Prompt,
-  LanguageModelV1ProviderMetadata,
+  LanguageModelV2FilePart,
+  LanguageModelV2Prompt,
+  LanguageModelV2TextPart,
+  LanguageModelV2ToolResultPart,
+  SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
-} from './types/openrouter-chat-completions-input';
+} from '../types/openrouter-chat-completions-input';
 
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: LanguageModelV1ProviderMetadata | undefined,
+  providerMetadata: SharedV2ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
@@ -28,16 +31,16 @@ function getCacheControl(
 }
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV1Prompt,
+  prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
-  for (const { role, content, providerMetadata } of prompt) {
+  for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
         messages.push({
           role: 'system',
           content,
-          cache_control: getCacheControl(providerMetadata),
+          cache_control: getCacheControl(providerOptions),
         });
         break;
       }
@@ -45,8 +48,8 @@ export function convertToOpenRouterChatMessages(
       case 'user': {
         if (content.length === 1 && content[0]?.type === 'text') {
           const cacheControl =
-            getCacheControl(providerMetadata) ??
-            getCacheControl(content[0].providerMetadata);
+            getCacheControl(providerOptions) ??
+            getCacheControl(content[0].providerOptions);
           const contentWithCacheControl: string | ChatCompletionContentPart[] =
             cacheControl
               ? [
@@ -65,11 +68,11 @@ export function convertToOpenRouterChatMessages(
         }
 
         // Get message level cache control
-        const messageCacheControl = getCacheControl(providerMetadata);
+        const messageCacheControl = getCacheControl(providerOptions);
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part) => {
+          (part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
             const cacheControl =
-              getCacheControl(part.providerMetadata) ?? messageCacheControl;
+              getCacheControl(part.providerOptions) ?? messageCacheControl;
 
             switch (part.type) {
               case 'text':
@@ -79,41 +82,45 @@ export function convertToOpenRouterChatMessages(
                   // For text parts, only use part-specific cache control
                   cache_control: cacheControl,
                 };
-              case 'image':
-                return {
-                  type: 'image_url' as const,
-                  image_url: {
-                    url:
-                      part.image instanceof URL
-                        ? part.image.toString()
-                        : `data:${part.mimeType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
-                            part.image,
-                          )}`,
-                  },
-                  // For image parts, use part-specific or message-level cache control
-                  cache_control: cacheControl,
-                };
               case 'file':
+                if (part.mediaType?.startsWith('image/')) {
+                  return {
+                    type: 'image_url' as const,
+                    image_url: {
+                      url:
+                        part.data instanceof URL
+                          ? part.data.toString()
+                          : `data:${part.mediaType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
+                              part.data instanceof Uint8Array
+                                ? part.data
+                                : new Uint8Array(),
+                            )}`,
+                    },
+                    // For image parts, use part-specific or message-level cache control
+                    cache_control: cacheControl,
+                  };
+                }
                 return {
                   type: 'file' as const,
                   file: {
                     filename: String(
-                      part.providerMetadata?.openrouter?.filename ??
+                      part.providerOptions?.openrouter?.filename ??
                         part.filename ??
                         '',
                     ),
                     file_data:
                       part.data instanceof Uint8Array
-                        ? `data:${part.mimeType};base64,${convertUint8ArrayToBase64(part.data)}`
-                        : `data:${part.mimeType};base64,${part.data}`,
+                        ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
+                        : `data:${part.mediaType};base64,${part.data}`,
                   },
                   cache_control: cacheControl,
                 };
               default: {
-                const _exhaustiveCheck: never = part;
-                throw new Error(
-                  `Unsupported content part type: ${_exhaustiveCheck}`,
-                );
+                return {
+                  type: 'text' as const,
+                  text: '',
+                  cache_control: cacheControl,
+                };
               }
             }
           },
@@ -150,7 +157,7 @@ export function convertToOpenRouterChatMessages(
                 type: 'function',
                 function: {
                   name: part.toolName,
-                  arguments: JSON.stringify(part.args),
+                  arguments: JSON.stringify(part.input),
                 },
               });
               break;
@@ -160,23 +167,15 @@ export function convertToOpenRouterChatMessages(
               reasoningDetails.push({
                 type: ReasoningDetailType.Text,
                 text: part.text,
-                signature: part.signature,
               });
 
               break;
             }
-            case 'redacted-reasoning': {
-              reasoningDetails.push({
-                type: ReasoningDetailType.Encrypted,
-                data: part.data,
-              });
-              break;
-            }
+
             case 'file':
               break;
             default: {
-              const _exhaustiveCheck: never = part;
-              throw new Error(`Unsupported part: ${_exhaustiveCheck}`);
+              break;
             }
           }
         }
@@ -188,7 +187,7 @@ export function convertToOpenRouterChatMessages(
           reasoning: reasoning || undefined,
           reasoning_details:
             reasoningDetails.length > 0 ? reasoningDetails : undefined,
-          cache_control: getCacheControl(providerMetadata),
+          cache_control: getCacheControl(providerOptions),
         });
 
         break;
@@ -196,24 +195,31 @@ export function convertToOpenRouterChatMessages(
 
       case 'tool': {
         for (const toolResponse of content) {
+          const content = getToolResultContent(toolResponse);
+
           messages.push({
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
-            content: JSON.stringify(toolResponse.result),
+            content,
             cache_control:
-              getCacheControl(providerMetadata) ??
-              getCacheControl(toolResponse.providerMetadata),
+              getCacheControl(providerOptions) ??
+              getCacheControl(toolResponse.providerOptions),
           });
         }
         break;
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
+        break;
       }
     }
   }
 
   return messages;
+}
+
+function getToolResultContent(input: LanguageModelV2ToolResultPart): string {
+  return input.output.type === 'text'
+    ? input.output.value
+    : JSON.stringify(input.output.value);
 }

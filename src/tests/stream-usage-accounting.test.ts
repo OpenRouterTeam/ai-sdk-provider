@@ -1,33 +1,47 @@
-import type { OpenRouterChatSettings } from './types/openrouter-chat-settings';
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
 import {
   convertReadableStreamToArray,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
-
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
+import { OpenRouterChatLanguageModel } from '../chat';
 
 describe('OpenRouter Streaming Usage Accounting', () => {
-  const server = new StreamingTestServer(
-    'https://api.openrouter.ai/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://api.openrouter.ai/chat/completions': {
+      response: { type: 'stream-chunks', chunks: [] },
+    },
+  });
 
   function prepareStreamResponse(includeUsage = true) {
-    server.responseChunks = [
+    const chunks = [
       `data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"Hello"},"index":0}]}\n\n`,
       `data: {"choices":[{"finish_reason":"stop","index":0}]}\n\n`,
     ];
 
     if (includeUsage) {
-      server.responseChunks.push(
-        `data: {"usage":{"prompt_tokens":10,"prompt_tokens_details":{"cached_tokens":5},"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":8},"total_tokens":30,"cost":0.0015},"choices":[]}\n\n`,
+      chunks.push(
+        `data: ${JSON.stringify({
+          usage: {
+            prompt_tokens: 10,
+            prompt_tokens_details: { cached_tokens: 5 },
+            completion_tokens: 20,
+            completion_tokens_details: { reasoning_tokens: 8 },
+            total_tokens: 30,
+            cost: 0.0015,
+          },
+          choices: [],
+        })}\n\n`,
       );
     }
 
-    server.responseChunks.push('data: [DONE]\n\n');
+    chunks.push('data: [DONE]\n\n');
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks,
+    };
   }
 
   it('should include stream_options.include_usage in request when enabled', async () => {
@@ -48,19 +62,17 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Verify stream options
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
     expect(requestBody).toBeDefined();
     expect(requestBody.stream).toBe(true);
     expect(requestBody.stream_options).toEqual({
@@ -86,15 +98,13 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     const result = await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Read all chunks from the stream
@@ -138,15 +148,13 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     const result = await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Read all chunks from the stream
@@ -157,6 +165,8 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     expect(finishChunk).toBeDefined();
 
     // Verify that provider metadata is not included
-    expect(finishChunk?.providerMetadata?.openrouter).toBeUndefined();
+    expect(finishChunk?.providerMetadata?.openrouter).toStrictEqual({
+      usage: {},
+    });
   });
 });

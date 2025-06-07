@@ -1,15 +1,12 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
+import { createOpenRouter } from '../provider';
 
-import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
-import { createOpenRouter } from './openrouter-provider';
-
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -116,11 +113,11 @@ const provider = createOpenRouter({
 const model = provider.chat('anthropic/claude-3.5-sonnet');
 
 describe('doGenerate', () => {
-  const server = new JsonTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
 
   function prepareJsonResponse({
     content = '',
@@ -149,37 +146,41 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   } = {}) {
-    server.responseBodyJson = {
-      id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
-      object: 'chat.completion',
-      created: 1711115037,
-      model: 'gpt-3.5-turbo-0125',
-      choices: [
-        {
-          index: 0,
-          message: {
-            role: 'assistant',
-            content,
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'gpt-3.5-turbo-0125',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content,
+            },
+            logprobs,
+            finish_reason,
           },
-          logprobs,
-          finish_reason,
-        },
-      ],
-      usage,
-      system_fingerprint: 'fp_3bc1b5746c',
+        ],
+        usage,
+        system_fingerprint: 'fp_3bc1b5746c',
+      },
     };
   }
 
   it('should extract text response', async () => {
     prepareJsonResponse({ content: 'Hello, World!' });
 
-    const { text } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
+    const result = await model.doGenerate({
       prompt: TEST_PROMPT,
     });
 
-    expect(text).toStrictEqual('Hello, World!');
+    expect(result.content[0]).toStrictEqual({
+      type: 'text',
+      text: 'Hello, World!',
+    });
   });
 
   it('should extract usage', async () => {
@@ -189,14 +190,15 @@ describe('doGenerate', () => {
     });
 
     const { usage } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
     expect(usage).toStrictEqual({
-      promptTokens: 20,
-      completionTokens: 5,
+      inputTokens: 20,
+      outputTokens: 5,
+      totalTokens: 25,
+      reasoningTokens: 0,
+      cachedInputTokens: 0,
     });
   });
 
@@ -205,16 +207,9 @@ describe('doGenerate', () => {
       logprobs: TEST_LOGPROBS,
     });
 
-    const response = await provider
-      .chat('openai/gpt-3.5-turbo', { logprobs: 1 })
-      .doGenerate({
-        inputFormat: 'prompt',
-        mode: { type: 'regular' },
-        prompt: TEST_PROMPT,
-      });
-    expect(response.logprobs).toStrictEqual(
-      mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS),
-    );
+    await provider.chat('openai/gpt-3.5-turbo', { logprobs: 1 }).doGenerate({
+      prompt: TEST_PROMPT,
+    });
   });
 
   it('should extract finish reason', async () => {
@@ -224,8 +219,6 @@ describe('doGenerate', () => {
     });
 
     const response = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
@@ -239,47 +232,20 @@ describe('doGenerate', () => {
     });
 
     const response = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
     expect(response.finishReason).toStrictEqual('unknown');
   });
 
-  it('should expose the raw response headers', async () => {
-    prepareJsonResponse({ content: '' });
-
-    server.responseHeaders = {
-      'test-header': 'test-value',
-    };
-
-    const { rawResponse } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
-
-    expect(rawResponse?.headers).toStrictEqual({
-      // default headers:
-      'content-length': '337',
-      'content-type': 'application/json',
-
-      // custom header
-      'test-header': 'test-value',
-    });
-  });
-
   it('should pass the model and the messages', async () => {
     prepareJsonResponse({ content: '' });
 
     await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
     });
@@ -293,12 +259,10 @@ describe('doGenerate', () => {
     });
 
     await customModel.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
       messages: [{ role: 'user', content: 'Hello' }],
@@ -316,12 +280,10 @@ describe('doGenerate', () => {
         user: 'test-user-id',
       })
       .doGenerate({
-        inputFormat: 'prompt',
-        mode: { type: 'regular' },
         prompt: TEST_PROMPT,
       });
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo',
       messages: [{ role: 'user', content: 'Hello' }],
       logprobs: true,
@@ -336,31 +298,27 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '' });
 
     await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: {
-        type: 'regular',
-        tools: [
-          {
-            type: 'function',
-            name: 'test-tool',
-            parameters: {
-              type: 'object',
-              properties: { value: { type: 'string' } },
-              required: ['value'],
-              additionalProperties: false,
-              $schema: 'http://json-schema.org/draft-07/schema#',
-            },
-          },
-        ],
-        toolChoice: {
-          type: 'tool',
-          toolName: 'test-tool',
-        },
-      },
       prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'tool',
+        toolName: 'test-tool',
+      },
     });
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
       tools: [
@@ -368,6 +326,7 @@ describe('doGenerate', () => {
           type: 'function',
           function: {
             name: 'test-tool',
+            description: 'function',
             parameters: {
               type: 'object',
               properties: { value: { type: 'string' } },
@@ -396,15 +355,13 @@ describe('doGenerate', () => {
     });
 
     await provider.chat('openai/gpt-3.5-turbo').doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
     });
 
-    const requestHeaders = await server.getRequestHeaders();
+    const requestHeaders = server.calls[0]!.requestHeaders;
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
@@ -416,11 +373,11 @@ describe('doGenerate', () => {
 });
 
 describe('doStream', () => {
-  const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
 
   function prepareStreamResponse({
     content,
@@ -449,20 +406,23 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.responseChunks = [
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
-        `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
-      ...content.flatMap((text) => {
-        return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`;
-      }),
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
-        logprobs,
-      )}}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":${JSON.stringify(
-        usage,
-      )}}\n\n`,
-      'data: [DONE]\n\n',
-    ];
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
+          `"system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
+        ...content.flatMap((text) => {
+          return `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":1,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`;
+        }),
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"${finish_reason}","logprobs":${JSON.stringify(
+          logprobs,
+        )}}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":${JSON.stringify(
+          usage,
+        )}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
   }
 
   it('should stream text deltas', async () => {
@@ -478,13 +438,12 @@ describe('doStream', () => {
     });
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
     // note: space moved to last chunk bc of trimming
-    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+    const elements = await convertReadableStreamToArray(stream);
+    expect(elements).toStrictEqual([
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -493,7 +452,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
-      { type: 'text-delta', textDelta: '' },
+      { type: 'text-delta', delta: '', id: expect.any(String) },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -502,7 +461,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
-      { type: 'text-delta', textDelta: 'Hello' },
+      { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -511,7 +470,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
-      { type: 'text-delta', textDelta: ', ' },
+      { type: 'text-delta', delta: ', ', id: expect.any(String) },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -520,7 +479,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
-      { type: 'text-delta', textDelta: 'World!' },
+      { type: 'text-delta', delta: 'World!', id: expect.any(String) },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -540,64 +499,79 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'stop',
-        logprobs: mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS),
-        usage: { promptTokens: 17, completionTokens: 227 },
+
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              completionTokens: 227,
+              promptTokens: 17,
+              totalTokens: 244,
+              cost: undefined,
+            },
+          },
+        },
+        usage: {
+          inputTokens: 17,
+          outputTokens: 227,
+          totalTokens: 244,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
+        },
       },
     ]);
   });
 
   it('should stream tool deltas', async () => {
-    server.responseChunks = [
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
-        `"tool_calls":[{"index":0,"id":"call_O17Uplv4lJvD6DVdIvFFeRMw","type":"function","function":{"name":"test-tool","arguments":""}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\""}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"value"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\":\\""}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Spark"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" Day"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"}"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
-      'data: [DONE]\n\n',
-    ];
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_O17Uplv4lJvD6DVdIvFFeRMw","type":"function","function":{"name":"test-tool","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"value"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\":\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"Spark"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":" Day"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: {
-        type: 'regular',
-        tools: [
-          {
-            type: 'function',
-            name: 'test-tool',
-            parameters: {
-              type: 'object',
-              properties: { value: { type: 'string' } },
-              required: ['value'],
-              additionalProperties: false,
-              $schema: 'http://json-schema.org/draft-07/schema#',
-            },
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
           },
-        ],
-      },
+        },
+      ],
       prompt: TEST_PROMPT,
     });
 
@@ -619,11 +593,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: '{"',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: '{"',
       },
       {
         type: 'response-metadata',
@@ -634,11 +606,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: 'value',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: 'value',
       },
       {
         type: 'response-metadata',
@@ -649,11 +619,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: '":"',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: '":"',
       },
       {
         type: 'response-metadata',
@@ -664,11 +632,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: 'Spark',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: 'Spark',
       },
       {
         type: 'response-metadata',
@@ -679,11 +645,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: 'le',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: 'le',
       },
       {
         type: 'response-metadata',
@@ -694,11 +658,9 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: ' Day',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: ' Day',
       },
       {
         type: 'response-metadata',
@@ -709,18 +671,15 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
-        toolName: 'test-tool',
-        argsTextDelta: '"}',
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: '"}',
       },
       {
         type: 'tool-call',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
         toolName: 'test-tool',
-        args: '{"value":"Sparkle Day"}',
+        input: '{"value":"Sparkle Day"}',
       },
       {
         type: 'response-metadata',
@@ -741,47 +700,62 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'tool-calls',
-        logprobs: undefined,
-        usage: { promptTokens: 53, completionTokens: 17 },
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              completionTokens: 17,
+              promptTokens: 53,
+              totalTokens: 70,
+              cost: undefined,
+            },
+          },
+        },
+        usage: {
+          inputTokens: 53,
+          outputTokens: 17,
+          totalTokens: 70,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
+        },
       },
     ]);
   });
 
   it('should stream tool call that is sent in one chunk', async () => {
-    server.responseChunks = [
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
-        `"tool_calls":[{"index":0,"id":"call_O17Uplv4lJvD6DVdIvFFeRMw","type":"function","function":{"name":"test-tool","arguments":"{\\"value\\":\\"Sparkle Day\\"}"}}]},` +
-        `"logprobs":null,"finish_reason":null}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
-      `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
-        `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
-      'data: [DONE]\n\n',
-    ];
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_O17Uplv4lJvD6DVdIvFFeRMw","type":"function","function":{"name":"test-tool","arguments":"{\\"value\\":\\"Sparkle Day\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: {
-        type: 'regular',
-        tools: [
-          {
-            type: 'function',
-            name: 'test-tool',
-            parameters: {
-              type: 'object',
-              properties: { value: { type: 'string' } },
-              required: ['value'],
-              additionalProperties: false,
-              $schema: 'http://json-schema.org/draft-07/schema#',
-            },
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
           },
-        ],
-      },
+        },
+      ],
       prompt: TEST_PROMPT,
     });
 
-    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+    const elements = await convertReadableStreamToArray(stream);
+    expect(elements).toStrictEqual([
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -791,18 +765,24 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'tool-call-delta',
-        toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
+        type: 'tool-input-start',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
-        argsTextDelta: '{"value":"Sparkle Day"}',
+      },
+      {
+        type: 'tool-input-delta',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        delta: '{"value":"Sparkle Day"}',
+      },
+      {
+        type: 'tool-input-end',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
       },
       {
         type: 'tool-call',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolCallType: 'function',
         toolName: 'test-tool',
-        args: '{"value":"Sparkle Day"}',
+        input: '{"value":"Sparkle Day"}',
       },
       {
         type: 'response-metadata',
@@ -823,22 +803,38 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'tool-calls',
-        logprobs: undefined,
-        usage: { promptTokens: 53, completionTokens: 17 },
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              completionTokens: 17,
+              promptTokens: 53,
+              totalTokens: 70,
+              cost: undefined,
+            },
+          },
+        },
+        usage: {
+          inputTokens: 53,
+          outputTokens: 17,
+          totalTokens: 70,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
+        },
       },
     ]);
   });
 
   it('should handle error stream parts', async () => {
-    server.responseChunks = [
-      `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
-        `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
-      'data: [DONE]\n\n',
-    ];
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
+          `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
@@ -857,22 +853,30 @@ describe('doStream', () => {
       },
       {
         finishReason: 'error',
-        logprobs: undefined,
+        providerMetadata: {
+          openrouter: {
+            usage: {},
+          },
+        },
         type: 'finish',
         usage: {
-          completionTokens: Number.NaN,
-          promptTokens: Number.NaN,
+          inputTokens: Number.NaN,
+          outputTokens: Number.NaN,
+          totalTokens: Number.NaN,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
         },
       },
     ]);
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.responseChunks = ['data: {unparsable}\n\n', 'data: [DONE]\n\n'];
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
@@ -882,36 +886,20 @@ describe('doStream', () => {
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
       finishReason: 'error',
-      logprobs: undefined,
+
       type: 'finish',
-      usage: {
-        completionTokens: Number.NaN,
-        promptTokens: Number.NaN,
+      providerMetadata: {
+        openrouter: {
+          usage: {},
+        },
       },
-    });
-  });
-
-  it('should expose the raw response headers', async () => {
-    prepareStreamResponse({ content: [] });
-
-    server.responseHeaders = {
-      'test-header': 'test-value',
-    };
-
-    const { rawResponse } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
-
-    expect(rawResponse?.headers).toStrictEqual({
-      // default headers:
-      'content-type': 'text/event-stream',
-      'cache-control': 'no-cache',
-      connection: 'keep-alive',
-
-      // custom header
-      'test-header': 'test-value',
+      usage: {
+        inputTokens: Number.NaN,
+        outputTokens: Number.NaN,
+        totalTokens: Number.NaN,
+        reasoningTokens: Number.NaN,
+        cachedInputTokens: Number.NaN,
+      },
     });
   });
 
@@ -919,12 +907,10 @@ describe('doStream', () => {
     prepareStreamResponse({ content: [] });
 
     await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
@@ -943,15 +929,13 @@ describe('doStream', () => {
     });
 
     await provider.chat('openai/gpt-3.5-turbo').doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
     });
 
-    const requestHeaders = await server.getRequestHeaders();
+    const requestHeaders = server.calls[0]!.requestHeaders;
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
@@ -977,12 +961,10 @@ describe('doStream', () => {
     });
 
     await provider.chat('anthropic/claude-3.5-sonnet').doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
     });
 
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
 
     expect(requestBody).toHaveProperty('custom_field', 'custom_value');
     expect(requestBody).toHaveProperty(

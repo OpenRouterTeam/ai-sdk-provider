@@ -1,6 +1,6 @@
-import { createOpenRouter } from '@/src';
 import { streamText } from 'ai';
 import { it, vi } from 'vitest';
+import { createOpenRouter } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
