@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
-          scope: "@openrouter"
+          scope: "@llmgateway"
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck

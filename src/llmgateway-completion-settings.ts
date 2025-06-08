@@ -1,8 +1,8 @@
-import type { OpenRouterSharedSettings } from './types';
+import type { LLMGatewaySharedSettings } from './types';
 
-export type OpenRouterCompletionModelId = string;
+export type LLMGatewayCompletionModelId = string;
 
-export type OpenRouterCompletionSettings = {
+export type LLMGatewayCompletionSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -36,4 +36,4 @@ tokens that were generated.
 The suffix that comes after a completion of inserted text.
    */
   suffix?: string;
-} & OpenRouterSharedSettings;
+} & LLMGatewaySharedSettings;

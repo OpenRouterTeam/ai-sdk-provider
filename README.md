@@ -1,63 +1,63 @@
-# OpenRouter Provider for Vercel AI SDK
+# LLMGateway Provider for Vercel AI SDK
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs.
+The [LLMGateway](https://llmgateway.io/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the LLMGateway chat and completion APIs.
 
 ## Setup
 
 ```bash
 # For pnpm
-pnpm add @openrouter/ai-sdk-provider
+pnpm add @llmgateway/ai-sdk-provider
 
 # For npm
-npm install @openrouter/ai-sdk-provider
+npm install @llmgateway/ai-sdk-provider
 
 # For yarn
-yarn add @openrouter/ai-sdk-provider
+yarn add @llmgateway/ai-sdk-provider
 ```
 
 ## Provider Instance
 
-You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
+You can import the default provider instance `llmgateway` from `@llmgateway/ai-sdk-provider`:
 
 ```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { llmgateway } from '@llmgateway/ai-sdk-provider';
 ```
 
 ## Example
 
 ```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { llmgateway } from '@llmgateway/ai-sdk-provider';
 import { generateText } from 'ai';
 
 const { text } = await generateText({
-  model: openrouter('openai/gpt-4o'),
+  model: llmgateway('openai/gpt-4o'),
   prompt: 'Write a vegetarian lasagna recipe for 4 people.',
 });
 ```
 
 ## Supported models
 
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
+This list is not a definitive list of models supported by LLMGateway, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by LLMGateway [here](https://llmgateway.io/models).
 
-You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
+You can find the latest list of tool-supported models supported by LLMGateway [here](https://llmgateway.io/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
 
-## Passing Extra Body to OpenRouter
+## Passing Extra Body to LLMGateway
 
-There are 3 ways to pass extra body to OpenRouter:
+There are 3 ways to pass extra body to LLMGateway:
 
-1. Via the `providerOptions.openrouter` property:
+1. Via the `providerOptions.llmgateway` property:
 
    ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { createLLMGateway } from '@llmgateway/ai-sdk-provider';
    import { streamText } from 'ai';
 
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   const llmgateway = createLLMGateway({ apiKey: 'your-api-key' });
+   const model = llmgateway('anthropic/claude-3.7-sonnet:thinking');
    await streamText({
      model,
      messages: [{ role: 'user', content: 'Hello' }],
      providerOptions: {
-       openrouter: {
+       llmgateway: {
          reasoning: {
            max_tokens: 10,
          },
@@ -69,11 +69,11 @@ There are 3 ways to pass extra body to OpenRouter:
 2. Via the `extraBody` property in the model settings:
 
    ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { createLLMGateway } from '@llmgateway/ai-sdk-provider';
    import { streamText } from 'ai';
 
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
+   const llmgateway = createLLMGateway({ apiKey: 'your-api-key' });
+   const model = llmgateway('anthropic/claude-3.7-sonnet:thinking', {
      extraBody: {
        reasoning: {
          max_tokens: 10,
@@ -89,10 +89,10 @@ There are 3 ways to pass extra body to OpenRouter:
 3. Via the `extraBody` property in the model factory.
 
    ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+   import { createLLMGateway } from '@llmgateway/ai-sdk-provider';
    import { streamText } from 'ai';
 
-   const openrouter = createOpenRouter({
+   const llmgateway = createLLMGateway({
      apiKey: 'your-api-key',
      extraBody: {
        reasoning: {
@@ -100,7 +100,7 @@ There are 3 ways to pass extra body to OpenRouter:
        },
      },
    });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   const model = llmgateway('anthropic/claude-3.7-sonnet:thinking');
    await streamText({
      model,
      messages: [{ role: 'user', content: 'Hello' }],
@@ -109,16 +109,16 @@ There are 3 ways to pass extra body to OpenRouter:
 
 ## Anthropic Prompt Caching
 
-You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
+You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The LLMGateway provider will automatically convert these messages to the correct format internally.
 
 ### Basic Usage
 
 ```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createLLMGateway } from '@llmgateway/ai-sdk-provider';
 import { streamText } from 'ai';
 
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/<supported-caching-model>');
+const llmgateway = createLLMGateway({ apiKey: 'your-api-key' });
+const model = llmgateway('anthropic/<supported-caching-model>');
 
 await streamText({
   model,
@@ -139,7 +139,7 @@ await streamText({
           type: 'text',
           text: `<LARGE BODY OF TEXT>`,
           providerOptions: {
-            openrouter: {
+            llmgateway: {
               cacheControl: { type: 'ephemeral' },
             },
           },
@@ -158,11 +158,11 @@ await streamText({
 
 ### Usage Accounting
 
-The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
+The provider supports [LLMGateway usage accounting](https://llmgateway.io/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
 
 ```typescript
 // Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
+const model = llmgateway('openai/gpt-3.5-turbo', {
   usage: {
     include: true,
   },
@@ -175,11 +175,11 @@ const result = await generateText({
 });
 
 // Provider-specific usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
+if (result.providerMetadata?.llmgateway?.usage) {
+  console.log('Cost:', result.providerMetadata.llmgateway.usage.cost);
   console.log(
     'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
+    result.providerMetadata.llmgateway.usage.totalTokens,
   );
 }
 ```

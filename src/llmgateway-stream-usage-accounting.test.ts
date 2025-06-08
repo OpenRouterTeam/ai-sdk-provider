@@ -1,4 +1,4 @@
-import type { OpenRouterChatSettings } from './types/openrouter-chat-settings';
+import type { LLMGatewayChatSettings } from './types/llmgateway-chat-settings';
 
 import {
   convertReadableStreamToArray,
@@ -6,11 +6,11 @@ import {
 } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
+import { LLMGatewayChatLanguageModel } from './llmgateway-chat-language-model';
 
-describe('OpenRouter Streaming Usage Accounting', () => {
+describe('LLMGateway Streaming Usage Accounting', () => {
   const server = new StreamingTestServer(
-    'https://api.openrouter.ai/chat/completions',
+    'https://api.llmgateway.io/chat/completions',
   );
 
   server.setupTestEnvironment();
@@ -34,13 +34,13 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     prepareStreamResponse();
 
     // Create model with usage accounting enabled
-    const settings: OpenRouterChatSettings = {
+    const settings: LLMGatewayChatSettings = {
       usage: { include: true },
     };
 
-    const model = new OpenRouterChatLanguageModel('test-model', settings, {
-      provider: 'openrouter.chat',
-      url: () => 'https://api.openrouter.ai/chat/completions',
+    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
+      provider: 'llmgateway.chat',
+      url: () => 'https://api.llmgateway.io/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -72,13 +72,13 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     prepareStreamResponse(true);
 
     // Create model with usage accounting enabled
-    const settings: OpenRouterChatSettings = {
+    const settings: LLMGatewayChatSettings = {
       usage: { include: true },
     };
 
-    const model = new OpenRouterChatLanguageModel('test-model', settings, {
-      provider: 'openrouter.chat',
-      url: () => 'https://api.openrouter.ai/chat/completions',
+    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
+      provider: 'llmgateway.chat',
+      url: () => 'https://api.llmgateway.io/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -106,10 +106,10 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     // Verify metadata is included
     expect(finishChunk?.providerMetadata).toBeDefined();
-    const openrouterData = finishChunk?.providerMetadata?.openrouter;
-    expect(openrouterData).toBeDefined();
+    const llmgatewayData = finishChunk?.providerMetadata?.llmgateway;
+    expect(llmgatewayData).toBeDefined();
 
-    const usage = openrouterData?.usage;
+    const usage = llmgatewayData?.usage;
     expect(usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
@@ -124,13 +124,13 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     prepareStreamResponse(false);
 
     // Create model with usage accounting disabled
-    const settings: OpenRouterChatSettings = {
+    const settings: LLMGatewayChatSettings = {
       // No usage property
     };
 
-    const model = new OpenRouterChatLanguageModel('test-model', settings, {
-      provider: 'openrouter.chat',
-      url: () => 'https://api.openrouter.ai/chat/completions',
+    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
+      provider: 'llmgateway.chat',
+      url: () => 'https://api.llmgateway.io/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -157,6 +157,6 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     expect(finishChunk).toBeDefined();
 
     // Verify that provider metadata is not included
-    expect(finishChunk?.providerMetadata?.openrouter).toBeUndefined();
+    expect(finishChunk?.providerMetadata?.llmgateway).toBeUndefined();
   });
 });

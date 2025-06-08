@@ -1,6 +1,6 @@
 import type { LanguageModelV1LogProbs } from '@ai-sdk/provider';
 
-type OpenRouterChatLogProbs = {
+type LLMGatewayChatLogProbs = {
   content:
     | {
         token: string;
@@ -15,8 +15,8 @@ type OpenRouterChatLogProbs = {
     | null;
 };
 
-export function mapOpenRouterChatLogProbsOutput(
-  logprobs: OpenRouterChatLogProbs | null | undefined,
+export function mapLLMGatewayChatLogProbsOutput(
+  logprobs: LLMGatewayChatLogProbs | null | undefined,
 ): LanguageModelV1LogProbs | undefined {
   return (
     logprobs?.content?.map(({ token, logprob, top_logprobs }) => ({

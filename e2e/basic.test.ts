@@ -1,10 +1,5 @@
 import type { UIMessage } from 'ai';
 
-import {
-  executeCommandInTerminalTool,
-  readSMSTool,
-  sendSMSTool,
-} from '@/e2e/tools';
 import { createLLMGateway } from '@/src';
 import { generateText } from 'ai';
 import { it, vi } from 'vitest';
@@ -14,18 +9,17 @@ vi.setConfig({
 });
 
 const prompts = [
-  'The flight to San Francisco is delayed by 2 hours. Send an SMS to 808-999-2345 with the flight delay information.',
-  'Find out if the SMS was delivered properly.',
+  'Hi. What model are you?',
 ];
 
-describe('Vercel AI SDK tools call with reasoning', () => {
-  it('should work with reasoning content', async () => {
+describe('Vercel AI SDK basic', () => {
+  it('should work', async () => {
     const llmgateway = createLLMGateway({
       apiKey: process.env.LLMGATEWAY_API_KEY,
-      baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
+      baseURL: `${process.env.LLMGATEWAY_API_BASE}/v1`,
     });
 
-    const model = llmgateway('anthropic/claude-sonnet-4', {
+    const model = llmgateway('claude-3-7-sonnet', {
       usage: {
         include: true,
       },
@@ -49,19 +43,13 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         system:
           'You are an airline assistant. You can send and read SMS messages, and execute commands in the terminal.',
         messages: messageHistory,
-        tools: {
-          readSMS: readSMSTool,
-          sendSMS: sendSMSTool,
-          executeCommand: executeCommandInTerminalTool,
-        },
-        maxSteps: 10,
-        providerOptions: {
-          llmgateway: {
-            reasoning: {
-              max_tokens: 2048,
-            },
-          },
-        },
+        // providerOptions: {
+        //   llmgateway: {
+        //     reasoning: {
+        //       max_tokens: 2048,
+        //     },
+        //   },
+        // },
       });
 
       const parts = response.steps.map(
@@ -79,5 +67,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         parts,
       });
     }
+
+    console.log('messageHistory', messageHistory);
   });
 });

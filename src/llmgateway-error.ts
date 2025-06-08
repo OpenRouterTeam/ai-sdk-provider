@@ -1,7 +1,7 @@
 import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
-export const OpenRouterErrorResponseSchema = z.object({
+export const LLMGatewayErrorResponseSchema = z.object({
   error: z.object({
     message: z.string(),
     type: z.string(),
@@ -10,9 +10,9 @@ export const OpenRouterErrorResponseSchema = z.object({
   }),
 });
 
-export type OpenRouterErrorData = z.infer<typeof OpenRouterErrorResponseSchema>;
+export type LLMGatewayErrorData = z.infer<typeof LLMGatewayErrorResponseSchema>;
 
-export const openrouterFailedResponseHandler = createJsonErrorResponseHandler({
-  errorSchema: OpenRouterErrorResponseSchema,
+export const llmgatewayFailedResponseHandler = createJsonErrorResponseHandler({
+  errorSchema: LLMGatewayErrorResponseSchema,
   errorToMessage: (data) => data.error.message,
 });

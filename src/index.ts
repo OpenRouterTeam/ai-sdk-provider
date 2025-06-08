@@ -1,3 +1,3 @@
-export * from './openrouter-facade';
-export * from './openrouter-provider';
+export * from './llmgateway-facade';
+export * from './llmgateway-provider';
 export * from './types';

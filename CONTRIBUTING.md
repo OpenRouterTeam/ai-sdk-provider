@@ -1,6 +1,6 @@
-# Contributing to the OpenRouter AI SDK Provider
+# Contributing to the LLMGateway AI SDK Provider
 
-Thank you for your interest in contributing to the OpenRouter provider for the Vercel AI SDK! This guide will help you get started as a contributor.
+Thank you for your interest in contributing to the LLMGateway provider for the Vercel AI SDK! This guide will help you get started as a contributor.
 
 ## Getting Started
 
@@ -86,13 +86,13 @@ When adding new features or fixing bugs, please include tests. Test files follow
 
 Examples of test files include:
 
-- `openrouter-chat-language-model.test.ts`
-- `openrouter-usage-accounting.test.ts`
-- `openrouter-stream-usage-accounting.test.ts`
+- `llmgateway-chat-language-model.test.ts`
+- `llmgateway-usage-accounting.test.ts`
+- `llmgateway-stream-usage-accounting.test.ts`
 
 ## Adding New Features
 
-When adding new features to the OpenRouter provider:
+When adding new features to the LLMGateway provider:
 
 1. Start by understanding the existing architecture in the `src` directory
 2. Update the relevant type definitions in `types.ts` if needed
@@ -107,8 +107,8 @@ The usage accounting feature provides an example of how to add features to the p
 
 1. Added types in `types.ts` for usage accounting
 2. Enhanced response schemas to include usage data
-3. Updated the implementation in `openrouter-chat-language-model.ts`
-4. Added tests in `openrouter-usage-accounting.test.ts` and `openrouter-stream-usage-accounting.test.ts`
+3. Updated the implementation in `llmgateway-chat-language-model.ts`
+4. Added tests in `llmgateway-usage-accounting.test.ts` and `llmgateway-stream-usage-accounting.test.ts`
 5. Updated README.md with usage examples
 
 ## Pull Request Process
@@ -139,4 +139,4 @@ The project maintainers will handle versioning and publishing. When your contrib
 
 If you have questions about contributing, please open a GitHub issue in the repository.
 
-Thank you for contributing to the OpenRouter AI SDK Provider!
+Thank you for contributing to the LLMGateway AI SDK Provider!

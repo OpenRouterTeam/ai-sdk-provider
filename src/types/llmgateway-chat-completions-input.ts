@@ -1,9 +1,8 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+// Type for LLMGateway Cache Control following Anthropic's pattern
+export type LLMGatewayCacheControl = { type: 'ephemeral' };
 
-// Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
-
-export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>;
+export type LLMGatewayChatCompletionsInput = Array<ChatCompletionMessageParam>;
 
 export type ChatCompletionMessageParam =
   | ChatCompletionSystemMessageParam
@@ -14,13 +13,13 @@ export type ChatCompletionMessageParam =
 export interface ChatCompletionSystemMessageParam {
   role: 'system';
   content: string;
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionUserMessageParam {
   role: 'user';
   content: string | Array<ChatCompletionContentPart>;
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export type ChatCompletionContentPart =
@@ -34,7 +33,7 @@ export interface ChatCompletionContentPartFile {
     filename: string;
     file_data: string;
   };
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionContentPartImage {
@@ -42,14 +41,13 @@ export interface ChatCompletionContentPartImage {
   image_url: {
     url: string;
   };
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
-  reasoning?: string | null;
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionAssistantMessageParam {
@@ -58,7 +56,7 @@ export interface ChatCompletionAssistantMessageParam {
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionMessageToolCall {
@@ -74,5 +72,5 @@ export interface ChatCompletionToolMessageParam {
   role: 'tool';
   content: string;
   tool_call_id: string;
-  cache_control?: OpenRouterCacheControl;
+  cache_control?: LLMGatewayCacheControl;
 }

@@ -5,32 +5,32 @@ import type {
 } from '@ai-sdk/provider';
 import type {
   ChatCompletionContentPart,
-  OpenRouterChatCompletionsInput,
-} from './types/openrouter-chat-completions-input';
+  LLMGatewayChatCompletionsInput,
+} from './types/llmgateway-chat-completions-input';
 
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 
-// Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+// Type for LLMGateway Cache Control following Anthropic's pattern
+export type LLMGatewayCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
   providerMetadata: LanguageModelV1ProviderMetadata | undefined,
-): OpenRouterCacheControl | undefined {
+): LLMGatewayCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
-  const openrouter = providerMetadata?.openrouter;
+  const llmgateway = providerMetadata?.llmgateway;
 
   // Allow both cacheControl and cache_control:
-  return (openrouter?.cacheControl ??
-    openrouter?.cache_control ??
+  return (llmgateway?.cacheControl ??
+    llmgateway?.cache_control ??
     anthropic?.cacheControl ??
-    anthropic?.cache_control) as OpenRouterCacheControl | undefined;
+    anthropic?.cache_control) as LLMGatewayCacheControl | undefined;
 }
 
-export function convertToOpenRouterChatMessages(
+export function convertToLLMGatewayChatMessages(
   prompt: LanguageModelV1Prompt,
-): OpenRouterChatCompletionsInput {
-  const messages: OpenRouterChatCompletionsInput = [];
+): LLMGatewayChatCompletionsInput {
+  const messages: LLMGatewayChatCompletionsInput = [];
   for (const { role, content, providerMetadata } of prompt) {
     switch (role) {
       case 'system': {
@@ -88,7 +88,7 @@ export function convertToOpenRouterChatMessages(
                   type: 'file' as const,
                   file: {
                     filename: String(
-                      part.providerMetadata?.openrouter?.filename,
+                      part.providerMetadata?.llmgateway?.filename,
                     ),
                     file_data:
                       part.data instanceof Uint8Array

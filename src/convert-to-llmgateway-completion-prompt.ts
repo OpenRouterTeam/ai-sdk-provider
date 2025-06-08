@@ -5,7 +5,7 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 
-export function convertToOpenRouterCompletionPrompt({
+export function convertToLLMGatewayCompletionPrompt({
   prompt,
   inputFormat,
   user = 'user',
@@ -130,6 +130,7 @@ export function convertToOpenRouterCompletionPrompt({
       }
 
       default: {
+        // noinspection UnnecessaryLocalVariableJS
         const _exhaustiveCheck: never = role;
         throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
       }

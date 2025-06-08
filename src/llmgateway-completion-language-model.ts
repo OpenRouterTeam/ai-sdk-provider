@@ -6,9 +6,9 @@ import type {
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './openrouter-completion-settings';
+  LLMGatewayCompletionModelId,
+  LLMGatewayCompletionSettings,
+} from './llmgateway-completion-settings';
 
 import { ReasoningDetailArraySchema } from '@/src/schemas/reasoning-details';
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
@@ -20,15 +20,15 @@ import {
 } from '@ai-sdk/provider-utils';
 import { z } from 'zod';
 
-import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
-import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
-import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason';
+import { convertToLLMGatewayCompletionPrompt } from './convert-to-llmgateway-completion-prompt';
+import { mapLLMGatewayCompletionLogprobs } from './map-llmgateway-completion-logprobs';
+import { mapLLMGatewayFinishReason } from './map-llmgateway-finish-reason';
 import {
-  OpenRouterErrorResponseSchema,
-  openrouterFailedResponseHandler,
-} from './openrouter-error';
+  LLMGatewayErrorResponseSchema,
+  llmgatewayFailedResponseHandler,
+} from './llmgateway-error';
 
-type OpenRouterCompletionConfig = {
+type LLMGatewayCompletionConfig = {
   provider: string;
   compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
@@ -37,19 +37,19 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
+export class LLMGatewayCompletionLanguageModel implements LanguageModelV1 {
   readonly specificationVersion = 'v1';
   readonly defaultObjectGenerationMode = undefined;
 
-  readonly modelId: OpenRouterCompletionModelId;
-  readonly settings: OpenRouterCompletionSettings;
+  readonly modelId: LLMGatewayCompletionModelId;
+  readonly settings: LLMGatewayCompletionSettings;
 
-  private readonly config: OpenRouterCompletionConfig;
+  private readonly config: LLMGatewayCompletionConfig;
 
   constructor(
-    modelId: OpenRouterCompletionModelId,
-    settings: OpenRouterCompletionSettings,
-    config: OpenRouterCompletionConfig,
+    modelId: LLMGatewayCompletionModelId,
+    settings: LLMGatewayCompletionSettings,
+    config: LLMGatewayCompletionConfig,
   ) {
     this.modelId = modelId;
     this.settings = settings;
@@ -77,9 +77,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
 
-    const extraCallingBody = providerMetadata?.openrouter ?? {};
+    const extraCallingBody = providerMetadata?.llmgateway ?? {};
 
-    const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
+    const { prompt: completionPrompt } = convertToLLMGatewayCompletionPrompt({
       prompt,
       inputFormat,
     });
@@ -117,9 +117,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       // prompt:
       prompt: completionPrompt,
 
-      // OpenRouter specific settings:
-      include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      // LLMGateway specific settings:
 
       // extra body:
       ...this.config.extraBody,
@@ -178,9 +176,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: args,
-      failedResponseHandler: openrouterFailedResponseHandler,
+      failedResponseHandler: llmgatewayFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterCompletionChunkSchema,
+        LLMGatewayCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -194,7 +192,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error('No choice in OpenRouter completion response');
+      throw new Error('No choice in LLMGateway completion response');
     }
 
     return {
@@ -208,8 +206,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
         promptTokens: response.usage?.prompt_tokens ?? 0,
         completionTokens: response.usage?.completion_tokens ?? 0,
       },
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      logprobs: mapOpenRouterCompletionLogProbs(choice.logprobs),
+      finishReason: mapLLMGatewayFinishReason(choice.finish_reason),
+      logprobs: mapLLMGatewayCompletionLogprobs(choice.logprobs),
       rawCall: { rawPrompt, rawSettings },
       rawResponse: { headers: responseHeaders },
       warnings: [],
@@ -237,9 +235,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
             ? { include_usage: true }
             : undefined,
       },
-      failedResponseHandler: openrouterFailedResponseHandler,
+      failedResponseHandler: llmgatewayFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterCompletionChunkSchema,
+        LLMGatewayCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -257,7 +255,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
     return {
       stream: response.pipeThrough(
         new TransformStream<
-          ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
+          ParseResult<z.infer<typeof LLMGatewayCompletionChunkSchema>>,
           LanguageModelV1StreamPart
         >({
           transform(chunk, controller) {
@@ -287,7 +285,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
             const choice = value.choices[0];
 
             if (choice?.finish_reason != null) {
-              finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              finishReason = mapLLMGatewayFinishReason(choice.finish_reason);
             }
 
             if (choice?.text != null) {
@@ -297,7 +295,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
               });
             }
 
-            const mappedLogprobs = mapOpenRouterCompletionLogProbs(
+            const mappedLogprobs = mapLLMGatewayCompletionLogprobs(
               choice?.logprobs,
             );
             if (mappedLogprobs?.length) {
@@ -327,7 +325,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV1 {
 
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
-const OpenRouterCompletionChunkSchema = z.union([
+const LLMGatewayCompletionChunkSchema = z.union([
   z.object({
     id: z.string().optional(),
     model: z.string().optional(),
@@ -357,5 +355,5 @@ const OpenRouterCompletionChunkSchema = z.union([
       .optional()
       .nullable(),
   }),
-  OpenRouterErrorResponseSchema,
+  LLMGatewayErrorResponseSchema,
 ]);

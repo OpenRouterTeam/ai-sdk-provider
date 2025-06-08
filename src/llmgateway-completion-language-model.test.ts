@@ -6,8 +6,8 @@ import {
   StreamingTestServer,
 } from '@ai-sdk/provider-utils/test';
 
-import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
-import { createOpenRouter } from './openrouter-provider';
+import { mapLLMGatewayCompletionLogprobs } from './map-llmgateway-completion-logprobs';
+import { createLLMGateway } from './llmgateway-provider';
 
 const TEST_PROMPT: LanguageModelV1Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -40,7 +40,7 @@ const TEST_LOGPROBS = {
   ] as Record<string, number>[],
 };
 
-const provider = createOpenRouter({
+const provider = createLLMGateway({
   apiKey: 'test-api-key',
   compatibility: 'strict',
 });
@@ -48,7 +48,7 @@ const provider = createOpenRouter({
 const model = provider.completion('openai/gpt-3.5-turbo-instruct');
 
 describe('doGenerate', () => {
-  const server = new JsonTestServer('https://openrouter.ai/api/v1/completions');
+  const server = new JsonTestServer('https://api.llmgateway.io/v1/completions');
 
   server.setupTestEnvironment();
 
@@ -125,7 +125,7 @@ describe('doGenerate', () => {
   it('should extract logprobs', async () => {
     prepareJsonResponse({ logprobs: TEST_LOGPROBS });
 
-    const provider = createOpenRouter({ apiKey: 'test-api-key' });
+    const provider = createLLMGateway({ apiKey: 'test-api-key' });
 
     const response = await provider
       .completion('openai/gpt-3.5-turbo', { logprobs: 1 })
@@ -135,7 +135,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
     expect(response.logprobs).toStrictEqual(
-      mapOpenRouterCompletionLogProbs(TEST_LOGPROBS),
+      mapLLMGatewayCompletionLogprobs(TEST_LOGPROBS),
     );
   });
 
@@ -234,7 +234,7 @@ describe('doGenerate', () => {
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -263,7 +263,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/completions',
+    'https://api.llmgateway.io/v1/completions',
   );
 
   server.setupTestEnvironment();
@@ -332,7 +332,7 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'stop',
-        logprobs: mapOpenRouterCompletionLogProbs(TEST_LOGPROBS),
+        logprobs: mapLLMGatewayCompletionLogprobs(TEST_LOGPROBS),
         usage: { promptTokens: 10, completionTokens: 362 },
       },
     ]);
@@ -341,7 +341,7 @@ describe('doStream', () => {
   it('should handle error stream parts', async () => {
     server.responseChunks = [
       `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
-        `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
+        `help center at help.llmgateway.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
       'data: [DONE]\n\n',
     ];
 
@@ -358,7 +358,7 @@ describe('doStream', () => {
           message:
             'The server had an error processing your request. Sorry about that! ' +
             'You can retry your request, or contact us through our help center at ' +
-            'help.openrouter.com if you keep seeing this error.',
+            'help.llmgateway.com if you keep seeing this error.',
           type: 'server_error',
           code: null,
           param: null,
@@ -444,7 +444,7 @@ describe('doStream', () => {
   it('should pass headers', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -473,7 +473,7 @@ describe('doStream', () => {
   it('should pass extra body', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       extraBody: {
         custom_field: 'custom_value',

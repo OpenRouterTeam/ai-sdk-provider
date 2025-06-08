@@ -1,4 +1,4 @@
-import { createOpenRouter } from '@/src';
+import { createLLMGateway } from '@/src';
 import { streamText } from 'ai';
 import { it, vi } from 'vitest';
 
@@ -12,7 +12,7 @@ it('should trigger cache read', async () => {
   // Second call to test cache read
   const response = await callLLM();
   const providerMetadata = await response.providerMetadata;
-  expect(providerMetadata?.openrouter).toMatchObject({
+  expect(providerMetadata?.llmgateway).toMatchObject({
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),
       completionTokens: expect.any(Number),
@@ -27,18 +27,18 @@ it('should trigger cache read', async () => {
 
   const cachedTokens = Number(
     // @ts-ignore
-    providerMetadata?.openrouter?.usage?.promptTokensDetails?.cachedTokens,
+    providerMetadata?.llmgateway?.usage?.promptTokensDetails?.cachedTokens,
   );
 
   expect(cachedTokens).toBeGreaterThan(0);
 });
 
 async function callLLM() {
-  const openrouter = createOpenRouter({
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+  const llmgateway = createLLMGateway({
+    apiKey: process.env.LLMGATEWAY_API_KEY,
+    baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
   });
-  const model = openrouter('anthropic/claude-3.7-sonnet', {
+  const model = llmgateway('anthropic/claude-3.7-sonnet', {
     usage: {
       include: true,
     },
@@ -53,7 +53,7 @@ async function callLLM() {
             type: 'text',
             text: 'a'.repeat(4200),
             providerOptions: {
-              openrouter: {
+              llmgateway: {
                 cache_control: {
                   type: 'ephemeral',
                 },

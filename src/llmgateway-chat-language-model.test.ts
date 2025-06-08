@@ -6,8 +6,8 @@ import {
   StreamingTestServer,
 } from '@ai-sdk/provider-utils/test';
 
-import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
-import { createOpenRouter } from './openrouter-provider';
+import { mapLLMGatewayChatLogProbsOutput } from './map-llmgateway-chat-logprobs';
+import { createLLMGateway } from './llmgateway-provider';
 
 const TEST_PROMPT: LanguageModelV1Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -108,7 +108,7 @@ const TEST_LOGPROBS = {
   ],
 };
 
-const provider = createOpenRouter({
+const provider = createLLMGateway({
   apiKey: 'test-api-key',
   compatibility: 'strict',
 });
@@ -117,7 +117,7 @@ const model = provider.chat('anthropic/claude-3.5-sonnet');
 
 describe('doGenerate', () => {
   const server = new JsonTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.llmgateway.io/v1/chat/completions',
   );
 
   server.setupTestEnvironment();
@@ -213,7 +213,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
     expect(response.logprobs).toStrictEqual(
-      mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS),
+      mapLLMGatewayChatLogProbsOutput(TEST_LOGPROBS),
     );
   });
 
@@ -388,7 +388,7 @@ describe('doGenerate', () => {
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -417,7 +417,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/chat/completions',
+    'https://api.llmgateway.io/v1/chat/completions',
   );
 
   server.setupTestEnvironment();
@@ -540,7 +540,7 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'stop',
-        logprobs: mapOpenRouterChatLogProbsOutput(TEST_LOGPROBS),
+        logprobs: mapLLMGatewayChatLogProbsOutput(TEST_LOGPROBS),
         usage: { promptTokens: 17, completionTokens: 227 },
       },
     ]);
@@ -832,7 +832,7 @@ describe('doStream', () => {
   it('should handle error stream parts', async () => {
     server.responseChunks = [
       `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
-        `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
+        `help center at help.llmgateway.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
       'data: [DONE]\n\n',
     ];
 
@@ -849,7 +849,7 @@ describe('doStream', () => {
           message:
             'The server had an error processing your request. Sorry about that! ' +
             'You can retry your request, or contact us through our help center at ' +
-            'help.openrouter.com if you keep seeing this error.',
+            'help.llmgateway.com if you keep seeing this error.',
           type: 'server_error',
           code: null,
           param: null,
@@ -935,7 +935,7 @@ describe('doStream', () => {
   it('should pass headers', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -964,7 +964,7 @@ describe('doStream', () => {
   it('should pass extra body', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       extraBody: {
         custom_field: 'custom_value',

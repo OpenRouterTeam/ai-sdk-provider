@@ -1,6 +1,6 @@
 import type { LanguageModelV1FinishReason } from '@ai-sdk/provider';
 
-export function mapOpenRouterFinishReason(
+export function mapLLMGatewayFinishReason(
   finishReason: string | null | undefined,
 ): LanguageModelV1FinishReason {
   switch (finishReason) {

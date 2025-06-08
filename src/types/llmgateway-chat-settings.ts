@@ -1,9 +1,9 @@
-import type { OpenRouterSharedSettings } from '..';
+import type { LLMGatewaySharedSettings } from '..';
 
-// https://openrouter.ai/api/v1/models
-export type OpenRouterChatModelId = string;
+// https://api.llmgateway.io/v1/models
+export type LLMGatewayChatModelId = string;
 
-export type OpenRouterChatSettings = {
+export type LLMGatewayChatSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -39,8 +39,8 @@ Whether to enable parallel function calling during tool use. Default to true.
   parallelToolCalls?: boolean;
 
   /**
-A unique identifier representing your end-user, which can help OpenRouter to
+A unique identifier representing your end-user, which can help LLMGateway to
 monitor and detect abuse. Learn more.
 */
   user?: string;
-} & OpenRouterSharedSettings;
+} & LLMGatewaySharedSettings;
