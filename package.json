@@ -45,7 +45,7 @@
     "@ianvs/prettier-plugin-sort-imports": "4.4.2",
     "@types/jest": "29.5.14",
     "@types/node": "22.15.24",
-    "ai": "4.3.16",
+    "ai": "5.0.0-canary.24",
     "dotenv": "16.5.0",
     "prettier": "3.5.3",
     "tsup": "8.5.0",
@@ -55,7 +55,7 @@
     "zod": "3.25.34"
   },
   "peerDependencies": {
-    "ai": "^4.3.16",
+    "ai": "^5.0.0-canary.24",
     "zod": "^3.25.34"
   },
   "engines": {

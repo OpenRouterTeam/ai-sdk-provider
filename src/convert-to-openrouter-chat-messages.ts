@@ -1,6 +1,8 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   LanguageModelV2Prompt,
+  LanguageModelV2TextPart,
+  LanguageModelV2FilePart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
 import type {
@@ -57,7 +59,7 @@ export function convertToOpenRouterChatMessages(
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerOptions);
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part: any) => {
+          (part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
             const cacheControl =
               getCacheControl(part.providerOptions) ?? messageCacheControl;
 

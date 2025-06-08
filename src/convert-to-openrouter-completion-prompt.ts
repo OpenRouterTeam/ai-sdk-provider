@@ -1,4 +1,10 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { 
+  LanguageModelV2Prompt,
+  LanguageModelV2TextPart,
+  LanguageModelV2FilePart,
+  LanguageModelV2ReasoningPart,
+  LanguageModelV2ToolCallPart
+} from '@ai-sdk/provider';
 import {
   InvalidPromptError,
   UnsupportedFunctionalityError,
@@ -50,7 +56,7 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'user': {
         const userMessage = content
-          .map((part: any) => {
+          .map((part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
@@ -74,7 +80,7 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'assistant': {
         const assistantMessage = content
-          .map((part: any) => {
+          .map((part: LanguageModelV2TextPart | LanguageModelV2FilePart | LanguageModelV2ReasoningPart | LanguageModelV2ToolCallPart) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
