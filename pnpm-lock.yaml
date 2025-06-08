@@ -7,14 +7,13 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       '@ai-sdk/provider':
         specifier: 2.0.0-canary.14
         version: 2.0.0-canary.14
       '@ai-sdk/provider-utils':
         specifier: 3.0.0-canary.19
         version: 3.0.0-canary.19(zod@3.25.34)
-    devDependencies:
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4

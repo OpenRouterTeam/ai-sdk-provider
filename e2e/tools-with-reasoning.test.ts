@@ -45,7 +45,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
       });
 
       const response = await generateText({
-        model,
+        model: model as any,
         system:
           'You are an airline assistant. You can send and read SMS messages, and execute commands in the terminal.',
         messages: messageHistory,

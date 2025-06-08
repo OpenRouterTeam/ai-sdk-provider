@@ -140,9 +140,15 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   async doGenerate(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
-    const args = this.getArgs(options);
+    const providerMetadata = (options as any).providerMetadata || {};
+    const openrouterOptions = providerMetadata.openrouter || {};
+    
+    const args = {
+      ...this.getArgs(options),
+      ...openrouterOptions,
+    };
 
-    const { value: response } = await postJsonToApi({
+    const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/completions',
         modelId: this.modelId,
@@ -180,16 +186,25 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         outputTokens: response.usage?.completion_tokens ?? 0,
         totalTokens: (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0),
       },
-
+      warnings: [],
+      response: {
+        headers: responseHeaders,
+      },
     };
   }
 
   async doStream(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
-    const args = this.getArgs(options);
+    const providerMetadata = (options as any).providerMetadata || {};
+    const openrouterOptions = providerMetadata.openrouter || {};
+    
+    const args = {
+      ...this.getArgs(options),
+      ...openrouterOptions,
+    };
 
-    const { value: response } = await postJsonToApi({
+    const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/completions',
         modelId: this.modelId,
@@ -279,7 +294,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
           },
         }),
       ),
-
+      response: {
+        headers: responseHeaders,
+      },
     };
   }
 }

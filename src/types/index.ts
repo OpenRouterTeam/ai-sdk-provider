@@ -1,12 +1,10 @@
 
 import type { 
   LanguageModelV2,
-  LanguageModelV1 
+  LanguageModelV2Prompt
 } from '@ai-sdk/provider';
 
-export type { LanguageModelV2, LanguageModelV1 };
-
-export type OpenRouterLanguageModel = LanguageModelV2;
+export type { LanguageModelV2, LanguageModelV2Prompt };
 
 export type OpenRouterProviderOptions = {
   models?: string[];

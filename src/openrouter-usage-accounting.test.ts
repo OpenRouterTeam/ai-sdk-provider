@@ -1,19 +1,17 @@
 import type { OpenRouterChatSettings } from './types/openrouter-chat-settings';
 
-import { JsonTestServer } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 
 import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
 
 describe('OpenRouter Usage Accounting', () => {
-  const server = new JsonTestServer(
-    'https://api.openrouter.ai/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://api.openrouter.ai/chat/completions': { response: { type: 'json-value', body: {} } },
+  });
 
   function prepareJsonResponse(includeUsage = true) {
-    server.responseBodyJson = {
+    const response = {
       id: 'test-id',
       model: 'test-model',
       choices: [
@@ -41,6 +39,11 @@ describe('OpenRouter Usage Accounting', () => {
           }
         : undefined,
     };
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: response,
+    };
   }
 
   it('should include usage parameter in the request when enabled', async () => {
@@ -61,19 +64,18 @@ describe('OpenRouter Usage Accounting', () => {
 
     // Call the model
     await model.doGenerate({
-      mode: { type: 'regular' },
+
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Check request contains usage parameter
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
     expect(requestBody).toBeDefined();
     expect(requestBody).toHaveProperty('usage');
     expect(requestBody.usage).toEqual({ include: true });
@@ -97,15 +99,14 @@ describe('OpenRouter Usage Accounting', () => {
 
     // Call the model
     const result = await model.doGenerate({
-      mode: { type: 'regular' },
+
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Check result contains provider metadata
@@ -150,15 +151,14 @@ describe('OpenRouter Usage Accounting', () => {
 
     // Call the model
     const result = await model.doGenerate({
-      mode: { type: 'regular' },
+
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Verify that OpenRouter metadata is not included

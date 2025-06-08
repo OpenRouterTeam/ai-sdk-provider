@@ -37,11 +37,9 @@
       "require": "./dist/internal/index.js"
     }
   },
-  "dependencies": {
-    "@ai-sdk/provider": "2.0.0-canary.14",
-    "@ai-sdk/provider-utils": "3.0.0-canary.19"
-  },
   "devDependencies": {
+    "@ai-sdk/provider": "2.0.0-canary.14",
+    "@ai-sdk/provider-utils": "3.0.0-canary.19",
     "@biomejs/biome": "1.9.4",
     "@edge-runtime/vm": "5.0.0",
     "@ianvs/prettier-plugin-sort-imports": "4.4.2",

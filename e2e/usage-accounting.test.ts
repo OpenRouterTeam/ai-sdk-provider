@@ -13,7 +13,7 @@ it('receive usage accounting', async () => {
     },
   });
   const response = streamText({
-    model,
+    model: model as any,
     messages: [
       {
         role: 'user',

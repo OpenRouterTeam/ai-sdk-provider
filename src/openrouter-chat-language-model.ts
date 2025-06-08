@@ -4,6 +4,12 @@ import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
   LanguageModelV2StreamPart,
+  LanguageModelV2Content,
+  LanguageModelV2FinishReason,
+  LanguageModelV2Usage,
+  LanguageModelV2ResponseMetadata,
+  SharedV2Headers,
+  SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
 
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -90,6 +96,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     tools,
     toolChoice,
   }: LanguageModelV2CallOptions) {
+
+
+
 
     const baseArgs = {
       // model id:
@@ -185,10 +194,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
   async doGenerate(
     options: LanguageModelV2CallOptions,
-  ): Promise<any> {
-    const args = this.getArgs(options);
+  ): Promise<{
+    content: Array<LanguageModelV2Content>;
+    finishReason: LanguageModelV2FinishReason;
+    usage: LanguageModelV2Usage;
+    warnings: Array<any>;
+    providerMetadata?: SharedV2ProviderMetadata;
+    request?: { body?: unknown };
+    response?: LanguageModelV2ResponseMetadata & { headers?: SharedV2Headers; body?: unknown };
+  }> {
+    const providerMetadata = (options as any).providerMetadata || {};
+    const openrouterOptions = providerMetadata.openrouter || {};
+    
+    const args = {
+      ...this.getArgs(options),
+      ...openrouterOptions,
+    };
 
-    const { value: response } = await postJsonToApi({
+    const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -210,50 +233,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     }
 
     // Extract detailed usage information
-    const usageInfo = response.usage
+    const usageInfo: LanguageModelV2Usage = response.usage
       ? {
-          promptTokens: response.usage.prompt_tokens ?? 0,
-          completionTokens: response.usage.completion_tokens ?? 0,
+          inputTokens: response.usage.prompt_tokens ?? 0,
+          outputTokens: response.usage.completion_tokens ?? 0,
+          totalTokens: (response.usage.prompt_tokens ?? 0) + (response.usage.completion_tokens ?? 0),
         }
       : {
-          promptTokens: 0,
-          completionTokens: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
         };
 
-    // Collect provider-specific metadata
-    const providerMetadata: {
-      openrouter?: Partial<{
-        usage: OpenRouterUsageAccounting;
-      }>;
-    } = {};
 
-    // Add OpenRouter usage accounting details if available AND usage accounting was requested
-    if (response.usage && this.settings.usage?.include) {
-      providerMetadata.openrouter = {
-        usage: {
-          promptTokens: response.usage.prompt_tokens,
-          promptTokensDetails: response.usage.prompt_tokens_details
-            ? {
-                cachedTokens:
-                  response.usage.prompt_tokens_details.cached_tokens ?? 0,
-              }
-            : undefined,
-          completionTokens: response.usage.completion_tokens,
-          completionTokensDetails: response.usage.completion_tokens_details
-            ? {
-                reasoningTokens:
-                  response.usage.completion_tokens_details.reasoning_tokens ??
-                  0,
-              }
-            : undefined,
-          cost: response.usage.cost,
-          totalTokens: response.usage.total_tokens ?? 0,
-        },
-      };
-    }
-
-    // Prepare the final result
-    const hasProviderMetadata = Object.keys(providerMetadata).length > 0;
 
     const reasoningDetails = (choice.message.reasoning_details ??
       []) as ReasoningDetailUnion[];
@@ -307,7 +299,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             ]
           : [];
 
-    const content = [];
+    const content: Array<LanguageModelV2Content> = [];
     
     if (choice.message.content) {
       content.push({
@@ -320,6 +312,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       for (const toolCall of choice.message.tool_calls) {
         content.push({
           type: 'tool-call' as const,
+          toolCallType: 'function' as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           args: toolCall.function.arguments,
@@ -332,20 +325,50 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: usageInfo,
       warnings: [],
+      ...(this.settings.usage?.include ? {
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              promptTokens: usageInfo.inputTokens as number,
+              completionTokens: usageInfo.outputTokens as number,
+              totalTokens: usageInfo.totalTokens as number,
+              cost: response.usage?.cost ?? null,
+              promptTokensDetails: response.usage?.prompt_tokens_details ? {
+                cachedTokens: response.usage.prompt_tokens_details.cached_tokens as number,
+              } : null,
+              completionTokensDetails: response.usage?.completion_tokens_details ? {
+                reasoningTokens: response.usage.completion_tokens_details.reasoning_tokens as number,
+              } : null,
+            } as Record<string, any>,
+          } as Record<string, any>,
+        } as Record<string, Record<string, any>>,
+      } : {}),
+      request: { body: args },
       response: {
         id: response.id,
         modelId: response.model,
+        headers: responseHeaders,
       },
-      ...(hasProviderMetadata ? { providerMetadata } : {}),
     };
   }
 
   async doStream(
     options: LanguageModelV2CallOptions,
-  ): Promise<any> {
-    const args = this.getArgs(options);
+  ): Promise<{
+    stream: ReadableStream<LanguageModelV2StreamPart>;
+    warnings: Array<any>;
+    request?: { body?: unknown };
+    response?: LanguageModelV2ResponseMetadata & { headers?: SharedV2Headers; body?: unknown };
+  }> {
+    const providerMetadata = (options as any).providerMetadata || {};
+    const openrouterOptions = providerMetadata.openrouter || {};
+    
+    const args = {
+      ...this.getArgs(options),
+      ...openrouterOptions,
+    };
 
-    const { value: response } = await postJsonToApi({
+    const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -392,14 +415,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       outputTokens: Number.NaN,
       totalTokens: Number.NaN,
     };
-    let responseId: string | undefined;
-    let responseModel: string | undefined;
+
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
-
-    // Store usage accounting setting for reference in the transformer
-    const shouldIncludeUsageAccounting = !!this.settings.usage?.include;
+    
+    const includeUsage = this.settings.usage?.include;
 
     return {
       stream: response.pipeThrough(
@@ -427,7 +448,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (value.id) {
-              responseId = value.id;
               controller.enqueue({
                 type: 'response-metadata',
                 id: value.id,
@@ -435,7 +455,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (value.model) {
-              responseModel = value.model;
               controller.enqueue({
                 type: 'response-metadata',
                 modelId: value.model,
@@ -484,15 +503,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.content != null) {
               controller.enqueue({
-                type: 'text-delta',
-                textDelta: delta.content,
+                type: 'text',
+                text: delta.content,
               });
             }
 
             if (delta.reasoning != null) {
               controller.enqueue({
                 type: 'reasoning',
-                textDelta: delta.reasoning,
+                text: delta.reasoning,
               });
             }
 
@@ -503,13 +522,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     if (detail.text) {
                       controller.enqueue({
                         type: 'reasoning',
-                        textDelta: detail.text,
+                        text: detail.text,
                       });
                     }
                     if (detail.signature) {
                       controller.enqueue({
-                        type: 'reasoning-signature',
-                        signature: detail.signature,
+                        type: 'reasoning-part-finish',
                       });
                     }
                     break;
@@ -517,8 +535,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   case ReasoningDetailType.Encrypted: {
                     if (detail.data) {
                       controller.enqueue({
-                        type: 'redacted-reasoning',
-                        data: detail.data,
+                        type: 'reasoning',
+                        text: '[REDACTED]',
                       });
                     }
                     break;
@@ -527,7 +545,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     if (detail.summary) {
                       controller.enqueue({
                         type: 'reasoning',
-                        textDelta: detail.summary,
+                        text: detail.summary,
                       });
                     }
                     break;
@@ -683,47 +701,31 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
             }
 
-            // Prepare provider metadata with OpenRouter usage accounting information
-            const providerMetadata: {
-              openrouter?: {
-                usage: Partial<OpenRouterUsageAccounting>;
-              };
-            } = {};
-
-            // Only add OpenRouter metadata if we have usage information AND usage accounting was requested
-            if (
-              shouldIncludeUsageAccounting &&
-              (openrouterUsage.totalTokens !== undefined ||
-                openrouterUsage.cost !== undefined ||
-                openrouterUsage.promptTokensDetails !== undefined ||
-                openrouterUsage.completionTokensDetails !== undefined)
-            ) {
-              providerMetadata.openrouter = {
-                usage: openrouterUsage,
-              };
-            }
-
-            // Only add providerMetadata if we have OpenRouter metadata and it is explicitly requested
-            // This is to maintain backward compatibility with existing tests and clients
-            const hasProviderMetadata =
-              Object.keys(providerMetadata).length > 0 &&
-              shouldIncludeUsageAccounting;
-
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
-              warnings: [],
-              response: {
-                id: responseId,
-                modelId: responseModel,
-              },
-              ...(hasProviderMetadata ? { providerMetadata } : {}),
+              ...(includeUsage ? {
+                providerMetadata: {
+                  openrouter: {
+                    usage: {
+                      promptTokens: usage.inputTokens as number,
+                      completionTokens: usage.outputTokens as number,
+                      totalTokens: usage.totalTokens as number,
+                      cost: openrouterUsage.cost ?? null,
+                      promptTokensDetails: openrouterUsage.promptTokensDetails ?? null,
+                      completionTokensDetails: openrouterUsage.completionTokensDetails ?? null,
+                    } as Record<string, any>,
+                  } as Record<string, any>,
+                } as Record<string, Record<string, any>>,
+              } : {}),
             });
           },
         }),
       ),
       warnings: [],
+      request: { body: args },
+      response: { headers: responseHeaders },
     };
   }
 }

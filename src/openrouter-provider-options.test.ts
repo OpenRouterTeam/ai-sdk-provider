@@ -32,8 +32,8 @@ describe('providerOptions', () => {
     const model = openrouter('anthropic/claude-3.7-sonnet');
 
     await streamText({
-      model,
-      messages: TEST_MESSAGES,
+      model: model as any,
+      messages: TEST_MESSAGES as any,
       providerOptions: {
         openrouter: {
           reasoning: {
@@ -43,7 +43,7 @@ describe('providerOptions', () => {
       },
     }).consumeStream();
 
-    expect(await server.calls[0]?.requestBody).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       messages: [
         {
           content: 'Hello',
