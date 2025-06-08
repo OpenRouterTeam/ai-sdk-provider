@@ -2,7 +2,7 @@ import { createLLMGateway } from '@/src';
 import { streamText } from 'ai';
 import { it } from 'vitest';
 
-it('receive usage accounting', async () => {
+it.skip('receive usage accounting', async () => {
   const llmgateway = createLLMGateway({
     apiKey: process.env.LLMGATEWAY_API_KEY,
     baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,

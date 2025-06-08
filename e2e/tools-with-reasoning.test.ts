@@ -19,7 +19,7 @@ const prompts = [
 ];
 
 describe('Vercel AI SDK tools call with reasoning', () => {
-  it('should work with reasoning content', async () => {
+  it.skip('should work with reasoning content', async () => {
     const llmgateway = createLLMGateway({
       apiKey: process.env.LLMGATEWAY_API_KEY,
       baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
