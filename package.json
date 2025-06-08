@@ -1,6 +1,6 @@
 {
   "name": "@llmgateway/ai-sdk-provider",
-  "version": "0.7.1",
+  "version": "0.0.0",
   "license": "Apache-2.0",
   "sideEffects": false,
   "type": "module",
@@ -51,6 +51,7 @@
     "ai": "4.3.16",
     "dotenv": "16.5.0",
     "prettier": "3.5.3",
+    "semantic-release": "^24.2.5",
     "tsup": "8.5.0",
     "typescript": "5.8.3",
     "vite-tsconfig-paths": "5.1.4",
@@ -58,8 +59,8 @@
     "zod": "3.25.34"
   },
   "peerDependencies": {
-    "zod": "^3.25.34",
-    "ai": "^4.3.16"
+    "ai": "^4.3.16",
+    "zod": "^3.25.34"
   },
   "engines": {
     "node": ">=18"
@@ -77,6 +78,5 @@
   },
   "keywords": [
     "ai"
-  ],
-  "packageManager": "pnpm@10.11.0"
+  ]
 }

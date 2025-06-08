@@ -1,27 +1,39 @@
-name: Publish package
+name: publish
+
 on:
-  release:
-    types: [published]
-  workflow_dispatch: {}
+  push:
+    branches:
+      - main
+
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Collect versions
+        run: |
+          echo "nodejs_version=$(cat .tool-versions | grep 'nodejs' | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+          echo "pnpm_version=$(cat .tool-versions | grep 'pnpm' | cut -d ' ' -f 2)" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.pnpm_version }}
       - uses: actions/setup-node@v4
         with:
-          node-version: "20.x"
-          registry-url: "https://registry.npmjs.org"
-          scope: "@llmgateway"
-      - uses: pnpm/action-setup@v4
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm build
-      - run: pnpm test
-      - run: pnpm publish --provenance --access public --no-git-checks
+          node-version: ${{ env.nodejs_version }}
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test
+        run: pnpm test
+      - name: Semantic Release
+        run: pnpm semantic-release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
