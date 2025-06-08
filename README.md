@@ -1,5 +1,7 @@
 # LLMGateway Provider for Vercel AI SDK
 
+Forked from https://github.com/OpenRouterTeam/ai-sdk-provider
+
 The [LLMGateway](https://llmgateway.io/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the LLMGateway chat and completion APIs.
 
 ## Setup
