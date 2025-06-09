@@ -31,7 +31,7 @@ import { llmgateway } from '@llmgateway/ai-sdk-provider';
 import { llmgateway, createLLMGateway } from '@llmgateway/ai-sdk-provider';
 import { generateText } from 'ai';
 
-const openrouter = createLLMGateway({
+const llmgateway = createLLMGateway({
   apiKey: process.env.LLMGATEWAY_API_KEY,
 });
 
