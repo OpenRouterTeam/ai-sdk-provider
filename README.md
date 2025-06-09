@@ -28,13 +28,19 @@ import { llmgateway } from '@llmgateway/ai-sdk-provider';
 ## Example
 
 ```ts
-import { llmgateway } from '@llmgateway/ai-sdk-provider';
+import { llmgateway, createLLMGateway } from '@llmgateway/ai-sdk-provider';
 import { generateText } from 'ai';
+
+const openrouter = createLLMGateway({
+  apiKey: process.env.LLMGATEWAY_API_KEY,
+});
 
 const { text } = await generateText({
   model: llmgateway('openai/gpt-4o'),
   prompt: 'Write a vegetarian lasagna recipe for 4 people.',
 });
+
+console.log(`response: ${text}`);
 ```
 
 ## Supported models
