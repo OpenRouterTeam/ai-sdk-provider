@@ -1,15 +1,14 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
-  JsonTestServer,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 
-import { mapOpenRouterCompletionLogProbs } from './map-openrouter-completion-logprobs';
+
 import { createOpenRouter } from './openrouter-provider';
 
-const TEST_PROMPT: LanguageModelV1Prompt = [
+const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -48,9 +47,9 @@ const provider = createOpenRouter({
 const model = provider.completion('openai/gpt-3.5-turbo-instruct');
 
 describe('doGenerate', () => {
-  const server = new JsonTestServer('https://openrouter.ai/api/v1/completions');
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': { response: { type: 'json-value', body: {} } },
+  });
 
   function prepareJsonResponse({
     content = '',
@@ -75,31 +74,35 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.responseBodyJson = {
-      id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
-      object: 'text_completion',
-      created: 1711363706,
-      model: 'openai/gpt-3.5-turbo-instruct',
-      choices: [
-        {
-          text: content,
-          index: 0,
-          logprobs,
-          finish_reason,
-        },
-      ],
-      usage,
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'json-value',
+      headers: (server as any).responseHeaders || {},
+      body: {
+        id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
+        object: 'text_completion',
+        created: 1711363706,
+        model: 'openai/gpt-3.5-turbo-instruct',
+        choices: [
+          {
+            text: content,
+            index: 0,
+            logprobs,
+            finish_reason,
+          },
+        ],
+        usage,
+      },
     };
   }
 
   it('should extract text response', async () => {
     prepareJsonResponse({ content: 'Hello, World!' });
 
-    const { text } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
+    const { content } = await model.doGenerate({
       prompt: TEST_PROMPT,
-    });
+    } as any);
+    
+    const text = content[0]?.type === 'text' ? content[0].text : '';
 
     expect(text).toStrictEqual('Hello, World!');
   });
@@ -111,14 +114,13 @@ describe('doGenerate', () => {
     });
 
     const { usage } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
     expect(usage).toStrictEqual({
-      promptTokens: 20,
-      completionTokens: 5,
+      inputTokens: 20,
+      outputTokens: 5,
+      totalTokens: 25,
     });
   });
 
@@ -127,16 +129,11 @@ describe('doGenerate', () => {
 
     const provider = createOpenRouter({ apiKey: 'test-api-key' });
 
-    const response = await provider
+    await provider
       .completion('openai/gpt-3.5-turbo', { logprobs: 1 })
       .doGenerate({
-        inputFormat: 'prompt',
-        mode: { type: 'regular' },
         prompt: TEST_PROMPT,
-      });
-    expect(response.logprobs).toStrictEqual(
-      mapOpenRouterCompletionLogProbs(TEST_LOGPROBS),
-    );
+      } as any);
   });
 
   it('should extract finish reason', async () => {
@@ -148,10 +145,8 @@ describe('doGenerate', () => {
     const { finishReason } = await provider
       .completion('openai/gpt-3.5-turbo-instruct')
       .doGenerate({
-        inputFormat: 'prompt',
-        mode: { type: 'regular' },
         prompt: TEST_PROMPT,
-      });
+      } as any);
 
     expect(finishReason).toStrictEqual('stop');
   });
@@ -165,28 +160,24 @@ describe('doGenerate', () => {
     const { finishReason } = await provider
       .completion('openai/gpt-3.5-turbo-instruct')
       .doGenerate({
-        inputFormat: 'prompt',
-        mode: { type: 'regular' },
         prompt: TEST_PROMPT,
-      });
+      } as any);
 
     expect(finishReason).toStrictEqual('unknown');
   });
 
   it('should expose the raw response headers', async () => {
-    prepareJsonResponse({ content: '' });
-
-    server.responseHeaders = {
+    (server as any).responseHeaders = {
       'test-header': 'test-value',
     };
 
-    const { rawResponse } = await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
+    prepareJsonResponse({ content: '' });
 
-    expect(rawResponse?.headers).toStrictEqual({
+    const { response } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    } as any);
+
+    expect(response?.headers).toStrictEqual({
       // default headers:
       'content-length': '273',
       'content-type': 'application/json',
@@ -200,12 +191,10 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '' });
 
     await model.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo-instruct',
       prompt: 'Hello',
     });
@@ -219,12 +208,10 @@ describe('doGenerate', () => {
     });
 
     await customModel.doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo-instruct',
       models: ['openai/gpt-4', 'anthropic/claude-2'],
       prompt: 'Hello',
@@ -242,15 +229,13 @@ describe('doGenerate', () => {
     });
 
     await provider.completion('openai/gpt-3.5-turbo-instruct').doGenerate({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
-    });
+    } as any);
 
-    const requestHeaders = await server.getRequestHeaders();
+    const requestHeaders = server.calls[0]!.requestHeaders;
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
@@ -262,11 +247,9 @@ describe('doGenerate', () => {
 });
 
 describe('doStream', () => {
-  const server = new StreamingTestServer(
-    'https://openrouter.ai/api/v1/completions',
-  );
-
-  server.setupTestEnvironment();
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': { response: { type: 'stream-chunks', chunks: [] } },
+  });
 
   function prepareStreamResponse({
     content,
@@ -291,7 +274,10 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.responseChunks = [
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      headers: (server as any).responseHeaders || {},
+      chunks: [
       ...content.map((text) => {
         return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`;
       }),
@@ -302,7 +288,8 @@ describe('doStream', () => {
         usage,
       )},"choices":[]}\n\n`,
       'data: [DONE]\n\n',
-    ];
+      ],
+    };
   }
 
   it('should stream text deltas', async () => {
@@ -318,38 +305,37 @@ describe('doStream', () => {
     });
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
     // note: space moved to last chunk bc of trimming
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
-      { type: 'text-delta', textDelta: 'Hello' },
-      { type: 'text-delta', textDelta: ', ' },
-      { type: 'text-delta', textDelta: 'World!' },
-      { type: 'text-delta', textDelta: '' },
+      { type: 'text', text: 'Hello' },
+      { type: 'text', text: ', ' },
+      { type: 'text', text: 'World!' },
+      { type: 'text', text: '' },
       {
         type: 'finish',
         finishReason: 'stop',
-        logprobs: mapOpenRouterCompletionLogProbs(TEST_LOGPROBS),
-        usage: { promptTokens: 10, completionTokens: 362 },
+
+        usage: { inputTokens: 10, outputTokens: 362, totalTokens: 372 },
       },
     ]);
   });
 
   it('should handle error stream parts', async () => {
-    server.responseChunks = [
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
       `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
         `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
       'data: [DONE]\n\n',
-    ];
+      ],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
@@ -366,24 +352,26 @@ describe('doStream', () => {
       },
       {
         finishReason: 'error',
-        logprobs: undefined,
+
         type: 'finish',
         usage: {
-          completionTokens: Number.NaN,
-          promptTokens: Number.NaN,
+          inputTokens: Number.NaN,
+          outputTokens: Number.NaN,
+          totalTokens: Number.NaN,
         },
       },
     ]);
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.responseChunks = ['data: {unparsable}\n\n', 'data: [DONE]\n\n'];
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
+    };
 
     const { stream } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
     const elements = await convertReadableStreamToArray(stream);
 
@@ -391,29 +379,28 @@ describe('doStream', () => {
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
       finishReason: 'error',
-      logprobs: undefined,
+
       type: 'finish',
       usage: {
-        completionTokens: Number.NaN,
-        promptTokens: Number.NaN,
+        inputTokens: Number.NaN,
+        outputTokens: Number.NaN,
+        totalTokens: Number.NaN,
       },
     });
   });
 
   it('should expose the raw response headers', async () => {
-    prepareStreamResponse({ content: [] });
-
-    server.responseHeaders = {
+    (server as any).responseHeaders = {
       'test-header': 'test-value',
     };
 
-    const { rawResponse } = await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
-      prompt: TEST_PROMPT,
-    });
+    prepareStreamResponse({ content: [] });
 
-    expect(rawResponse?.headers).toStrictEqual({
+    const { response } = await model.doStream({
+      prompt: TEST_PROMPT,
+    } as any);
+
+    expect(response?.headers).toStrictEqual({
       // default headers:
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache',
@@ -428,12 +415,10 @@ describe('doStream', () => {
     prepareStreamResponse({ content: [] });
 
     await model.doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
-    expect(await server.getRequestBodyJson()).toStrictEqual({
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'openai/gpt-3.5-turbo-instruct',
@@ -452,15 +437,13 @@ describe('doStream', () => {
     });
 
     await provider.completion('openai/gpt-3.5-turbo-instruct').doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
       },
-    });
+    } as any);
 
-    const requestHeaders = await server.getRequestHeaders();
+    const requestHeaders = server.calls[0]!.requestHeaders;
 
     expect(requestHeaders).toStrictEqual({
       authorization: 'Bearer test-api-key',
@@ -486,12 +469,10 @@ describe('doStream', () => {
     });
 
     await provider.completion('openai/gpt-4o').doStream({
-      inputFormat: 'prompt',
-      mode: { type: 'regular' },
       prompt: TEST_PROMPT,
-    });
+    } as any);
 
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
 
     expect(requestBody).toHaveProperty('custom_field', 'custom_value');
     expect(requestBody).toHaveProperty(

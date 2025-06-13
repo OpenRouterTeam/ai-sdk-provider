@@ -1,4 +1,4 @@
-import type { UIMessage } from 'ai';
+import type { CoreMessage } from 'ai';
 
 import {
   executeCommandInTerminalTool,
@@ -30,13 +30,11 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         include: true,
       },
     });
-    const messageHistory: UIMessage[] = [];
+    const messageHistory: CoreMessage[] = [];
     for (const prompt of prompts) {
       messageHistory.push({
-        id: crypto.randomUUID(),
         role: 'user',
-        content: prompt,
-        parts: [
+        content: [
           {
             type: 'text',
             text: prompt,
@@ -45,7 +43,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
       });
 
       const response = await generateText({
-        model,
+        model: model,
         system:
           'You are an airline assistant. You can send and read SMS messages, and execute commands in the terminal.',
         messages: messageHistory,
@@ -54,7 +52,6 @@ describe('Vercel AI SDK tools call with reasoning', () => {
           sendSMS: sendSMSTool,
           executeCommand: executeCommandInTerminalTool,
         },
-        maxSteps: 10,
         providerOptions: {
           openrouter: {
             reasoning: {
@@ -64,19 +61,17 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         },
       });
 
-      const parts = response.steps.map(
+      const content = response.steps.map(
         (step) =>
           ({
             type: 'text' as const,
             text: step.text,
-          }) satisfies UIMessage['parts'][number],
-      ) satisfies UIMessage['parts'];
+          }),
+      );
 
       messageHistory.push({
-        id: crypto.randomUUID(),
         role: 'assistant',
-        content: response.text,
-        parts,
+        content,
       });
     }
   });

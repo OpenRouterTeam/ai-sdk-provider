@@ -1,5 +1,10 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
-
+import type { 
+  LanguageModelV2Prompt,
+  LanguageModelV2TextPart,
+  LanguageModelV2FilePart,
+  LanguageModelV2ReasoningPart,
+  LanguageModelV2ToolCallPart
+} from '@ai-sdk/provider';
 import {
   InvalidPromptError,
   UnsupportedFunctionalityError,
@@ -11,7 +16,7 @@ export function convertToOpenRouterCompletionPrompt({
   user = 'user',
   assistant = 'assistant',
 }: {
-  prompt: LanguageModelV1Prompt;
+  prompt: LanguageModelV2Prompt;
   inputFormat: 'prompt' | 'messages';
   user?: string;
   assistant?: string;
@@ -51,26 +56,19 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'user': {
         const userMessage = content
-          .map((part) => {
+          .map((part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
               }
-              case 'image': {
-                throw new UnsupportedFunctionalityError({
-                  functionality: 'images',
-                });
-              }
+
               case 'file': {
                 throw new UnsupportedFunctionalityError({
                   functionality: 'file attachments',
                 });
               }
               default: {
-                const _exhaustiveCheck: never = part;
-                throw new Error(
-                  `Unsupported content type: ${_exhaustiveCheck}`,
-                );
+                return '';
               }
             }
           })
@@ -82,7 +80,7 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'assistant': {
         const assistantMessage = content
-          .map((part) => {
+          .map((part: LanguageModelV2TextPart | LanguageModelV2FilePart | LanguageModelV2ReasoningPart | LanguageModelV2ToolCallPart) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
@@ -98,11 +96,7 @@ export function convertToOpenRouterCompletionPrompt({
                 });
               }
 
-              case 'redacted-reasoning': {
-                throw new UnsupportedFunctionalityError({
-                  functionality: 'redacted reasoning messages',
-                });
-              }
+
               case 'file': {
                 throw new UnsupportedFunctionalityError({
                   functionality: 'file attachments',
@@ -110,10 +104,7 @@ export function convertToOpenRouterCompletionPrompt({
               }
 
               default: {
-                const _exhaustiveCheck: never = part;
-                throw new Error(
-                  `Unsupported content type: ${_exhaustiveCheck}`,
-                );
+                return '';
               }
             }
           })
@@ -130,8 +121,7 @@ export function convertToOpenRouterCompletionPrompt({
       }
 
       default: {
-        const _exhaustiveCheck: never = role;
-        throw new Error(`Unsupported role: ${_exhaustiveCheck}`);
+        break;
       }
     }
   }

@@ -42,7 +42,7 @@ async function callLLM() {
     usage: {
       include: true,
     },
-  });
+  }) as any; // Temporary cast for v2 compatibility
   const response = streamText({
     model,
     messages: [
