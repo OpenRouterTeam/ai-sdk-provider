@@ -670,10 +670,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                     toolCallType: 'function',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
-                    // Coerce invalid arguments to an empty JSON object
-                    args: isParsableJson(toolCall.function.arguments)
-                      ? toolCall.function.arguments
-                      : '{}',
+                    args: toolCall.function.arguments,
                   });
                   toolCall.sent = true;
                 }
