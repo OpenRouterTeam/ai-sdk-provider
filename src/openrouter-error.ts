@@ -3,10 +3,10 @@ import { z } from 'zod';
 
 export const OpenRouterErrorResponseSchema = z.object({
   error: z.object({
+    code: z.union([z.string(), z.number()]).nullable(),
     message: z.string(),
-    type: z.string(),
+    type: z.string().nullable(),
     param: z.any().nullable(),
-    code: z.string().nullable(),
   }),
 });
 
