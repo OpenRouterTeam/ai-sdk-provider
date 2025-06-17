@@ -88,7 +88,9 @@ export function convertToOpenRouterChatMessages(
                   type: 'file' as const,
                   file: {
                     filename: String(
-                      part.providerMetadata?.openrouter?.filename,
+                      part.providerMetadata?.openrouter?.filename ??
+                        part.filename ??
+                        '',
                     ),
                     file_data:
                       part.data instanceof Uint8Array
