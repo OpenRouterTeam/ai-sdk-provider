@@ -8,6 +8,7 @@ import type {
 } from './types/llmgateway-chat-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+import { getEnvVar } from './env-utils';
 
 import { LLMGatewayChatLanguageModel } from './llmgateway-chat-language-model';
 import { LLMGatewayCompletionLanguageModel } from './llmgateway-completion-language-model';
@@ -100,7 +101,7 @@ export function createLLMGateway(
 
   const getHeaders = () => ({
     Authorization: `Bearer ${loadApiKey({
-      apiKey: options.apiKey,
+      apiKey: options.apiKey ?? getEnvVar('API_KEY'),
       environmentVariableName: 'LLMGATEWAY_API_KEY',
       description: 'LLMGateway',
     })}`,

@@ -1,6 +1,7 @@
 import type { UIMessage } from 'ai';
 
 import { createLLMGateway } from '@/src';
+import { getEnvVar } from '@/src/env-utils';
 import { generateText } from 'ai';
 import { it, vi } from 'vitest';
 
@@ -15,8 +16,8 @@ const prompts = [
 describe('Vercel AI SDK basic', () => {
   it('should work', async () => {
     const llmgateway = createLLMGateway({
-      apiKey: process.env.LLMGATEWAY_API_KEY,
-      baseURL: `${process.env.LLMGATEWAY_API_BASE}/v1`,
+      apiKey: getEnvVar('API_KEY'),
+      baseURL: `${getEnvVar('API_BASE')}/v1`,
     });
 
     const model = llmgateway('claude-3-7-sonnet', {

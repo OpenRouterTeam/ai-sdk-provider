@@ -1,12 +1,13 @@
 // ref: https://github.com/t3dotgg/SnitchScript/blob/main/tools.ts
 
 import { createLLMGateway } from '@/src';
+import { getEnvVar } from '@/src/env-utils';
 import { generateText, tool } from 'ai';
 import { z } from 'zod';
 
 const llmgateway = createLLMGateway({
-  apiKey: process.env.LLMGATEWAY_API_KEY,
-  baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
+  apiKey: getEnvVar('API_KEY'),
+  baseURL: `${getEnvVar('API_BASE')}/api/v1`,
 });
 
 export const sendSMSTool = tool({

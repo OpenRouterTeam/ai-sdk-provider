@@ -1,4 +1,5 @@
 import { createLLMGateway } from '@/src';
+import { getEnvVar } from '@/src/env-utils';
 import { streamText } from 'ai';
 import { it, vi } from 'vitest';
 
@@ -35,8 +36,8 @@ it.skip('should trigger cache read', async () => {
 
 async function callLLM() {
   const llmgateway = createLLMGateway({
-    apiKey: process.env.LLMGATEWAY_API_KEY,
-    baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
+    apiKey: getEnvVar('API_KEY'),
+    baseURL: `${getEnvVar('API_BASE')}/api/v1`,
   });
   const model = llmgateway('anthropic/claude-3.7-sonnet', {
     usage: {

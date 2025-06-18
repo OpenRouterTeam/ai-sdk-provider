@@ -6,6 +6,7 @@ import {
   sendSMSTool,
 } from '@/e2e/tools';
 import { createLLMGateway } from '@/src';
+import { getEnvVar } from '@/src/env-utils';
 import { generateText } from 'ai';
 import { it, vi } from 'vitest';
 
@@ -21,8 +22,8 @@ const prompts = [
 describe('Vercel AI SDK tools call with reasoning', () => {
   it.skip('should work with reasoning content', async () => {
     const llmgateway = createLLMGateway({
-      apiKey: process.env.LLMGATEWAY_API_KEY,
-      baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
+      apiKey: getEnvVar('API_KEY'),
+      baseURL: `${getEnvVar('API_BASE')}/api/v1`,
     });
 
     const model = llmgateway('anthropic/claude-sonnet-4', {

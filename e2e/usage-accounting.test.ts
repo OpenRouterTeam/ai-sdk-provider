@@ -1,11 +1,12 @@
 import { createLLMGateway } from '@/src';
+import { getEnvVar } from '@/src/env-utils';
 import { streamText } from 'ai';
 import { it } from 'vitest';
 
 it.skip('receive usage accounting', async () => {
   const llmgateway = createLLMGateway({
-    apiKey: process.env.LLMGATEWAY_API_KEY,
-    baseURL: `${process.env.LLMGATEWAY_API_BASE}/api/v1`,
+    apiKey: getEnvVar('API_KEY'),
+    baseURL: `${getEnvVar('API_BASE')}/api/v1`,
   });
   const model = llmgateway('anthropic/claude-3.7-sonnet:thinking', {
     usage: {
