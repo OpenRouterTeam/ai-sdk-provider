@@ -13,8 +13,10 @@ export type OpenRouterProviderOptions = {
    * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
+   * If `enabled` is false, reasoning will be disabled entirely. Default is inferred from 'effort' or 'max_tokens'.
    */
   reasoning?: {
+    enabled?: boolean;
     exclude?: boolean;
   } & (
     | {
