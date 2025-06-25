@@ -29,6 +29,7 @@ function getCacheControl(
 
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV1Prompt,
+  provider?: string,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
   for (const { role, content, providerMetadata } of prompt) {
@@ -149,6 +150,7 @@ export function convertToOpenRouterChatMessages(
                 type: ReasoningDetailType.Text,
                 text: part.text,
                 signature: part.signature,
+                provider,
               });
 
               break;
@@ -157,11 +159,11 @@ export function convertToOpenRouterChatMessages(
               reasoningDetails.push({
                 type: ReasoningDetailType.Encrypted,
                 data: part.data,
+                provider,
               });
               break;
             }
-            case 'file':
-              break;
+
             default: {
               const _exhaustiveCheck: never = part;
               throw new Error(`Unsupported part: ${_exhaustiveCheck}`);

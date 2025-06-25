@@ -140,7 +140,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       top_k: topK,
 
       // messages:
-      messages: convertToOpenRouterChatMessages(prompt),
+      messages: convertToOpenRouterChatMessages(prompt, this.config.provider),
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
