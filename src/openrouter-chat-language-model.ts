@@ -336,6 +336,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
       rawResponse: { headers: responseHeaders },
       warnings: [],
       logprobs: mapOpenRouterChatLogProbsOutput(choice.logprobs),
+      ...(choice.message.annotations
+        ?.filter((annotation) => annotation.type === 'url_citation')
+        .map((citation) => ({
+          url: citation.url,
+          title: citation.title,
+        })).length
+        ? {
+            experimental_citations: choice.message.annotations
+              ?.filter((annotation) => annotation.type === 'url_citation')
+              .map((citation) => ({
+                url: citation.url,
+                title: citation.title,
+              })),
+          }
+        : {}),
       ...(hasProviderMetadata ? { providerMetadata } : {}),
     };
   }
@@ -658,6 +673,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                 }
               }
             }
+
+            if (choice?.delta?.annotations != null) {
+              const citations = choice.delta.annotations
+                .filter((annotation) => annotation.type === 'url_citation')
+                .map((citation) => ({
+                  url: citation.url,
+                  title: citation.title,
+                }));
+
+              if (citations.length > 0) {
+                controller.enqueue({
+                  type: 'experimental-citations',
+                  citations,
+                } as any);
+              }
+            }
           },
 
           flush(controller) {
@@ -770,6 +801,16 @@ const OpenRouterNonStreamChatCompletionResponseSchema =
               }),
             )
             .optional(),
+
+          annotations: z
+            .array(
+              z.object({
+                type: z.literal('url_citation'),
+                url: z.string(),
+                title: z.string().optional(),
+              }),
+            )
+            .optional(),
         }),
         index: z.number(),
         logprobs: z
@@ -818,6 +859,15 @@ const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     name: z.string().nullish(),
                     arguments: z.string().nullish(),
                   }),
+                }),
+              )
+              .nullish(),
+            annotations: z
+              .array(
+                z.object({
+                  type: z.literal('url_citation'),
+                  url: z.string(),
+                  title: z.string().optional(),
                 }),
               )
               .nullish(),

@@ -68,3 +68,13 @@ export type OpenRouterUsageAccounting = {
   totalTokens: number;
   cost?: number;
 };
+
+/**
+ * Citation from web search results
+ * @see https://openrouter.ai/docs/features/web-search
+ */
+export interface OpenRouterCitation {
+  type: 'url_citation';
+  url: string;
+  title?: string;
+}

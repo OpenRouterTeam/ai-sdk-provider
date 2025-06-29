@@ -305,6 +305,97 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should extract citations from non-streaming response', async () => {
+    server.responseBodyJson = {
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1711115037,
+      model: 'perplexity/llama-3.1-sonar-small-128k-online',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'Here is some information with citations.',
+            annotations: [
+              {
+                type: 'url_citation',
+                url: 'https://example.com/article1',
+                title: 'Example Article 1',
+              },
+              {
+                type: 'url_citation',
+                url: 'https://example.com/article2',
+                title: 'Example Article 2',
+              },
+            ],
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+    };
+
+    const response = await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    expect((response as any).experimental_citations).toEqual([
+      { url: 'https://example.com/article1', title: 'Example Article 1' },
+      { url: 'https://example.com/article2', title: 'Example Article 2' },
+    ]);
+  });
+
+  it('should handle response without citations', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const response = await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    expect((response as any).experimental_citations).toBeUndefined();
+  });
+
+  it('should handle citations without titles', async () => {
+    server.responseBodyJson = {
+      id: 'chatcmpl-test',
+      object: 'chat.completion',
+      created: 1711115037,
+      model: 'perplexity/llama-3.1-sonar-small-128k-online',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'Here is some information with citations.',
+            annotations: [
+              {
+                type: 'url_citation',
+                url: 'https://example.com/article1',
+              },
+            ],
+          },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+    };
+
+    const response = await model.doGenerate({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    expect((response as any).experimental_citations).toEqual([
+      { url: 'https://example.com/article1', title: undefined },
+    ]);
+  });
+
   it('should pass settings', async () => {
     prepareJsonResponse();
 
@@ -930,6 +1021,62 @@ describe('doStream', () => {
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
     });
+  });
+
+  it('should extract citations from streaming response', async () => {
+    server.responseChunks = [
+      'data: {"choices":[{"delta":{"role":"assistant"},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"Here is some information"},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article1","title":"Example Article 1"}]},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    const chunks = await convertReadableStreamToArray(stream);
+    const citationChunks = chunks.filter(
+      (chunk: any) => chunk.type === 'experimental-citations',
+    );
+
+    expect(citationChunks).toHaveLength(1);
+    expect((citationChunks[0] as any).citations).toEqual([
+      { url: 'https://example.com/article1', title: 'Example Article 1' },
+    ]);
+  });
+
+  it('should handle multiple citation chunks in streaming response', async () => {
+    server.responseChunks = [
+      'data: {"choices":[{"delta":{"role":"assistant"},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{"content":"Here is some information"},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article1","title":"Example Article 1"}]},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{"annotations":[{"type":"url_citation","url":"https://example.com/article2"}]},"index":0}]}\n\n',
+      'data: {"choices":[{"delta":{},"finish_reason":"stop","index":0}]}\n\n',
+      'data: [DONE]\n\n',
+    ];
+
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      mode: { type: 'regular' },
+      prompt: TEST_PROMPT,
+    });
+
+    const chunks = await convertReadableStreamToArray(stream);
+    const citationChunks = chunks.filter(
+      (chunk: any) => chunk.type === 'experimental-citations',
+    );
+
+    expect(citationChunks).toHaveLength(2);
+    expect((citationChunks[0] as any).citations).toEqual([
+      { url: 'https://example.com/article1', title: 'Example Article 1' },
+    ]);
+    expect((citationChunks[1] as any).citations).toEqual([
+      { url: 'https://example.com/article2', title: undefined },
+    ]);
   });
 
   it('should pass headers', async () => {
