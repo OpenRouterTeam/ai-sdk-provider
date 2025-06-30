@@ -1,3 +1,8 @@
+/**
+ * Modified for Dreams Router - forked from OpenRouter AI SDK Provider
+ * Original: https://github.com/OpenRouterTeam/ai-sdk-provider
+ */
+
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
@@ -91,13 +96,14 @@ A JSON object to send as the request body to access OpenRouter features & upstre
 }
 
 /**
-Create an OpenRouter provider instance.
+Create a Dreams router provider instance.
  */
-export function createOpenRouter(
+export function createDreamsRouter(
   options: OpenRouterProviderSettings = {},
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
+    // TODO: Replace with Dreams router domain when ready
     'https://openrouter.ai/api/v1';
 
   // we default to compatible, because strict breaks providers like Groq:
@@ -106,8 +112,8 @@ export function createOpenRouter(
   const getHeaders = () => ({
     Authorization: `Bearer ${loadApiKey({
       apiKey: options.apiKey,
-      environmentVariableName: 'OPENROUTER_API_KEY',
-      description: 'OpenRouter',
+      environmentVariableName: 'DREAMSROUTER_API_KEY',
+      description: 'Dreams Router',
     })}`,
     ...options.headers,
   });
@@ -171,8 +177,8 @@ export function createOpenRouter(
 }
 
 /**
-Default OpenRouter provider instance. It uses 'strict' compatibility mode.
+Default Dreams router provider instance. It uses 'strict' compatibility mode.
  */
-export const openrouter = createOpenRouter({
-  compatibility: 'strict', // strict for OpenRouter API
+export const dreamsrouter = createDreamsRouter({
+  compatibility: 'strict', // strict for Dreams Router API
 });

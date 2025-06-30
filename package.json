@@ -1,7 +1,8 @@
 {
-  "name": "@openrouter/ai-sdk-provider",
-  "version": "0.7.2",
+  "name": "@daydreamsai/ai-sdk-provider",
+  "version": "0.0.1",
   "license": "Apache-2.0",
+  "description": "Dreams Router AI SDK provider (forked from OpenRouter)",
   "sideEffects": false,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -75,7 +76,9 @@
     "url": "https://github.com/OpenRouterTeam/ai-sdk-provider/issues"
   },
   "keywords": [
-    "ai"
+    "ai",
+    "dreams",
+    "dreams-router"
   ],
   "packageManager": "pnpm@10.11.0"
 }

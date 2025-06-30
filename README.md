@@ -1,45 +1,62 @@
-# OpenRouter Provider for Vercel AI SDK
+# Dreams Router Provider for Vercel AI SDK
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs.
+The Dreams Router provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to large language models through the Dreams Router API (forked from [OpenRouter](https://openrouter.ai/)).
 
 ## Setup
 
 ```bash
 # For pnpm
-pnpm add @openrouter/ai-sdk-provider
+pnpm add @dreams/ai-sdk-provider
 
 # For npm
-npm install @openrouter/ai-sdk-provider
+npm install @dreams/ai-sdk-provider
 
 # For yarn
-yarn add @openrouter/ai-sdk-provider
+yarn add @dreams/ai-sdk-provider
 ```
 
 ## Provider Instance
 
-You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
+You can import the default provider instance `dreamsrouter` from `@dreams/ai-sdk-provider`:
 
 ```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { dreamsrouter } from '@dreams/ai-sdk-provider';
+```
+
+You can also create a custom provider instance:
+
+```ts
+import { createDreamsRouter } from '@dreams/ai-sdk-provider';
+
+const dreamsrouter = createDreamsRouter({
+  apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
+  // baseURL: 'https://your-dreams-router-domain.com/api/v1', // TODO: Update when ready
+});
 ```
 
 ## Example
 
 ```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
+import { dreamsrouter } from '@dreams/ai-sdk-provider';
 import { generateText } from 'ai';
 
 const { text } = await generateText({
-  model: openrouter('openai/gpt-4o'),
+  model: dreamsrouter('openai/gpt-4o'),
   prompt: 'Write a vegetarian lasagna recipe for 4 people.',
 });
 ```
 
+## Environment Variables
+
+Set your Dreams Router API key:
+
+```bash
+DREAMSROUTER_API_KEY=your-api-key-here
+```
+
 ## Supported models
 
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
-
-You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
+This provider is compatible with OpenRouter model IDs and API format.
 
 ## Passing Extra Body to OpenRouter
 
