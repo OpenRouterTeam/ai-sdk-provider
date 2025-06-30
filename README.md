@@ -6,27 +6,56 @@ The Dreams Router provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) g
 
 ```bash
 # For pnpm
-pnpm add @dreams/ai-sdk-provider
+pnpm add @daydreamsai/ai-sdk-provider
 
 # For npm
-npm install @dreams/ai-sdk-provider
+npm install @daydreamsai/ai-sdk-provider
 
 # For yarn
-yarn add @dreams/ai-sdk-provider
+yarn add @daydreamsai/ai-sdk-provider
+```
+
+## Authentication Methods
+
+Dreams Router supports two authentication methods:
+
+### 1. API Key Authentication (Traditional)
+
+```ts
+import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
+
+const dreamsrouter = createDreamsRouter({
+  apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
+  // baseURL: 'https://your-dreams-router-domain.com/api/v1', // TODO: Update when ready
+});
+```
+
+### 2. Wallet-based Authentication (x402 Payment)
+
+```ts
+import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
+
+// No API key required when using x402Payment
+const dreamsrouter = createDreamsRouter({
+  baseURL: 'https://your-dreams-router-domain.com/api/v1',
+  extraBody: {
+    x402Payment: 'your-encoded-x402-payment-header',
+  },
+});
 ```
 
 ## Provider Instance
 
-You can import the default provider instance `dreamsrouter` from `@dreams/ai-sdk-provider`:
+You can import the default provider instance `dreamsrouter` from `@daydreamsai/ai-sdk-provider`:
 
 ```ts
-import { dreamsrouter } from '@dreams/ai-sdk-provider';
+import { dreamsrouter } from '@daydreamsai/ai-sdk-provider';
 ```
 
 You can also create a custom provider instance:
 
 ```ts
-import { createDreamsRouter } from '@dreams/ai-sdk-provider';
+import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
 
 const dreamsrouter = createDreamsRouter({
   apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
@@ -36,8 +65,10 @@ const dreamsrouter = createDreamsRouter({
 
 ## Example
 
+### Basic Usage with API Key
+
 ```ts
-import { dreamsrouter } from '@dreams/ai-sdk-provider';
+import { dreamsrouter } from '@daydreamsai/ai-sdk-provider';
 import { generateText } from 'ai';
 
 const { text } = await generateText({
@@ -46,13 +77,35 @@ const { text } = await generateText({
 });
 ```
 
+### Wallet-only Authentication with x402 Payment
+
+```ts
+import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
+import { generateText } from 'ai';
+
+// Create provider with x402 payment - no API key needed
+const dreamsrouter = createDreamsRouter({
+  baseURL: 'http://localhost:8080/v1/',
+  extraBody: {
+    x402Payment: 'your-encoded-x402-payment-header',
+  },
+});
+
+const { text } = await generateText({
+  model: dreamsrouter('openai/gpt-4o'),
+  prompt: 'Hello with wallet authentication!',
+});
+```
+
 ## Environment Variables
 
-Set your Dreams Router API key:
+For API key authentication:
 
 ```bash
 DREAMSROUTER_API_KEY=your-api-key-here
 ```
+
+For wallet-based authentication, no environment variables are required.
 
 ## Supported models
 

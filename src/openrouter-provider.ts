@@ -67,7 +67,7 @@ Base URL for the OpenRouter API calls.
   baseUrl?: string;
 
   /**
-API key for authenticating requests.
+API key for authenticating requests. Optional when using x402 payment headers.
      */
   apiKey?: string;
 
@@ -91,6 +91,7 @@ or to provide a custom fetch implementation for e.g. testing.
 
   /**
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
+Can include x402Payment for wallet-based authentication.
   */
   extraBody?: Record<string, unknown>;
 }
@@ -109,14 +110,49 @@ export function createDreamsRouter(
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
-  const getHeaders = () => ({
-    Authorization: `Bearer ${loadApiKey({
-      apiKey: options.apiKey,
-      environmentVariableName: 'DREAMSROUTER_API_KEY',
-      description: 'Dreams Router',
-    })}`,
-    ...options.headers,
-  });
+  const getHeaders = () => {
+    const headers: Record<string, string> = { ...options.headers };
+
+    // Check if x402Payment is provided in extraBody (wallet-based auth)
+    const hasX402Payment = options.extraBody?.x402Payment;
+
+    // Only require API key if no x402Payment is provided
+    if (!hasX402Payment) {
+      try {
+        const apiKey = loadApiKey({
+          apiKey: options.apiKey,
+          environmentVariableName: 'DREAMSROUTER_API_KEY',
+          description: 'Dreams Router',
+        });
+        headers.Authorization = `Bearer ${apiKey}`;
+      } catch (error) {
+        // If no x402Payment and no API key, throw error
+        throw new Error(
+          'Dreams Router authentication required. Provide either an API key or x402Payment in extraBody.',
+        );
+      }
+    } else {
+      // If x402Payment is provided, API key is optional
+      if (options.apiKey) {
+        try {
+          const apiKey = loadApiKey({
+            apiKey: options.apiKey,
+            environmentVariableName: 'DREAMSROUTER_API_KEY',
+            description: 'Dreams Router',
+          });
+          headers.Authorization = `Bearer ${apiKey}`;
+        } catch (error) {
+          // Ignore API key loading errors when x402Payment is available
+          console.debug(
+            'API key not available, using x402Payment for authentication',
+          );
+        }
+      }
+      // When x402Payment is present but no API key, that's fine - no Authorization header needed
+    }
+
+    return headers;
+  };
 
   const createChatModel = (
     modelId: OpenRouterChatModelId,
