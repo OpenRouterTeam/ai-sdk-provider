@@ -41,6 +41,8 @@ This list is not a definitive list of models supported by OpenRouter, as it cons
 
 You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
 
+For detailed integration guides with popular frameworks and SDKs, see the [OpenRouter frameworks documentation](https://openrouter.ai/docs/community/frameworks-overview).
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:
