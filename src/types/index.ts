@@ -6,6 +6,9 @@ export type { LanguageModelV1 };
 // Export our model types with explicit type constraints
 export type OpenRouterLanguageModel = LanguageModelV1;
 
+// Export Dreams Router types
+export type { DreamsRouterPaymentConfig } from './dreams-router-payment-config';
+
 export type OpenRouterProviderOptions = {
   models?: string[];
 

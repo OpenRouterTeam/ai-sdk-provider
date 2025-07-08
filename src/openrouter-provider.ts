@@ -7,6 +7,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './openrouter-completion-settings';
+import type { DreamsRouterPaymentConfig } from './types';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -16,6 +17,7 @@ import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
 import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
 import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
+import { generateX402Payment } from './x402-payment-utils';
 
 export type { OpenRouterCompletionSettings };
 
@@ -67,7 +69,7 @@ Base URL for the OpenRouter API calls.
   baseUrl?: string;
 
   /**
-API key for authenticating requests. Optional when using x402 payment headers.
+API key for authenticating requests.
      */
   apiKey?: string;
 
@@ -91,9 +93,14 @@ or to provide a custom fetch implementation for e.g. testing.
 
   /**
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
-Can include x402Payment for wallet-based authentication.
   */
   extraBody?: Record<string, unknown>;
+
+  /**
+   * Payment configuration for x402 payments. When provided, the SDK will automatically
+   * generate x402 payment signatures for each request.
+   */
+  payment?: DreamsRouterPaymentConfig;
 }
 
 /**
@@ -110,49 +117,63 @@ export function createDreamsRouter(
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
-  const getHeaders = () => {
-    const headers: Record<string, string> = { ...options.headers };
+  const getHeaders = () => ({
+    Authorization: `Bearer ${loadApiKey({
+      apiKey: options.apiKey,
+      environmentVariableName: 'DREAMSROUTER_API_KEY',
+      description: 'Dreams Router',
+    })}`,
+    ...options.headers,
+  });
 
-    // Check if x402Payment is provided in extraBody (wallet-based auth)
-    const hasX402Payment = options.extraBody?.x402Payment;
+  const getExtraBody = async () => {
+    let extraBody = { ...options.extraBody };
 
-    // Only require API key if no x402Payment is provided
-    if (!hasX402Payment) {
+    // Generate x402 payment if payment config is provided
+    if (options.payment) {
       try {
-        const apiKey = loadApiKey({
-          apiKey: options.apiKey,
-          environmentVariableName: 'DREAMSROUTER_API_KEY',
-          description: 'Dreams Router',
-        });
-        headers.Authorization = `Bearer ${apiKey}`;
-      } catch (error) {
-        // If no x402Payment and no API key, throw error
-        throw new Error(
-          'Dreams Router authentication required. Provide either an API key or x402Payment in extraBody.',
-        );
-      }
-    } else {
-      // If x402Payment is provided, API key is optional
-      if (options.apiKey) {
-        try {
-          const apiKey = loadApiKey({
-            apiKey: options.apiKey,
-            environmentVariableName: 'DREAMSROUTER_API_KEY',
-            description: 'Dreams Router',
-          });
-          headers.Authorization = `Bearer ${apiKey}`;
-        } catch (error) {
-          // Ignore API key loading errors when x402Payment is available
-          console.debug(
-            'API key not available, using x402Payment for authentication',
-          );
+        const x402Payment = await generateX402Payment(options.payment);
+        if (x402Payment) {
+          extraBody.x402Payment = x402Payment;
         }
+      } catch (error) {
+        console.error('Failed to generate x402 payment:', error);
+        // Continue without payment - let server handle the error
       }
-      // When x402Payment is present but no API key, that's fine - no Authorization header needed
     }
 
-    return headers;
+    return extraBody;
   };
+
+  // Create a custom fetch function that automatically includes x402 payments
+  const customFetch = options.payment
+    ? async (url: string | URL | Request, init?: RequestInit) => {
+        const extraBody = await getExtraBody();
+
+        // If there's a body, merge the x402Payment into it
+        if (init?.body && typeof init.body === 'string') {
+          try {
+            const bodyObj = JSON.parse(init.body);
+            const newBody = { ...bodyObj, ...extraBody };
+
+            const newInit = {
+              ...init,
+              body: JSON.stringify(newBody),
+            };
+
+            return (options.fetch || fetch)(url, newInit);
+          } catch (error) {
+            console.error(
+              'Error parsing request body for x402 payment:',
+              error,
+            );
+            return (options.fetch || fetch)(url, init);
+          }
+        }
+
+        return (options.fetch || fetch)(url, init);
+      }
+    : options.fetch;
 
   const createChatModel = (
     modelId: OpenRouterChatModelId,
@@ -163,7 +184,7 @@ export function createDreamsRouter(
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
-      fetch: options.fetch,
+      fetch: customFetch,
       extraBody: options.extraBody,
     });
 
@@ -176,7 +197,7 @@ export function createDreamsRouter(
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
-      fetch: options.fetch,
+      fetch: customFetch,
       extraBody: options.extraBody,
     });
 

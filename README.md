@@ -6,56 +6,27 @@ The Dreams Router provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) g
 
 ```bash
 # For pnpm
-pnpm add @daydreamsai/ai-sdk-provider
+pnpm add @dreams/ai-sdk-provider
 
 # For npm
-npm install @daydreamsai/ai-sdk-provider
+npm install @dreams/ai-sdk-provider
 
 # For yarn
-yarn add @daydreamsai/ai-sdk-provider
-```
-
-## Authentication Methods
-
-Dreams Router supports two authentication methods:
-
-### 1. API Key Authentication (Traditional)
-
-```ts
-import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
-
-const dreamsrouter = createDreamsRouter({
-  apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
-  // baseURL: 'https://your-dreams-router-domain.com/api/v1', // TODO: Update when ready
-});
-```
-
-### 2. Wallet-based Authentication (x402 Payment)
-
-```ts
-import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
-
-// No API key required when using x402Payment
-const dreamsrouter = createDreamsRouter({
-  baseURL: 'https://your-dreams-router-domain.com/api/v1',
-  extraBody: {
-    x402Payment: 'your-encoded-x402-payment-header',
-  },
-});
+yarn add @dreams/ai-sdk-provider
 ```
 
 ## Provider Instance
 
-You can import the default provider instance `dreamsrouter` from `@daydreamsai/ai-sdk-provider`:
+You can import the default provider instance `dreamsrouter` from `@dreams/ai-sdk-provider`:
 
 ```ts
-import { dreamsrouter } from '@daydreamsai/ai-sdk-provider';
+import { dreamsrouter } from '@dreams/ai-sdk-provider';
 ```
 
 You can also create a custom provider instance:
 
 ```ts
-import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
+import { createDreamsRouter } from '@dreams/ai-sdk-provider';
 
 const dreamsrouter = createDreamsRouter({
   apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
@@ -65,10 +36,8 @@ const dreamsrouter = createDreamsRouter({
 
 ## Example
 
-### Basic Usage with API Key
-
 ```ts
-import { dreamsrouter } from '@daydreamsai/ai-sdk-provider';
+import { dreamsrouter } from '@dreams/ai-sdk-provider';
 import { generateText } from 'ai';
 
 const { text } = await generateText({
@@ -77,35 +46,80 @@ const { text } = await generateText({
 });
 ```
 
-### Wallet-only Authentication with x402 Payment
-
-```ts
-import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
-import { generateText } from 'ai';
-
-// Create provider with x402 payment - no API key needed
-const dreamsrouter = createDreamsRouter({
-  baseURL: 'http://localhost:8080/v1/',
-  extraBody: {
-    x402Payment: 'your-encoded-x402-payment-header',
-  },
-});
-
-const { text } = await generateText({
-  model: dreamsrouter('openai/gpt-4o'),
-  prompt: 'Hello with wallet authentication!',
-});
-```
-
 ## Environment Variables
 
-For API key authentication:
+Set your Dreams Router API key:
 
 ```bash
 DREAMSROUTER_API_KEY=your-api-key-here
 ```
 
-For wallet-based authentication, no environment variables are required.
+## X402 Payment Integration
+
+Dreams Router supports automatic x402 payment generation for seamless crypto payments. When enabled, the SDK will automatically generate and include x402 payment signatures with each request.
+
+### Setup
+
+First, install the required payment dependencies:
+
+```bash
+npm install viem x402
+```
+
+### Basic Usage
+
+```typescript
+import { createDreamsRouter } from '@dreams/ai-sdk-provider';
+import { generateText } from 'ai';
+
+const dreamsrouter = createDreamsRouter({
+  apiKey: 'your-api-key',
+  payment: {
+    privateKey: '0x...', // Your private key for signing payments
+    amount: '100000', // Payment amount in USDC (6 decimals) - defaults to $0.10
+  },
+});
+
+// Payment is automatically handled for each request
+const { text } = await generateText({
+  model: dreamsrouter('openai/gpt-4o'),
+  prompt: 'Hello world!',
+});
+```
+
+### Payment Configuration
+
+```typescript
+const dreamsrouter = createDreamsRouter({
+  payment: {
+    privateKey: '0x...', // Required: Your private key
+    amount: '100000', // Optional: Payment amount (defaults to $0.10)
+    serviceWallet: '0x...', // Optional: Service wallet address
+    usdcAddress: '0x...', // Optional: USDC contract address
+    network: 'base-sepolia', // Optional: Network (base-sepolia, base, avalanche-fuji, avalanche, iotex)
+    validityDuration: 600, // Optional: Payment validity in seconds (default: 10 minutes)
+  },
+});
+```
+
+### How It Works
+
+1. **Automatic Payment Generation**: Each request automatically generates a fresh x402 payment signature
+2. **EIP-712 Signing**: Uses standard Ethereum signing for secure payment authorization
+3. **USDC Payments**: Supports USDC payments on multiple networks
+4. **Request Integration**: Payments are seamlessly injected into request bodies
+
+### Networks Supported
+
+- `base-sepolia` (default)
+- `base`
+- `avalanche-fuji`
+- `avalanche`
+- `iotex`
+
+### Error Handling
+
+If payment generation fails, the request will continue without payment, allowing the server to handle the error appropriately.
 
 ## Supported models
 
