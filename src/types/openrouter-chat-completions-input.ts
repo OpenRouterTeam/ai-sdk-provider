@@ -45,6 +45,7 @@ export interface ChatCompletionContentPartImage {
   cache_control?: OpenRouterCacheControl;
 }
 
+
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
