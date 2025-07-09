@@ -42,23 +42,23 @@
     "@ai-sdk/provider-utils": "2.2.8"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
+    "@biomejs/biome": "2.1.1",
     "@edge-runtime/vm": "5.0.0",
     "@ianvs/prettier-plugin-sort-imports": "4.4.2",
     "@types/jest": "29.5.14",
     "@types/node": "22.15.24",
-    "ai": "4.3.16",
+    "ai": "4.3.17",
     "dotenv": "16.5.0",
     "prettier": "3.5.3",
     "tsup": "8.5.0",
     "typescript": "5.8.3",
     "vite-tsconfig-paths": "5.1.4",
-    "vitest": "3.1.4",
+    "vitest": "3.2.4",
     "zod": "3.25.34"
   },
   "peerDependencies": {
     "zod": "^3.25.34",
-    "ai": "^4.3.16"
+    "ai": "^4.3.17"
   },
   "engines": {
     "node": ">=18"
@@ -77,5 +77,5 @@
   "keywords": [
     "ai"
   ],
-  "packageManager": "pnpm@10.11.0"
+  "packageManager": "pnpm@10.12.4"
 }
