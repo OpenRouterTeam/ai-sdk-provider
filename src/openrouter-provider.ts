@@ -3,6 +3,7 @@
  * Original: https://github.com/OpenRouterTeam/ai-sdk-provider
  */
 
+import type { Account } from 'viem';
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
@@ -74,6 +75,12 @@ API key for authenticating requests.
   apiKey?: string;
 
   /**
+   * JWT session token for authenticating requests (alternative to API key).
+   * When both apiKey and sessionToken are provided, sessionToken takes precedence.
+   */
+  sessionToken?: string;
+
+  /**
 Custom headers to include in the requests.
      */
   headers?: Record<string, string>;
@@ -99,8 +106,14 @@ A JSON object to send as the request body to access OpenRouter features & upstre
   /**
    * Payment configuration for x402 payments. When provided, the SDK will automatically
    * generate x402 payment signatures for each request.
+   * Note: This is used internally by wallet auth utils. Use createDreamsRouterAuth() for easier setup.
    */
   payment?: DreamsRouterPaymentConfig;
+
+  /**
+   * Account for generating x402 payments. Used internally by wallet auth utils.
+   */
+  signer?: Account;
 }
 
 /**
@@ -111,28 +124,44 @@ export function createDreamsRouter(
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    // TODO: Replace with Dreams router domain when ready
-    'https://openrouter.ai/api/v1';
+    'https://dev-router.daydreams.systems/v1';
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
-  const getHeaders = () => ({
-    Authorization: `Bearer ${loadApiKey({
-      apiKey: options.apiKey,
-      environmentVariableName: 'DREAMSROUTER_API_KEY',
-      description: 'Dreams Router',
-    })}`,
-    ...options.headers,
-  });
+  const getHeaders = () => {
+    // Prefer sessionToken over apiKey if both are provided
+    const sessionToken =
+      options.sessionToken || process.env.DREAMSROUTER_SESSION_TOKEN;
+
+    if (sessionToken) {
+      return {
+        Authorization: `Bearer ${sessionToken}`,
+        ...options.headers,
+      };
+    }
+
+    // Fall back to API key
+    return {
+      Authorization: `Bearer ${loadApiKey({
+        apiKey: options.apiKey,
+        environmentVariableName: 'DREAMSROUTER_API_KEY',
+        description: 'Dreams Router',
+      })}`,
+      ...options.headers,
+    };
+  };
 
   const getExtraBody = async () => {
     let extraBody = { ...options.extraBody };
 
-    // Generate x402 payment if payment config is provided
-    if (options.payment) {
+    // Generate x402 payment if both signer and payment config are provided
+    if (options.payment && options.signer) {
       try {
-        const x402Payment = await generateX402Payment(options.payment);
+        const x402Payment = await generateX402Payment(
+          options.signer,
+          options.payment,
+        );
         if (x402Payment) {
           extraBody.x402Payment = x402Payment;
         }

@@ -2,268 +2,306 @@
 
 The Dreams Router provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to large language models through the Dreams Router API (forked from [OpenRouter](https://openrouter.ai/)).
 
-## Setup
+## Installation
 
 ```bash
-# For pnpm
-pnpm add @dreams/ai-sdk-provider
-
-# For npm
-npm install @dreams/ai-sdk-provider
-
-# For yarn
-yarn add @dreams/ai-sdk-provider
+npm install @dreams/ai-sdk-provider viem x402
 ```
 
-## Provider Instance
+## Quick Start
 
-You can import the default provider instance `dreamsrouter` from `@dreams/ai-sdk-provider`:
+### Node.js Wallet Authentication
 
-```ts
-import { dreamsrouter } from '@dreams/ai-sdk-provider';
-```
-
-You can also create a custom provider instance:
-
-```ts
-import { createDreamsRouter } from '@dreams/ai-sdk-provider';
-
-const dreamsrouter = createDreamsRouter({
-  apiKey: 'your-dreams-router-api-key', // defaults to DREAMSROUTER_API_KEY env var
-  // baseURL: 'https://your-dreams-router-domain.com/api/v1', // TODO: Update when ready
-});
-```
-
-## Example
-
-```ts
-import { dreamsrouter } from '@dreams/ai-sdk-provider';
+```typescript
+import {
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
 import { generateText } from 'ai';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+const payment = await generateX402Payment(account, {
+  amount: '100000', // $0.10 USDC
+  network: 'base-sepolia',
+});
+
+const { dreamsRouter, user } = await createDreamsRouterAuth(account, {
+  payment,
+});
 
 const { text } = await generateText({
-  model: dreamsrouter('openai/gpt-4o'),
-  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+  model: dreamsRouter('openai/gpt-4o'),
+  prompt: 'Hello, Dreams Router!',
 });
 ```
 
 ## Environment Variables
 
-Set your Dreams Router API key:
-
 ```bash
+# For API key authentication
 DREAMSROUTER_API_KEY=your-api-key-here
+
+# For JWT session token authentication
+DREAMSROUTER_SESSION_TOKEN=your-jwt-session-token-here
+
+# For Node.js wallet signing
+PRIVATE_KEY=0x...
+```
+
+## Authentication Methods
+
+Dreams Router supports multiple authentication methods:
+
+### 1. API Key (Server-side)
+
+```typescript
+import { createDreamsRouter } from '@dreams/ai-sdk-provider';
+
+const dreamsrouter = createDreamsRouter({
+  apiKey: process.env.DREAMSROUTER_API_KEY,
+  baseURL: 'https://dev-router.daydreams.systems/v1',
+});
+```
+
+### 2. JWT Session Token (Wallet-based)
+
+```typescript
+import { createDreamsRouter } from '@dreams/ai-sdk-provider';
+
+const dreamsrouter = createDreamsRouter({
+  sessionToken: process.env.DREAMSROUTER_SESSION_TOKEN,
+  baseURL: 'https://dev-router.daydreams.systems/v1',
+});
+```
+
+### 3. Wallet Authentication with createDreamsRouterAuth (Recommended)
+
+```typescript
+import {
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+// Optional: Generate payment
+const payment = await generateX402Payment(account, {
+  amount: '100000',
+  network: 'base-sepolia',
+});
+
+const auth = await createDreamsRouterAuth(account, { payment });
+
+// Returns: { dreamsRouter, sessionToken, user, authManager }
+```
+
+## Viem-Native Account Interface
+
+Dreams Router uses **viem's native Account interface** for both authentication and payments - no custom abstractions!
+
+### Node.js (Private Key)
+
+```typescript
+import {
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const payment = await generateX402Payment(account, { amount: '100000' });
+const auth = await createDreamsRouterAuth(account, { payment });
+```
+
+### Browser (MetaMask)
+
+```typescript
+import {
+  createDreamsRouterAuth,
+  generateX402PaymentBrowser,
+} from '@dreams/ai-sdk-provider';
+import { useAccount, useSignTypedData } from 'wagmi';
+
+const { address } = useAccount();
+const { signTypedDataAsync } = useSignTypedData();
+
+const payment = await generateX402PaymentBrowser(address!, signTypedDataAsync, {
+  amount: '100000',
+});
+
+const auth = await createDreamsRouterAuth({ address } as any, { payment });
+```
+
+### Using viem directly
+
+```typescript
+import {
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
+
+// Use viem's native account creation
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+const payment = await generateX402Payment(account, { amount: '100000' });
+const auth = await createDreamsRouterAuth(account, { payment });
+```
+
+### Custom Account
+
+```typescript
+import {
+  createCustomAccount,
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
+
+const account = createCustomAccount(
+  walletAddress,
+  async (message) => wallet.signMessage(message),
+  async (typedData) => wallet.signTypedData(typedData), // Required for payments
+);
+
+const payment = await generateX402Payment(account, { amount: '100000' });
+const auth = await createDreamsRouterAuth(account, { payment });
 ```
 
 ## X402 Payment Integration
 
-Dreams Router supports automatic x402 payment generation for seamless crypto payments. When enabled, the SDK will automatically generate and include x402 payment signatures with each request.
+Dreams Router supports automatic crypto payments using X402 protocol:
 
-### Setup
-
-First, install the required payment dependencies:
-
-```bash
-npm install viem x402
-```
-
-### Basic Usage
+### Node.js Payments
 
 ```typescript
-import { createDreamsRouter } from '@dreams/ai-sdk-provider';
-import { generateText } from 'ai';
+import {
+  createDreamsRouterAuth,
+  generateX402Payment,
+} from '@dreams/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
 
-const dreamsrouter = createDreamsRouter({
-  apiKey: 'your-api-key',
-  payment: {
-    privateKey: '0x...', // Your private key for signing payments
-    amount: '100000', // Payment amount in USDC (6 decimals) - defaults to $0.10
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+const payment = await generateX402Payment(account, {
+  amount: '100000', // $0.10 USDC
+  network: 'base-sepolia',
+  serviceWallet: '0x...', // Optional
+  validityDuration: 600, // Optional: 10 minutes
+});
+
+const auth = await createDreamsRouterAuth(account, { payment });
+```
+
+### Browser Payments
+
+```typescript
+import { generateX402PaymentBrowser } from '@dreams/ai-sdk-provider';
+import { useAccount, useSignTypedData } from 'wagmi';
+
+const { address } = useAccount();
+const { signTypedDataAsync } = useSignTypedData();
+
+const payment = await generateX402PaymentBrowser(address!, signTypedDataAsync, {
+  amount: '100000',
+  network: 'base-sepolia',
+});
+
+const auth = await createDreamsRouterAuth(account, { payment });
+```
+
+### Without Payments
+
+```typescript
+// Authentication only - no payments
+const auth = await createDreamsRouterAuth(account, {});
+```
+
+## JWT Token Auto-Refresh
+
+Dreams Router automatically refreshes expired JWT tokens using your account:
+
+```typescript
+import { createWalletAuthManager } from '@dreams/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+const authManager = createWalletAuthManager({
+  baseURL: 'https://dev-router.daydreams.systems',
+  onTokenExpired: async () => {
+    // Automatically refresh token when expired
+    const { sessionToken } = await authManager.walletLogin(account);
+    return sessionToken;
   },
 });
 
-// Payment is automatically handled for each request
-const { text } = await generateText({
-  model: dreamsrouter('openai/gpt-4o'),
-  prompt: 'Hello world!',
-});
+// All API calls will automatically handle token refresh
 ```
 
-### Payment Configuration
+## API Client Usage
+
+Access Dreams Router platform features:
 
 ```typescript
-const dreamsrouter = createDreamsRouter({
-  payment: {
-    privateKey: '0x...', // Required: Your private key
-    amount: '100000', // Optional: Payment amount (defaults to $0.10)
-    serviceWallet: '0x...', // Optional: Service wallet address
-    usdcAddress: '0x...', // Optional: USDC contract address
-    network: 'base-sepolia', // Optional: Network (base-sepolia, base, avalanche-fuji, avalanche, iotex)
-    validityDuration: 600, // Optional: Payment validity in seconds (default: 10 minutes)
-  },
-});
+import { DreamsRouterApiClient } from '@dreams/ai-sdk-provider';
+
+const apiClient = new DreamsRouterApiClient();
+
+// Get available models
+const models = await apiClient.getDetailedModels();
+
+// Check wallet balance
+const balance = await apiClient.getWalletBalance(walletAddress);
+
+// Get usage statistics
+const stats = await apiClient.getWalletStats(walletAddress);
 ```
 
-### How It Works
+## Supported Models
 
-1. **Automatic Payment Generation**: Each request automatically generates a fresh x402 payment signature
-2. **EIP-712 Signing**: Uses standard Ethereum signing for secure payment authorization
-3. **USDC Payments**: Supports USDC payments on multiple networks
-4. **Request Integration**: Payments are seamlessly injected into request bodies
-
-### Networks Supported
-
-- `base-sepolia` (default)
-- `base`
-- `avalanche-fuji`
-- `avalanche`
-- `iotex`
-
-### Error Handling
-
-If payment generation fails, the request will continue without payment, allowing the server to handle the error appropriately.
-
-## Supported models
-
-This provider is compatible with OpenRouter model IDs and API format.
-
-## Passing Extra Body to OpenRouter
-
-There are 3 ways to pass extra body to OpenRouter:
-
-1. Via the `providerOptions.openrouter` property:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-     providerOptions: {
-       openrouter: {
-         reasoning: {
-           max_tokens: 10,
-         },
-       },
-     },
-   });
-   ```
-
-2. Via the `extraBody` property in the model settings:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-3. Via the `extraBody` property in the model factory.
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({
-     apiKey: 'your-api-key',
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-## Anthropic Prompt Caching
-
-You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
-
-### Basic Usage
+This provider is compatible with OpenRouter model IDs and API format. Check available models:
 
 ```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
-
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/<supported-caching-model>');
-
-await streamText({
-  model,
-  messages: [
-    {
-      role: 'system',
-      content:
-        'You are a podcast summary assistant. You are detail oriented and critical about the content.',
-    },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: 'Given the text body below:',
-        },
-        {
-          type: 'text',
-          text: `<LARGE BODY OF TEXT>`,
-          providerOptions: {
-            openrouter: {
-              cacheControl: { type: 'ephemeral' },
-            },
-          },
-        },
-        {
-          type: 'text',
-          text: 'List the speakers?',
-        },
-      ],
-    },
-  ],
-});
+const models = await apiClient.getDetailedModels();
+console.log('Available models:', models.data?.models);
 ```
 
-## Use Cases
+## Error Handling
 
-### Usage Accounting
+Dreams Router handles common errors gracefully:
 
-The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
+- **JWT token expiration**: Automatically refreshed
+- **Payment failures**: Requests continue without payment
+- **Network errors**: Standard HTTP error responses
+- **Invalid signatures**: Clear error messages
+
+## TypeScript Support
+
+Full TypeScript support with viem's native types:
 
 ```typescript
-// Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
-  usage: {
-    include: true,
-  },
-});
-
-// Access usage accounting data
-const result = await generateText({
-  model,
-  prompt: 'Hello, how are you today?',
-});
-
-// Provider-specific usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
-}
+import type { Account } from 'viem';
+import type {
+  DreamsRouterPaymentConfig,
+  ModelConfig,
+  UsageStats,
+  User,
+} from '@dreams/ai-sdk-provider';
 ```
+
+## Summary
+
+Dreams Router AI SDK provides:
+
+✅ **Viem-Native**: Uses viem's Account interface - no custom abstractions  
+✅ **Multiple auth methods**: API keys, JWT tokens, and wallet authentication  
+✅ **Automatic payments**: X402 crypto payment integration  
+✅ **Cross-platform**: Works in browser, Node.js, React Native, edge functions  
+✅ **Auto token refresh**: Seamless JWT token management  
+✅ **Full API access**: Complete Dreams Router platform integration  
+✅ **TypeScript support**: Comprehensive type definitions with viem  
+✅ **Vercel AI SDK**: Drop-in replacement for other providers
+
+**Key Innovation**: Uses viem's native Account interface - familiar to all viem users!

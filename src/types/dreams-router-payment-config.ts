@@ -2,12 +2,10 @@
  * Dreams Router payment configuration types
  */
 
+/**
+ * Payment configuration (no private key needed - handled by signer)
+ */
 export interface DreamsRouterPaymentConfig {
-  /**
-   * Private key for signing payment transactions
-   */
-  privateKey: `0x${string}`;
-
   /**
    * Payment amount in USDC (6 decimals). Defaults to 100000 ($0.10)
    */
@@ -32,4 +30,15 @@ export interface DreamsRouterPaymentConfig {
    * Payment validity duration in seconds. Defaults to 600 (10 minutes)
    */
   validityDuration?: number;
+}
+
+/**
+ * Dreams Router authentication method types
+ */
+export type DreamsRouterAuthMethod = 'api-key' | 'session-token';
+
+export interface DreamsRouterAuthConfig {
+  method: DreamsRouterAuthMethod;
+  apiKey?: string;
+  sessionToken?: string;
 }
