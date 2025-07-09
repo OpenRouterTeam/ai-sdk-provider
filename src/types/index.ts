@@ -15,6 +15,7 @@ export type OpenRouterProviderOptions = {
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
   reasoning?: {
+    enabled?: boolean;
     exclude?: boolean;
   } & (
     | {
