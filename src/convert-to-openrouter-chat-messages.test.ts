@@ -81,8 +81,45 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'user',
-        content: 'Hello',
-        cache_control: { type: 'ephemeral' },
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control from content part provider metadata (single text part)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            providerMetadata: {
+              anthropic: {
+                cacheControl: { type: 'ephemeral' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
@@ -122,6 +159,22 @@ describe('cache control', () => {
             cache_control: { type: 'ephemeral' },
           },
         ],
+      },
+    ]);
+  });
+
+  it('should pass cache control from user message provider metadata without cache control (single text part)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: 'Hello',
       },
     ]);
   });

@@ -44,12 +44,22 @@ export function convertToOpenRouterChatMessages(
 
       case 'user': {
         if (content.length === 1 && content[0]?.type === 'text') {
+          const cacheControl =
+            getCacheControl(providerMetadata) ??
+            getCacheControl(content[0].providerMetadata);
+          const contentWithCacheControl: string | ChatCompletionContentPart[] =
+            cacheControl
+              ? [
+                  {
+                    type: 'text',
+                    text: content[0].text,
+                    cache_control: cacheControl,
+                  },
+                ]
+              : content[0].text;
           messages.push({
             role: 'user',
-            content: content[0].text,
-            cache_control:
-              getCacheControl(providerMetadata) ??
-              getCacheControl(content[0].providerMetadata),
+            content: contentWithCacheControl,
           });
           break;
         }
