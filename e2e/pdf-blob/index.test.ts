@@ -1,9 +1,9 @@
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
-import { writeFile } from 'fs/promises';
-import { createOpenRouter } from '@/src';
 import { generateText } from 'ai';
+import { writeFile } from 'fs/promises';
 import { test, vi } from 'vitest';
+import { createOpenRouter } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -27,7 +27,7 @@ test('sending pdf base64 blob', async () => {
 
   const pdfBase64 = Buffer.from(pdfBlob).toString('base64');
 
-  const messageHistory: CoreMessage[] = [];
+  const messageHistory: ModelMessage[] = [];
   messageHistory.push({
     role: 'user',
     content: [
@@ -38,7 +38,7 @@ test('sending pdf base64 blob', async () => {
       {
         type: 'file',
         data: `data:application/pdf;base64,${pdfBase64}`,
-        mimeType: 'application/pdf',
+        mediaType: 'application/pdf',
       },
     ],
   });
@@ -46,7 +46,6 @@ test('sending pdf base64 blob', async () => {
   const response = await generateText({
     model,
     messages: messageHistory,
-    maxSteps: 10,
     providerOptions: {
       openrouter: {
         reasoning: {

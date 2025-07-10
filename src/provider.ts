@@ -1,20 +1,20 @@
-import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './openrouter-completion-settings';
+import type { LanguageModelV2 } from '@ai-sdk/provider';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from './types/openrouter-chat-settings';
+import type {
+  OpenRouterCompletionModelId,
+  OpenRouterCompletionSettings,
+} from './types/openrouter-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
-import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
+import { OpenRouterChatLanguageModel } from './chat';
+import { OpenRouterCompletionLanguageModel } from './completion';
 
 export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider {
+export interface OpenRouterProvider extends LanguageModelV2 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,

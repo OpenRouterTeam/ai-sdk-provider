@@ -20,7 +20,7 @@ token from being generated.
 */
   logitBias?: Record<number, number>;
 
-  /**
+  /**s
 Return the log probabilities of the tokens. Including logprobs will increase
 the response size and can slow down response times. However, it can
 be useful to better understand how the model is behaving.

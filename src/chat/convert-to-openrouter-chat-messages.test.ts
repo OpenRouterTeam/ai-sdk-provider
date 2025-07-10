@@ -8,9 +8,9 @@ describe('user messages', () => {
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
         ],
       },
@@ -48,7 +48,7 @@ describe('cache control', () => {
       {
         role: 'system',
         content: 'System prompt',
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -70,7 +70,7 @@ describe('cache control', () => {
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -100,7 +100,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            providerMetadata: {
+            providerOptions: {
               anthropic: {
                 cacheControl: { type: 'ephemeral' },
               },
@@ -131,12 +131,12 @@ describe('cache control', () => {
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -186,17 +186,17 @@ describe('cache control', () => {
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
           {
-            type: 'image',
-            image: new Uint8Array([4, 5, 6, 7]),
-            mimeType: 'image/jpeg',
+            type: 'file',
+            data: new Uint8Array([4, 5, 6, 7]),
+            mediaType: 'image/jpeg',
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -237,15 +237,15 @@ describe('cache control', () => {
           {
             type: 'file',
             data: 'ZmlsZSBjb250ZW50',
-            mimeType: 'text/plain',
-            providerMetadata: {
+            mediaType: 'text/plain',
+            providerOptions: {
               openrouter: {
                 filename: 'file.txt',
               },
             },
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -286,10 +286,10 @@ describe('cache control', () => {
             // No part-specific provider metadata
           },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
-            providerMetadata: {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+            providerOptions: {
               anthropic: {
                 cacheControl: { type: 'ephemeral' },
               },
@@ -298,8 +298,8 @@ describe('cache control', () => {
           {
             type: 'file',
             data: 'ZmlsZSBjb250ZW50',
-            mimeType: 'text/plain',
-            providerMetadata: {
+            mediaType: 'text/plain',
+            providerOptions: {
               openrouter: {
                 filename: 'file.txt',
               },
@@ -307,7 +307,7 @@ describe('cache control', () => {
             // No part-specific provider metadata
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -350,16 +350,16 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            providerMetadata: {
+            providerOptions: {
               anthropic: {
                 cacheControl: { type: 'ephemeral' },
               },
             },
           },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
         ],
       },
@@ -388,7 +388,7 @@ describe('cache control', () => {
       {
         role: 'assistant',
         content: [{ type: 'text', text: 'Assistant response' }],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -414,11 +414,13 @@ describe('cache control', () => {
             type: 'tool-result',
             toolCallId: 'call-123',
             toolName: 'calculator',
-            result: { answer: 42 },
-            isError: false,
+            output: {
+              type: 'json',
+              value: { answer: 42 },
+            },
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -441,7 +443,7 @@ describe('cache control', () => {
       {
         role: 'system',
         content: 'System prompt',
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cache_control: { type: 'ephemeral' },
           },
@@ -471,7 +473,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'User prompt 2',
-            providerMetadata: {
+            providerOptions: {
               anthropic: { cacheControl: { type: 'ephemeral' } },
             },
           },

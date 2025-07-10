@@ -1,9 +1,9 @@
-import type { CoreMessage } from 'ai';
+import type { ModelMessage } from 'ai';
 
-import { writeFile } from 'fs/promises';
-import { createOpenRouter } from '@/src';
 import { generateText } from 'ai';
+import { writeFile } from 'fs/promises';
 import { test, vi } from 'vitest';
+import { createOpenRouter } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -20,7 +20,7 @@ test('send pdf urls', async () => {
       include: true,
     },
   });
-  const messageHistory: CoreMessage[] = [];
+  const messageHistory: ModelMessage[] = [];
   messageHistory.push({
     role: 'user',
     content: [
@@ -31,7 +31,7 @@ test('send pdf urls', async () => {
       {
         type: 'file',
         data: new URL('https://bitcoin.org/bitcoin.pdf'),
-        mimeType: 'application/pdf',
+        mediaType: 'application/pdf',
       },
     ],
   });
