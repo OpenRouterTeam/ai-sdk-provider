@@ -26,13 +26,22 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile;
+  | ChatCompletionContentPartFile
+  | ChatCompletionContentPartFileUrl;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
   file: {
     filename: string;
     file_data: string;
+  };
+  cache_control?: OpenRouterCacheControl;
+}
+
+export interface ChatCompletionContentPartFileUrl {
+  type: 'file_url';
+  file_url: {
+    url: string;
   };
   cache_control?: OpenRouterCacheControl;
 }
