@@ -6,6 +6,7 @@ import type {
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
+import type { z } from 'zod/v4';
 import type { OpenRouterUsageAccounting } from '../types';
 import type {
   OpenRouterCompletionModelId,
@@ -20,60 +21,10 @@ import {
   generateId,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { z } from 'zod/v4';
-import {
-  OpenRouterErrorResponseSchema,
-  openrouterFailedResponseHandler,
-} from '../schemas/error-response';
-import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
+import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
-
-// limited version of the schema, focussed on what is needed for the implementation
-// this approach limits breakages when the API changes and increases efficiency
-const OpenRouterCompletionChunkSchema = z.union([
-  z.object({
-    id: z.string().optional(),
-    model: z.string().optional(),
-    choices: z.array(
-      z.object({
-        text: z.string(),
-        reasoning: z.string().nullish().optional(),
-        reasoning_details: ReasoningDetailArraySchema.nullish(),
-
-        finish_reason: z.string().nullish(),
-        index: z.number(),
-        logprobs: z
-          .object({
-            tokens: z.array(z.string()),
-            token_logprobs: z.array(z.number()),
-            top_logprobs: z.array(z.record(z.string(), z.number())).nullable(),
-          })
-          .nullable()
-          .optional(),
-      }),
-    ),
-    usage: z
-      .object({
-        prompt_tokens: z.number(),
-        prompt_tokens_details: z
-          .object({
-            cached_tokens: z.number(),
-          })
-          .nullish(),
-        completion_tokens: z.number(),
-        completion_tokens_details: z
-          .object({
-            reasoning_tokens: z.number(),
-          })
-          .nullish(),
-        total_tokens: z.number(),
-        cost: z.number().optional(),
-      })
-      .nullish(),
-  }),
-  OpenRouterErrorResponseSchema,
-]);
+import { OpenRouterCompletionChunkSchema } from './schemas';
 
 type OpenRouterCompletionConfig = {
   provider: string;
