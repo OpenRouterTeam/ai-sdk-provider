@@ -1,7 +1,7 @@
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
 describe('user messages', () => {
-  it('should convert messages with image parts to multiple parts', async () => {
+  it('should convert image Uint8Array', async () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -10,6 +10,64 @@ describe('user messages', () => {
           {
             type: 'file',
             data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert image urls', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: 'https://example.com/image.png',
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/image.png' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert messages with image base64', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: 'data:image/png;base64,AAECAw==',
             mediaType: 'image/png',
           },
         ],
