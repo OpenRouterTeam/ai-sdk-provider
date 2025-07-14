@@ -64,4 +64,7 @@ export type OpenRouterUsageAccounting = {
   };
   totalTokens: number;
   cost?: number;
+  costDetails: {
+    upstreamInferenceCost: number;
+  };
 };

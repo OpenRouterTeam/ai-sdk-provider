@@ -328,6 +328,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 response.usage?.completion_tokens_details?.reasoning_tokens ??
                 0,
             },
+            costDetails: {
+              upstreamInferenceCost:
+                response.usage?.cost_details?.upstream_inference_cost ?? 0,
+            },
           },
         },
       },

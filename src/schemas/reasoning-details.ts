@@ -1,9 +1,9 @@
-import { z } from "zod/v4";
+import { z } from 'zod/v4';
 
 export enum ReasoningDetailType {
-  Summary = "reasoning.summary",
-  Encrypted = "reasoning.encrypted",
-  Text = "reasoning.text",
+  Summary = 'reasoning.summary',
+  Encrypted = 'reasoning.encrypted',
+  Text = 'reasoning.text',
 }
 
 export const ReasoningDetailSummarySchema = z.object({
