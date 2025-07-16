@@ -553,8 +553,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     break;
                   }
                   default:
-                    // exhaustive check
-                    (detail satisfies never);
+                    throw new InvalidResponseDataError({
+                      data: detail,
+                      message: `Unexpected reasoning detail type: ${detail.type}`,
+                    });
                 }
               }
             }
