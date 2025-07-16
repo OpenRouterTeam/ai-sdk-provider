@@ -535,15 +535,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
-                    if (detail.text) emitReasoningChunk(detail.text);
+                    if (detail.text) {
+                      emitReasoningChunk(detail.text);
+                    }
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
-                    if (detail.data) emitReasoningChunk('[REDACTED]');
+                    if (detail.data) {
+                      emitReasoningChunk('[REDACTED]');
+                    }
                     break;
                   }
                   case ReasoningDetailType.Summary: {
-                    if (detail.summary) emitReasoningChunk(detail.summary);
+                    if (detail.summary) {
+                      emitReasoningChunk(detail.summary);
+                    }
                     break;
                   }
                   default:
