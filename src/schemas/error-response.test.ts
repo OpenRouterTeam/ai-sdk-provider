@@ -17,7 +17,7 @@ describe("OpenRouterErrorResponseSchema", () => {
     expect(result).toEqual({
       error: {
         message: "Example error message",
-        code: 400,
+        code: null,
         type: null,
         param: null,
       },
@@ -42,7 +42,7 @@ describe("OpenRouterErrorResponseSchema", () => {
         code: 400,
         message: "Example error message with type",
         type: "invalid_request_error",
-        param: "canByAnything",
+        param: "canBeAnything",
       },
     });
   });
