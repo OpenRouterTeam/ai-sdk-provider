@@ -6,7 +6,7 @@ import type {
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
-import type { z } from 'zod/v4';
+import type { z } from 'zod';
 import type { OpenRouterUsageAccounting } from '../types';
 import type {
   OpenRouterCompletionModelId,

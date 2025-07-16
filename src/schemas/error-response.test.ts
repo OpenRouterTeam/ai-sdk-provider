@@ -24,7 +24,7 @@ describe("OpenRouterErrorResponseSchema", () => {
     });
   });
 
-  it("should be invalid with a type", () => {
+  it("should be valid with a type", () => {
     const errorWithType = {
       error: {
         message: "Example error message with type",

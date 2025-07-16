@@ -1,7 +1,7 @@
 // ref: https://github.com/t3dotgg/SnitchScript/blob/main/tools.ts
 
 import { generateText, tool } from 'ai';
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { createOpenRouter } from '@/src';
 
 const openrouter = createOpenRouter({
