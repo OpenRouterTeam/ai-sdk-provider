@@ -516,7 +516,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               controller.enqueue({
                 type: 'text-delta',
                 delta: delta.content,
-                id: textId!,
+                id: textId || generateId(),
               });
             }
 
@@ -532,7 +532,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               controller.enqueue({
                 type: 'reasoning-delta',
                 delta: chunkText,
-                id: reasoningId!,
+                id: reasoningId || generateId(),
               });
             };
 
@@ -715,10 +715,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (textStarted) {
-              controller.enqueue({ type: 'text-end', id: textId! });
+              controller.enqueue({ type: 'text-end', id: textId || generateId() });
             }
             if (reasoningStarted) {
-              controller.enqueue({ type: 'reasoning-end', id: reasoningId! });
+              controller.enqueue({ type: 'reasoning-end', id: reasoningId || generateId() });
             }
 
             controller.enqueue({
