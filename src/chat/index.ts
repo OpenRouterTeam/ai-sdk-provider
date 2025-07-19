@@ -410,6 +410,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
 
+    let textStarted = false;
+    let reasoningStarted = false;
+    
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -496,6 +499,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             const delta = choice.delta;
 
             if (delta.content != null) {
+              if (!textStarted) {
+                controller.enqueue({
+                  type: 'text-start',
+                  id: generateId(),
+                });
+                textStarted = true;
+              }
               controller.enqueue({
                 type: 'text-delta',
                 delta: delta.content,
@@ -503,50 +513,42 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             }
 
-            if (delta.reasoning != null) {
+            const emitReasoningChunk = (chunkText: string) => {
+              if (!reasoningStarted) {
+                controller.enqueue({
+                  type: 'reasoning-start',
+                  id: generateId(),
+                });
+                reasoningStarted = true;
+              }
               controller.enqueue({
                 type: 'reasoning-delta',
-                delta: delta.reasoning,
+                delta: chunkText,
                 id: generateId(),
               });
-            }
+            };
 
+            if (delta.reasoning != null) {
+              emitReasoningChunk(delta.reasoning);
+            }
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
                     if (detail.text) {
-                      controller.enqueue({
-                        type: 'reasoning-delta',
-                        delta: detail.text,
-                        id: generateId(),
-                      });
-                    }
-                    if (detail.signature) {
-                      controller.enqueue({
-                        type: 'reasoning-end',
-                        id: generateId(),
-                      });
+                      emitReasoningChunk(detail.text);
                     }
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
                     if (detail.data) {
-                      controller.enqueue({
-                        type: 'reasoning-delta',
-                        delta: '[REDACTED]',
-                        id: generateId(),
-                      });
+                      emitReasoningChunk('[REDACTED]');
                     }
                     break;
                   }
                   case ReasoningDetailType.Summary: {
                     if (detail.summary) {
-                      controller.enqueue({
-                        type: 'reasoning-delta',
-                        delta: detail.summary,
-                        id: generateId(),
-                      });
+                      emitReasoningChunk(detail.summary);
                     }
                     break;
                   }
@@ -702,6 +704,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   toolCall.sent = true;
                 }
               }
+            }
+
+            if (textStarted) {
+              controller.enqueue({ type: 'text-end', id: generateId() });
+            }
+            if (reasoningStarted) {
+              controller.enqueue({ type: 'reasoning-end', id: generateId() });
             }
 
             controller.enqueue({
