@@ -418,6 +418,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     let reasoningStarted = false;
     let textId: string | undefined;
     let reasoningId: string | undefined;
+    let openrouterResponseId: string | undefined;
     
     return {
       stream: response.pipeThrough(
@@ -445,6 +446,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (value.id) {
+              openrouterResponseId = value.id;
               controller.enqueue({
                 type: 'response-metadata',
                 id: value.id,
@@ -506,7 +508,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.content != null) {
               if (!textStarted) {
-                textId = generateId();
+                textId = openrouterResponseId || generateId();
                 controller.enqueue({
                   type: 'text-start',
                   id: textId,
@@ -522,7 +524,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
-                reasoningId = generateId();
+                reasoningId = openrouterResponseId || generateId();
                 controller.enqueue({
                   type: 'reasoning-start',
                   id: reasoningId,
