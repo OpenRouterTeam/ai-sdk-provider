@@ -116,23 +116,89 @@ const payment = await generateX402Payment(account, { amount: '100000' });
 const auth = await createDreamsRouterAuth(account, { payment });
 ```
 
-### Browser (MetaMask)
+### Browser (wagmi/React) - New Recommended Approach
 
 ```typescript
 import {
-  createDreamsRouterAuth,
+  createDreamsRouterAuthBrowser,
+  createDreamsRouterFromToken,
   generateX402PaymentBrowser,
+  walletLoginBrowser,
 } from '@dreams/ai-sdk-provider';
+import { generateText } from 'ai';
+import { useAccount, useSignMessage, useSignTypedData } from 'wagmi';
+
+function MyComponent() {
+  const { address } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  const { signTypedDataAsync } = useSignTypedData();
+
+  const handleLogin = async () => {
+    if (!address || !signMessageAsync) return;
+
+    // Option 1: Step-by-step approach
+    // First, login to get JWT token
+    const { sessionToken, user } = await walletLoginBrowser(
+      address,
+      signMessageAsync,
+    );
+
+    // Then create the router with the token
+    const dreamsRouter = createDreamsRouterFromToken(sessionToken, {
+      payments: {
+        amount: '100000', // $0.10 USDC
+        network: 'base-sepolia',
+      },
+    });
+
+    // Option 2: All-in-one approach
+    const auth = await createDreamsRouterAuthBrowser(
+      address,
+      signMessageAsync,
+      {
+        payments: {
+          amount: '100000',
+          network: 'base-sepolia',
+        },
+        signTypedDataAsync, // Required for payments
+      },
+    );
+
+    // Use the router
+    const { text } = await generateText({
+      model: auth.dreamsRouter('openai/gpt-4o'),
+      prompt: 'Hello from browser!',
+    });
+  };
+}
+```
+
+### Browser with X402 Payments Only
+
+```typescript
+import { getApiKeyWithPaymentBrowser } from '@dreams/ai-sdk-provider';
 import { useAccount, useSignTypedData } from 'wagmi';
 
-const { address } = useAccount();
-const { signTypedDataAsync } = useSignTypedData();
+function PaymentComponent() {
+  const { address } = useAccount();
+  const { signTypedDataAsync } = useSignTypedData();
 
-const payment = await generateX402PaymentBrowser(address!, signTypedDataAsync, {
-  amount: '100000',
-});
+  const getApiKey = async () => {
+    if (!address || !signTypedDataAsync) return;
 
-const auth = await createDreamsRouterAuth({ address } as any, { payment });
+    const { apiKey, user } = await getApiKeyWithPaymentBrowser(
+      address,
+      signTypedDataAsync,
+      {
+        amount: '100000', // $0.10 USDC
+        network: 'base-sepolia',
+      },
+    );
+
+    // Use apiKey for subsequent requests
+    const dreamsRouter = createDreamsRouter({ apiKey });
+  };
+}
 ```
 
 ### Using viem directly

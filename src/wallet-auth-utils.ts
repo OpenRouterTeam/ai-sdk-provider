@@ -4,6 +4,7 @@
  */
 
 import type { Account } from 'viem';
+import type { User } from './dreams-router-api-client';
 import type { DreamsRouterPaymentConfig } from './types';
 
 import { DreamsRouterApiClient } from './dreams-router-api-client';
@@ -13,13 +14,13 @@ import { generateX402Payment } from './x402-payment-utils';
 export interface WalletAuthManager {
   apiClient: DreamsRouterApiClient;
   currentSessionToken: string | null;
-  currentUser: any | null;
+  currentUser: User | null;
   currentAccount: Account | null;
 
   /**
    * Sign message and get JWT session token using an account
    */
-  walletLogin(account: Account): Promise<{ sessionToken: string; user: any }>;
+  walletLogin(account: Account): Promise<{ sessionToken: string; user: User }>;
 
   /**
    * Get API key using x402 payment generated from account
@@ -27,7 +28,7 @@ export interface WalletAuthManager {
   getApiKeyWithPayment(
     account: Account,
     paymentConfig?: DreamsRouterPaymentConfig,
-  ): Promise<{ apiKey: string; user: any }>;
+  ): Promise<{ apiKey: string; user: User }>;
 
   /**
    * Create Dreams Router provider with current authentication and optional payments
@@ -39,7 +40,7 @@ export interface WalletAuthManager {
   /**
    * Get current user profile
    */
-  getProfile(): Promise<any>;
+  getProfile(): Promise<User>;
 
   /**
    * Get wallet balance

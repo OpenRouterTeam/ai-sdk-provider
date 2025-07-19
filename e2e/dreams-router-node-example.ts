@@ -23,7 +23,6 @@ async function example1_ViemNative() {
   console.log(`Account address: ${account.address}`);
 
   const { dreamsRouter, user } = await createDreamsRouterAuth(account, {
-    baseURL: ROUTER_BASE_URL,
     payments: {
       amount: '100000', // $0.10 USDC
       network: 'base-sepolia',

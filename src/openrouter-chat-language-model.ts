@@ -102,7 +102,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
     providerMetadata,
   }: Parameters<LanguageModelV1['doGenerate']>[0]) {
     const type = mode.type;
-    const extraCallingBody = providerMetadata?.openrouter ?? {};
+    const extraCallingBody = providerMetadata?.dreamsrouter ?? {};
 
     const baseArgs = {
       // model id:

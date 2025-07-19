@@ -131,8 +131,11 @@ export function createDreamsRouter(
 
   const getHeaders = () => {
     // Prefer sessionToken over apiKey if both are provided
-    const sessionToken =
-      options.sessionToken || process.env.DREAMSROUTER_SESSION_TOKEN;
+    const sessionToken = loadApiKey({
+      apiKey: options.sessionToken,
+      environmentVariableName: 'DREAMSROUTER_SESSION_TOKEN',
+      description: 'Dreams Router',
+    });
 
     if (sessionToken) {
       return {
@@ -152,55 +155,48 @@ export function createDreamsRouter(
     };
   };
 
-  const getExtraBody = async () => {
-    let extraBody = { ...options.extraBody };
-
-    // Generate x402 payment if both signer and payment config are provided
-    if (options.payment && options.signer) {
-      try {
-        const x402Payment = await generateX402Payment(
-          options.signer,
-          options.payment,
-        );
-        if (x402Payment) {
-          extraBody.x402Payment = x402Payment;
-        }
-      } catch (error) {
-        console.error('Failed to generate x402 payment:', error);
-        // Continue without payment - let server handle the error
-      }
-    }
-
-    return extraBody;
-  };
-
-  // Create a custom fetch function that automatically includes x402 payments
+  // Create a custom fetch function that automatically includes x402 payments in headers
   const customFetch = options.payment
     ? async (url: string | URL | Request, init?: RequestInit) => {
-        const extraBody = await getExtraBody();
+        let headers: Record<string, string> = {};
 
-        // If there's a body, merge the x402Payment into it
-        if (init?.body && typeof init.body === 'string') {
-          try {
-            const bodyObj = JSON.parse(init.body);
-            const newBody = { ...bodyObj, ...extraBody };
-
-            const newInit = {
-              ...init,
-              body: JSON.stringify(newBody),
-            };
-
-            return (options.fetch || fetch)(url, newInit);
-          } catch (error) {
-            console.error(
-              'Error parsing request body for x402 payment:',
-              error,
-            );
-            return (options.fetch || fetch)(url, init);
+        // Copy existing headers if they exist
+        if (init?.headers) {
+          if (init.headers instanceof Headers) {
+            init.headers.forEach((value, key) => {
+              headers[key] = value;
+            });
+          } else if (Array.isArray(init.headers)) {
+            for (const [key, value] of init.headers) {
+              headers[key] = value;
+            }
+          } else {
+            headers = { ...init.headers } as Record<string, string>;
           }
         }
 
-        return (options.fetch || fetch)(url, init);
+        // Generate x402 payment if both signer and payment config are provided
+        if (options.payment && options.signer) {
+          try {
+            const x402Payment = await generateX402Payment(
+              options.signer,
+              options.payment,
+            );
+            if (x402Payment) {
+              headers['x-payment'] = x402Payment;
+            }
+          } catch (error) {
+            console.error('Failed to generate x402 payment:', error);
+            // Continue without payment - let server handle the error
+          }
+        }
+
+        const newInit = {
+          ...init,
+          headers,
+        };
+
+        return (options.fetch || fetch)(url, newInit);
       }
     : options.fetch;
 
