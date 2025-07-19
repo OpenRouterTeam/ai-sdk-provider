@@ -21,6 +21,11 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
         .nullish(),
       total_tokens: z.number(),
       cost: z.number().optional(),
+      cost_details: z
+        .object({
+          upstream_inference_cost: z.number().nullish(),
+        })
+        .nullish(),
     })
     .nullish(),
 });

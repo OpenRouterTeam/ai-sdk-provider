@@ -1,5 +1,5 @@
-import { createJsonErrorResponseHandler } from "@ai-sdk/provider-utils";
-import { z } from "zod/v4";
+import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
+import { z } from 'zod/v4';
 
 export const OpenRouterErrorResponseSchema = z.object({
   error: z.object({
