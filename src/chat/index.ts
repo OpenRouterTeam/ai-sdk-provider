@@ -238,56 +238,59 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     const reasoningDetails = (choice.message.reasoning_details ??
       []) as ReasoningDetailUnion[];
 
-    // const reasoning: any[] =
-    reasoningDetails.length > 0
-      ? reasoningDetails
-          .map((detail) => {
-            switch (detail.type) {
-              case ReasoningDetailType.Text: {
-                if (detail.text) {
-                  return {
-                    type: 'text' as const,
-                    text: detail.text,
-                    signature: detail.signature ?? undefined,
-                  };
+    const reasoning: Array<LanguageModelV2Content> =
+      reasoningDetails.length > 0
+        ? reasoningDetails
+            .map((detail) => {
+              switch (detail.type) {
+                case ReasoningDetailType.Text: {
+                  if (detail.text) {
+                    return {
+                      type: 'reasoning' as const,
+                      text: detail.text,
+                    };
+                  }
+                  break;
                 }
-                break;
-              }
-              case ReasoningDetailType.Summary: {
-                if (detail.summary) {
-                  return {
-                    type: 'text' as const,
-                    text: detail.summary,
-                  };
+                case ReasoningDetailType.Summary: {
+                  if (detail.summary) {
+                    return {
+                      type: 'reasoning' as const,
+                      text: detail.summary,
+                    };
+                  }
+                  break;
                 }
-                break;
-              }
-              case ReasoningDetailType.Encrypted: {
-                if (detail.data) {
-                  return {
-                    type: 'redacted' as const,
-                    data: detail.data,
-                  };
+                case ReasoningDetailType.Encrypted: {
+                  // For encrypted reasoning, we include a redacted placeholder
+                  if (detail.data) {
+                    return {
+                      type: 'reasoning' as const,
+                      text: '[REDACTED]',
+                    };
+                  }
+                  break;
                 }
-                break;
+                default: {
+                  detail satisfies never;
+                }
               }
-              default: {
-                detail satisfies never;
-              }
-            }
-            return null;
-          })
-          .filter((p) => p !== null)
-      : choice.message.reasoning
-        ? [
-            {
-              type: 'text' as const,
-              text: choice.message.reasoning,
-            },
-          ]
-        : [];
+              return null;
+            })
+            .filter((p) => p !== null)
+        : choice.message.reasoning
+          ? [
+              {
+                type: 'reasoning' as const,
+                text: choice.message.reasoning,
+              },
+            ]
+          : [];
 
     const content: Array<LanguageModelV2Content> = [];
+
+    // Add reasoning content first
+    content.push(...reasoning);
 
     if (choice.message.content) {
       content.push({
@@ -419,7 +422,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     let textId: string | undefined;
     let reasoningId: string | undefined;
     let openrouterResponseId: string | undefined;
-    
+
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -717,10 +720,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (textStarted) {
-              controller.enqueue({ type: 'text-end', id: textId || generateId() });
+              controller.enqueue({
+                type: 'text-end',
+                id: textId || generateId(),
+              });
             }
             if (reasoningStarted) {
-              controller.enqueue({ type: 'reasoning-end', id: reasoningId || generateId() });
+              controller.enqueue({
+                type: 'reasoning-end',
+                id: reasoningId || generateId(),
+              });
             }
 
             controller.enqueue({
