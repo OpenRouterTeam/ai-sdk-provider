@@ -1,3 +1,5 @@
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
@@ -12,13 +14,12 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
-import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
 
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { InvalidResponseDataError } from '@ai-sdk/provider';
 import {
   combineHeaders,
@@ -28,7 +29,6 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
@@ -398,7 +398,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         name: string;
         arguments: string;
       };
-
+      inputStarted: boolean;
       sent: boolean;
     }> = [];
 
@@ -419,7 +419,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     let textId: string | undefined;
     let reasoningId: string | undefined;
     let openrouterResponseId: string | undefined;
-    
+
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -604,6 +604,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                       name: toolCallDelta.function.name,
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
+                    inputStarted: false,
                     sent: false,
                   };
 
@@ -619,6 +620,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     toolCall.function?.arguments != null &&
                     isParsableJson(toolCall.function.arguments)
                   ) {
+                    toolCall.inputStarted = true;
+
                     controller.enqueue({
                       type: 'tool-input-start',
                       id: toolCall.id,
@@ -658,7 +661,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   throw new Error('Tool call is missing');
                 }
 
-                if (toolCallDelta.function?.name != null) {
+                if (!toolCall.inputStarted) {
+                  toolCall.inputStarted = true;
                   controller.enqueue({
                     type: 'tool-input-start',
                     id: toolCall.id,
@@ -717,10 +721,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (textStarted) {
-              controller.enqueue({ type: 'text-end', id: textId || generateId() });
+              controller.enqueue({
+                type: 'text-end',
+                id: textId || generateId(),
+              });
             }
             if (reasoningStarted) {
-              controller.enqueue({ type: 'reasoning-end', id: reasoningId || generateId() });
+              controller.enqueue({
+                type: 'reasoning-end',
+                id: reasoningId || generateId(),
+              });
             }
 
             controller.enqueue({
