@@ -45,7 +45,7 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(@edge-runtime/vm@5.0.0)(@types/node@22.15.24)
       zod:
-        specifier: ^3.25.76
+        specifier: 3.25.76
         version: 3.25.76
 
 packages:
