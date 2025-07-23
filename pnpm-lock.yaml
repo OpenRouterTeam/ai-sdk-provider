@@ -9,10 +9,10 @@ importers:
   .:
     devDependencies:
       '@ai-sdk/provider':
-        specifier: 2.0.0-beta.1
+        specifier: ^2.0.0-beta.1
         version: 2.0.0-beta.1
       '@ai-sdk/provider-utils':
-        specifier: 3.0.0-beta.5
+        specifier: ^3.0.0-beta.5
         version: 3.0.0-beta.5(zod@4.0.5)
       '@biomejs/biome':
         specifier: 2.1.1

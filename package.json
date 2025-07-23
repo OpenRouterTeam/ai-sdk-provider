@@ -39,8 +39,8 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/provider": "2.0.0-beta.1",
-    "@ai-sdk/provider-utils": "3.0.0-beta.5",
+    "@ai-sdk/provider": "^2.0.0-beta.1",
+    "@ai-sdk/provider-utils": "^3.0.0-beta.5",
     "viem": "^2.31.7",
     "x402": "^0.4.1",
     "@biomejs/biome": "2.1.1",
