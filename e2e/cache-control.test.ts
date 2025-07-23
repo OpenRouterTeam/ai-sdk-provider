@@ -47,22 +47,31 @@ async function callLLM() {
     model,
     messages: [
       {
-        role: 'user',
+        role: "user",
         content: [
           {
-            type: 'text',
-            text: 'a'.repeat(4200),
+            type: "text",
+            text: "a".repeat(4200),
             providerOptions: {
               openrouter: {
                 cache_control: {
-                  type: 'ephemeral',
+                  type: "ephemeral",
                 },
               },
             },
           },
           {
-            type: 'text',
+            type: "text",
             text: 'How many "a" did I use in the previous message?',
+          },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "hi",
           },
         ],
       },
