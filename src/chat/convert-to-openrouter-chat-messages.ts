@@ -11,8 +11,9 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
-import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+import { getFileUrl } from './file-url-utils';
+import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' };
@@ -82,39 +83,57 @@ export function convertToOpenRouterChatMessages(
                   // For text parts, only use part-specific cache control
                   cache_control: cacheControl,
                 };
-              case 'file':
+              case 'file': {
                 if (part.mediaType?.startsWith('image/')) {
+                  const url = getFileUrl({
+                    part,
+                    defaultMediaType: 'image/jpeg',
+                  });
                   return {
                     type: 'image_url' as const,
                     image_url: {
-                      url:
-                        part.data instanceof URL
-                          ? part.data.toString()
-                          : `data:${part.mediaType ?? 'image/jpeg'};base64,${convertUint8ArrayToBase64(
-                              part.data instanceof Uint8Array
-                                ? part.data
-                                : new Uint8Array(),
-                            )}`,
+                      url,
                     },
                     // For image parts, use part-specific or message-level cache control
                     cache_control: cacheControl,
                   };
                 }
+
+                const fileName = String(
+                  part.providerOptions?.openrouter?.filename ??
+                    part.filename ??
+                    '',
+                );
+
+                const fileData = getFileUrl({
+                  part,
+                  defaultMediaType: 'application/pdf',
+                });
+
+                if (
+                  isUrl({
+                    url: fileData,
+                    protocols: new Set(['http:', 'https:']),
+                  })
+                ) {
+                  return {
+                    type: 'file' as const,
+                    file: {
+                      filename: fileName,
+                      file_data: fileData,
+                    },
+                  } satisfies ChatCompletionContentPart;
+                }
+
                 return {
                   type: 'file' as const,
                   file: {
-                    filename: String(
-                      part.providerOptions?.openrouter?.filename ??
-                        part.filename ??
-                        '',
-                    ),
-                    file_data:
-                      part.data instanceof Uint8Array
-                        ? `data:${part.mediaType};base64,${convertUint8ArrayToBase64(part.data)}`
-                        : `data:${part.mediaType};base64,${part.data}`,
+                    filename: fileName,
+                    file_data: fileData,
                   },
                   cache_control: cacheControl,
-                };
+                } satisfies ChatCompletionContentPart;
+              }
               default: {
                 return {
                   type: 'text' as const,
