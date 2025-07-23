@@ -601,6 +601,11 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        toolName: 'test-tool',
+        type: 'tool-input-start',
+      },
+      {
         type: 'tool-input-delta',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         delta: '{"',
