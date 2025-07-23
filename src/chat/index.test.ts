@@ -1,10 +1,12 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -121,6 +123,8 @@ describe('doGenerate', () => {
 
   function prepareJsonResponse({
     content = '',
+    reasoning,
+    reasoning_details,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -130,6 +134,8 @@ describe('doGenerate', () => {
     finish_reason = 'stop',
   }: {
     content?: string;
+    reasoning?: string;
+    reasoning_details?: Array<ReasoningDetailUnion>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -159,6 +165,8 @@ describe('doGenerate', () => {
             message: {
               role: 'assistant',
               content,
+              reasoning,
+              reasoning_details,
             },
             logprobs,
             finish_reason,
@@ -236,6 +244,91 @@ describe('doGenerate', () => {
     });
 
     expect(response.finishReason).toStrictEqual('unknown');
+  });
+
+  it('should extract reasoning content from reasoning field', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning:
+        'I need to think about this... The user said hello, so I should respond with a greeting.',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'I need to think about this... The user said hello, so I should respond with a greeting.',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+  });
+
+  it('should extract reasoning content from reasoning_details', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Let me analyze this request...',
+        },
+        {
+          type: ReasoningDetailType.Summary,
+          summary: 'The user wants a greeting response.',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'Let me analyze this request...',
+      },
+      {
+        type: 'reasoning',
+        text: 'The user wants a greeting response.',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+  });
+
+  it('should handle encrypted reasoning details', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted_reasoning_data_here',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: '[REDACTED]',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
   });
 
   it('should pass the model and the messages', async () => {

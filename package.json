@@ -1,6 +1,6 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "1.0.0-beta.4",
+  "version": "1.0.0-beta.5",
   "license": "Apache-2.0",
   "sideEffects": false,
   "main": "./dist/index.js",
@@ -49,11 +49,11 @@
     "typescript": "5.8.3",
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.2.4",
-    "zod": "^4.0.5"
+    "zod": "3.25.76"
   },
   "peerDependencies": {
     "ai": "^5.0.0-beta.12",
-    "zod": "^4.0.5"
+    "zod": "^3.24.1 || ^v4"
   },
   "engines": {
     "node": ">=18"
