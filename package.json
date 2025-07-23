@@ -14,10 +14,9 @@
     "build": "tsup",
     "clean": "rm -rf dist && rm -rf internal/dist",
     "dev": "tsup --watch",
-    "lint": "pnpm biome lint",
+    "lint": "biome lint",
     "typecheck": "tsc --noEmit",
-    "stylecheck": "prettier --check \"**/*.{ts,mts,tsx,md,mdx,mjs}\"",
-    "format": "prettier --write \"**/*.{ts,mts,tsx,md,mdx,mjs}\"",
+    "format": "biome format --write",
     "prepublish": "pnpm run build",
     "test": "pnpm test:node && pnpm test:edge",
     "test:edge": "vitest --config vitest.edge.config.ts --run",
@@ -39,41 +38,27 @@
       "require": "./dist/internal/index.js"
     }
   },
-  "dependencies": {
-    "@ai-sdk/provider": "1.1.3",
-    "@ai-sdk/provider-utils": "2.2.8",
-    "viem": "^2.31.7",
-    "x402": "^0.4.1"
-  },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
+    "@ai-sdk/provider": "2.0.0-beta.1",
+    "@ai-sdk/provider-utils": "3.0.0-beta.5",
+    "viem": "^2.31.7",
+    "x402": "^0.4.1",
+    "@biomejs/biome": "2.1.1",
     "@edge-runtime/vm": "5.0.0",
-    "@ianvs/prettier-plugin-sort-imports": "4.4.2",
     "@types/jest": "29.5.14",
     "@types/node": "22.15.24",
-    "ai": "4.3.16",
+    "ai": "5.0.0-beta.24",
     "dotenv": "16.5.0",
-    "prettier": "3.5.3",
     "tsup": "8.5.0",
     "tsx": "^4.19.2",
     "typescript": "5.8.3",
     "vite-tsconfig-paths": "5.1.4",
-    "vitest": "3.1.4",
-    "zod": "3.25.34"
+    "vitest": "3.2.4",
+    "zod": "^4.0.5"
   },
   "peerDependencies": {
-    "zod": "^3.25.34",
-    "ai": "^4.3.16",
-    "viem": "^2.0.0",
-    "x402": "^1.0.0"
-  },
-  "peerDependenciesMeta": {
-    "viem": {
-      "optional": true
-    },
-    "x402": {
-      "optional": true
-    }
+    "ai": "^5.0.0-beta.12",
+    "zod": "^4.0.5"
   },
   "engines": {
     "node": ">=18"
@@ -94,5 +79,5 @@
     "dreams",
     "dreams-router"
   ],
-  "packageManager": "pnpm@10.11.0"
+  "packageManager": "pnpm@10.12.4"
 }

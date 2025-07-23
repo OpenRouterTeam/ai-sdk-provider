@@ -1,44 +1,39 @@
-/**
- * Modified for Dreams Router - forked from OpenRouter AI SDK Provider
- * Original: https://github.com/OpenRouterTeam/ai-sdk-provider
- */
-
-import type { Account } from 'viem';
-import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './openrouter-completion-settings';
-import type { DreamsRouterPaymentConfig } from './types';
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from './types/openrouter-chat-settings';
+} from "./types/openrouter-chat-settings";
+import type {
+  OpenRouterCompletionModelId,
+  OpenRouterCompletionSettings,
+} from "./types/openrouter-completion-settings";
 
-import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
-import { OpenRouterCompletionLanguageModel } from './openrouter-completion-language-model';
-import { generateX402Payment } from './x402-payment-utils';
+import { loadApiKey, withoutTrailingSlash } from "@ai-sdk/provider-utils";
+import { OpenRouterChatLanguageModel } from "./chat";
+import { OpenRouterCompletionLanguageModel } from "./completion";
+import { generateX402Payment } from "./x402-payment-utils";
+import type { DreamsRouterPaymentConfig } from "./types";
+import type { Account } from "viem";
 
 export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider {
+export interface OpenRouterProvider extends LanguageModelV2 {
   (
     modelId: OpenRouterChatModelId,
-    settings?: OpenRouterCompletionSettings,
+    settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   (
     modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
+    settings?: OpenRouterChatSettings
   ): OpenRouterChatLanguageModel;
 
   languageModel(
     modelId: OpenRouterChatModelId,
-    settings?: OpenRouterCompletionSettings,
+    settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
   languageModel(
     modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
+    settings?: OpenRouterChatSettings
   ): OpenRouterChatLanguageModel;
 
   /**
@@ -46,7 +41,7 @@ Creates an OpenRouter chat model for text generation.
    */
   chat(
     modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
+    settings?: OpenRouterChatSettings
   ): OpenRouterChatLanguageModel;
 
   /**
@@ -54,7 +49,7 @@ Creates an OpenRouter completion model for text generation.
    */
   completion(
     modelId: OpenRouterCompletionModelId,
-    settings?: OpenRouterCompletionSettings,
+    settings?: OpenRouterCompletionSettings
   ): OpenRouterCompletionLanguageModel;
 }
 
@@ -90,7 +85,7 @@ OpenRouter compatibility mode. Should be set to `strict` when using the OpenRout
 and `compatible` when using 3rd party providers. In `compatible` mode, newer
 information such as streamOptions are not being sent. Defaults to 'compatible'.
    */
-  compatibility?: 'strict' | 'compatible';
+  compatibility?: "strict" | "compatible";
 
   /**
 Custom fetch implementation. You can use it as a middleware to intercept requests,
@@ -120,21 +115,21 @@ A JSON object to send as the request body to access OpenRouter features & upstre
 Create a Dreams router provider instance.
  */
 export function createDreamsRouter(
-  options: OpenRouterProviderSettings = {},
+  options: OpenRouterProviderSettings = {}
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    'https://dev-router.daydreams.systems/v1';
+    "https://dev-router.daydreams.systems/v1";
 
   // we default to compatible, because strict breaks providers like Groq:
-  const compatibility = options.compatibility ?? 'compatible';
+  const compatibility = options.compatibility ?? "compatible";
 
   const getHeaders = () => {
     // Prefer sessionToken over apiKey if both are provided
     const sessionToken = loadApiKey({
       apiKey: options.sessionToken,
-      environmentVariableName: 'DREAMSROUTER_SESSION_TOKEN',
-      description: 'Dreams Router',
+      environmentVariableName: "DREAMSROUTER_SESSION_TOKEN",
+      description: "Dreams Router",
     });
 
     if (sessionToken) {
@@ -148,8 +143,8 @@ export function createDreamsRouter(
     return {
       Authorization: `Bearer ${loadApiKey({
         apiKey: options.apiKey,
-        environmentVariableName: 'DREAMSROUTER_API_KEY',
-        description: 'Dreams Router',
+        environmentVariableName: "DREAMSROUTER_API_KEY",
+        description: "Dreams Router",
       })}`,
       ...options.headers,
     };
@@ -180,13 +175,13 @@ export function createDreamsRouter(
           try {
             const x402Payment = await generateX402Payment(
               options.signer,
-              options.payment,
+              options.payment
             );
             if (x402Payment) {
-              headers['x-payment'] = x402Payment;
+              headers["x-payment"] = x402Payment;
             }
           } catch (error) {
-            console.error('Failed to generate x402 payment:', error);
+            console.error("Failed to generate x402 payment:", error);
             // Continue without payment - let server handle the error
           }
         }
@@ -202,10 +197,10 @@ export function createDreamsRouter(
 
   const createChatModel = (
     modelId: OpenRouterChatModelId,
-    settings: OpenRouterChatSettings = {},
+    settings: OpenRouterChatSettings = {}
   ) =>
     new OpenRouterChatLanguageModel(modelId, settings, {
-      provider: 'openrouter.chat',
+      provider: "openrouter.chat",
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -215,10 +210,10 @@ export function createDreamsRouter(
 
   const createCompletionModel = (
     modelId: OpenRouterCompletionModelId,
-    settings: OpenRouterCompletionSettings = {},
+    settings: OpenRouterCompletionSettings = {}
   ) =>
     new OpenRouterCompletionLanguageModel(modelId, settings, {
-      provider: 'openrouter.completion',
+      provider: "openrouter.completion",
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -228,18 +223,18 @@ export function createDreamsRouter(
 
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
-    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
+    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings
   ) => {
     if (new.target) {
       throw new Error(
-        'The OpenRouter model function cannot be called with the new keyword.',
+        "The OpenRouter model function cannot be called with the new keyword."
       );
     }
 
-    if (modelId === 'openai/gpt-3.5-turbo-instruct') {
+    if (modelId === "openai/gpt-3.5-turbo-instruct") {
       return createCompletionModel(
         modelId,
-        settings as OpenRouterCompletionSettings,
+        settings as OpenRouterCompletionSettings
       );
     }
 
@@ -248,7 +243,7 @@ export function createDreamsRouter(
 
   const provider = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
-    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
+    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings
   ) => createLanguageModel(modelId, settings);
 
   provider.languageModel = createLanguageModel;
@@ -262,5 +257,5 @@ export function createDreamsRouter(
 Default Dreams router provider instance. It uses 'strict' compatibility mode.
  */
 export const dreamsrouter = createDreamsRouter({
-  compatibility: 'strict', // strict for Dreams Router API
+  compatibility: "strict", // strict for Dreams Router API
 });

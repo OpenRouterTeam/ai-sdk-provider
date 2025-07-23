@@ -1,13 +1,12 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { ModelMessage } from 'ai';
 
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
-
-import { createOpenRouter } from './openrouter-provider';
+import { createOpenRouter } from '../provider';
 
 // Add type assertions for the mocked classes
-const TEST_MESSAGES: LanguageModelV1Prompt = [
+const TEST_MESSAGES: ModelMessage[] = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -32,7 +31,7 @@ describe('providerOptions', () => {
     const model = openrouter('anthropic/claude-3.7-sonnet');
 
     await streamText({
-      model,
+      model: model,
       messages: TEST_MESSAGES,
       providerOptions: {
         openrouter: {
@@ -43,7 +42,7 @@ describe('providerOptions', () => {
       },
     }).consumeStream();
 
-    expect(await server.calls[0]?.requestBody).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       messages: [
         {
           content: 'Hello',
@@ -53,7 +52,6 @@ describe('providerOptions', () => {
       reasoning: {
         max_tokens: 1000,
       },
-      temperature: 0,
       model: 'anthropic/claude-3.7-sonnet',
       stream: true,
     });

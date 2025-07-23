@@ -1,18 +1,33 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.0.5/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              { "type": true },
+              ":BLANK_LINE:",
+              { "type": false },
+              ":BLANK_LINE:",
+              ":ALIAS:"
+            ]
+          }
+        }
+      }
+    }
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 80
-  },
-  "organizeImports": {
-    "enabled": true
   },
   "linter": {
     "enabled": true,
@@ -34,9 +49,16 @@
         "useTemplate": "off",
         "useBlockStatements": "error",
         "noParameterAssign": "error",
-        "useConst": "error"
+        "useConst": "error",
+        "useImportType": {
+          "level": "on",
+          "options": {
+            "style": "separatedType"
+          }
+        }
       },
       "correctness": {
+        "noUnsafeFinally": "error",
         "noUnusedImports": "error",
         "useExhaustiveDependencies": "off",
         "noUnknownFunction": "off",
@@ -44,11 +66,11 @@
         "noInnerDeclarations": "error"
       },
       "suspicious": {
-        "noExplicitAny": "off",
+        "noExplicitAny": "error",
         "noArrayIndexKey": "off",
         "noAssignInExpressions": "error",
         "noAsyncPromiseExecutor": "off",
-        "noFallthroughSwitchClause": "off",
+        "noFallthroughSwitchClause": "error",
         "noConsole": "error",
         "noDoubleEquals": {
           "level": "error",
