@@ -1,10 +1,12 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -133,12 +135,7 @@ describe('doGenerate', () => {
   }: {
     content?: string;
     reasoning?: string;
-    reasoning_details?: Array<{
-      type: string;
-      text?: string;
-      summary?: string;
-      data?: string;
-    }>;
+    reasoning_details?: Array<ReasoningDetailUnion>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -277,11 +274,11 @@ describe('doGenerate', () => {
       content: 'Hello!',
       reasoning_details: [
         {
-          type: 'reasoning.text',
+          type: ReasoningDetailType.Text,
           text: 'Let me analyze this request...',
         },
         {
-          type: 'reasoning.summary',
+          type: ReasoningDetailType.Summary,
           summary: 'The user wants a greeting response.',
         },
       ],
@@ -312,7 +309,7 @@ describe('doGenerate', () => {
       content: 'Hello!',
       reasoning_details: [
         {
-          type: 'reasoning.encrypted',
+          type: ReasoningDetailType.Encrypted,
           data: 'encrypted_reasoning_data_here',
         },
       ],
