@@ -331,6 +331,48 @@ describe('doGenerate', () => {
     ]);
   });
 
+  it('should prioritize reasoning_details over reasoning when both are present', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning: 'This should be ignored when reasoning_details is present',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Processing from reasoning_details...',
+        },
+        {
+          type: ReasoningDetailType.Summary,
+          summary: 'Summary from reasoning_details',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'Processing from reasoning_details...',
+      },
+      {
+        type: 'reasoning',
+        text: 'Summary from reasoning_details',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+
+    // Verify that the reasoning field content is not included
+    expect(result.content).not.toContainEqual({
+      type: 'reasoning',
+      text: 'This should be ignored when reasoning_details is present',
+    });
+  });
+
   it('should pass the model and the messages', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -620,6 +662,81 @@ describe('doStream', () => {
         },
       },
     ]);
+  });
+
+  it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
+    // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
+    // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: both reasoning and reasoning_details with different content
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning":"This should be ignored...",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this..."}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: reasoning_details with multiple types
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"Also ignored",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"User wants a greeting"},{"type":"${ReasoningDetailType.Encrypted}","data":"secret"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: only reasoning field (should be processed)
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"This reasoning is used"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content chunk
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    
+    // Filter for reasoning-related elements
+    const reasoningElements = elements.filter(el => 
+      el.type === 'reasoning-start' || 
+      el.type === 'reasoning-delta' || 
+      el.type === 'reasoning-end'
+    );
+    
+    // Debug output to see what we're getting
+    // console.log('Reasoning elements count:', reasoningElements.length);
+    // console.log('Reasoning element types:', reasoningElements.map(el => el.type));
+    
+    // We should get reasoning content from reasoning_details when present, not reasoning field
+    // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
+    expect(reasoningElements).toHaveLength(6);
+    
+    // Verify the content comes from reasoning_details, not reasoning field
+    const reasoningDeltas = reasoningElements
+      .filter(el => el.type === 'reasoning-delta')
+      .map(el => (el as { type: 'reasoning-delta'; delta: string; id: string }).delta);
+    
+    expect(reasoningDeltas).toEqual([
+      'Let me think about this...',  // from reasoning_details text
+      'User wants a greeting',        // from reasoning_details summary
+      '[REDACTED]',                   // from reasoning_details encrypted
+      'This reasoning is used',       // from reasoning field (no reasoning_details)
+    ]);
+    
+    // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
+    expect(reasoningDeltas).not.toContain('This should be ignored...');
+    expect(reasoningDeltas).not.toContain('Also ignored');
   });
 
   it('should stream tool deltas', async () => {
