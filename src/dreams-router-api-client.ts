@@ -31,7 +31,7 @@ export interface User {
   id: string;
   wallet_address?: string;
   balance: number;
-  auth_method: 'api-key' | 'wallet';
+  auth_method: "api-key" | "wallet";
   created_at: string;
   updated_at: string;
 }
@@ -101,7 +101,6 @@ export interface ModelRecommendationResponse {
 export interface DreamsRouterApiClientOptions {
   baseURL?: string;
   apiKey?: string;
-  sessionToken?: string;
   defaultHeaders?: Record<string, string>;
 }
 
@@ -111,14 +110,10 @@ export class DreamsRouterApiClient {
   private onTokenExpired?: () => Promise<string | null>;
 
   constructor(options: DreamsRouterApiClientOptions = {}) {
-    this.baseURL = options.baseURL || 'https://dev-router.daydreams.systems/v1';
+    this.baseURL = options.baseURL || "https://dev-router.daydreams.systems/v1";
 
     if (options.apiKey) {
       this.setApiKey(options.apiKey);
-    }
-
-    if (options.sessionToken) {
-      this.setSessionToken(options.sessionToken);
     }
 
     if (options.defaultHeaders) {
@@ -130,19 +125,15 @@ export class DreamsRouterApiClient {
   }
 
   public setApiKey(apiKey: string) {
-    this.defaultHeaders['Authorization'] = `Bearer ${apiKey}`;
-  }
-
-  public setSessionToken(sessionToken: string) {
-    this.defaultHeaders['Authorization'] = `Bearer ${sessionToken}`;
+    this.defaultHeaders["Authorization"] = `Bearer ${apiKey}`;
   }
 
   public removeApiKey() {
-    delete this.defaultHeaders['Authorization'];
+    delete this.defaultHeaders["Authorization"];
   }
 
   public removeSessionToken() {
-    delete this.defaultHeaders['Authorization'];
+    delete this.defaultHeaders["Authorization"];
   }
 
   public setTokenExpiredCallback(callback: () => Promise<string | null>) {
@@ -151,12 +142,12 @@ export class DreamsRouterApiClient {
 
   private async request<T = any>(
     endpoint: string,
-    options: RequestInit = {},
+    options: RequestInit = {}
   ): Promise<ApiResponse<T>> {
     const makeRequest = async (headers = this.defaultHeaders) => {
       const url = `${this.baseURL}${endpoint}`;
       const requestHeaders = {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...headers,
         ...options.headers,
       };
@@ -171,7 +162,7 @@ export class DreamsRouterApiClient {
       if (!response.ok) {
         const errorText = await response.text();
         const error = new Error(
-          `HTTP ${response.status}: ${errorText || response.statusText}`,
+          `HTTP ${response.status}: ${errorText || response.statusText}`
         );
         (error as any).status = response.status;
         (error as any).response = response;
@@ -191,13 +182,13 @@ export class DreamsRouterApiClient {
         this.onTokenExpired &&
         this.isJWTTokenExpired(error.errorText)
       ) {
-        console.log('🔄 JWT token expired, requesting new token...');
+        console.log("🔄 JWT token expired, requesting new token...");
 
         try {
           const newToken = await this.onTokenExpired();
           if (newToken) {
-            console.log('✅ Got new JWT token, retrying request...');
-            this.setSessionToken(newToken);
+            console.log("✅ Got new JWT token, retrying request...");
+            this.setApiKey(newToken);
 
             // Retry with new token
             return await makeRequest({
@@ -206,7 +197,7 @@ export class DreamsRouterApiClient {
             });
           }
         } catch (refreshError) {
-          console.error('❌ Failed to refresh token:', refreshError);
+          console.error("❌ Failed to refresh token:", refreshError);
           throw refreshError;
         }
       }
@@ -218,23 +209,23 @@ export class DreamsRouterApiClient {
 
   private isJWTTokenExpired(errorText: string): boolean {
     return (
-      errorText.includes('Token expired') ||
-      errorText.includes('jwt expired') ||
-      errorText.includes('Invalid token') ||
-      errorText.includes('Invalid API key or session token')
+      errorText.includes("Token expired") ||
+      errorText.includes("jwt expired") ||
+      errorText.includes("Invalid token") ||
+      errorText.includes("Invalid API key or session token")
     );
   }
 
   // Auth endpoints
   async getProfile(): Promise<ApiResponse<{ user: User }>> {
-    return this.request('/auth/profile');
+    return this.request("/auth/profile");
   }
 
   async authenticateWithWallet(
-    x402Payment: string,
+    x402Payment: string
   ): Promise<ApiResponse<{ user: User; api_key: string }>> {
-    return this.request('/auth/wallet-profile', {
-      method: 'POST',
+    return this.request("/auth/wallet-profile", {
+      method: "POST",
       body: JSON.stringify({ x402Payment }),
     });
   }
@@ -242,10 +233,10 @@ export class DreamsRouterApiClient {
   async walletLogin(
     walletAddress: string,
     signature: string,
-    message: string,
+    message: string
   ): Promise<ApiResponse<{ user: User; session_token: string }>> {
-    return this.request('/auth/wallet-login', {
-      method: 'POST',
+    return this.request("/auth/wallet-login", {
+      method: "POST",
       body: JSON.stringify({ walletAddress, signature, message }),
     });
   }
@@ -264,33 +255,33 @@ export class DreamsRouterApiClient {
   }
 
   async processPayment(
-    x402Payment: string,
+    x402Payment: string
   ): Promise<ApiResponse<{ amount_credited: number; new_balance: number }>> {
-    return this.request('/payments/process', {
-      method: 'POST',
+    return this.request("/payments/process", {
+      method: "POST",
       headers: {
-        'X-PAYMENT': x402Payment,
+        "X-PAYMENT": x402Payment,
       },
     });
   }
 
   // Model endpoints
   async getDetailedModels(): Promise<ApiResponse<{ models: ModelConfig[] }>> {
-    return this.request('/models/detailed');
+    return this.request("/models/detailed");
   }
 
   async getModelStats(): Promise<ApiResponse<{ stats: ModelStats }>> {
-    return this.request('/models/stats');
+    return this.request("/models/stats");
   }
 
   async getProviders(): Promise<ApiResponse<{ providers: ModelProvider[] }>> {
-    return this.request('/models/providers');
+    return this.request("/models/providers");
   }
 
   async getModelCategories(): Promise<
     ApiResponse<{ categories: ModelCategory[] }>
   > {
-    return this.request('/models/categories');
+    return this.request("/models/categories");
   }
 
   async searchModels(query: string): Promise<ApiResponse> {
@@ -315,7 +306,7 @@ export class DreamsRouterApiClient {
 
   async checkModelAvailability(modelName: string): Promise<ApiResponse> {
     return this.request(
-      `/models/${encodeURIComponent(modelName)}/availability`,
+      `/models/${encodeURIComponent(modelName)}/availability`
     );
   }
 
@@ -325,17 +316,17 @@ export class DreamsRouterApiClient {
 
   // Usage endpoints
   async getUsageHistory(
-    limit: number = 100,
+    limit: number = 100
   ): Promise<ApiResponse<{ usage_history: UsageLog[] }>> {
     return this.request(`/auth/usage?limit=${limit}`);
   }
 
   async getUsageStats(): Promise<ApiResponse<{ statistics: UsageStats }>> {
-    return this.request('/auth/stats');
+    return this.request("/auth/stats");
   }
 
   async getUsageSummary(
-    period: string = '7d',
+    period: string = "7d"
   ): Promise<ApiResponse<{ summary: UsageSummary }>> {
     return this.request(`/auth/usage/summary?period=${period}`);
   }
@@ -343,27 +334,27 @@ export class DreamsRouterApiClient {
   // Wallet usage endpoints (public)
   async getWalletUsage(
     address: string,
-    limit: number = 100,
+    limit: number = 100
   ): Promise<ApiResponse<{ usage_history: UsageLog[] }>> {
     return this.request(`/wallet/usage/${address}?limit=${limit}`);
   }
 
   async getWalletStats(
-    address: string,
+    address: string
   ): Promise<ApiResponse<{ statistics: UsageStats }>> {
     return this.request(`/wallet/stats/${address}`);
   }
 
   async getWalletUsageSummary(
     address: string,
-    period: string = '7d',
+    period: string = "7d"
   ): Promise<ApiResponse<{ summary: UsageSummary }>> {
     return this.request(`/wallet/usage/summary/${address}?period=${period}`);
   }
 
   // Platform fee endpoints
   async getPlatformFeeInfo(): Promise<ApiResponse> {
-    return this.request('/platform-fee');
+    return this.request("/platform-fee");
   }
 }
 

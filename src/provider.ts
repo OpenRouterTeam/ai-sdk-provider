@@ -65,15 +65,9 @@ Base URL for the OpenRouter API calls.
   baseUrl?: string;
 
   /**
-API key for authenticating requests.
+  API key for authenticating requests. JWT or API key.
      */
   apiKey?: string;
-
-  /**
-   * JWT session token for authenticating requests (alternative to API key).
-   * When both apiKey and sessionToken are provided, sessionToken takes precedence.
-   */
-  sessionToken?: string;
 
   /**
 Custom headers to include in the requests.
@@ -125,26 +119,13 @@ export function createDreamsRouter(
   const compatibility = options.compatibility ?? "compatible";
 
   const getHeaders = () => {
-    // Prefer sessionToken over apiKey if both are provided
-    const sessionToken = loadApiKey({
-      apiKey: options.sessionToken,
-      environmentVariableName: "DREAMSROUTER_SESSION_TOKEN",
-      description: "Dreams Router",
-    });
-
-    if (sessionToken) {
-      return {
-        Authorization: `Bearer ${sessionToken}`,
-        ...options.headers,
-      };
-    }
-
     // Fall back to API key
     return {
       Authorization: `Bearer ${loadApiKey({
         apiKey: options.apiKey,
         environmentVariableName: "DREAMSROUTER_API_KEY",
-        description: "Dreams Router",
+        description:
+          "Dreams Router. This can be an API key or a session token.",
       })}`,
       ...options.headers,
     };
