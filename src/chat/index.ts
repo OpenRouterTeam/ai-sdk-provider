@@ -539,9 +539,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             };
 
-            if (delta.reasoning != null) {
-              emitReasoningChunk(delta.reasoning);
-            }
+            
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
@@ -570,7 +568,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 }
               }
             }
-
+            else if (delta.reasoning != null) {
+              emitReasoningChunk(delta.reasoning);
+            }
+            
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index ?? toolCalls.length - 1;
