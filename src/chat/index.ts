@@ -523,9 +523,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             };
 
-            if (delta.reasoning != null) {
-              emitReasoningChunk(delta.reasoning);
-            }
+            
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
@@ -553,6 +551,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                 }
               }
+            } else if (delta.reasoning != null) {
+              emitReasoningChunk(delta.reasoning);
             }
 
             if (delta.content != null) {
@@ -706,7 +706,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             // Forward any unsent tool calls if finish reason is 'tool-calls'
             if (finishReason === 'tool-calls') {
               for (const toolCall of toolCalls) {
-                if (!toolCall.sent) {
+                if (toolCall && !toolCall.sent) {
                   controller.enqueue({
                     type: 'tool-call',
                     toolCallId: toolCall.id ?? generateId(),
