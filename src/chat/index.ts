@@ -507,22 +507,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             const delta = choice.delta;
 
-            if (delta.content != null) {
-              if (!textStarted) {
-                textId = openrouterResponseId || generateId();
-                controller.enqueue({
-                  type: 'text-start',
-                  id: textId,
-                });
-                textStarted = true;
-              }
-              controller.enqueue({
-                type: 'text-delta',
-                delta: delta.content,
-                id: textId || generateId(),
-              });
-            }
-
             const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = openrouterResponseId || generateId();
@@ -567,11 +551,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                 }
               }
-            }
-            else if (delta.reasoning != null) {
+            } else if (delta.reasoning != null) {
               emitReasoningChunk(delta.reasoning);
             }
-            
+
+            if (delta.content != null) {
+              if (!textStarted) {
+                textId = openrouterResponseId || generateId();
+                controller.enqueue({
+                  type: 'text-start',
+                  id: textId,
+                });
+                textStarted = true;
+              }
+              controller.enqueue({
+                type: 'text-delta',
+                delta: delta.content,
+                id: textId || generateId(),
+              });
+            }
+
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index ?? toolCalls.length - 1;
