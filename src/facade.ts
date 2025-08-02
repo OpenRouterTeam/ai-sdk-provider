@@ -23,7 +23,7 @@ The default prefix is `https://openrouter.ai/api/v1`.
   readonly baseURL: string;
 
   /**
-API key that is being send using the `Authorization` header.
+API key that is being sent using the `Authorization` header.
 It defaults to the `OPENROUTER_API_KEY` environment variable.
  */
   readonly apiKey?: string;
