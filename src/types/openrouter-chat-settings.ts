@@ -23,7 +23,7 @@ token from being generated.
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
 the response size and can slow down response times. However, it can
-be useful to better understand how the model is behaving.
+be useful to understand better how the model is behaving.
 
 Setting to true will return the log probabilities of the tokens that
 were generated.

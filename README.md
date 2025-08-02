@@ -1,6 +1,6 @@
 # OpenRouter Provider for Vercel AI SDK
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the OpenRouter chat and completion APIs.
+The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
 
 ## Setup
 
@@ -126,7 +126,7 @@ await streamText({
     {
       role: 'system',
       content:
-        'You are a podcast summary assistant. You are detail oriented and critical about the content.',
+        'You are a podcast summary assistant. You are detail-oriented and critical about the content.',
     },
     {
       role: 'user',
