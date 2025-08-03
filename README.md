@@ -49,53 +49,11 @@ PRIVATE_KEY=0x...
 
 ## Authentication Methods
 
-Dreams Router supports multiple authentication methods:
-
-### 1. API Key (Server-side)
-
 ```typescript
 import { createDreamsRouter } from '@dreams/ai-sdk-provider';
 
+// Use JWT or API key
 const dreamsrouter = createDreamsRouter({
-  apiKey: process.env.DREAMSROUTER_API_KEY // or in ENV
+  apiKey: process.env.DREAMSROUTER_API_KEY
 });
-```
-
-
-### Using viem directly
-
-```typescript
-import {
-  createDreamsRouterAuth,
-  generateX402Payment,
-} from '@dreams/ai-sdk-provider';
-import { privateKeyToAccount } from 'viem/accounts';
-
-// Use viem's native account creation
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
-const payment = await generateX402Payment(account, { amount: '100000' });
-const auth = await createDreamsRouterAuth(account, { payment });
-```
-
-## Error Handling
-
-Dreams Router handles common errors gracefully:
-
-- **JWT token expiration**: Automatically refreshed
-- **Payment failures**: Requests continue without payment
-- **Network errors**: Standard HTTP error responses
-- **Invalid signatures**: Clear error messages
-
-## TypeScript Support
-
-Full TypeScript support with viem's native types:
-
-```typescript
-import type { Account } from 'viem';
-import type {
-  DreamsRouterPaymentConfig,
-  ModelConfig,
-  UsageStats,
-  User,
-} from '@dreams/ai-sdk-provider';
 ```
