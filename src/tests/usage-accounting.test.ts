@@ -15,6 +15,7 @@ describe('OpenRouter Usage Accounting', () => {
     const response = {
       id: 'test-id',
       model: 'test-model',
+      provider: 'test-model',
       choices: [
         {
           message: {
@@ -115,6 +116,9 @@ describe('OpenRouter Usage Accounting', () => {
     expect(result.providerMetadata).toBeDefined();
     const providerData = result.providerMetadata;
 
+    // Check for provider field
+    expect((providerData as any)?.provider).toBe('test-model');
+
     // Check for OpenRouter usage data
     expect(providerData?.openrouter).toBeDefined();
     const openrouterData = providerData?.openrouter as Record<string, unknown>;
@@ -162,7 +166,10 @@ describe('OpenRouter Usage Accounting', () => {
       maxOutputTokens: 100,
     });
 
-    // Verify that OpenRouter metadata is not included
+    // Verify that provider field is included
+    expect((result.providerMetadata as any)?.provider).toBe('test-model');
+
+    // Verify that OpenRouter metadata is included
     expect(result.providerMetadata?.openrouter?.usage).toStrictEqual({
       promptTokens: 10,
       completionTokens: 20,

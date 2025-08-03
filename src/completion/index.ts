@@ -138,7 +138,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
   async doGenerate(
     options: LanguageModelV2CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>>{
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -195,6 +195,28 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       response: {
         headers: responseHeaders,
       },
+      providerMetadata: {
+        openrouter: {
+          usage: {
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens:
+              (response.usage?.prompt_tokens ?? 0) +
+              (response.usage?.completion_tokens ?? 0),
+            cost: response.usage?.cost,
+            promptTokensDetails: {
+              cachedTokens: response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+            },
+            completionTokensDetails: {
+              reasoningTokens: response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+            },
+            costDetails: {
+              upstreamInferenceCost: 0,
+            },
+          },
+        },
+        provider: response.provider,
+      } as any,
     };
   }
 
@@ -243,6 +265,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    let provider: string | undefined;
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -264,6 +287,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: value.error });
               return;
+            }
+
+            if (value.provider != null) {
+              provider = value.provider;
             }
 
             if (value.usage != null) {
@@ -324,7 +351,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                 openrouter: {
                   usage: openrouterUsage,
                 },
-              },
+                provider: provider,
+              } as any,
             });
           },
         }),

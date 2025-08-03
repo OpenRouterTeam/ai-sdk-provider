@@ -260,12 +260,12 @@ describe('doStream', () => {
       type: 'stream-chunks',
       chunks: [
         ...content.map((text) => {
-          return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`;
+          return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct","provider":"openai/gpt-3.5-turbo-instruct"}\n\n`;
         }),
         `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
           logprobs,
-        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
-        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
+        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct","provider":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","provider":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
           usage,
         )},"choices":[]}\n\n`,
         'data: [DONE]\n\n',
@@ -300,6 +300,7 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'stop',
         providerMetadata: {
+          provider: 'openai/gpt-3.5-turbo-instruct',
           openrouter: {
             usage: {
               promptTokens: 10,
@@ -350,6 +351,7 @@ describe('doStream', () => {
       {
         finishReason: 'error',
         providerMetadata: {
+          provider: undefined,
           openrouter: {
             usage: {},
           },
@@ -383,6 +385,7 @@ describe('doStream', () => {
     expect(elements[1]).toStrictEqual({
       finishReason: 'error',
       providerMetadata: {
+        provider: undefined,
         openrouter: {
           usage: {},
         },

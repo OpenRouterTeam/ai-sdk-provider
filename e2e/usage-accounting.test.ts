@@ -21,6 +21,7 @@ it('receive usage accounting', async () => {
       },
     ],
     onFinish(e) {
+      expect((e.providerMetadata as any)?.provider).toBeDefined();
       expect(e.providerMetadata?.openrouter).toMatchObject({
         usage: expect.objectContaining({
           promptTokens: expect.any(Number),
@@ -37,6 +38,7 @@ it('receive usage accounting', async () => {
   await response.consumeStream();
   const providerMetadata = await response.providerMetadata;
   // You can use expect.any(Type) or expect.objectContaining for schema-like matching
+  expect((providerMetadata as any)?.provider).toBeDefined();
   expect(providerMetadata?.openrouter).toMatchObject({
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),

@@ -8,6 +8,7 @@ export const OpenRouterCompletionChunkSchema = z.union([
   z.object({
     id: z.string().optional(),
     model: z.string().optional(),
+    provider: z.string().optional(),
     choices: z.array(
       z.object({
         text: z.string(),

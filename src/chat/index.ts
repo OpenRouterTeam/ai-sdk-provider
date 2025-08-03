@@ -183,7 +183,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       headers?: SharedV2Headers;
       body?: unknown;
     };
-  }> {
+  }>{
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -335,7 +335,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             },
           },
         },
-      },
+        provider: response.provider,
+      } as any,
       request: { body: args },
       response: {
         id: response.id,
@@ -414,6 +415,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    let provider: string | undefined;
 
     let textStarted = false;
     let reasoningStarted = false;
@@ -459,6 +461,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 type: 'response-metadata',
                 modelId: value.model,
               });
+            }
+
+            if (value.provider) {
+              provider = value.provider;
             }
 
             if (value.usage != null) {
@@ -742,7 +748,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 openrouter: {
                   usage: openrouterUsage,
                 },
-              },
+                provider: provider,
+              } as any,
             });
           },
         }),

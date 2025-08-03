@@ -5,6 +5,7 @@ import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
   model: z.string().optional(),
+  provider: z.string().optional(),
   usage: z
     .object({
       prompt_tokens: z.number(),
