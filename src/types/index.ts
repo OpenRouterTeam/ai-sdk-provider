@@ -1,20 +1,17 @@
-import type { LanguageModelV1 } from '@ai-sdk/provider';
+import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
 
-// Re-export the LanguageModelV1 type to ensure proper type compatibility
-export type { LanguageModelV1 };
+export type { LanguageModelV2, LanguageModelV2Prompt };
 
-// Export our model types with explicit type constraints
-export type LLMGatewayLanguageModel = LanguageModelV1;
-
-export type LLMGatewayProviderOptions = {
+export type OpenRouterProviderOptions = {
   models?: string[];
 
   /**
-   * https://llmgateway.io/docs/use-cases/reasoning-tokens
+   * https://openrouter.ai/docs/use-cases/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
   reasoning?: {
+    enabled?: boolean;
     exclude?: boolean;
   } & (
     | {
@@ -27,12 +24,12 @@ export type LLMGatewayProviderOptions = {
 
   /**
    * A unique identifier representing your end-user, which can
-   * help LLMGateway to monitor and detect abuse.
+   * help OpenRouter to monitor and detect abuse.
    */
   user?: string;
 };
 
-export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
+export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
   /**
    * @deprecated use `reasoning` instead
    */
@@ -42,7 +39,7 @@ export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
 
   /**
    * Enable usage accounting to get detailed token usage information.
-   * https://llmgateway.io/docs/use-cases/usage-accounting
+   * https://openrouter.ai/docs/use-cases/usage-accounting
    */
   usage?: {
     /**
@@ -54,9 +51,9 @@ export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
 
 /**
  * Usage accounting response
- * @see https://llmgateway.io/docs/use-cases/usage-accounting
+ * @see https://openrouter.ai/docs/use-cases/usage-accounting
  */
-export type LLMGatewayUsageAccounting = {
+export type OpenRouterUsageAccounting = {
   promptTokens: number;
   promptTokensDetails?: {
     cachedTokens: number;
@@ -67,4 +64,7 @@ export type LLMGatewayUsageAccounting = {
   };
   totalTokens: number;
   cost?: number;
+  costDetails: {
+    upstreamInferenceCost: number;
+  };
 };

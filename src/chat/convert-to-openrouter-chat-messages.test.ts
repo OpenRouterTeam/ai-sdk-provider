@@ -1,16 +1,74 @@
-import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
+import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
 describe('user messages', () => {
-  it('should convert messages with image parts to multiple parts', async () => {
-    const result = convertToLLMGatewayChatMessages([
+  it('should convert image Uint8Array', async () => {
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert image urls', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: 'https://example.com/image.png',
+            mediaType: 'image/png',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/image.png' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert messages with image base64', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: 'data:image/png;base64,AAECAw==',
+            mediaType: 'image/png',
           },
         ],
       },
@@ -31,7 +89,7 @@ describe('user messages', () => {
   });
 
   it('should convert messages with only a text part to a string content', async () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
@@ -44,11 +102,11 @@ describe('user messages', () => {
 
 describe('cache control', () => {
   it('should pass cache control from system message provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'system',
         content: 'System prompt',
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -66,11 +124,11 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from user message provider metadata (single text part)', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -81,25 +139,62 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'user',
-        content: 'Hello',
-        cache_control: { type: 'ephemeral' },
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control from content part provider metadata (single text part)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            providerOptions: {
+              anthropic: {
+                cacheControl: { type: 'ephemeral' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
 
   it('should pass cache control from user message provider metadata (multiple parts)', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -126,24 +221,40 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should pass cache control from user message provider metadata without cache control (single text part)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: 'Hello',
+      },
+    ]);
+  });
+
   it('should pass cache control to multiple image parts from user message provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
           { type: 'text', text: 'Hello' },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
           {
-            type: 'image',
-            image: new Uint8Array([4, 5, 6, 7]),
-            mimeType: 'image/jpeg',
+            type: 'file',
+            data: new Uint8Array([4, 5, 6, 7]),
+            mediaType: 'image/jpeg',
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -176,7 +287,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control to file parts from user message provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
@@ -184,15 +295,15 @@ describe('cache control', () => {
           {
             type: 'file',
             data: 'ZmlsZSBjb250ZW50',
-            mimeType: 'text/plain',
-            providerMetadata: {
-              llmgateway: {
+            mediaType: 'text/plain',
+            providerOptions: {
+              openrouter: {
                 filename: 'file.txt',
               },
             },
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -223,7 +334,7 @@ describe('cache control', () => {
   });
 
   it('should handle mixed part-specific and message-level cache control for multiple parts', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
@@ -233,10 +344,10 @@ describe('cache control', () => {
             // No part-specific provider metadata
           },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
-            providerMetadata: {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+            providerOptions: {
               anthropic: {
                 cacheControl: { type: 'ephemeral' },
               },
@@ -245,16 +356,16 @@ describe('cache control', () => {
           {
             type: 'file',
             data: 'ZmlsZSBjb250ZW50',
-            mimeType: 'text/plain',
-            providerMetadata: {
-              llmgateway: {
+            mediaType: 'text/plain',
+            providerOptions: {
+              openrouter: {
                 filename: 'file.txt',
               },
             },
             // No part-specific provider metadata
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -290,23 +401,23 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from individual content part provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
         content: [
           {
             type: 'text',
             text: 'Hello',
-            providerMetadata: {
+            providerOptions: {
               anthropic: {
                 cacheControl: { type: 'ephemeral' },
               },
             },
           },
           {
-            type: 'image',
-            image: new Uint8Array([0, 1, 2, 3]),
-            mimeType: 'image/png',
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
           },
         ],
       },
@@ -331,11 +442,11 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from assistant message provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
         content: [{ type: 'text', text: 'Assistant response' }],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -353,7 +464,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from tool message provider metadata', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
         content: [
@@ -361,11 +472,13 @@ describe('cache control', () => {
             type: 'tool-result',
             toolCallId: 'call-123',
             toolName: 'calculator',
-            result: { answer: 42 },
-            isError: false,
+            output: {
+              type: 'json',
+              value: { answer: 42 },
+            },
           },
         ],
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cacheControl: { type: 'ephemeral' },
           },
@@ -384,11 +497,11 @@ describe('cache control', () => {
   });
 
   it('should support the alias cache_control field', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'system',
         content: 'System prompt',
-        providerMetadata: {
+        providerOptions: {
           anthropic: {
             cache_control: { type: 'ephemeral' },
           },
@@ -406,7 +519,7 @@ describe('cache control', () => {
   });
 
   it('should support cache control on last message in content array', () => {
-    const result = convertToLLMGatewayChatMessages([
+    const result = convertToOpenRouterChatMessages([
       {
         role: 'system',
         content: 'System prompt',
@@ -418,7 +531,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'User prompt 2',
-            providerMetadata: {
+            providerOptions: {
               anthropic: { cacheControl: { type: 'ephemeral' } },
             },
           },

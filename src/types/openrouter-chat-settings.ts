@@ -1,9 +1,9 @@
-import type { LLMGatewaySharedSettings } from '..';
+import type { OpenRouterSharedSettings } from '..';
 
-// https://api.llmgateway.io/v1/models
-export type LLMGatewayChatModelId = string;
+// https://openrouter.ai/api/v1/models
+export type OpenRouterChatModelId = string;
 
-export type LLMGatewayChatSettings = {
+export type OpenRouterChatSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -23,7 +23,7 @@ token from being generated.
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
 the response size and can slow down response times. However, it can
-be useful to better understand how the model is behaving.
+be useful to understand better how the model is behaving.
 
 Setting to true will return the log probabilities of the tokens that
 were generated.
@@ -39,8 +39,8 @@ Whether to enable parallel function calling during tool use. Default to true.
   parallelToolCalls?: boolean;
 
   /**
-A unique identifier representing your end-user, which can help LLMGateway to
+A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
   user?: string;
-} & LLMGatewaySharedSettings;
+} & OpenRouterSharedSettings;

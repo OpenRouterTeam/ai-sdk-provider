@@ -1,19 +1,18 @@
-import type { LLMGatewayChatSettings } from './types/llmgateway-chat-settings';
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-import { JsonTestServer } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
+import { OpenRouterChatLanguageModel } from '../chat';
 
-import { LLMGatewayChatLanguageModel } from './llmgateway-chat-language-model';
-
-describe('LLMGateway Usage Accounting', () => {
-  const server = new JsonTestServer(
-    'https://api.llmgateway.io/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+describe('OpenRouter Usage Accounting', () => {
+  const server = createTestServer({
+    'https://api.openrouter.ai/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
 
   function prepareJsonResponse(includeUsage = true) {
-    server.responseBodyJson = {
+    const response = {
       id: 'test-id',
       model: 'test-model',
       choices: [
@@ -38,8 +37,16 @@ describe('LLMGateway Usage Accounting', () => {
             },
             total_tokens: 30,
             cost: 0.0015,
+            cost_details: {
+              upstream_inference_cost: 19,
+            },
           }
         : undefined,
+    };
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: response,
     };
   }
 
@@ -47,13 +54,13 @@ describe('LLMGateway Usage Accounting', () => {
     prepareJsonResponse();
 
     // Create model with usage accounting enabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       usage: { include: true },
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -61,19 +68,17 @@ describe('LLMGateway Usage Accounting', () => {
 
     // Call the model
     await model.doGenerate({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Check request contains usage parameter
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
     expect(requestBody).toBeDefined();
     expect(requestBody).toHaveProperty('usage');
     expect(requestBody.usage).toEqual({ include: true });
@@ -83,13 +88,13 @@ describe('LLMGateway Usage Accounting', () => {
     prepareJsonResponse();
 
     // Create model with usage accounting enabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       usage: { include: true },
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -97,27 +102,25 @@ describe('LLMGateway Usage Accounting', () => {
 
     // Call the model
     const result = await model.doGenerate({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Check result contains provider metadata
     expect(result.providerMetadata).toBeDefined();
     const providerData = result.providerMetadata;
 
-    // Check for LLMGateway usage data
-    expect(providerData?.llmgateway).toBeDefined();
-    const llmgatewayData = providerData?.llmgateway as Record<string, unknown>;
-    expect(llmgatewayData.usage).toBeDefined();
+    // Check for OpenRouter usage data
+    expect(providerData?.openrouter).toBeDefined();
+    const openrouterData = providerData?.openrouter as Record<string, unknown>;
+    expect(openrouterData.usage).toBeDefined();
 
-    const usage = llmgatewayData.usage;
+    const usage = openrouterData.usage;
     expect(usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
@@ -136,13 +139,13 @@ describe('LLMGateway Usage Accounting', () => {
     prepareJsonResponse();
 
     // Create model with usage accounting disabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       // No usage property
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -150,18 +153,30 @@ describe('LLMGateway Usage Accounting', () => {
 
     // Call the model
     const result = await model.doGenerate({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
-    // Verify that LLMGateway metadata is not included
-    expect(result.providerMetadata?.llmgateway?.usage).toBeUndefined();
+    // Verify that OpenRouter metadata is not included
+    expect(result.providerMetadata?.openrouter?.usage).toStrictEqual({
+      promptTokens: 10,
+      completionTokens: 20,
+      totalTokens: 30,
+      cost: 0.0015,
+      costDetails: {
+        upstreamInferenceCost: 19,
+      },
+      promptTokensDetails: {
+        cachedTokens: 5,
+      },
+      completionTokensDetails: {
+        reasoningTokens: 8,
+      },
+    });
   });
 });

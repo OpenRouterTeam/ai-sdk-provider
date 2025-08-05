@@ -1,46 +1,60 @@
-import type { LLMGatewayChatSettings } from './types/llmgateway-chat-settings';
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
 import {
   convertReadableStreamToArray,
-  StreamingTestServer,
+  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
+import { OpenRouterChatLanguageModel } from '../chat';
 
-import { LLMGatewayChatLanguageModel } from './llmgateway-chat-language-model';
-
-describe('LLMGateway Streaming Usage Accounting', () => {
-  const server = new StreamingTestServer(
-    'https://api.llmgateway.io/chat/completions',
-  );
-
-  server.setupTestEnvironment();
+describe('OpenRouter Streaming Usage Accounting', () => {
+  const server = createTestServer({
+    'https://api.openrouter.ai/chat/completions': {
+      response: { type: 'stream-chunks', chunks: [] },
+    },
+  });
 
   function prepareStreamResponse(includeUsage = true) {
-    server.responseChunks = [
+    const chunks = [
       `data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"Hello"},"index":0}]}\n\n`,
       `data: {"choices":[{"finish_reason":"stop","index":0}]}\n\n`,
     ];
 
     if (includeUsage) {
-      server.responseChunks.push(
-        `data: {"usage":{"prompt_tokens":10,"prompt_tokens_details":{"cached_tokens":5},"completion_tokens":20,"completion_tokens_details":{"reasoning_tokens":8},"total_tokens":30,"cost":0.0015},"choices":[]}\n\n`,
+      chunks.push(
+        `data: ${JSON.stringify({
+          usage: {
+            prompt_tokens: 10,
+            prompt_tokens_details: { cached_tokens: 5 },
+            completion_tokens: 20,
+            completion_tokens_details: { reasoning_tokens: 8 },
+            total_tokens: 30,
+            cost: 0.0015,
+          },
+          choices: [],
+        })}\n\n`,
       );
     }
 
-    server.responseChunks.push('data: [DONE]\n\n');
+    chunks.push('data: [DONE]\n\n');
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks,
+    };
   }
 
   it('should include stream_options.include_usage in request when enabled', async () => {
     prepareStreamResponse();
 
     // Create model with usage accounting enabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       usage: { include: true },
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -48,19 +62,17 @@ describe('LLMGateway Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Verify stream options
-    const requestBody = await server.getRequestBodyJson();
+    const requestBody = await server.calls[0]!.requestBodyJson;
     expect(requestBody).toBeDefined();
     expect(requestBody.stream).toBe(true);
     expect(requestBody.stream_options).toEqual({
@@ -72,13 +84,13 @@ describe('LLMGateway Streaming Usage Accounting', () => {
     prepareStreamResponse(true);
 
     // Create model with usage accounting enabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       usage: { include: true },
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -86,15 +98,13 @@ describe('LLMGateway Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     const result = await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Read all chunks from the stream
@@ -106,10 +116,10 @@ describe('LLMGateway Streaming Usage Accounting', () => {
 
     // Verify metadata is included
     expect(finishChunk?.providerMetadata).toBeDefined();
-    const llmgatewayData = finishChunk?.providerMetadata?.llmgateway;
-    expect(llmgatewayData).toBeDefined();
+    const openrouterData = finishChunk?.providerMetadata?.openrouter;
+    expect(openrouterData).toBeDefined();
 
-    const usage = llmgatewayData?.usage;
+    const usage = openrouterData?.usage;
     expect(usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
@@ -124,13 +134,13 @@ describe('LLMGateway Streaming Usage Accounting', () => {
     prepareStreamResponse(false);
 
     // Create model with usage accounting disabled
-    const settings: LLMGatewayChatSettings = {
+    const settings: OpenRouterChatSettings = {
       // No usage property
     };
 
-    const model = new LLMGatewayChatLanguageModel('test-model', settings, {
-      provider: 'llmgateway.chat',
-      url: () => 'https://api.llmgateway.io/chat/completions',
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
       fetch: global.fetch,
@@ -138,15 +148,13 @@ describe('LLMGateway Streaming Usage Accounting', () => {
 
     // Call the model with streaming
     const result = await model.doStream({
-      mode: { type: 'regular' },
       prompt: [
         {
           role: 'user',
           content: [{ type: 'text', text: 'Hello' }],
         },
       ],
-      maxTokens: 100,
-      inputFormat: 'messages',
+      maxOutputTokens: 100,
     });
 
     // Read all chunks from the stream
@@ -157,6 +165,8 @@ describe('LLMGateway Streaming Usage Accounting', () => {
     expect(finishChunk).toBeDefined();
 
     // Verify that provider metadata is not included
-    expect(finishChunk?.providerMetadata?.llmgateway).toBeUndefined();
+    expect(finishChunk?.providerMetadata?.openrouter).toStrictEqual({
+      usage: {},
+    });
   });
 });

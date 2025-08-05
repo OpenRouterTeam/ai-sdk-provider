@@ -1,14 +1,13 @@
-import { createLLMGateway } from '@/src';
-import { getEnvVar } from '@/src/env-utils';
 import { streamText } from 'ai';
 import { it } from 'vitest';
+import { createOpenRouter } from '@/src';
 
-it.skip('receive usage accounting', async () => {
-  const llmgateway = createLLMGateway({
-    apiKey: getEnvVar('API_KEY'),
-    baseURL: `${getEnvVar('API_BASE')}/api/v1`,
+it('receive usage accounting', async () => {
+  const openrouter = createOpenRouter({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
-  const model = llmgateway('anthropic/claude-3.7-sonnet:thinking', {
+  const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
     usage: {
       include: true,
     },
@@ -22,7 +21,7 @@ it.skip('receive usage accounting', async () => {
       },
     ],
     onFinish(e) {
-      expect(e.providerMetadata?.llmgateway).toMatchObject({
+      expect(e.providerMetadata?.openrouter).toMatchObject({
         usage: expect.objectContaining({
           promptTokens: expect.any(Number),
           completionTokens: expect.any(Number),
@@ -38,7 +37,7 @@ it.skip('receive usage accounting', async () => {
   await response.consumeStream();
   const providerMetadata = await response.providerMetadata;
   // You can use expect.any(Type) or expect.objectContaining for schema-like matching
-  expect(providerMetadata?.llmgateway).toMatchObject({
+  expect(providerMetadata?.openrouter).toMatchObject({
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),
       completionTokens: expect.any(Number),

@@ -1,3 +1,3 @@
-export * from './llmgateway-facade';
-export * from './llmgateway-provider';
+export * from './facade';
+export * from './provider';
 export * from './types';

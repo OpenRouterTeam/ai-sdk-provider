@@ -1,19 +1,18 @@
-import type { LanguageModelV1Prompt } from '@ai-sdk/provider';
+import type { ModelMessage } from 'ai';
 
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
-
-import { createLLMGateway } from './llmgateway-provider';
+import { createOpenRouter } from '../provider';
 
 // Add type assertions for the mocked classes
-const TEST_MESSAGES: LanguageModelV1Prompt = [
+const TEST_MESSAGES: ModelMessage[] = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
 describe('providerOptions', () => {
   const server = createTestServer({
-    'https://api.llmgateway.io/v1/chat/completions': {
+    'https://openrouter.ai/api/v1/chat/completions': {
       response: {
         type: 'stream-chunks',
         chunks: [],
@@ -25,17 +24,17 @@ describe('providerOptions', () => {
     vi.clearAllMocks();
   });
 
-  it('should set providerOptions llmgateway to extra body', async () => {
-    const llmgateway = createLLMGateway({
+  it('should set providerOptions openrouter to extra body', async () => {
+    const openrouter = createOpenRouter({
       apiKey: 'test',
     });
-    const model = llmgateway('anthropic/claude-3.7-sonnet');
+    const model = openrouter('anthropic/claude-3.7-sonnet');
 
     await streamText({
-      model,
+      model: model,
       messages: TEST_MESSAGES,
       providerOptions: {
-        llmgateway: {
+        openrouter: {
           reasoning: {
             max_tokens: 1000,
           },
@@ -43,7 +42,7 @@ describe('providerOptions', () => {
       },
     }).consumeStream();
 
-    expect(await server.calls[0]?.requestBody).toStrictEqual({
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
       messages: [
         {
           content: 'Hello',
@@ -53,7 +52,6 @@ describe('providerOptions', () => {
       reasoning: {
         max_tokens: 1000,
       },
-      temperature: 0,
       model: 'anthropic/claude-3.7-sonnet',
       stream: true,
     });
