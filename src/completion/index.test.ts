@@ -4,7 +4,7 @@ import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
-import { createOpenRouter } from '../provider';
+import { createLLMGateway } from '../provider';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -37,7 +37,7 @@ const TEST_LOGPROBS = {
   ] as Record<string, number>[],
 };
 
-const provider = createOpenRouter({
+const provider = createLLMGateway({
   apiKey: 'test-api-key',
   compatibility: 'strict',
 });
@@ -46,7 +46,7 @@ const model = provider.completion('openai/gpt-3.5-turbo-instruct');
 
 describe('doGenerate', () => {
   const server = createTestServer({
-    'https://openrouter.ai/api/v1/completions': {
+    'https://api.llmgateway.io/v1/completions': {
       response: { type: 'json-value', body: {} },
     },
   });
@@ -74,7 +74,7 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/completions']!.response = {
       type: 'json-value',
       body: {
         id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
@@ -128,7 +128,7 @@ describe('doGenerate', () => {
   it('should extract logprobs', async () => {
     prepareJsonResponse({ logprobs: TEST_LOGPROBS });
 
-    const provider = createOpenRouter({ apiKey: 'test-api-key' });
+    const provider = createLLMGateway({ apiKey: 'test-api-key' });
 
     await provider
       .completion('openai/gpt-3.5-turbo', { logprobs: 1 })
@@ -184,7 +184,7 @@ describe('doGenerate', () => {
     prepareJsonResponse({ content: '' });
 
     const customModel = provider.completion('openai/gpt-3.5-turbo-instruct', {
-      models: ['openai/gpt-4', 'anthropic/claude-2'],
+      models: ['openai/gpt-4', 'claude-3-5-sonnet'],
     });
 
     await customModel.doGenerate({
@@ -193,7 +193,7 @@ describe('doGenerate', () => {
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'openai/gpt-3.5-turbo-instruct',
-      models: ['openai/gpt-4', 'anthropic/claude-2'],
+      models: ['openai/gpt-4', 'claude-3-5-sonnet'],
       prompt: 'Hello',
     });
   });
@@ -201,7 +201,7 @@ describe('doGenerate', () => {
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -228,7 +228,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = createTestServer({
-    'https://openrouter.ai/api/v1/completions': {
+    'https://api.llmgateway.io/v1/completions': {
       response: { type: 'stream-chunks', chunks: [] },
     },
   });
@@ -256,7 +256,7 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         ...content.map((text) => {
@@ -300,7 +300,7 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'stop',
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {
               promptTokens: 10,
               completionTokens: 362,
@@ -321,11 +321,11 @@ describe('doStream', () => {
   });
 
   it('should handle error stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
-          `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
+          `help center at help.llmgateway.io if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
         'data: [DONE]\n\n',
       ],
     };
@@ -341,7 +341,7 @@ describe('doStream', () => {
           message:
             'The server had an error processing your request. Sorry about that! ' +
             'You can retry your request, or contact us through our help center at ' +
-            'help.openrouter.com if you keep seeing this error.',
+            'help.llmgateway.io if you keep seeing this error.',
           type: 'server_error',
           code: null,
           param: null,
@@ -350,7 +350,7 @@ describe('doStream', () => {
       {
         finishReason: 'error',
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {},
           },
         },
@@ -367,7 +367,7 @@ describe('doStream', () => {
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
     };
@@ -383,7 +383,7 @@ describe('doStream', () => {
     expect(elements[1]).toStrictEqual({
       finishReason: 'error',
       providerMetadata: {
-        openrouter: {
+        llmgateway: {
           usage: {},
         },
       },
@@ -416,7 +416,7 @@ describe('doStream', () => {
   it('should pass headers', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -443,7 +443,7 @@ describe('doStream', () => {
   it('should pass extra body', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       extraBody: {
         custom_field: 'custom_value',

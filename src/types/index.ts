@@ -2,11 +2,11 @@ import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 export type { LanguageModelV2, LanguageModelV2Prompt };
 
-export type OpenRouterProviderOptions = {
+export type LLMGatewayProviderOptions = {
   models?: string[];
 
   /**
-   * https://openrouter.ai/docs/use-cases/reasoning-tokens
+   * Reasoning configuration for supported models.
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
@@ -24,12 +24,12 @@ export type OpenRouterProviderOptions = {
 
   /**
    * A unique identifier representing your end-user, which can
-   * help OpenRouter to monitor and detect abuse.
+   * help LLMGateway to monitor and detect abuse.
    */
   user?: string;
 };
 
-export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
+export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
   /**
    * @deprecated use `reasoning` instead
    */
@@ -39,7 +39,6 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
 
   /**
    * Enable usage accounting to get detailed token usage information.
-   * https://openrouter.ai/docs/use-cases/usage-accounting
    */
   usage?: {
     /**
@@ -51,9 +50,8 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
 
 /**
  * Usage accounting response
- * @see https://openrouter.ai/docs/use-cases/usage-accounting
  */
-export type OpenRouterUsageAccounting = {
+export type LLMGatewayUsageAccounting = {
   promptTokens: number;
   promptTokensDetails?: {
     cachedTokens: number;

@@ -8,33 +8,33 @@ import type {
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
-  OpenRouterChatCompletionsInput,
-} from '../types/openrouter-chat-completions-input';
+  LLMGatewayChatCompletionsInput,
+} from '../types/llmgateway-chat-completions-input';
 
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
-// Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+// Type for LLMGateway Cache Control following Anthropic's pattern
+export type LLMGatewayCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
   providerMetadata: SharedV2ProviderMetadata | undefined,
-): OpenRouterCacheControl | undefined {
+): LLMGatewayCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
-  const openrouter = providerMetadata?.openrouter;
+  const llmgateway = providerMetadata?.llmgateway;
 
   // Allow both cacheControl and cache_control:
-  return (openrouter?.cacheControl ??
-    openrouter?.cache_control ??
+  return (llmgateway?.cacheControl ??
+    llmgateway?.cache_control ??
     anthropic?.cacheControl ??
-    anthropic?.cache_control) as OpenRouterCacheControl | undefined;
+    anthropic?.cache_control) as LLMGatewayCacheControl | undefined;
 }
 
-export function convertToOpenRouterChatMessages(
+export function convertToLLMGatewayChatMessages(
   prompt: LanguageModelV2Prompt,
-): OpenRouterChatCompletionsInput {
-  const messages: OpenRouterChatCompletionsInput = [];
+): LLMGatewayChatCompletionsInput {
+  const messages: LLMGatewayChatCompletionsInput = [];
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
@@ -100,7 +100,7 @@ export function convertToOpenRouterChatMessages(
                 }
 
                 const fileName = String(
-                  part.providerOptions?.openrouter?.filename ??
+                  part.providerOptions?.llmgateway?.filename ??
                     part.filename ??
                     '',
                 );

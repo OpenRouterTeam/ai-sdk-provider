@@ -1,58 +1,58 @@
 import type { LanguageModelV2 } from '@ai-sdk/provider';
 import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './types/openrouter-chat-settings';
+  LLMGatewayChatModelId,
+  LLMGatewayChatSettings,
+} from './types/llmgateway-chat-settings';
 import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './types/openrouter-completion-settings';
+  LLMGatewayCompletionModelId,
+  LLMGatewayCompletionSettings,
+} from './types/llmgateway-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-import { OpenRouterChatLanguageModel } from './chat';
-import { OpenRouterCompletionLanguageModel } from './completion';
+import { LLMGatewayChatLanguageModel } from './chat';
+import { LLMGatewayCompletionLanguageModel } from './completion';
 
-export type { OpenRouterCompletionSettings };
+export type { LLMGatewayCompletionSettings };
 
-export interface OpenRouterProvider extends LanguageModelV2 {
+export interface LLMGatewayProvider extends LanguageModelV2 {
   (
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+    modelId: LLMGatewayChatModelId,
+    settings?: LLMGatewayCompletionSettings,
+  ): LLMGatewayCompletionLanguageModel;
   (
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+    modelId: LLMGatewayChatModelId,
+    settings?: LLMGatewayChatSettings,
+  ): LLMGatewayChatLanguageModel;
 
   languageModel(
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+    modelId: LLMGatewayChatModelId,
+    settings?: LLMGatewayCompletionSettings,
+  ): LLMGatewayCompletionLanguageModel;
   languageModel(
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+    modelId: LLMGatewayChatModelId,
+    settings?: LLMGatewayChatSettings,
+  ): LLMGatewayChatLanguageModel;
 
   /**
-Creates an OpenRouter chat model for text generation.
+Creates an LLMGateway chat model for text generation.
    */
   chat(
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+    modelId: LLMGatewayChatModelId,
+    settings?: LLMGatewayChatSettings,
+  ): LLMGatewayChatLanguageModel;
 
   /**
-Creates an OpenRouter completion model for text generation.
+Creates an LLMGateway completion model for text generation.
    */
   completion(
-    modelId: OpenRouterCompletionModelId,
-    settings?: OpenRouterCompletionSettings,
-  ): OpenRouterCompletionLanguageModel;
+    modelId: LLMGatewayCompletionModelId,
+    settings?: LLMGatewayCompletionSettings,
+  ): LLMGatewayCompletionLanguageModel;
 }
 
-export interface OpenRouterProviderSettings {
+export interface LLMGatewayProviderSettings {
   /**
-Base URL for the OpenRouter API calls.
+Base URL for the LLMGateway API calls.
      */
   baseURL?: string;
 
@@ -72,7 +72,7 @@ Custom headers to include in the requests.
   headers?: Record<string, string>;
 
   /**
-OpenRouter compatibility mode. Should be set to `strict` when using the OpenRouter API,
+LLMGateway compatibility mode. Should be set to `strict` when using the LLMGateway API,
 and `compatible` when using 3rd party providers. In `compatible` mode, newer
 information such as streamOptions are not being sent. Defaults to 'compatible'.
    */
@@ -85,39 +85,39 @@ or to provide a custom fetch implementation for e.g. testing.
   fetch?: typeof fetch;
 
   /**
-A JSON object to send as the request body to access OpenRouter features & upstream provider features.
+A JSON object to send as the request body to access LLMGateway features & upstream provider features.
   */
   extraBody?: Record<string, unknown>;
 }
 
 /**
-Create an OpenRouter provider instance.
+Create an LLMGateway provider instance.
  */
-export function createOpenRouter(
-  options: OpenRouterProviderSettings = {},
-): OpenRouterProvider {
+export function createLLMGateway(
+  options: LLMGatewayProviderSettings = {},
+): LLMGatewayProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    'https://openrouter.ai/api/v1';
+    'https://api.llmgateway.io/v1';
 
-  // we default to compatible, because strict breaks providers like Groq:
+  // we default to compatible, because strict breaks some providers:
   const compatibility = options.compatibility ?? 'compatible';
 
   const getHeaders = () => ({
     Authorization: `Bearer ${loadApiKey({
       apiKey: options.apiKey,
-      environmentVariableName: 'OPENROUTER_API_KEY',
-      description: 'OpenRouter',
+      environmentVariableName: 'LLM_GATEWAY_API_KEY',
+      description: 'LLMGateway',
     })}`,
     ...options.headers,
   });
 
   const createChatModel = (
-    modelId: OpenRouterChatModelId,
-    settings: OpenRouterChatSettings = {},
+    modelId: LLMGatewayChatModelId,
+    settings: LLMGatewayChatSettings = {},
   ) =>
-    new OpenRouterChatLanguageModel(modelId, settings, {
-      provider: 'openrouter.chat',
+    new LLMGatewayChatLanguageModel(modelId, settings, {
+      provider: 'llmgateway.chat',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -126,11 +126,11 @@ export function createOpenRouter(
     });
 
   const createCompletionModel = (
-    modelId: OpenRouterCompletionModelId,
-    settings: OpenRouterCompletionSettings = {},
+    modelId: LLMGatewayCompletionModelId,
+    settings: LLMGatewayCompletionSettings = {},
   ) =>
-    new OpenRouterCompletionLanguageModel(modelId, settings, {
-      provider: 'openrouter.completion',
+    new LLMGatewayCompletionLanguageModel(modelId, settings, {
+      provider: 'llmgateway.completion',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -139,40 +139,40 @@ export function createOpenRouter(
     });
 
   const createLanguageModel = (
-    modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
-    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
+    modelId: LLMGatewayChatModelId | LLMGatewayCompletionModelId,
+    settings?: LLMGatewayChatSettings | LLMGatewayCompletionSettings,
   ) => {
     if (new.target) {
       throw new Error(
-        'The OpenRouter model function cannot be called with the new keyword.',
+        'The LLMGateway model function cannot be called with the new keyword.',
       );
     }
 
     if (modelId === 'openai/gpt-3.5-turbo-instruct') {
       return createCompletionModel(
         modelId,
-        settings as OpenRouterCompletionSettings,
+        settings as LLMGatewayCompletionSettings,
       );
     }
 
-    return createChatModel(modelId, settings as OpenRouterChatSettings);
+    return createChatModel(modelId, settings as LLMGatewayChatSettings);
   };
 
   const provider = (
-    modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
-    settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
+    modelId: LLMGatewayChatModelId | LLMGatewayCompletionModelId,
+    settings?: LLMGatewayChatSettings | LLMGatewayCompletionSettings,
   ) => createLanguageModel(modelId, settings);
 
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
 
-  return provider as OpenRouterProvider;
+  return provider as LLMGatewayProvider;
 }
 
 /**
-Default OpenRouter provider instance. It uses 'strict' compatibility mode.
+Default LLMGateway provider instance. It uses 'strict' compatibility mode.
  */
-export const openrouter = createOpenRouter({
-  compatibility: 'strict', // strict for OpenRouter API
+export const llmgateway = createLLMGateway({
+  compatibility: 'strict', // strict for LLMGateway API
 });

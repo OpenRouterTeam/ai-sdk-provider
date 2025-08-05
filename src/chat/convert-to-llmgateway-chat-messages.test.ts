@@ -1,8 +1,8 @@
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
 
 describe('user messages', () => {
   it('should convert image Uint8Array', async () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -31,7 +31,7 @@ describe('user messages', () => {
   });
 
   it('should convert image urls', async () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -60,7 +60,7 @@ describe('user messages', () => {
   });
 
   it('should convert messages with image base64', async () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -89,7 +89,7 @@ describe('user messages', () => {
   });
 
   it('should convert messages with only a text part to a string content', async () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
@@ -102,7 +102,7 @@ describe('user messages', () => {
 
 describe('cache control', () => {
   it('should pass cache control from system message provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'system',
         content: 'System prompt',
@@ -124,7 +124,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from user message provider metadata (single text part)', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
@@ -151,7 +151,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from content part provider metadata (single text part)', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -183,7 +183,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from user message provider metadata (multiple parts)', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -222,7 +222,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from user message provider metadata without cache control (single text part)', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [{ type: 'text', text: 'Hello' }],
@@ -238,7 +238,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control to multiple image parts from user message provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -287,7 +287,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control to file parts from user message provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -334,7 +334,7 @@ describe('cache control', () => {
   });
 
   it('should handle mixed part-specific and message-level cache control for multiple parts', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -401,7 +401,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from individual content part provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'user',
         content: [
@@ -442,7 +442,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from assistant message provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'assistant',
         content: [{ type: 'text', text: 'Assistant response' }],
@@ -464,7 +464,7 @@ describe('cache control', () => {
   });
 
   it('should pass cache control from tool message provider metadata', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'tool',
         content: [
@@ -497,7 +497,7 @@ describe('cache control', () => {
   });
 
   it('should support the alias cache_control field', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'system',
         content: 'System prompt',
@@ -519,7 +519,7 @@ describe('cache control', () => {
   });
 
   it('should support cache control on last message in content array', () => {
-    const result = convertToOpenRouterChatMessages([
+    const result = convertToLLMGatewayChatMessages([
       {
         role: 'system',
         content: 'System prompt',

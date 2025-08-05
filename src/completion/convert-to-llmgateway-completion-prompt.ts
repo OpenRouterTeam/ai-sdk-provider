@@ -12,7 +12,7 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 
-export function convertToOpenRouterCompletionPrompt({
+export function convertToLLMGatewayCompletionPrompt({
   prompt,
   inputFormat,
   user = 'user',

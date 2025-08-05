@@ -5,7 +5,7 @@ import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
-import { createOpenRouter } from '../provider';
+import { createLLMGateway } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
@@ -107,16 +107,16 @@ const TEST_LOGPROBS = {
   ],
 };
 
-const provider = createOpenRouter({
+const provider = createLLMGateway({
   apiKey: 'test-api-key',
   compatibility: 'strict',
 });
 
-const model = provider.chat('anthropic/claude-3.5-sonnet');
+const model = provider.chat('gpt-4o');
 
 describe('doGenerate', () => {
   const server = createTestServer({
-    'https://openrouter.ai/api/v1/chat/completions': {
+    'https://api.llmgateway.io/v1/chat/completions': {
       response: { type: 'json-value', body: {} },
     },
   });
@@ -152,7 +152,7 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   } = {}) {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'json-value',
       body: {
         id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
@@ -381,7 +381,7 @@ describe('doGenerate', () => {
     });
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'anthropic/claude-3.5-sonnet',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: 'Hello' }],
     });
   });
@@ -389,8 +389,8 @@ describe('doGenerate', () => {
   it('should pass the models array when provided', async () => {
     prepareJsonResponse({ content: '' });
 
-    const customModel = provider.chat('anthropic/claude-3.5-sonnet', {
-      models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
+    const customModel = provider.chat('gpt-4o', {
+      models: ['openai/gpt-4', 'claude-3-5-sonnet'],
     });
 
     await customModel.doGenerate({
@@ -398,8 +398,8 @@ describe('doGenerate', () => {
     });
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'anthropic/claude-3.5-sonnet',
-      models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
+      model: 'gpt-4o',
+      models: ['openai/gpt-4', 'claude-3-5-sonnet'],
       messages: [{ role: 'user', content: 'Hello' }],
     });
   });
@@ -454,7 +454,7 @@ describe('doGenerate', () => {
     });
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'anthropic/claude-3.5-sonnet',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: 'Hello' }],
       tools: [
         {
@@ -482,7 +482,7 @@ describe('doGenerate', () => {
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -509,7 +509,7 @@ describe('doGenerate', () => {
 
 describe('doStream', () => {
   const server = createTestServer({
-    'https://openrouter.ai/api/v1/chat/completions': {
+    'https://api.llmgateway.io/v1/chat/completions': {
       response: { type: 'json-value', body: {} },
     },
   });
@@ -541,7 +541,7 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613",` +
@@ -644,7 +644,7 @@ describe('doStream', () => {
         finishReason: 'stop',
 
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {
               completionTokens: 227,
               promptTokens: 17,
@@ -667,7 +667,7 @@ describe('doStream', () => {
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
     // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
     // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         // First chunk: both reasoning and reasoning_details with different content
@@ -706,41 +706,41 @@ describe('doStream', () => {
     });
 
     const elements = await convertReadableStreamToArray(stream);
-    
+
     // Filter for reasoning-related elements
-    const reasoningElements = elements.filter(el => 
-      el.type === 'reasoning-start' || 
-      el.type === 'reasoning-delta' || 
+    const reasoningElements = elements.filter(el =>
+      el.type === 'reasoning-start' ||
+      el.type === 'reasoning-delta' ||
       el.type === 'reasoning-end'
     );
-    
+
     // Debug output to see what we're getting
     // console.log('Reasoning elements count:', reasoningElements.length);
     // console.log('Reasoning element types:', reasoningElements.map(el => el.type));
-    
+
     // We should get reasoning content from reasoning_details when present, not reasoning field
     // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
     expect(reasoningElements).toHaveLength(6);
-    
+
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
       .filter(el => el.type === 'reasoning-delta')
       .map(el => (el as { type: 'reasoning-delta'; delta: string; id: string }).delta);
-    
+
     expect(reasoningDeltas).toEqual([
       'Let me think about this...',  // from reasoning_details text
       'User wants a greeting',        // from reasoning_details summary
       '[REDACTED]',                   // from reasoning_details encrypted
       'This reasoning is used',       // from reasoning field (no reasoning_details)
     ]);
-    
+
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
   });
 
   it('should stream tool deltas', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
@@ -924,7 +924,7 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'tool-calls',
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -945,7 +945,7 @@ describe('doStream', () => {
   });
 
   it('should stream tool call that is sent in one chunk', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
@@ -1027,7 +1027,7 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'tool-calls',
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -1048,7 +1048,7 @@ describe('doStream', () => {
   });
 
   it('should handle error stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
@@ -1077,7 +1077,7 @@ describe('doStream', () => {
       {
         finishReason: 'error',
         providerMetadata: {
-          openrouter: {
+          llmgateway: {
             usage: {},
           },
         },
@@ -1094,7 +1094,7 @@ describe('doStream', () => {
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
     };
@@ -1112,7 +1112,7 @@ describe('doStream', () => {
 
       type: 'finish',
       providerMetadata: {
-        openrouter: {
+        llmgateway: {
           usage: {},
         },
       },
@@ -1136,7 +1136,7 @@ describe('doStream', () => {
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
-      model: 'anthropic/claude-3.5-sonnet',
+      model: 'gpt-4o',
       messages: [{ role: 'user', content: 'Hello' }],
     });
   });
@@ -1144,7 +1144,7 @@ describe('doStream', () => {
   it('should pass headers', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
@@ -1171,7 +1171,7 @@ describe('doStream', () => {
   it('should pass extra body', async () => {
     prepareStreamResponse({ content: [] });
 
-    const provider = createOpenRouter({
+    const provider = createLLMGateway({
       apiKey: 'test-api-key',
       extraBody: {
         custom_field: 'custom_value',
@@ -1183,7 +1183,7 @@ describe('doStream', () => {
       },
     });
 
-    await provider.chat('anthropic/claude-3.5-sonnet').doStream({
+    await provider.chat('gpt-4o').doStream({
       prompt: TEST_PROMPT,
     });
 

@@ -1,8 +1,9 @@
-import type { OpenRouterSharedSettings } from '.';
+import type { LLMGatewaySharedSettings } from '..';
 
-export type OpenRouterCompletionModelId = string;
+// Available models can be found at the LLMGateway API endpoint
+export type LLMGatewayChatModelId = string;
 
-export type OpenRouterCompletionSettings = {
+export type LLMGatewayChatSettings = {
   /**
 Modify the likelihood of specified tokens appearing in the completion.
 
@@ -16,24 +17,30 @@ should result in a ban or exclusive selection of the relevant token.
 
 As an example, you can pass {"50256": -100} to prevent the <|endoftext|>
 token from being generated.
-   */
+*/
   logitBias?: Record<number, number>;
 
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
 the response size and can slow down response times. However, it can
-be useful to better understand how the model is behaving.
+be useful to understand better how the model is behaving.
 
 Setting to true will return the log probabilities of the tokens that
 were generated.
 
 Setting to a number will return the log probabilities of the top n
 tokens that were generated.
-   */
+*/
   logprobs?: boolean | number;
 
   /**
-The suffix that comes after a completion of inserted text.
+Whether to enable parallel function calling during tool use. Default to true.
    */
-  suffix?: string;
-} & OpenRouterSharedSettings;
+  parallelToolCalls?: boolean;
+
+  /**
+A unique identifier representing your end-user, which can help LLMGateway to
+monitor and detect abuse. Learn more.
+*/
+  user?: string;
+} & LLMGatewaySharedSettings;

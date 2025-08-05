@@ -32,7 +32,7 @@ import { llmgateway, createLLMGateway } from '@llmgateway/ai-sdk-provider';
 import { generateText } from 'ai';
 
 const llmgateway = createLLMGateway({
-  apiKey: process.env.LLMGATEWAY_API_KEY,
+  apiKey: process.env.LLM_GATEWAY_API_KEY,
 });
 
 const { text } = await generateText({

@@ -3,19 +3,19 @@ import type { ModelMessage } from 'ai';
 import { generateText } from 'ai';
 import { writeFile } from 'fs/promises';
 import { test, vi } from 'vitest';
-import { createOpenRouter } from '@/src';
+import { createLLMGateway } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
 });
 
 test('send pdf urls', async () => {
-  const openrouter = createOpenRouter({
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+  const llmgateway = createLLMGateway({
+    apiKey: process.env.LLM_GATEWAY_API_KEY,
+    baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
   });
 
-  const model = openrouter('anthropic/claude-sonnet-4', {
+  const model = llmgateway('gpt-4o', {
     usage: {
       include: true,
     },
@@ -40,7 +40,7 @@ test('send pdf urls', async () => {
     model,
     messages: messageHistory,
     providerOptions: {
-      openrouter: {
+      llmgateway: {
         reasoning: {
           max_tokens: 2048,
         },

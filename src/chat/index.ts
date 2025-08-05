@@ -12,11 +12,11 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
-import type { OpenRouterUsageAccounting } from '@/src/types/index';
+import type { LLMGatewayUsageAccounting } from '@/src/types/index';
 import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from '../types/openrouter-chat-settings';
+  LLMGatewayChatModelId,
+  LLMGatewayChatSettings,
+} from '../types/llmgateway-chat-settings';
 
 import { InvalidResponseDataError } from '@ai-sdk/provider';
 import {
@@ -28,16 +28,16 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
-import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { llmgatewayFailedResponseHandler } from '../schemas/error-response';
+import { mapLLMGatewayFinishReason } from '../utils/map-finish-reason';
+import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
 import { getChatCompletionToolChoice } from './get-tool-choice';
 import {
-  OpenRouterNonStreamChatCompletionResponseSchema,
-  OpenRouterStreamChatCompletionChunkSchema,
+  LLMGatewayNonStreamChatCompletionResponseSchema,
+  LLMGatewayStreamChatCompletionChunkSchema,
 } from './schemas';
 
-type OpenRouterChatConfig = {
+type LLMGatewayChatConfig = {
   provider: string;
   compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
@@ -46,12 +46,12 @@ type OpenRouterChatConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterChatLanguageModel implements LanguageModelV2 {
+export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
-  readonly provider = 'openrouter';
+  readonly provider = 'llmgateway';
   readonly defaultObjectGenerationMode = 'tool' as const;
 
-  readonly modelId: OpenRouterChatModelId;
+  readonly modelId: LLMGatewayChatModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
@@ -60,14 +60,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
     'application/*': [/^data:application\//, /^https?:\/\/.+$/],
   };
-  readonly settings: OpenRouterChatSettings;
+  readonly settings: LLMGatewayChatSettings;
 
-  private readonly config: OpenRouterChatConfig;
+  private readonly config: LLMGatewayChatConfig;
 
   constructor(
-    modelId: OpenRouterChatModelId,
-    settings: OpenRouterChatSettings,
-    config: OpenRouterChatConfig,
+    modelId: LLMGatewayChatModelId,
+    settings: LLMGatewayChatSettings,
+    config: LLMGatewayChatConfig,
   ) {
     this.modelId = modelId;
     this.settings = settings;
@@ -124,9 +124,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       top_k: topK,
 
       // messages:
-      messages: convertToOpenRouterChatMessages(prompt),
+      messages: convertToLLMGatewayChatMessages(prompt),
 
-      // OpenRouter specific settings:
+      // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
@@ -174,8 +174,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     usage: LanguageModelV2Usage;
     warnings: Array<LanguageModelV2CallWarning>;
     providerMetadata?: {
-      openrouter: {
-        usage: OpenRouterUsageAccounting;
+      llmgateway: {
+        usage: LLMGatewayUsageAccounting;
       };
     };
     request?: { body?: unknown };
@@ -185,11 +185,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const llmgatewayOptions = providerOptions.llmgateway || {};
 
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...llmgatewayOptions,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -199,9 +199,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: args,
-      failedResponseHandler: openrouterFailedResponseHandler,
+      failedResponseHandler: llmgatewayFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterNonStreamChatCompletionResponseSchema,
+        LLMGatewayNonStreamChatCompletionResponseSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -310,11 +310,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     return {
       content,
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      finishReason: mapLLMGatewayFinishReason(choice.finish_reason),
       usage: usageInfo,
       warnings: [],
       providerMetadata: {
-        openrouter: {
+        llmgateway: {
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
@@ -355,11 +355,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const llmgatewayOptions = providerOptions.llmgateway || {};
 
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...llmgatewayOptions,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -384,9 +384,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
             : undefined,
       },
-      failedResponseHandler: openrouterFailedResponseHandler,
+      failedResponseHandler: llmgatewayFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterStreamChatCompletionChunkSchema,
+        LLMGatewayStreamChatCompletionChunkSchema,
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -413,19 +413,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     };
 
     // Track provider-specific usage information
-    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    const llmgatewayUsage: Partial<LLMGatewayUsageAccounting> = {};
 
     let textStarted = false;
     let reasoningStarted = false;
     let textId: string | undefined;
     let reasoningId: string | undefined;
-    let openrouterResponseId: string | undefined;
+    let llmgatewayResponseId: string | undefined;
 
     return {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<
-            z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
+            z.infer<typeof LLMGatewayStreamChatCompletionChunkSchema>
           >,
           LanguageModelV2StreamPart
         >({
@@ -447,7 +447,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (value.id) {
-              openrouterResponseId = value.id;
+              llmgatewayResponseId = value.id;
               controller.enqueue({
                 type: 'response-metadata',
                 id: value.id,
@@ -467,38 +467,38 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               usage.totalTokens =
                 value.usage.prompt_tokens + value.usage.completion_tokens;
 
-              // Collect OpenRouter specific usage information
-              openrouterUsage.promptTokens = value.usage.prompt_tokens;
+              // Collect LLMGateway specific usage information
+              llmgatewayUsage.promptTokens = value.usage.prompt_tokens;
 
               if (value.usage.prompt_tokens_details) {
                 const cachedInputTokens =
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
                 usage.cachedInputTokens = cachedInputTokens;
-                openrouterUsage.promptTokensDetails = {
+                llmgatewayUsage.promptTokensDetails = {
                   cachedTokens: cachedInputTokens,
                 };
               }
 
-              openrouterUsage.completionTokens = value.usage.completion_tokens;
+              llmgatewayUsage.completionTokens = value.usage.completion_tokens;
               if (value.usage.completion_tokens_details) {
                 const reasoningTokens =
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
                 usage.reasoningTokens = reasoningTokens;
-                openrouterUsage.completionTokensDetails = {
+                llmgatewayUsage.completionTokensDetails = {
                   reasoningTokens,
                 };
               }
 
-              openrouterUsage.cost = value.usage.cost;
-              openrouterUsage.totalTokens = value.usage.total_tokens;
+              llmgatewayUsage.cost = value.usage.cost;
+              llmgatewayUsage.totalTokens = value.usage.total_tokens;
             }
 
             const choice = value.choices[0];
 
             if (choice?.finish_reason != null) {
-              finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              finishReason = mapLLMGatewayFinishReason(choice.finish_reason);
             }
 
             if (choice?.delta == null) {
@@ -509,7 +509,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
-                reasoningId = openrouterResponseId || generateId();
+                reasoningId = llmgatewayResponseId || generateId();
                 controller.enqueue({
                   type: 'reasoning-start',
                   id: reasoningId,
@@ -557,7 +557,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.content != null) {
               if (!textStarted) {
-                textId = openrouterResponseId || generateId();
+                textId = llmgatewayResponseId || generateId();
                 controller.enqueue({
                   type: 'text-start',
                   id: textId,
@@ -575,7 +575,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index ?? toolCalls.length - 1;
 
-                // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
+                // Tool call start. LLMGateway returns all information except the arguments in the first chunk.
                 if (toolCalls[index] == null) {
                   if (toolCallDelta.type !== 'function') {
                     throw new InvalidResponseDataError({
@@ -739,8 +739,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  usage: openrouterUsage,
+                llmgateway: {
+                  usage: llmgatewayUsage,
                 },
               },
             });

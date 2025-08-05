@@ -1,6 +1,6 @@
-import { OpenRouterErrorResponseSchema } from './error-response';
+import { LLMGatewayErrorResponseSchema } from './error-response';
 
-describe('OpenRouterErrorResponseSchema', () => {
+describe('LLMGatewayErrorResponseSchema', () => {
   it('should be valid without a type, code, and param', () => {
     const errorWithoutTypeCodeAndParam = {
       error: {
@@ -10,7 +10,7 @@ describe('OpenRouterErrorResponseSchema', () => {
       user_id: 'example_1',
     };
 
-    const result = OpenRouterErrorResponseSchema.parse(
+    const result = LLMGatewayErrorResponseSchema.parse(
       errorWithoutTypeCodeAndParam,
     );
 
@@ -35,7 +35,7 @@ describe('OpenRouterErrorResponseSchema', () => {
       },
     };
 
-    const result = OpenRouterErrorResponseSchema.parse(errorWithType);
+    const result = LLMGatewayErrorResponseSchema.parse(errorWithType);
 
     expect(result).toEqual({
       error: {

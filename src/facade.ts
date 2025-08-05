@@ -1,30 +1,30 @@
-import type { OpenRouterProviderSettings } from './provider';
+import type { LLMGatewayProviderSettings } from './provider';
 import type {
-  OpenRouterChatModelId,
-  OpenRouterChatSettings,
-} from './types/openrouter-chat-settings';
+  LLMGatewayChatModelId,
+  LLMGatewayChatSettings,
+} from './types/llmgateway-chat-settings';
 import type {
-  OpenRouterCompletionModelId,
-  OpenRouterCompletionSettings,
-} from './types/openrouter-completion-settings';
+  LLMGatewayCompletionModelId,
+  LLMGatewayCompletionSettings,
+} from './types/llmgateway-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
-import { OpenRouterChatLanguageModel } from './chat';
-import { OpenRouterCompletionLanguageModel } from './completion';
+import { LLMGatewayChatLanguageModel } from './chat';
+import { LLMGatewayCompletionLanguageModel } from './completion';
 
 /**
-@deprecated Use `createOpenRouter` instead.
+@deprecated Use `createLLMGateway` instead.
  */
-export class OpenRouter {
+export class LLMGateway {
   /**
 Use a different URL prefix for API calls, e.g. to use proxy servers.
-The default prefix is `https://openrouter.ai/api/v1`.
+The default prefix is `https://api.llmgateway.io/v1`.
    */
   readonly baseURL: string;
 
   /**
 API key that is being sent using the `Authorization` header.
-It defaults to the `OPENROUTER_API_KEY` environment variable.
+It defaults to the `LLM_GATEWAY_API_KEY` environment variable.
  */
   readonly apiKey?: string;
 
@@ -34,12 +34,12 @@ Custom headers to include in the requests.
   readonly headers?: Record<string, string>;
 
   /**
-   * Creates a new OpenRouter provider instance.
+   * Creates a new LLMGateway provider instance.
    */
-  constructor(options: OpenRouterProviderSettings = {}) {
+  constructor(options: LLMGatewayProviderSettings = {}) {
     this.baseURL =
       withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-      'https://openrouter.ai/api/v1';
+      'https://api.llmgateway.io/v1';
     this.apiKey = options.apiKey;
     this.headers = options.headers;
   }
@@ -50,17 +50,17 @@ Custom headers to include in the requests.
       headers: () => ({
         Authorization: `Bearer ${loadApiKey({
           apiKey: this.apiKey,
-          environmentVariableName: 'OPENROUTER_API_KEY',
-          description: 'OpenRouter',
+          environmentVariableName: 'LLM_GATEWAY_API_KEY',
+          description: 'LLMGateway',
         })}`,
         ...this.headers,
       }),
     };
   }
 
-  chat(modelId: OpenRouterChatModelId, settings: OpenRouterChatSettings = {}) {
-    return new OpenRouterChatLanguageModel(modelId, settings, {
-      provider: 'openrouter.chat',
+  chat(modelId: LLMGatewayChatModelId, settings: LLMGatewayChatSettings = {}) {
+    return new LLMGatewayChatLanguageModel(modelId, settings, {
+      provider: 'llmgateway.chat',
       ...this.baseConfig,
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
@@ -68,11 +68,11 @@ Custom headers to include in the requests.
   }
 
   completion(
-    modelId: OpenRouterCompletionModelId,
-    settings: OpenRouterCompletionSettings = {},
+    modelId: LLMGatewayCompletionModelId,
+    settings: LLMGatewayCompletionSettings = {},
   ) {
-    return new OpenRouterCompletionLanguageModel(modelId, settings, {
-      provider: 'openrouter.completion',
+    return new LLMGatewayCompletionLanguageModel(modelId, settings, {
+      provider: 'llmgateway.completion',
       ...this.baseConfig,
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,

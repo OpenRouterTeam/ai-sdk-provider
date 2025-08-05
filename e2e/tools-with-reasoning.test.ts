@@ -7,7 +7,7 @@ import {
   readSMSTool,
   sendSMSTool,
 } from '@/e2e/tools';
-import { createOpenRouter } from '@/src';
+import { createLLMGateway } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -20,12 +20,12 @@ const prompts = [
 
 describe('Vercel AI SDK tools call with reasoning', () => {
   it('should work with reasoning content', async () => {
-    const openrouter = createOpenRouter({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    const llmgateway = createLLMGateway({
+      apiKey: process.env.LLM_GATEWAY_API_KEY,
+      baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
     });
 
-    const model = openrouter('anthropic/claude-sonnet-4', {
+    const model = llmgateway('claude-sonnet-4-20250514', {
       usage: {
         include: true,
       },
@@ -53,7 +53,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
           executeCommand: executeCommandInTerminalTool,
         },
         providerOptions: {
-          openrouter: {
+          llmgateway: {
             reasoning: {
               max_tokens: 2048,
             },
