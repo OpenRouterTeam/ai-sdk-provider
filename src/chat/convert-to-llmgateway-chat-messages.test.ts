@@ -297,7 +297,7 @@ describe('cache control', () => {
             data: 'ZmlsZSBjb250ZW50',
             mediaType: 'text/plain',
             providerOptions: {
-              openrouter: {
+              llmgateway: {
                 filename: 'file.txt',
               },
             },
@@ -358,7 +358,7 @@ describe('cache control', () => {
             data: 'ZmlsZSBjb250ZW50',
             mediaType: 'text/plain',
             providerOptions: {
-              openrouter: {
+              llmgateway: {
                 filename: 'file.txt',
               },
             },

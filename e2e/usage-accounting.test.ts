@@ -5,7 +5,7 @@ import { createLLMGateway } from '@/src';
 it('receive usage accounting', async () => {
   const llmgateway = createLLMGateway({
     apiKey: process.env.LLM_GATEWAY_API_KEY,
-    baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
+    baseUrl: process.env.LLM_GATEWAY_API_BASE,
   });
   const model = llmgateway('claude-3-7-sonnet', {
     usage: {

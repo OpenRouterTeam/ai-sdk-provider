@@ -36,7 +36,7 @@ it('should trigger cache read', async () => {
 async function callLLM() {
   const llmgateway = createLLMGateway({
     apiKey: process.env.LLM_GATEWAY_API_KEY,
-    baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
+    baseUrl: process.env.LLM_GATEWAY_API_BASE,
   });
   const model = llmgateway('claude-3-7-sonnet', {
     usage: {

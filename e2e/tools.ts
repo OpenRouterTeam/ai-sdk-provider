@@ -6,7 +6,7 @@ import { createLLMGateway } from '@/src';
 
 const llmgateway = createLLMGateway({
   apiKey: process.env.LLM_GATEWAY_API_KEY,
-  baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
+  baseUrl: process.env.LLM_GATEWAY_API_BASE,
 });
 
 export const sendSMSTool = tool({

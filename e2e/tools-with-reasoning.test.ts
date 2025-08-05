@@ -22,7 +22,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
   it('should work with reasoning content', async () => {
     const llmgateway = createLLMGateway({
       apiKey: process.env.LLM_GATEWAY_API_KEY,
-      baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
+      baseUrl: process.env.LLM_GATEWAY_API_BASE,
     });
 
     const model = llmgateway('claude-sonnet-4-20250514', {

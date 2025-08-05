@@ -1052,7 +1052,7 @@ describe('doStream', () => {
       type: 'stream-chunks',
       chunks: [
         `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
-          `help center at help.openrouter.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
+          `help center at help.llmgateway.com if you keep seeing this error.","type":"server_error","param":null,"code":null}}\n\n`,
         'data: [DONE]\n\n',
       ],
     };
@@ -1068,7 +1068,7 @@ describe('doStream', () => {
           message:
             'The server had an error processing your request. Sorry about that! ' +
             'You can retry your request, or contact us through our help center at ' +
-            'help.openrouter.com if you keep seeing this error.',
+            'help.llmgateway.com if you keep seeing this error.',
           type: 'server_error',
           code: null,
           param: null,

@@ -12,7 +12,7 @@ vi.setConfig({
 test('sending pdf base64 blob', async () => {
   const llmgateway = createLLMGateway({
     apiKey: process.env.LLM_GATEWAY_API_KEY,
-    baseUrl: `${process.env.LLM_GATEWAY_API_BASE}/v1`,
+    baseUrl: process.env.LLM_GATEWAY_API_BASE,
   });
 
   const model = llmgateway('gpt-4o', {
