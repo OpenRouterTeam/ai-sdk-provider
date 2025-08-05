@@ -524,6 +524,8 @@ describe('doGenerate', () => {
       responseFormat: {
         type: 'json',
         schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
       },
     });
 
@@ -533,9 +535,64 @@ describe('doGenerate', () => {
       response_format: {
         type: 'json_schema',
         json_schema: {
-          name: 'response',
-          strict: true,
           schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
+  });
+
+  it('should pass responseFormat for JSON object without schema', async () => {
+    prepareJsonResponse({ content: '{"message": "Hello"}' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_object',
+      },
+    });
+  });
+
+  it('should use default name when name is not provided in responseFormat', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'response',
         },
       },
     });
@@ -1253,6 +1310,8 @@ describe('doStream', () => {
       responseFormat: {
         type: 'json',
         schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
       },
     });
 
@@ -1264,10 +1323,32 @@ describe('doStream', () => {
       response_format: {
         type: 'json_schema',
         json_schema: {
-          name: 'response',
-          strict: true,
           schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
         },
+      },
+    });
+  });
+
+  it('should pass responseFormat for JSON object without schema in streaming', async () => {
+    prepareStreamResponse({ content: ['{"message": "Hello"}'] });
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_object',
       },
     });
   });
