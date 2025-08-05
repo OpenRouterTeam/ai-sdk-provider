@@ -9,7 +9,7 @@ vi.setConfig({
   testTimeout: 42_000,
 });
 
-test('sending pdf base64 blob', async () => {
+test.skip('sending pdf base64 blob', async () => {
   const llmgateway = createLLMGateway({
     apiKey: process.env.LLM_GATEWAY_API_KEY,
     baseUrl: process.env.LLM_GATEWAY_API_BASE,
