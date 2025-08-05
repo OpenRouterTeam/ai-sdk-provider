@@ -136,7 +136,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       ...this.settings.extraBody,
     };
 
-    if (responseFormat?.type === 'json') {
+    if (responseFormat?.type === 'json' && responseFormat.schema !== null) {
       return {
         ...baseArgs,
         response_format: {
