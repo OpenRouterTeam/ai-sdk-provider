@@ -25,7 +25,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
       baseUrl: process.env.LLM_GATEWAY_API_BASE,
     });
 
-    const model = llmgateway('claude-sonnet-4-20250514', {
+    const model = llmgateway('gpt-4o', {
       usage: {
         include: true,
       },
