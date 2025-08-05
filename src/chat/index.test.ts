@@ -505,6 +505,79 @@ describe('doGenerate', () => {
       'custom-request-header': 'request-header-value',
     });
   });
+
+  it('should pass responseFormat for JSON schema structured outputs', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
+  });
+
+  it('should use default name when name is not provided in responseFormat', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'response',
+        },
+      },
+    });
+  });
 });
 
 describe('doStream', () => {
@@ -706,34 +779,38 @@ describe('doStream', () => {
     });
 
     const elements = await convertReadableStreamToArray(stream);
-    
+
     // Filter for reasoning-related elements
-    const reasoningElements = elements.filter(el => 
-      el.type === 'reasoning-start' || 
-      el.type === 'reasoning-delta' || 
-      el.type === 'reasoning-end'
+    const reasoningElements = elements.filter(
+      (el) =>
+        el.type === 'reasoning-start' ||
+        el.type === 'reasoning-delta' ||
+        el.type === 'reasoning-end',
     );
-    
+
     // Debug output to see what we're getting
     // console.log('Reasoning elements count:', reasoningElements.length);
     // console.log('Reasoning element types:', reasoningElements.map(el => el.type));
-    
+
     // We should get reasoning content from reasoning_details when present, not reasoning field
     // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
     expect(reasoningElements).toHaveLength(6);
-    
+
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
-      .filter(el => el.type === 'reasoning-delta')
-      .map(el => (el as { type: 'reasoning-delta'; delta: string; id: string }).delta);
-    
+      .filter((el) => el.type === 'reasoning-delta')
+      .map(
+        (el) =>
+          (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
+      );
+
     expect(reasoningDeltas).toEqual([
-      'Let me think about this...',  // from reasoning_details text
-      'User wants a greeting',        // from reasoning_details summary
-      '[REDACTED]',                   // from reasoning_details encrypted
-      'This reasoning is used',       // from reasoning field (no reasoning_details)
+      'Let me think about this...', // from reasoning_details text
+      'User wants a greeting', // from reasoning_details summary
+      '[REDACTED]', // from reasoning_details encrypted
+      'This reasoning is used', // from reasoning field (no reasoning_details)
     ]);
-    
+
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
@@ -1194,5 +1271,45 @@ describe('doStream', () => {
       'providers.anthropic.custom_field',
       'custom_value',
     );
+  });
+
+  it('should pass responseFormat for JSON schema structured outputs', async () => {
+    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
   });
 });
