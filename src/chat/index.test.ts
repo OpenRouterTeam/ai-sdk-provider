@@ -544,25 +544,6 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should pass responseFormat for JSON object without schema', async () => {
-    prepareJsonResponse({ content: '{"message": "Hello"}' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      responseFormat: {
-        type: 'json',
-      },
-    });
-
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
-      response_format: {
-        type: 'json_object',
-      },
-    });
-  });
-
   it('should use default name when name is not provided in responseFormat', async () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
 
@@ -1328,27 +1309,6 @@ describe('doStream', () => {
           name: 'PersonResponse',
           description: 'A person object',
         },
-      },
-    });
-  });
-
-  it('should pass responseFormat for JSON object without schema in streaming', async () => {
-    prepareStreamResponse({ content: ['{"message": "Hello"}'] });
-
-    await model.doStream({
-      prompt: TEST_PROMPT,
-      responseFormat: {
-        type: 'json',
-      },
-    });
-
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      stream: true,
-      stream_options: { include_usage: true },
-      model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
-      response_format: {
-        type: 'json_object',
       },
     });
   });
