@@ -27,7 +27,7 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import { llmgatewayFailedResponseHandler } from '../schemas/error-response';
 import { mapLLMGatewayFinishReason } from '../utils/map-finish-reason';
 import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
@@ -239,7 +239,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
     const reasoning: Array<LanguageModelV2Content> =
       reasoningDetails.length > 0
         ? reasoningDetails
-            .map((detail) => {
+            .map((detail: ReasoningDetailUnion) => {
               switch (detail.type) {
                 case ReasoningDetailType.Text: {
                   if (detail.text) {
@@ -270,12 +270,13 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
                   break;
                 }
                 default: {
-                  detail satisfies never;
+                  const _exhaustiveCheck: never = detail;
+                  return _exhaustiveCheck;
                 }
               }
               return null;
             })
-            .filter((p) => p !== null)
+            .filter((p: LanguageModelV2Content | null): p is LanguageModelV2Content => p !== null)
         : choice.message.reasoning
           ? [
               {
