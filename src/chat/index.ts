@@ -140,8 +140,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       return {
         ...baseArgs,
         response_format: {
-          type: "json_object",
-          json_schema: responseFormat.schema,
+          type: 'json_schema',
+          json_schema: {
+            name: 'response',
+            strict: true,
+            schema: responseFormat.schema,
+          },
         },
       };
     }
@@ -526,7 +530,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             };
 
-            
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
