@@ -93,6 +93,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       });
     }
 
+    const response_format =
+      responseFormat?.type === 'json'
+        ? {
+            type: 'json_schema',
+            json_schema: {
+              name: responseFormat.name,
+              strict: true,
+              schema: responseFormat.schema,
+            },
+          }
+        : undefined;
+
     return {
       // model id:
       model: this.modelId,
@@ -120,7 +132,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       seed,
 
       stop: stopSequences,
-      response_format: responseFormat,
+      response_format,
       top_k: topK,
 
       // prompt:
