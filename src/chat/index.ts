@@ -120,7 +120,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       seed,
 
       stop: stopSequences,
-      response_format: responseFormat,
       top_k: topK,
 
       // messages:
@@ -139,7 +138,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     if (responseFormat?.type === 'json') {
       return {
         ...baseArgs,
-        response_format: { type: 'json_object' },
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: responseFormat.name,
+            strict: true,
+            schema: responseFormat.schema,
+          },
+        },
       };
     }
 

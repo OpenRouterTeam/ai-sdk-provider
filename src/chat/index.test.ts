@@ -505,6 +505,52 @@ describe('doGenerate', () => {
       'custom-request-header': 'request-header-value',
     });
   });
+
+  it('should send proper response format', async () => {
+    const structuredResponse = JSON.stringify({
+      name: 'John Doe',
+      age: 30,
+    });
+
+    const schema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['id', 'name'],
+    };
+
+    prepareJsonResponse({
+      content: structuredResponse,
+    });
+
+    const { content } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        name: 'SchemaName',
+        schema,
+      },
+    });
+
+    expect(content[0]).toStrictEqual({
+      type: 'text',
+      text: structuredResponse,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toHaveProperty(
+      'response_format',
+      {
+        type: 'json_schema',
+        json_schema: {
+          name: 'SchemaName',
+          strict: true,
+          schema,
+        },
+      },
+    );
+  });
 });
 
 describe('doStream', () => {
