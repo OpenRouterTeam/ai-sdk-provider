@@ -805,15 +805,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             }
 
+            const openrouterMetadata: {
+              usage: Partial<OpenRouterUsageAccounting>;
+              provider?: string;
+            } = {
+              usage: openrouterUsage,
+            };
+            
+            // Only include provider if it's actually set
+            if (provider !== undefined) {
+              openrouterMetadata.provider = provider;
+            }
+            
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  provider: provider ?? '',
-                  usage: openrouterUsage,
-                },
+                openrouter: openrouterMetadata,
               },
             });
           },
