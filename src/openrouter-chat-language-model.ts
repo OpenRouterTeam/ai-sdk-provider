@@ -486,13 +486,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
               });
             }
 
-            if (delta.reasoning != null) {
-              controller.enqueue({
-                type: 'reasoning',
-                textDelta: delta.reasoning,
-              });
-            }
-
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
@@ -535,6 +528,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
                   }
                 }
               }
+            } else if (delta.reasoning != null) {
+              controller.enqueue({
+                type: 'reasoning',
+                textDelta: delta.reasoning,
+              });
             }
             const mappedLogprobs = mapOpenRouterChatLogProbsOutput(
               choice?.logprobs,
