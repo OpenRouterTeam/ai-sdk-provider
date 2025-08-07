@@ -661,11 +661,6 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0613',
       },
       {
-        type: 'text-start',
-        id: expect.any(String),
-      },
-      { type: 'text-delta', delta: '', id: expect.any(String) },
-      {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
@@ -673,6 +668,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
+      { type: 'text-start', id: expect.any(String) },
       { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
       {
         type: 'response-metadata',

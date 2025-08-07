@@ -560,11 +560,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                 }
               }
-            } else if (delta.reasoning != null) {
+            } else if (delta.reasoning) {
               emitReasoningChunk(delta.reasoning);
             }
 
-            if (delta.content != null) {
+            if (delta.content) {
               if (!textStarted) {
                 textId = openrouterResponseId || generateId();
                 controller.enqueue({
