@@ -812,6 +812,92 @@ describe('doStream', () => {
     expect(reasoningDeltas).not.toContain('Also ignored');
   });
 
+  it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
+    // This test reproduces the issue where reasoning appears first but then gets "pushed down"
+    // by content that comes later in the stream
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: Start with reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant",` +
+          `"reasoning":"I need to think about this step by step..."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: More reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":" First, I should analyze the request."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: Even more reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":" Then I should provide a helpful response."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Fourth chunk: Content starts
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello! "},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Fifth chunk: More content
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"How can I help you today?"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // The expected order should be:
+    // 1. reasoning-start
+    // 2. reasoning-delta (3 times)
+    // 3. reasoning-end (when text starts)
+    // 4. text-start
+    // 5. text-delta (2 times)
+    // 6. text-end (when stream finishes)
+
+    const streamOrder = elements.map(el => el.type);
+    
+    // Find the positions of key events
+    const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
+    const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
+    const textStartIndex = streamOrder.indexOf('text-start');
+
+    // Reasoning should come before text and end before text starts
+    expect(reasoningStartIndex).toBeLessThan(textStartIndex);
+    expect(reasoningEndIndex).toBeLessThan(textStartIndex);
+
+    // Verify reasoning content
+    const reasoningDeltas = elements
+      .filter((el) => el.type === 'reasoning-delta')
+      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta);
+
+    expect(reasoningDeltas).toEqual([
+      'I need to think about this step by step...',
+      ' First, I should analyze the request.',
+      ' Then I should provide a helpful response.',
+    ]);
+
+    // Verify text content
+    const textDeltas = elements
+      .filter((el) => el.type === 'text-delta')
+      .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
+
+    expect(textDeltas).toEqual([
+      'Hello! ',
+      'How can I help you today?',
+    ]);
+  });
+
   it('should stream tool deltas', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
