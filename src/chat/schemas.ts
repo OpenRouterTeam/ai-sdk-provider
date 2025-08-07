@@ -5,6 +5,7 @@ import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
   model: z.string().optional(),
+  provider: z.string().optional(),
   usage: z
     .object({
       prompt_tokens: z.number(),
@@ -54,16 +55,20 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
             )
             .optional(),
 
-          /**
-           * Web search annotations containing citation information
-           */
-          url_citation: z.object({
-            end_index: z.number(),
-            start_index: z.number(),
-            title: z.string(),
-            url: z.string(),
-            content: z.string().optional(),
-          }).optional(),
+          annotations: z
+            .array(
+              z.object({
+                type: z.enum(['url_citation']),
+                url_citation: z.object({
+                  end_index: z.number(),
+                  start_index: z.number(),
+                  title: z.string(),
+                  url: z.string(),
+                  content: z.string().optional(),
+                }),
+              }),
+            )
+            .nullish(),
         }),
         index: z.number().nullish(),
         logprobs: z
@@ -115,16 +120,20 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
               )
               .nullish(),
 
-            /**
-             * Web search annotations containing citation information
-             */
-            url_citation: z.object({
-              end_index: z.number(),
-              start_index: z.number(),
-              title: z.string(),
-              url: z.string(),
-              content: z.string().optional(),
-            }).optional(),
+            annotations: z
+              .array(
+                z.object({
+                  type: z.enum(['url_citation']),
+                  url_citation: z.object({
+                    end_index: z.number(),
+                    start_index: z.number(),
+                    title: z.string(),
+                    url: z.string(),
+                    content: z.string().optional(),
+                  }),
+                }),
+              )
+              .nullish(),
           })
           .nullish(),
         logprobs: z

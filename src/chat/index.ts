@@ -189,6 +189,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     warnings: Array<LanguageModelV2CallWarning>;
     providerMetadata?: {
       openrouter: {
+        provider: string;
         usage: OpenRouterUsageAccounting;
       };
     };
@@ -322,14 +323,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       }
     }
 
-    if (choice.message.url_citation) {
-      content.push({
-        type: 'source' as const,
-        sourceType: 'url' as const,
-        id: choice.message.url_citation.url,
-        url: choice.message.url_citation.url,
-        title: choice.message.url_citation.title,
-      });
+    if (choice.message.annotations) {
+      for (const annotation of choice.message.annotations) {
+        if (annotation.type === 'url_citation') {
+          content.push({
+            type: 'source' as const,
+            sourceType: 'url' as const,
+            id: annotation.url_citation.url,
+            url: annotation.url_citation.url,
+            title: annotation.url_citation.title,
+            providerMetadata: {
+              openrouter: {
+                content: annotation.url_citation.content || '',
+              },
+            },
+          });
+        }
+      }
     }
 
     return {
@@ -339,6 +349,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       warnings: [],
       providerMetadata: {
         openrouter: {
+          provider: response.provider ?? '',
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
@@ -444,6 +455,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     let textId: string | undefined;
     let reasoningId: string | undefined;
     let openrouterResponseId: string | undefined;
+    let provider: string | undefined;
 
     return {
       stream: response.pipeThrough(
@@ -468,6 +480,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               finishReason = 'error';
               controller.enqueue({ type: 'error', error: value.error });
               return;
+            }
+
+            if (value.provider) {
+              provider = value.provider;
             }
 
             if (value.id) {
@@ -588,7 +604,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 });
                 reasoningStarted = false; // Mark as ended so we don't end it again in flush
               }
-              
+
               if (!textStarted) {
                 textId = openrouterResponseId || generateId();
                 controller.enqueue({
@@ -604,14 +620,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             }
 
-            if (delta.url_citation) {
-              controller.enqueue({
-                type: 'source',
-                sourceType: 'url' as const,
-                id: delta.url_citation.url,
-                url: delta.url_citation.url,
-                title: delta.url_citation.title,
-              });
+            if (delta.annotations) {
+              for (const annotation of delta.annotations) {
+                if (annotation.type === 'url_citation') {
+                  controller.enqueue({
+                    type: 'source',
+                    sourceType: 'url' as const,
+                    id: annotation.url_citation.url,
+                    url: annotation.url_citation.url,
+                    title: annotation.url_citation.title,
+                    providerMetadata: {
+                      openrouter: {
+                        content: annotation.url_citation.content || '',
+                      },
+                    },
+                  });
+                }
+              }
             }
 
             if (delta.tool_calls != null) {
@@ -784,6 +809,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               usage,
               providerMetadata: {
                 openrouter: {
+                  provider: provider ?? '',
                   usage: openrouterUsage,
                 },
               },

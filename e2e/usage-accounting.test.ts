@@ -1,6 +1,10 @@
 import { streamText } from 'ai';
-import { it } from 'vitest';
+import { it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
+
+vi.setConfig({
+  testTimeout: 60_000,
+});
 
 it('receive usage accounting', async () => {
   const openrouter = createOpenRouter({
@@ -38,6 +42,7 @@ it('receive usage accounting', async () => {
   const providerMetadata = await response.providerMetadata;
   // You can use expect.any(Type) or expect.objectContaining for schema-like matching
   expect(providerMetadata?.openrouter).toMatchObject({
+    provider: 'Anthropic',
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),
       completionTokens: expect.any(Number),
