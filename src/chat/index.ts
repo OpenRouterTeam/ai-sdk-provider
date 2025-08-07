@@ -131,6 +131,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
 
+      // Provider routing settings:
+      provider: this.settings.provider,
+
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
