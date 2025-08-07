@@ -148,7 +148,7 @@ it('should handle web search citations in streaming response', async () => {
     ],
   });
 
-  const streamParts: any[] = [];
+  const streamParts: Array<{ type: string; sourceType?: string; id?: string; url?: string; title?: string; text?: string; }> = [];
   
   for await (const part of response.fullStream) {
     streamParts.push(part);
@@ -170,7 +170,8 @@ it('should handle web search citations in streaming response', async () => {
       });
       
       expect(source.url).toMatch(/^https?:\/\//);
-      expect(source.title.length).toBeGreaterThan(0);
+      expect(source.title).toBeTruthy();
+      expect(source.title?.length).toBeGreaterThan(0);
     });
   }
 
