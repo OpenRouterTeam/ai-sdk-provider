@@ -53,6 +53,17 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
               }),
             )
             .optional(),
+
+          /**
+           * Web search annotations containing citation information
+           */
+          url_citation: z.object({
+            end_index: z.number(),
+            start_index: z.number(),
+            title: z.string(),
+            url: z.string(),
+            content: z.string().optional(),
+          }).optional(),
         }),
         index: z.number().nullish(),
         logprobs: z
@@ -103,6 +114,17 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                 }),
               )
               .nullish(),
+
+            /**
+             * Web search annotations containing citation information
+             */
+            url_citation: z.object({
+              end_index: z.number(),
+              start_index: z.number(),
+              title: z.string(),
+              url: z.string(),
+              content: z.string().optional(),
+            }).optional(),
           })
           .nullish(),
         logprobs: z

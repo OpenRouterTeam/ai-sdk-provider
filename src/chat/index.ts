@@ -131,6 +131,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
 
+      // Web search settings:
+      plugins: this.settings.plugins,
+      web_search_options: this.settings.web_search_options,
+
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
@@ -316,6 +320,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           input: toolCall.function.arguments,
         });
       }
+    }
+
+    if (choice.message.url_citation) {
+      content.push({
+        type: 'source' as const,
+        sourceType: 'url' as const,
+        id: choice.message.url_citation.url,
+        url: choice.message.url_citation.url,
+        title: choice.message.url_citation.title,
+      });
     }
 
     return {
@@ -587,6 +601,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 type: 'text-delta',
                 delta: delta.content,
                 id: textId || generateId(),
+              });
+            }
+
+            if (delta.url_citation) {
+              controller.enqueue({
+                type: 'source',
+                sourceType: 'url' as const,
+                id: delta.url_citation.url,
+                url: delta.url_citation.url,
+                title: delta.url_citation.title,
               });
             }
 
