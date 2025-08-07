@@ -48,7 +48,7 @@ monitor and detect abuse. Learn more.
    * Web search plugin configuration for enabling web search capabilities
    */
   plugins?: Array<{
-    type: 'web';
+    id: 'web';
     /**
      * Maximum number of search results to include (default: 5)
      */
