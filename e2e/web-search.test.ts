@@ -79,7 +79,7 @@ it('should handle web search with web_search_options configuration', async () =>
   });
 
   let hasSourceContent = false;
-  const sources: any[] = [];
+  const sources: Array<{ type: string; sourceType?: string; id?: string; url?: string; title?: string; }> = [];
 
   for await (const part of response.fullStream) {
     if (part.type === 'source') {
