@@ -93,6 +93,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       model: this.modelId,
       models: this.settings.models,
 
+      ...(this.modelId.endsWith(':online') && !this.settings.plugins && {
+        plugins: [{ type: 'web' as const }]
+      }),
+
       // model specific settings:
       logit_bias: this.settings.logitBias,
       logprobs:
@@ -130,6 +134,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
+
+      // Web search settings:
+      plugins: this.settings.plugins,
+      web_search_options: this.settings.web_search_options,
+
+      // Provider routing settings:
+      provider: this.settings.provider,
 
       // extra body:
       ...this.config.extraBody,
@@ -315,6 +326,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
         });
+      }
+    }
+
+    if (choice.message.annotations) {
+      for (const annotation of choice.message.annotations) {
+        if (annotation.type === 'url_citation') {
+          content.push({
+            type: 'text' as const,
+            text: `[Citation: ${annotation.title || annotation.url}](${annotation.url})`,
+          });
+        }
       }
     }
 
@@ -588,6 +610,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 delta: delta.content,
                 id: textId || generateId(),
               });
+            }
+
+            if (delta.annotations) {
+              for (const annotation of delta.annotations) {
+                if (annotation.type === 'url_citation') {
+                  if (!textStarted) {
+                    textId = openrouterResponseId || generateId();
+                    controller.enqueue({
+                      type: 'text-start',
+                      id: textId,
+                    });
+                    textStarted = true;
+                  }
+                  controller.enqueue({
+                    type: 'text-delta',
+                    delta: `[Citation: ${annotation.title || annotation.url}](${annotation.url})`,
+                    id: textId || generateId(),
+                  });
+                }
+              }
             }
 
             if (delta.tool_calls != null) {
