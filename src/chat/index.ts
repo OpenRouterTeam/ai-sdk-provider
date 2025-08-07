@@ -565,6 +565,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (delta.content) {
+              // If reasoning was previously active and now we're starting text content,
+              // we should end the reasoning first to maintain proper order
+              if (reasoningStarted && !textStarted) {
+                controller.enqueue({
+                  type: 'reasoning-end',
+                  id: reasoningId || generateId(),
+                });
+                reasoningStarted = false; // Mark as ended so we don't end it again in flush
+              }
+              
               if (!textStarted) {
                 textId = openrouterResponseId || generateId();
                 controller.enqueue({
@@ -730,16 +740,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
             }
 
-            if (textStarted) {
-              controller.enqueue({
-                type: 'text-end',
-                id: textId || generateId(),
-              });
-            }
+            // End reasoning first if it was started, to maintain proper order
             if (reasoningStarted) {
               controller.enqueue({
                 type: 'reasoning-end',
                 id: reasoningId || generateId(),
+              });
+            }
+            if (textStarted) {
+              controller.enqueue({
+                type: 'text-end',
+                id: textId || generateId(),
               });
             }
 
