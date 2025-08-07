@@ -45,6 +45,35 @@ monitor and detect abuse. Learn more.
   user?: string;
 
   /**
+   * Web search plugin configuration for enabling web search capabilities
+   */
+  plugins?: Array<{
+    id: 'web';
+    /**
+     * Maximum number of search results to include (default: 5)
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  }>;
+
+  /**
+   * Built-in web search options for models that support native web search
+   */
+  web_search_options?: {
+    /**
+     * Maximum number of search results to include
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  };
+
+  /**
    * Provider routing preferences to control request routing behavior
    */
   provider?: {
@@ -75,7 +104,17 @@ monitor and detect abuse. Learn more.
     /**
      * List of quantization levels to filter by (e.g. ["int4", "int8"])
      */
-    quantizations?: Array<'int4' | 'int8' | 'fp4' | 'fp6' | 'fp8' | 'fp16' | 'bf16' | 'fp32' | 'unknown'>;
+    quantizations?: Array<
+      | 'int4'
+      | 'int8'
+      | 'fp4'
+      | 'fp6'
+      | 'fp8'
+      | 'fp16'
+      | 'bf16'
+      | 'fp32'
+      | 'unknown'
+    >;
     /**
      * Sort providers by price, throughput, or latency
      */
