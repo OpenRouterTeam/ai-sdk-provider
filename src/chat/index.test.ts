@@ -438,6 +438,7 @@ describe('doGenerate', () => {
         {
           type: 'function',
           name: 'test-tool',
+          description: 'Test tool',
           inputSchema: {
             type: 'object',
             properties: { value: { type: 'string' } },
@@ -461,7 +462,7 @@ describe('doGenerate', () => {
           type: 'function',
           function: {
             name: 'test-tool',
-            description: 'function',
+            description: 'Test tool',
             parameters: {
               type: 'object',
               properties: { value: { type: 'string' } },
