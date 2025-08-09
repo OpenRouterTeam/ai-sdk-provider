@@ -167,7 +167,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           type: 'function' as const,
           function: {
             name: tool.name,
-            description: tool.type,
+            description: tool.description,
             parameters: tool.inputSchema,
           },
         }));
