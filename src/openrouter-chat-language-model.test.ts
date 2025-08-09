@@ -8,6 +8,7 @@ import {
 
 import { mapOpenRouterChatLogProbsOutput } from './map-openrouter-chat-logprobs';
 import { createOpenRouter } from './openrouter-provider';
+import { ReasoningDetailType } from './schemas/reasoning-details';
 
 const TEST_PROMPT: LanguageModelV1Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -745,6 +746,73 @@ describe('doStream', () => {
         usage: { promptTokens: 53, completionTokens: 17 },
       },
     ]);
+  });
+
+  it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
+    // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
+    // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
+    server.responseChunks = [
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+        `"reasoning":"This should be ignored...",` +
+        `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this..."}]},` +
+        `"logprobs":null,"finish_reason":null}]}\n\n`,
+      // Second chunk: reasoning_details with multiple types
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+        `"reasoning":"Also ignored",` +
+        `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"User wants a greeting"},{"type":"${ReasoningDetailType.Encrypted}","data":"secret"}]},` +
+        `"logprobs":null,"finish_reason":null}]}\n\n`,
+      // Third chunk: only reasoning field (should be processed)
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+        `"reasoning":"This reasoning is used"},` +
+        `"logprobs":null,"finish_reason":null}]}\n\n`,
+      // Content chunk
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+        `"logprobs":null,"finish_reason":null}]}\n\n`,
+      // Finish chunk
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+        `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+      `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+        `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    const { stream } = await model.doStream({
+      inputFormat: 'prompt',
+      prompt: TEST_PROMPT,
+      mode: { type: 'regular' },
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Filter for reasoning elements
+    const reasoningElements = elements.filter(
+      (el) => el.type === 'reasoning' || el.type === 'redacted-reasoning',
+    );
+
+    expect(reasoningElements).toHaveLength(4);
+
+    // Verify the content comes from reasoning_details, not reasoning field
+    const reasoningDeltas = reasoningElements
+      .filter(
+        (el) => el.type === 'reasoning' || el.type === 'redacted-reasoning',
+      )
+      .map((el) => (el.type === 'reasoning' ? el.textDelta : el.data));
+
+    expect(reasoningDeltas).toEqual([
+      'Let me think about this...', // from reasoning_details text
+      'User wants a greeting', // from reasoning_details summary
+      'secret', // from reasoning_details encrypted
+      'This reasoning is used', // from reasoning field (no reasoning_details)
+    ]);
+
+    // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
+    expect(reasoningDeltas).not.toContain('This should be ignored...');
+    expect(reasoningDeltas).not.toContain('Also ignored');
   });
 
   it('should stream tool call that is sent in one chunk', async () => {
