@@ -22,6 +22,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm build
       - run: pnpm test
-      - run: pnpm publish --provenance --access public --no-git-checks --tag v4
+      - run: pnpm publish --provenance --access public --no-git-checks --tag sdk-v4
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
