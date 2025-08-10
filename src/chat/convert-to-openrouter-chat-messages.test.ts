@@ -98,6 +98,42 @@ describe('user messages', () => {
 
     expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
   });
+
+  it('should convert messages with multiple text parts to content array', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'projects/web/features/playground/persistence/arti' },
+          { type: 'text', text: 'projects/web/features/playground/services/esbuild' },
+          { type: 'text', text: 'projects/web/features/playground/stores/chatroom-' },
+          { type: 'text', text: 'projects/web/features/playground/state/artifacts/' },
+          { type: 'text', text: 'projects/web/features/playground/ui/Artifacts/Art' },
+        ],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Can you see the UI components that I\'ve provided you with?' }],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'projects/web/features/playground/persistence/arti' },
+          { type: 'text', text: 'projects/web/features/playground/services/esbuild' },
+          { type: 'text', text: 'projects/web/features/playground/stores/chatroom-' },
+          { type: 'text', text: 'projects/web/features/playground/state/artifacts/' },
+          { type: 'text', text: 'projects/web/features/playground/ui/Artifacts/Art' },
+        ],
+      },
+      {
+        role: 'user',
+        content: 'Can you see the UI components that I\'ve provided you with?',
+      },
+    ]);
+  });
 });
 
 describe('cache control', () => {
