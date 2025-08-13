@@ -662,7 +662,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV1 {
             // Forward any unsent tool calls if finish reason is 'tool-calls'
             if (finishReason === 'tool-calls') {
               for (const toolCall of toolCalls) {
-                if (!toolCall.sent) {
+                if (toolCall && !toolCall.sent) {
                   controller.enqueue({
                     type: 'tool-call',
                     toolCallType: 'function',
