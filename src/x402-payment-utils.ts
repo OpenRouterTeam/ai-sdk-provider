@@ -2,19 +2,19 @@
  * x402 Payment utilities for Dreams Router
  */
 
-import type { Account } from 'viem';
-import type { DreamsRouterPaymentConfig } from './types';
+import type { Account } from "viem";
+import type { DreamsRouterPaymentConfig } from "./types";
 
-import { exact } from 'x402/schemes';
+import { exact } from "x402/schemes";
 
 const CONFIG = {
-  usdcAddress: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-  serviceWallet: '0xb308ed39d67D0d4BAe5BC2FAEF60c66BBb6AE429',
-  amount: '100000',
-  network: 'base-sepolia' as const,
+  usdcAddress: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+  serviceWallet: "0xb308ed39d67D0d4BAe5BC2FAEF60c66BBb6AE429",
+  amount: "100000",
+  network: "base-sepolia" as const,
   validityDuration: 600,
   networks: {
-    'base-sepolia': 84532,
+    "base-sepolia": 84532,
     base: 8453,
   },
 };
@@ -24,7 +24,7 @@ const CONFIG = {
  */
 export function createX402PaymentData(
   address: string,
-  config: DreamsRouterPaymentConfig = {},
+  config: DreamsRouterPaymentConfig = {}
 ) {
   const usdcAddress = config.usdcAddress || CONFIG.usdcAddress;
   const serviceWallet = config.serviceWallet || CONFIG.serviceWallet;
@@ -40,30 +40,30 @@ export function createX402PaymentData(
     validAfter: now.toString(),
     validBefore: (now + validityDuration).toString(),
     nonce:
-      '0x' +
+      "0x" +
       Array.from({ length: 64 }, () =>
-        Math.floor(Math.random() * 16).toString(16),
-      ).join(''),
+        Math.floor(Math.random() * 16).toString(16)
+      ).join(""),
   };
 
   const eip712Data = {
     types: {
       TransferWithAuthorization: [
-        { name: 'from', type: 'address' },
-        { name: 'to', type: 'address' },
-        { name: 'value', type: 'uint256' },
-        { name: 'validAfter', type: 'uint256' },
-        { name: 'validBefore', type: 'uint256' },
-        { name: 'nonce', type: 'bytes32' },
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "validAfter", type: "uint256" },
+        { name: "validBefore", type: "uint256" },
+        { name: "nonce", type: "bytes32" },
       ],
     },
     domain: {
-      name: 'USDC',
-      version: '2',
+      name: "USD Coin",
+      version: "2",
       chainId: CONFIG.networks[network as keyof typeof CONFIG.networks],
       verifyingContract: usdcAddress as `0x${string}`,
     },
-    primaryType: 'TransferWithAuthorization' as const,
+    primaryType: "TransferWithAuthorization" as const,
     message: authorization,
   };
 
@@ -76,19 +76,19 @@ export function createX402PaymentData(
 export async function generateX402PaymentBrowser(
   address: string,
   signTypedDataAsync: (data: any) => Promise<string>,
-  config: DreamsRouterPaymentConfig = {},
+  config: DreamsRouterPaymentConfig = {}
 ): Promise<string | null> {
   try {
     const { eip712Data, authorization, network } = createX402PaymentData(
       address,
-      config,
+      config
     );
 
     const signature = await signTypedDataAsync(eip712Data);
 
     const signedPaymentHeader = {
       x402Version: 1,
-      scheme: 'exact' as const,
+      scheme: "exact" as const,
       network: network,
       payload: {
         authorization,
@@ -99,18 +99,18 @@ export async function generateX402PaymentBrowser(
     const encodedPayment = exact.evm.encodePayment(signedPaymentHeader);
     return encodedPayment;
   } catch (error) {
-    console.error('Failed to generate x402 payment:', error);
+    console.error("Failed to generate x402 payment:", error);
 
     // Provide helpful error messages
     if (error instanceof Error) {
-      if (error.message.includes('viem')) {
+      if (error.message.includes("viem")) {
         throw new Error(
-          'Dreams Router x402 payments require viem. Install with: npm install viem',
+          "Dreams Router x402 payments require viem. Install with: npm install viem"
         );
       }
-      if (error.message.includes('x402')) {
+      if (error.message.includes("x402")) {
         throw new Error(
-          'Dreams Router x402 payments require x402. Install with: npm install x402',
+          "Dreams Router x402 payments require x402. Install with: npm install x402"
         );
       }
     }
@@ -121,25 +121,25 @@ export async function generateX402PaymentBrowser(
 
 export async function generateX402Payment(
   account: Account,
-  config: DreamsRouterPaymentConfig,
+  config: DreamsRouterPaymentConfig
 ): Promise<string | null> {
   try {
     const { eip712Data, authorization, network } = createX402PaymentData(
       account.address,
-      config,
+      config
     );
 
     // Use the account to sign the typed data
     if (!account.signTypedData) {
       throw new Error(
-        'Account does not support typed data signing. Required for X402 payments.',
+        "Account does not support typed data signing. Required for X402 payments."
       );
     }
     const signature = await account.signTypedData(eip712Data);
 
     const signedPaymentHeader = {
       x402Version: 1,
-      scheme: 'exact' as const,
+      scheme: "exact" as const,
       network: network,
       payload: {
         authorization,
@@ -150,18 +150,18 @@ export async function generateX402Payment(
     const encodedPayment = exact.evm.encodePayment(signedPaymentHeader);
     return encodedPayment;
   } catch (error) {
-    console.error('Failed to generate x402 payment:', error);
+    console.error("Failed to generate x402 payment:", error);
 
     // Provide helpful error messages
     if (error instanceof Error) {
-      if (error.message.includes('viem')) {
+      if (error.message.includes("viem")) {
         throw new Error(
-          'Dreams Router x402 payments require viem. Install with: npm install viem',
+          "Dreams Router x402 payments require viem. Install with: npm install viem"
         );
       }
-      if (error.message.includes('x402')) {
+      if (error.message.includes("x402")) {
         throw new Error(
-          'Dreams Router x402 payments require x402. Install with: npm install x402',
+          "Dreams Router x402 payments require x402. Install with: npm install x402"
         );
       }
     }

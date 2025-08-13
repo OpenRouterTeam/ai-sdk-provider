@@ -113,7 +113,7 @@ export function createDreamsRouter(
 ): OpenRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    "https://dev-router.daydreams.systems/v1";
+    "https://api-beta.daydreams.systems/v1";
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? "compatible";
