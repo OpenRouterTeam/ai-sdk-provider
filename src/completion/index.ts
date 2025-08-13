@@ -6,7 +6,7 @@ import type {
 } from "@ai-sdk/provider";
 import type { ParseResult } from "@ai-sdk/provider-utils";
 import type { FinishReason } from "ai";
-import type { z } from "zod/v4";
+import type { z } from "zod";
 import type { OpenRouterUsageAccounting } from "../types";
 import type {
   OpenRouterCompletionModelId,
@@ -104,10 +104,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         typeof this.settings.logprobs === "number"
           ? this.settings.logprobs
           : typeof this.settings.logprobs === "boolean"
-            ? this.settings.logprobs
-              ? 0
-              : undefined
-            : undefined,
+          ? this.settings.logprobs
+            ? 0
+            : undefined
+          : undefined,
       suffix: this.settings.suffix,
       user: this.settings.user,
 

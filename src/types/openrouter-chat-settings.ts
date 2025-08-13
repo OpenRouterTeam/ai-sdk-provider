@@ -23,7 +23,7 @@ token from being generated.
   /**
 Return the log probabilities of the tokens. Including logprobs will increase
 the response size and can slow down response times. However, it can
-be useful to better understand how the model is behaving.
+be useful to understand better how the model is behaving.
 
 Setting to true will return the log probabilities of the tokens that
 were generated.
@@ -43,4 +43,91 @@ A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
   user?: string;
+
+  /**
+   * Web search plugin configuration for enabling web search capabilities
+   */
+  plugins?: Array<{
+    id: 'web';
+    /**
+     * Maximum number of search results to include (default: 5)
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  }>;
+
+  /**
+   * Built-in web search options for models that support native web search
+   */
+  web_search_options?: {
+    /**
+     * Maximum number of search results to include
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  };
+
+  /**
+   * Provider routing preferences to control request routing behavior
+   */
+  provider?: {
+    /**
+     * List of provider slugs to try in order (e.g. ["anthropic", "openai"])
+     */
+    order?: string[];
+    /**
+     * Whether to allow backup providers when primary is unavailable (default: true)
+     */
+    allow_fallbacks?: boolean;
+    /**
+     * Only use providers that support all parameters in your request (default: false)
+     */
+    require_parameters?: boolean;
+    /**
+     * Control whether to use providers that may store data
+     */
+    data_collection?: 'allow' | 'deny';
+    /**
+     * List of provider slugs to allow for this request
+     */
+    only?: string[];
+    /**
+     * List of provider slugs to skip for this request
+     */
+    ignore?: string[];
+    /**
+     * List of quantization levels to filter by (e.g. ["int4", "int8"])
+     */
+    quantizations?: Array<
+      | 'int4'
+      | 'int8'
+      | 'fp4'
+      | 'fp6'
+      | 'fp8'
+      | 'fp16'
+      | 'bf16'
+      | 'fp32'
+      | 'unknown'
+    >;
+    /**
+     * Sort providers by price, throughput, or latency
+     */
+    sort?: 'price' | 'throughput' | 'latency';
+    /**
+     * Maximum pricing you want to pay for this request
+     */
+    max_price?: {
+      prompt?: number | string;
+      completion?: number | string;
+      image?: number | string;
+      audio?: number | string;
+      request?: number | string;
+    };
+  };
 } & OpenRouterSharedSettings;

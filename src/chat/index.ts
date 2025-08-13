@@ -1,5 +1,3 @@
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
-import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
@@ -10,17 +8,17 @@ import type {
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
   SharedV2Headers,
-} from '@ai-sdk/provider';
-import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
-import type { z } from 'zod/v4';
+} from "@ai-sdk/provider";
+import type { ParseResult } from "@ai-sdk/provider-utils";
+import type { FinishReason } from "ai";
+import type { z } from "zod";
+import type { OpenRouterUsageAccounting } from "@/src/types/index";
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from '../types/openrouter-chat-settings';
+} from "../types/openrouter-chat-settings";
 
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
-import { InvalidResponseDataError } from '@ai-sdk/provider';
+import { InvalidResponseDataError } from "@ai-sdk/provider";
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -28,19 +26,20 @@ import {
   generateId,
   isParsableJson,
   postJsonToApi,
-} from '@ai-sdk/provider-utils';
-import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
-import { getChatCompletionToolChoice } from './get-tool-choice';
+} from "@ai-sdk/provider-utils";
+import { ReasoningDetailType } from "@/src/schemas/reasoning-details";
+import { openrouterFailedResponseHandler } from "../schemas/error-response";
+import { mapOpenRouterFinishReason } from "../utils/map-finish-reason";
+import { convertToOpenRouterChatMessages } from "./convert-to-openrouter-chat-messages";
+import { getChatCompletionToolChoice } from "./get-tool-choice";
 import {
   OpenRouterNonStreamChatCompletionResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
-} from './schemas';
+} from "./schemas";
 
 type OpenRouterChatConfig = {
   provider: string;
-  compatibility: 'strict' | 'compatible';
+  compatibility: "strict" | "compatible";
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
@@ -48,18 +47,18 @@ type OpenRouterChatConfig = {
 };
 
 export class OpenRouterChatLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
-  readonly provider = 'openrouter';
-  readonly defaultObjectGenerationMode = 'tool' as const;
+  readonly specificationVersion = "v2" as const;
+  readonly provider = "openrouter";
+  readonly defaultObjectGenerationMode = "tool" as const;
 
   readonly modelId: OpenRouterChatModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
-    'image/*': [
+    "image/*": [
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i,
     ],
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
-    'application/*': [/^data:application\//, /^https?:\/\/.+$/],
+    "application/*": [/^data:application\//, /^https?:\/\/.+$/],
   };
   readonly settings: OpenRouterChatSettings;
 
@@ -68,7 +67,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   constructor(
     modelId: OpenRouterChatModelId,
     settings: OpenRouterChatSettings,
-    config: OpenRouterChatConfig,
+    config: OpenRouterChatConfig
   ) {
     this.modelId = modelId;
     this.settings = settings;
@@ -98,17 +97,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       logit_bias: this.settings.logitBias,
       logprobs:
         this.settings.logprobs === true ||
-        typeof this.settings.logprobs === 'number'
+        typeof this.settings.logprobs === "number"
           ? true
           : undefined,
       top_logprobs:
-        typeof this.settings.logprobs === 'number'
+        typeof this.settings.logprobs === "number"
           ? this.settings.logprobs
-          : typeof this.settings.logprobs === 'boolean'
-            ? this.settings.logprobs
-              ? 0
-              : undefined
-            : undefined,
+          : typeof this.settings.logprobs === "boolean"
+          ? this.settings.logprobs
+            ? 0
+            : undefined
+          : undefined,
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
 
@@ -132,27 +131,43 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
 
+      // Web search settings:
+      plugins: this.settings.plugins,
+      web_search_options: this.settings.web_search_options,
+      // Provider routing settings:
+      provider: this.settings.provider,
+
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
     };
 
-    if (responseFormat?.type === 'json') {
+    if (responseFormat?.type === "json" && responseFormat.schema != null) {
       return {
         ...baseArgs,
-        response_format: { type: 'json_object' },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            schema: responseFormat.schema,
+            strict: true,
+            name: responseFormat.name ?? "response",
+            ...(responseFormat.description && {
+              description: responseFormat.description,
+            }),
+          },
+        },
       };
     }
 
     if (tools && tools.length > 0) {
       // TODO: support built-in tools
       const mappedTools = tools
-        .filter((tool) => tool.type === 'function')
+        .filter((tool) => tool.type === "function")
         .map((tool) => ({
-          type: 'function' as const,
+          type: "function" as const,
           function: {
             name: tool.name,
-            description: tool.type,
+            description: tool.description,
             parameters: tool.inputSchema,
           },
         }));
@@ -176,6 +191,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     warnings: Array<LanguageModelV2CallWarning>;
     providerMetadata?: {
       openrouter: {
+        provider: string;
         usage: OpenRouterUsageAccounting;
       };
     };
@@ -195,14 +211,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
-        path: '/chat/completions',
+        path: "/chat/completions",
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterNonStreamChatCompletionResponseSchema,
+        OpenRouterNonStreamChatCompletionResponseSchema
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -211,7 +227,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error('No choice in response');
+      throw new Error("No choice in response");
     }
 
     // Extract detailed usage information
@@ -235,53 +251,52 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           cachedInputTokens: 0,
         };
 
-    const reasoningDetails = (choice.message.reasoning_details ??
-      []) as ReasoningDetailUnion[];
+    const reasoningDetails = choice.message.reasoning_details ?? [];
 
-    // const reasoning: any[] =
-    reasoningDetails.length > 0
-      ? reasoningDetails
-          .map((detail) => {
-            switch (detail.type) {
-              case ReasoningDetailType.Text: {
-                if (detail.text) {
-                  return {
-                    type: 'text' as const,
-                    text: detail.text,
-                    signature: detail.signature ?? undefined,
-                  };
+    const reasoning: Array<LanguageModelV2Content> =
+      reasoningDetails.length > 0
+        ? reasoningDetails
+            .map((detail) => {
+              switch (detail.type) {
+                case ReasoningDetailType.Text: {
+                  if (detail.text) {
+                    return {
+                      type: "reasoning" as const,
+                      text: detail.text,
+                    };
+                  }
+                  break;
                 }
-                break;
-              }
-              case ReasoningDetailType.Summary: {
-                if (detail.summary) {
-                  return {
-                    type: 'text' as const,
-                    text: detail.summary,
-                  };
+                case ReasoningDetailType.Summary: {
+                  if (detail.summary) {
+                    return {
+                      type: "reasoning" as const,
+                      text: detail.summary,
+                    };
+                  }
+                  break;
                 }
-                break;
-              }
-              case ReasoningDetailType.Encrypted: {
-                if (detail.data) {
-                  return {
-                    type: 'redacted' as const,
-                    data: detail.data,
-                  };
+                case ReasoningDetailType.Encrypted: {
+                  // For encrypted reasoning, we include a redacted placeholder
+                  if (detail.data) {
+                    return {
+                      type: "reasoning" as const,
+                      text: "[REDACTED]",
+                    };
+                  }
+                  break;
                 }
-                break;
+                default: {
+                  detail satisfies never;
+                }
               }
-              default: {
-                detail satisfies never;
-              }
-            }
-            return null;
-          })
-          .filter((p) => p !== null)
-      : choice.message.reasoning
+              return null;
+            })
+            .filter((p) => p !== null)
+        : choice.message.reasoning
         ? [
             {
-              type: 'text' as const,
+              type: "reasoning" as const,
               text: choice.message.reasoning,
             },
           ]
@@ -289,9 +304,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const content: Array<LanguageModelV2Content> = [];
 
+    // Add reasoning content first
+    content.push(...reasoning);
+
     if (choice.message.content) {
       content.push({
-        type: 'text' as const,
+        type: "text" as const,
         text: choice.message.content,
       });
     }
@@ -299,11 +317,30 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     if (choice.message.tool_calls) {
       for (const toolCall of choice.message.tool_calls) {
         content.push({
-          type: 'tool-call' as const,
+          type: "tool-call" as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
         });
+      }
+    }
+
+    if (choice.message.annotations) {
+      for (const annotation of choice.message.annotations) {
+        if (annotation.type === "url_citation") {
+          content.push({
+            type: "source" as const,
+            sourceType: "url" as const,
+            id: annotation.url_citation.url,
+            url: annotation.url_citation.url,
+            title: annotation.url_citation.title,
+            providerMetadata: {
+              openrouter: {
+                content: annotation.url_citation.content || "",
+              },
+            },
+          });
+        }
       }
     }
 
@@ -314,6 +351,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       warnings: [],
       providerMetadata: {
         openrouter: {
+          provider: response.provider ?? "",
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
@@ -363,7 +401,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
-        path: '/chat/completions',
+        path: "/chat/completions",
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
@@ -373,7 +411,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
         // only include stream_options when in strict compatibility mode:
         stream_options:
-          this.config.compatibility === 'strict'
+          this.config.compatibility === "strict"
             ? {
                 include_usage: true,
                 // If user has requested usage accounting, make sure we get it in the stream
@@ -385,7 +423,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       },
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterStreamChatCompletionChunkSchema,
+        OpenRouterStreamChatCompletionChunkSchema
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
@@ -393,7 +431,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const toolCalls: Array<{
       id: string;
-      type: 'function';
+      type: "function";
       function: {
         name: string;
         arguments: string;
@@ -402,7 +440,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       sent: boolean;
     }> = [];
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: FinishReason = "other";
     const usage: LanguageModelV2Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
@@ -419,6 +457,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     let textId: string | undefined;
     let reasoningId: string | undefined;
     let openrouterResponseId: string | undefined;
+    let provider: string | undefined;
 
     return {
       stream: response.pipeThrough(
@@ -431,31 +470,35 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
+              finishReason = "error";
+              controller.enqueue({ type: "error", error: chunk.error });
               return;
             }
 
             const value = chunk.value;
 
             // handle error chunks:
-            if ('error' in value) {
-              finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error });
+            if ("error" in value) {
+              finishReason = "error";
+              controller.enqueue({ type: "error", error: value.error });
               return;
+            }
+
+            if (value.provider) {
+              provider = value.provider;
             }
 
             if (value.id) {
               openrouterResponseId = value.id;
               controller.enqueue({
-                type: 'response-metadata',
+                type: "response-metadata",
                 id: value.id,
               });
             }
 
             if (value.model) {
               controller.enqueue({
-                type: 'response-metadata',
+                type: "response-metadata",
                 modelId: value.model,
               });
             }
@@ -506,41 +549,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             const delta = choice.delta;
 
-            if (delta.content != null) {
-              if (!textStarted) {
-                textId = openrouterResponseId || generateId();
-                controller.enqueue({
-                  type: 'text-start',
-                  id: textId,
-                });
-                textStarted = true;
-              }
-              controller.enqueue({
-                type: 'text-delta',
-                delta: delta.content,
-                id: textId || generateId(),
-              });
-            }
-
             const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = openrouterResponseId || generateId();
                 controller.enqueue({
-                  type: 'reasoning-start',
+                  type: "reasoning-start",
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
-                type: 'reasoning-delta',
+                type: "reasoning-delta",
                 delta: chunkText,
                 id: reasoningId || generateId(),
               });
             };
 
-            if (delta.reasoning != null) {
-              emitReasoningChunk(delta.reasoning);
-            }
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
@@ -552,7 +576,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                   case ReasoningDetailType.Encrypted: {
                     if (detail.data) {
-                      emitReasoningChunk('[REDACTED]');
+                      emitReasoningChunk("[REDACTED]");
                     }
                     break;
                   }
@@ -568,6 +592,53 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                 }
               }
+            } else if (delta.reasoning) {
+              emitReasoningChunk(delta.reasoning);
+            }
+
+            if (delta.content) {
+              // If reasoning was previously active and now we're starting text content,
+              // we should end the reasoning first to maintain proper order
+              if (reasoningStarted && !textStarted) {
+                controller.enqueue({
+                  type: "reasoning-end",
+                  id: reasoningId || generateId(),
+                });
+                reasoningStarted = false; // Mark as ended so we don't end it again in flush
+              }
+
+              if (!textStarted) {
+                textId = openrouterResponseId || generateId();
+                controller.enqueue({
+                  type: "text-start",
+                  id: textId,
+                });
+                textStarted = true;
+              }
+              controller.enqueue({
+                type: "text-delta",
+                delta: delta.content,
+                id: textId || generateId(),
+              });
+            }
+
+            if (delta.annotations) {
+              for (const annotation of delta.annotations) {
+                if (annotation.type === "url_citation") {
+                  controller.enqueue({
+                    type: "source",
+                    sourceType: "url" as const,
+                    id: annotation.url_citation.url,
+                    url: annotation.url_citation.url,
+                    title: annotation.url_citation.title,
+                    providerMetadata: {
+                      openrouter: {
+                        content: annotation.url_citation.content || "",
+                      },
+                    },
+                  });
+                }
+              }
             }
 
             if (delta.tool_calls != null) {
@@ -576,7 +647,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                 // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
                 if (toolCalls[index] == null) {
-                  if (toolCallDelta.type !== 'function') {
+                  if (toolCallDelta.type !== "function") {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
                       message: `Expected 'function' type.`,
@@ -599,10 +670,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                   toolCalls[index] = {
                     id: toolCallDelta.id,
-                    type: 'function',
+                    type: "function",
                     function: {
                       name: toolCallDelta.function.name,
-                      arguments: toolCallDelta.function.arguments ?? '',
+                      arguments: toolCallDelta.function.arguments ?? "",
                     },
                     inputStarted: false,
                     sent: false,
@@ -611,7 +682,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   const toolCall = toolCalls[index];
 
                   if (toolCall == null) {
-                    throw new Error('Tool call is missing');
+                    throw new Error("Tool call is missing");
                   }
 
                   // check if tool call is complete (some providers send the full tool call in one chunk)
@@ -623,26 +694,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     toolCall.inputStarted = true;
 
                     controller.enqueue({
-                      type: 'tool-input-start',
+                      type: "tool-input-start",
                       id: toolCall.id,
                       toolName: toolCall.function.name,
                     });
 
                     // send delta
                     controller.enqueue({
-                      type: 'tool-input-delta',
+                      type: "tool-input-delta",
                       id: toolCall.id,
                       delta: toolCall.function.arguments,
                     });
 
                     controller.enqueue({
-                      type: 'tool-input-end',
+                      type: "tool-input-end",
                       id: toolCall.id,
                     });
 
                     // send tool call
                     controller.enqueue({
-                      type: 'tool-call',
+                      type: "tool-call",
                       toolCallId: toolCall.id,
                       toolName: toolCall.function.name,
                       input: toolCall.function.arguments,
@@ -658,13 +729,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 const toolCall = toolCalls[index];
 
                 if (toolCall == null) {
-                  throw new Error('Tool call is missing');
+                  throw new Error("Tool call is missing");
                 }
 
                 if (!toolCall.inputStarted) {
                   toolCall.inputStarted = true;
                   controller.enqueue({
-                    type: 'tool-input-start',
+                    type: "tool-input-start",
                     id: toolCall.id,
                     toolName: toolCall.function.name,
                   });
@@ -672,14 +743,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function.arguments +=
-                    toolCallDelta.function?.arguments ?? '';
+                    toolCallDelta.function?.arguments ?? "";
                 }
 
                 // send delta
                 controller.enqueue({
-                  type: 'tool-input-delta',
+                  type: "tool-input-delta",
                   id: toolCall.id,
-                  delta: toolCallDelta.function.arguments ?? '',
+                  delta: toolCallDelta.function.arguments ?? "",
                 });
 
                 // check if tool call is complete
@@ -689,7 +760,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   isParsableJson(toolCall.function.arguments)
                 ) {
                   controller.enqueue({
-                    type: 'tool-call',
+                    type: "tool-call",
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
@@ -703,48 +774,59 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
           flush(controller) {
             // Forward any unsent tool calls if finish reason is 'tool-calls'
-            if (finishReason === 'tool-calls') {
+            if (finishReason === "tool-calls") {
               for (const toolCall of toolCalls) {
-                if (!toolCall.sent) {
+                if (toolCall && !toolCall.sent) {
                   controller.enqueue({
-                    type: 'tool-call',
+                    type: "tool-call",
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     // Coerce invalid arguments to an empty JSON object
                     input: isParsableJson(toolCall.function.arguments)
                       ? toolCall.function.arguments
-                      : '{}',
+                      : "{}",
                   });
                   toolCall.sent = true;
                 }
               }
             }
 
-            if (textStarted) {
-              controller.enqueue({
-                type: 'text-end',
-                id: textId || generateId(),
-              });
-            }
+            // End reasoning first if it was started, to maintain proper order
             if (reasoningStarted) {
               controller.enqueue({
-                type: 'reasoning-end',
+                type: "reasoning-end",
                 id: reasoningId || generateId(),
               });
             }
+            if (textStarted) {
+              controller.enqueue({
+                type: "text-end",
+                id: textId || generateId(),
+              });
+            }
+
+            const openrouterMetadata: {
+              usage: Partial<OpenRouterUsageAccounting>;
+              provider?: string;
+            } = {
+              usage: openrouterUsage,
+            };
+
+            // Only include provider if it's actually set
+            if (provider !== undefined) {
+              openrouterMetadata.provider = provider;
+            }
 
             controller.enqueue({
-              type: 'finish',
+              type: "finish",
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  usage: openrouterUsage,
-                },
+                openrouter: openrouterMetadata,
               },
             });
           },
-        }),
+        })
       ),
       warnings: [],
       request: { body: args },

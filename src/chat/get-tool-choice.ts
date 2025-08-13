@@ -1,13 +1,13 @@
-import type { LanguageModelV2ToolChoice } from '@ai-sdk/provider';
+import type { LanguageModelV2ToolChoice } from "@ai-sdk/provider";
 
-import { z } from 'zod/v4';
+import { z } from "zod";
 
 const ChatCompletionToolChoiceSchema = z.union([
-  z.literal('auto'),
-  z.literal('none'),
-  z.literal('required'),
+  z.literal("auto"),
+  z.literal("none"),
+  z.literal("required"),
   z.object({
-    type: z.literal('function'),
+    type: z.literal("function"),
     function: z.object({
       name: z.string(),
     }),
@@ -17,16 +17,16 @@ const ChatCompletionToolChoiceSchema = z.union([
 type ChatCompletionToolChoice = z.infer<typeof ChatCompletionToolChoiceSchema>;
 
 export function getChatCompletionToolChoice(
-  toolChoice: LanguageModelV2ToolChoice,
+  toolChoice: LanguageModelV2ToolChoice
 ): ChatCompletionToolChoice {
   switch (toolChoice.type) {
-    case 'auto':
-    case 'none':
-    case 'required':
+    case "auto":
+    case "none":
+    case "required":
       return toolChoice.type;
-    case 'tool': {
+    case "tool": {
       return {
-        type: 'function',
+        type: "function",
         function: { name: toolChoice.toolName },
       };
     }

@@ -116,7 +116,6 @@ PRIVATE_KEY=0x... # Your wallet private key
 const payment = await generateX402Payment(account, {
   amount: '500000', // $0.50 USDC for more complex operations
   network: 'base-sepolia',
-  // Additional payment options...
 });
 ```
 

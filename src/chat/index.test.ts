@@ -1,10 +1,12 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -121,6 +123,8 @@ describe('doGenerate', () => {
 
   function prepareJsonResponse({
     content = '',
+    reasoning,
+    reasoning_details,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -130,6 +134,8 @@ describe('doGenerate', () => {
     finish_reason = 'stop',
   }: {
     content?: string;
+    reasoning?: string;
+    reasoning_details?: Array<ReasoningDetailUnion>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -159,6 +165,8 @@ describe('doGenerate', () => {
             message: {
               role: 'assistant',
               content,
+              reasoning,
+              reasoning_details,
             },
             logprobs,
             finish_reason,
@@ -238,6 +246,133 @@ describe('doGenerate', () => {
     expect(response.finishReason).toStrictEqual('unknown');
   });
 
+  it('should extract reasoning content from reasoning field', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning:
+        'I need to think about this... The user said hello, so I should respond with a greeting.',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'I need to think about this... The user said hello, so I should respond with a greeting.',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+  });
+
+  it('should extract reasoning content from reasoning_details', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Let me analyze this request...',
+        },
+        {
+          type: ReasoningDetailType.Summary,
+          summary: 'The user wants a greeting response.',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'Let me analyze this request...',
+      },
+      {
+        type: 'reasoning',
+        text: 'The user wants a greeting response.',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+  });
+
+  it('should handle encrypted reasoning details', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted_reasoning_data_here',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: '[REDACTED]',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+  });
+
+  it('should prioritize reasoning_details over reasoning when both are present', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      reasoning: 'This should be ignored when reasoning_details is present',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Processing from reasoning_details...',
+        },
+        {
+          type: ReasoningDetailType.Summary,
+          summary: 'Summary from reasoning_details',
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: 'Processing from reasoning_details...',
+      },
+      {
+        type: 'reasoning',
+        text: 'Summary from reasoning_details',
+      },
+      {
+        type: 'text',
+        text: 'Hello!',
+      },
+    ]);
+
+    // Verify that the reasoning field content is not included
+    expect(result.content).not.toContainEqual({
+      type: 'reasoning',
+      text: 'This should be ignored when reasoning_details is present',
+    });
+  });
+
   it('should pass the model and the messages', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -303,6 +438,7 @@ describe('doGenerate', () => {
         {
           type: 'function',
           name: 'test-tool',
+          description: 'Test tool',
           inputSchema: {
             type: 'object',
             properties: { value: { type: 'string' } },
@@ -326,7 +462,7 @@ describe('doGenerate', () => {
           type: 'function',
           function: {
             name: 'test-tool',
-            description: 'function',
+            description: 'Test tool',
             parameters: {
               type: 'object',
               properties: { value: { type: 'string' } },
@@ -368,6 +504,79 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+    });
+  });
+
+  it('should pass responseFormat for JSON schema structured outputs', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
+  });
+
+  it('should use default name when name is not provided in responseFormat', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'response',
+        },
+      },
     });
   });
 });
@@ -453,11 +662,6 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0613',
       },
       {
-        type: 'text-start',
-        id: expect.any(String),
-      },
-      { type: 'text-delta', delta: '', id: expect.any(String) },
-      {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
@@ -465,6 +669,7 @@ describe('doStream', () => {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0613',
       },
+      { type: 'text-start', id: expect.any(String) },
       { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
       {
         type: 'response-metadata',
@@ -526,6 +731,171 @@ describe('doStream', () => {
           cachedInputTokens: Number.NaN,
         },
       },
+    ]);
+  });
+
+  it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
+    // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
+    // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: both reasoning and reasoning_details with different content
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning":"This should be ignored...",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this..."}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: reasoning_details with multiple types
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"Also ignored",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"User wants a greeting"},{"type":"${ReasoningDetailType.Encrypted}","data":"secret"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: only reasoning field (should be processed)
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"This reasoning is used"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content chunk
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Filter for reasoning-related elements
+    const reasoningElements = elements.filter(
+      (el) =>
+        el.type === 'reasoning-start' ||
+        el.type === 'reasoning-delta' ||
+        el.type === 'reasoning-end',
+    );
+
+    // Debug output to see what we're getting
+    // console.log('Reasoning elements count:', reasoningElements.length);
+    // console.log('Reasoning element types:', reasoningElements.map(el => el.type));
+
+    // We should get reasoning content from reasoning_details when present, not reasoning field
+    // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
+    expect(reasoningElements).toHaveLength(6);
+
+    // Verify the content comes from reasoning_details, not reasoning field
+    const reasoningDeltas = reasoningElements
+      .filter((el) => el.type === 'reasoning-delta')
+      .map(
+        (el) =>
+          (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
+      );
+
+    expect(reasoningDeltas).toEqual([
+      'Let me think about this...', // from reasoning_details text
+      'User wants a greeting', // from reasoning_details summary
+      '[REDACTED]', // from reasoning_details encrypted
+      'This reasoning is used', // from reasoning field (no reasoning_details)
+    ]);
+
+    // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
+    expect(reasoningDeltas).not.toContain('This should be ignored...');
+    expect(reasoningDeltas).not.toContain('Also ignored');
+  });
+
+  it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
+    // This test reproduces the issue where reasoning appears first but then gets "pushed down"
+    // by content that comes later in the stream
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: Start with reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant",` +
+          `"reasoning":"I need to think about this step by step..."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: More reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":" First, I should analyze the request."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: Even more reasoning
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":" Then I should provide a helpful response."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Fourth chunk: Content starts
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello! "},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Fifth chunk: More content
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"How can I help you today?"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-order-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // The expected order should be:
+    // 1. reasoning-start
+    // 2. reasoning-delta (3 times)
+    // 3. reasoning-end (when text starts)
+    // 4. text-start
+    // 5. text-delta (2 times)
+    // 6. text-end (when stream finishes)
+
+    const streamOrder = elements.map(el => el.type);
+    
+    // Find the positions of key events
+    const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
+    const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
+    const textStartIndex = streamOrder.indexOf('text-start');
+
+    // Reasoning should come before text and end before text starts
+    expect(reasoningStartIndex).toBeLessThan(textStartIndex);
+    expect(reasoningEndIndex).toBeLessThan(textStartIndex);
+
+    // Verify reasoning content
+    const reasoningDeltas = elements
+      .filter((el) => el.type === 'reasoning-delta')
+      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta);
+
+    expect(reasoningDeltas).toEqual([
+      'I need to think about this step by step...',
+      ' First, I should analyze the request.',
+      ' Then I should provide a helpful response.',
+    ]);
+
+    // Verify text content
+    const textDeltas = elements
+      .filter((el) => el.type === 'text-delta')
+      .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
+
+    expect(textDeltas).toEqual([
+      'Hello! ',
+      'How can I help you today?',
     ]);
   });
 
@@ -984,5 +1354,45 @@ describe('doStream', () => {
       'providers.anthropic.custom_field',
       'custom_value',
     );
+  });
+
+  it('should pass responseFormat for JSON schema structured outputs', async () => {
+    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
   });
 });
