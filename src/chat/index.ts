@@ -533,6 +533,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 };
               }
 
+              const upstreamInferenceCost =
+                value.usage.cost_details?.upstream_inference_cost;
+              if (
+                upstreamInferenceCost != null &&
+                upstreamInferenceCost !== undefined
+              ) {
+                openrouterUsage.costDetails = {
+                  upstreamInferenceCost,
+                };
+              }
+
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
             }
