@@ -6,7 +6,7 @@
 import { generateText, streamText } from 'ai';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { createDreamsRouterAuth } from '../src/index';
+import { createDreamsRouterAuth } from '../src/wallet-auth-utils';
 
 const ROUTER_BASE_URL = 'http://localhost:8080/v1';
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
@@ -23,22 +23,21 @@ async function example1_ViemNative() {
   console.log(`Account address: ${account.address}`);
 
   const { dreamsRouter, user } = await createDreamsRouterAuth(account, {
+    baseURL: ROUTER_BASE_URL,
     payments: {
       amount: '100000', // $0.10 USDC
       network: 'base-sepolia',
     },
   });
 
-  console.log(`Authenticated user: ${user.wallet_address}`);
-  console.log(`Balance: $${user.balance || 0}`);
-
   const { text, usage } = await generateText({
-    model: dreamsRouter('openai/gpt-4o-2024-08-06'),
+    model: dreamsRouter('google-vertex/gemini-2.5-flash'),
     prompt: 'Write a haiku about cryptocurrency and AI in exactly 3 lines.',
   });
 
   console.log('Generated haiku:');
   console.log(text);
+  console.log(`User: ${user.walletAddress}`);
   console.log(`Usage: ${usage?.totalTokens} tokens`);
 }
 
@@ -58,7 +57,7 @@ async function example2_Streaming() {
 
   console.log('Streaming response:');
   const stream = streamText({
-    model: dreamsRouter('openai/gpt-4o-mini'),
+    model: dreamsRouter('google-vertex/gemini-2.5-flash'),
     prompt: 'Explain quantum computing in simple terms, max 100 words.',
   });
 

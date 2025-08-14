@@ -131,11 +131,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       reasoning: this.settings.reasoning,
       usage: this.settings.usage,
 
-      // Web search settings:
-      plugins: this.settings.plugins,
-      web_search_options: this.settings.web_search_options,
-      // Provider routing settings:
-      provider: this.settings.provider,
+      // TODO: Web search not yet supported - commenting out
+      // // Web search settings:
+      // plugins: this.settings.plugins,
+      // web_search_options: this.settings.web_search_options,
+      
+      // TODO: Advanced provider routing not yet supported - commenting out
+      // // Provider routing settings:
+      // provider: this.settings.provider,
 
       // extra body:
       ...this.config.extraBody,
@@ -251,49 +254,52 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           cachedInputTokens: 0,
         };
 
-    const reasoningDetails = choice.message.reasoning_details ?? [];
+    // TODO: Router doesn't return structured reasoning_details yet
+    // const reasoningDetails = choice.message.reasoning_details ?? [];
 
     const reasoning: Array<LanguageModelV2Content> =
-      reasoningDetails.length > 0
-        ? reasoningDetails
-            .map((detail) => {
-              switch (detail.type) {
-                case ReasoningDetailType.Text: {
-                  if (detail.text) {
-                    return {
-                      type: "reasoning" as const,
-                      text: detail.text,
-                    };
-                  }
-                  break;
-                }
-                case ReasoningDetailType.Summary: {
-                  if (detail.summary) {
-                    return {
-                      type: "reasoning" as const,
-                      text: detail.summary,
-                    };
-                  }
-                  break;
-                }
-                case ReasoningDetailType.Encrypted: {
-                  // For encrypted reasoning, we include a redacted placeholder
-                  if (detail.data) {
-                    return {
-                      type: "reasoning" as const,
-                      text: "[REDACTED]",
-                    };
-                  }
-                  break;
-                }
-                default: {
-                  detail satisfies never;
-                }
-              }
-              return null;
-            })
-            .filter((p) => p !== null)
-        : choice.message.reasoning
+      // TODO: Enable when router supports reasoning_details
+      // reasoningDetails.length > 0
+      //   ? reasoningDetails
+      //       .map((detail: any) => {
+      //         switch (detail.type) {
+      //           case ReasoningDetailType.Text: {
+      //             if (detail.text) {
+      //               return {
+      //                 type: "reasoning" as const,
+      //                 text: detail.text,
+      //               };
+      //             }
+      //             break;
+      //           }
+      //           case ReasoningDetailType.Summary: {
+      //             if (detail.summary) {
+      //               return {
+      //                 type: "reasoning" as const,
+      //                 text: detail.summary,
+      //               };
+      //             }
+      //             break;
+      //           }
+      //           case ReasoningDetailType.Encrypted: {
+      //             // For encrypted reasoning, we include a redacted placeholder
+      //             if (detail.data) {
+      //               return {
+      //                 type: "reasoning" as const,
+      //                 text: "[REDACTED]",
+      //               };
+      //             }
+      //             break;
+      //           }
+      //           default: {
+      //             detail satisfies never;
+      //           }
+      //         }
+      //         return null;
+      //       })
+      //       .filter((p: any) => p !== null)
+      //   : 
+      choice.message.reasoning
         ? [
             {
               type: "reasoning" as const,
@@ -357,19 +363,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             completionTokens: usageInfo.outputTokens ?? 0,
             totalTokens: usageInfo.totalTokens ?? 0,
             cost: response.usage?.cost,
-            promptTokensDetails: {
-              cachedTokens:
-                response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-            },
-            completionTokensDetails: {
-              reasoningTokens:
-                response.usage?.completion_tokens_details?.reasoning_tokens ??
-                0,
-            },
-            costDetails: {
-              upstreamInferenceCost:
-                response.usage?.cost_details?.upstream_inference_cost ?? 0,
-            },
+            // TODO: Router doesn't track these details yet
+            // promptTokensDetails: {
+            //   cachedTokens:
+            //     response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+            // },
+            // completionTokensDetails: {
+            //   reasoningTokens:
+            //     response.usage?.completion_tokens_details?.reasoning_tokens ??
+            //     0,
+            // },
+            // costDetails: {
+            //   upstreamInferenceCost:
+            //     response.usage?.cost_details?.upstream_inference_cost ?? 0,
+            // },
           },
         },
       },
@@ -512,26 +519,29 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
 
-              if (value.usage.prompt_tokens_details) {
-                const cachedInputTokens =
-                  value.usage.prompt_tokens_details.cached_tokens ?? 0;
+              // TODO: Router doesn't track cached tokens yet
+              // if (value.usage.prompt_tokens_details) {
+              //   const cachedInputTokens =
+              //     value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
-                usage.cachedInputTokens = cachedInputTokens;
-                openrouterUsage.promptTokensDetails = {
-                  cachedTokens: cachedInputTokens,
-                };
-              }
+              //   usage.cachedInputTokens = cachedInputTokens;
+              //   openrouterUsage.promptTokensDetails = {
+              //     cachedTokens: cachedInputTokens,
+              //   };
+              // }
 
               openrouterUsage.completionTokens = value.usage.completion_tokens;
-              if (value.usage.completion_tokens_details) {
-                const reasoningTokens =
-                  value.usage.completion_tokens_details.reasoning_tokens ?? 0;
+              
+              // TODO: Router doesn't separate reasoning tokens yet
+              // if (value.usage.completion_tokens_details) {
+              //   const reasoningTokens =
+              //     value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
-                usage.reasoningTokens = reasoningTokens;
-                openrouterUsage.completionTokensDetails = {
-                  reasoningTokens,
-                };
-              }
+              //   usage.reasoningTokens = reasoningTokens;
+              //   openrouterUsage.completionTokensDetails = {
+              //     reasoningTokens,
+              //   };
+              // }
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;

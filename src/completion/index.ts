@@ -3,32 +3,32 @@ import type {
   LanguageModelV2CallOptions,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
-} from "@ai-sdk/provider";
-import type { ParseResult } from "@ai-sdk/provider-utils";
-import type { FinishReason } from "ai";
-import type { z } from "zod";
-import type { OpenRouterUsageAccounting } from "../types";
+} from '@ai-sdk/provider';
+import type { ParseResult } from '@ai-sdk/provider-utils';
+import type { FinishReason } from 'ai';
+import type { z } from 'zod';
+import type { OpenRouterUsageAccounting } from '../types';
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from "../types/openrouter-completion-settings";
+} from '../types/openrouter-completion-settings';
 
-import { UnsupportedFunctionalityError } from "@ai-sdk/provider";
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
   postJsonToApi,
-} from "@ai-sdk/provider-utils";
-import { openrouterFailedResponseHandler } from "../schemas/error-response";
-import { mapOpenRouterFinishReason } from "../utils/map-finish-reason";
-import { convertToOpenRouterCompletionPrompt } from "./convert-to-openrouter-completion-prompt";
-import { OpenRouterCompletionChunkSchema } from "./schemas";
+} from '@ai-sdk/provider-utils';
+import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
+import { OpenRouterCompletionChunkSchema } from './schemas';
 
 type OpenRouterCompletionConfig = {
   provider: string;
-  compatibility: "strict" | "compatible";
+  compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
@@ -36,16 +36,16 @@ type OpenRouterCompletionConfig = {
 };
 
 export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = "v2" as const;
-  readonly provider = "openrouter";
+  readonly specificationVersion = 'v2' as const;
+  readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
-    "image/*": [
+    'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i,
     ],
-    "text/*": [/^data:text\//, /^https?:\/\/.+$/],
-    "application/*": [/^data:application\//, /^https?:\/\/.+$/],
+    'text/*': [/^data:text\//, /^https?:\/\/.+$/],
+    'application/*': [/^data:application\//, /^https?:\/\/.+$/],
   };
   readonly defaultObjectGenerationMode = undefined;
   readonly settings: OpenRouterCompletionSettings;
@@ -78,18 +78,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   }: LanguageModelV2CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
-      inputFormat: "prompt",
+      inputFormat: 'prompt',
     });
 
     if (tools?.length) {
       throw new UnsupportedFunctionalityError({
-        functionality: "tools",
+        functionality: 'tools',
       });
     }
 
     if (toolChoice) {
       throw new UnsupportedFunctionalityError({
-        functionality: "toolChoice",
+        functionality: 'toolChoice',
       });
     }
 
@@ -101,13 +101,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       // model specific settings:
       logit_bias: this.settings.logitBias,
       logprobs:
-        typeof this.settings.logprobs === "number"
+        typeof this.settings.logprobs === 'number'
           ? this.settings.logprobs
-          : typeof this.settings.logprobs === "boolean"
-          ? this.settings.logprobs
-            ? 0
-            : undefined
-          : undefined,
+          : typeof this.settings.logprobs === 'boolean'
+            ? this.settings.logprobs
+              ? 0
+              : undefined
+            : undefined,
       suffix: this.settings.suffix,
       user: this.settings.user,
 
@@ -138,7 +138,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
   async doGenerate(
     options: LanguageModelV2CallOptions
-  ): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -149,7 +149,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
-        path: "/completions",
+        path: '/completions',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
@@ -162,21 +162,21 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    if ("error" in response) {
+    if ('error' in response) {
       throw new Error(`${response.error.message}`);
     }
 
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error("No choice in OpenRouter completion response");
+      throw new Error('No choice in OpenRouter completion response');
     }
 
     return {
       content: [
         {
-          type: "text",
-          text: choice.text ?? "",
+          type: 'text',
+          text: choice.text ?? '',
         },
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
@@ -200,7 +200,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
   async doStream(
     options: LanguageModelV2CallOptions
-  ): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -211,7 +211,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
-        path: "/completions",
+        path: '/completions',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), options.headers),
@@ -221,7 +221,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
         // only include stream_options when in strict compatibility mode:
         stream_options:
-          this.config.compatibility === "strict"
+          this.config.compatibility === 'strict'
             ? { include_usage: true }
             : undefined,
       },
@@ -233,7 +233,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    let finishReason: FinishReason = "other";
+    let finishReason: FinishReason = 'other';
     const usage: LanguageModelV2Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
@@ -252,17 +252,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = "error";
-              controller.enqueue({ type: "error", error: chunk.error });
+              finishReason = 'error';
+              controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
 
             const value = chunk.value;
 
             // handle error chunks:
-            if ("error" in value) {
-              finishReason = "error";
-              controller.enqueue({ type: "error", error: value.error });
+            if ('error' in value) {
+              finishReason = 'error';
+              controller.enqueue({ type: 'error', error: value.error });
               return;
             }
 
@@ -280,9 +280,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
                 usage.cachedInputTokens = cachedInputTokens;
-                openrouterUsage.promptTokensDetails = {
-                  cachedTokens: cachedInputTokens,
-                };
+                // openrouterUsage.promptTokensDetails = {
+                //   cachedTokens: cachedInputTokens,
+                // };
               }
 
               openrouterUsage.completionTokens = value.usage.completion_tokens;
@@ -291,9 +291,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
                 usage.reasoningTokens = reasoningTokens;
-                openrouterUsage.completionTokensDetails = {
-                  reasoningTokens,
-                };
+                // openrouterUsage.completionTokensDetails = {
+                //   reasoningTokens,
+                // };
               }
 
               openrouterUsage.cost = value.usage.cost;
@@ -308,7 +308,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
             if (choice?.text != null) {
               controller.enqueue({
-                type: "text-delta",
+                type: 'text-delta',
                 delta: choice.text,
                 id: generateId(),
               });
@@ -317,7 +317,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
           flush(controller) {
             controller.enqueue({
-              type: "finish",
+              type: 'finish',
               finishReason,
               usage,
               providerMetadata: {

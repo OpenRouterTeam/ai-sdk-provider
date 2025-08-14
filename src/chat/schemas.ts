@@ -40,7 +40,8 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
           role: z.literal("assistant"),
           content: z.string().nullable().optional(),
           reasoning: z.string().nullable().optional(),
-          reasoning_details: ReasoningDetailArraySchema.nullish(),
+          // TODO: Router doesn't return structured reasoning details yet
+          // reasoning_details: ReasoningDetailArraySchema.nullish(),
 
           tool_calls: z
             .array(

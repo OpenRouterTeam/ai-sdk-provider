@@ -3,13 +3,14 @@
  * Combines API client with AI SDK for seamless wallet authentication
  */
 
-import type { Account } from "viem";
-import type { User } from "./dreams-router-api-client";
-import type { DreamsRouterPaymentConfig } from "./types";
+import type { Account } from 'viem';
+import type { User } from './dreams-router-api-client.js';
+import type { DreamsRouterPaymentConfig } from './types';
 
-import { DreamsRouterApiClient } from "./dreams-router-api-client";
-import { createDreamsRouter } from "./provider";
-import { generateX402Payment } from "./x402-payment-utils";
+import { DreamsRouterApiClient } from './dreams-router-api-client.js';
+import { createDreamsRouter } from './provider';
+// TODO: Re-enable when router supports x402 auth
+// import { generateX402Payment } from './x402-payment-utils';
 
 export interface WalletAuthManager {
   apiClient: DreamsRouterApiClient;
@@ -21,14 +22,6 @@ export interface WalletAuthManager {
    * Sign message and get JWT session token using an account
    */
   walletLogin(account: Account): Promise<{ sessionToken: string; user: User }>;
-
-  /**
-   * Get API key using x402 payment generated from account
-   */
-  getApiKeyWithPayment(
-    account: Account,
-    paymentConfig?: DreamsRouterPaymentConfig
-  ): Promise<{ apiKey: string; user: User }>;
 
   /**
    * Create Dreams Router provider with current authentication and optional payments
@@ -66,7 +59,7 @@ export function createWalletAuthManager(
   });
 
   let currentSessionToken: string | null = null;
-  let currentUser: any | null = null;
+  let currentUser: User | null = null;
   let currentAccount: Account | null = null;
 
   // Set up token expiration callback
@@ -76,9 +69,15 @@ export function createWalletAuthManager(
 
   return {
     apiClient,
-    currentSessionToken,
-    currentUser,
-    currentAccount,
+    get currentSessionToken() {
+      return currentSessionToken;
+    },
+    get currentUser() {
+      return currentUser;
+    },
+    get currentAccount() {
+      return currentAccount;
+    },
 
     async walletLogin(account: Account) {
       const timestamp = Date.now();
@@ -86,7 +85,7 @@ export function createWalletAuthManager(
 
       if (!account.signMessage) {
         throw new Error(
-          "Account does not support message signing. Required for authentication."
+          'Account does not support message signing. Required for authentication.'
         );
       }
       const signature = await account.signMessage({ message });
@@ -97,44 +96,18 @@ export function createWalletAuthManager(
         message
       );
 
-      if (response.success && response.session_token && response.user) {
-        currentSessionToken = response.session_token;
+      if (response.success && response.sessionToken && response.user) {
+        currentSessionToken = response.sessionToken;
         currentUser = response.user;
         currentAccount = account;
-        apiClient.setApiKey(response.session_token);
+        apiClient.setApiKey(response.sessionToken);
 
         return {
-          sessionToken: response.session_token,
+          sessionToken: response.sessionToken,
           user: response.user,
         };
       } else {
-        throw new Error(response.error || "Failed to login with wallet");
-      }
-    },
-
-    async getApiKeyWithPayment(
-      account: Account,
-      paymentConfig: DreamsRouterPaymentConfig = {}
-    ) {
-      const x402Payment = await generateX402Payment(account, paymentConfig);
-
-      if (!x402Payment) {
-        throw new Error("Failed to generate x402 payment");
-      }
-
-      const response = await apiClient.authenticateWithWallet(x402Payment);
-
-      if (response.success && response.api_key && response.user) {
-        apiClient.setApiKey(response.api_key);
-        currentUser = response.user;
-        currentAccount = account;
-
-        return {
-          apiKey: response.api_key,
-          user: response.user,
-        };
-      } else {
-        throw new Error(response.error || "Failed to get API key with payment");
+        throw new Error(response.error || 'Failed to login with wallet');
       }
     },
 
@@ -142,12 +115,12 @@ export function createWalletAuthManager(
       routerOptions: { payments?: DreamsRouterPaymentConfig } = {}
     ) {
       if (!currentSessionToken) {
-        throw new Error("No session token available. Please login first.");
+        throw new Error('No session token available. Please login first.');
       }
 
       return createDreamsRouter({
         apiKey: currentSessionToken,
-        baseURL: options.baseURL || "https://dev-router.daydreams.systems/v1",
+        baseURL: options.baseURL || 'https://api-beta.daydreams.systems/v1',
         payment: routerOptions.payments,
         signer: currentAccount || undefined,
       });
@@ -155,7 +128,7 @@ export function createWalletAuthManager(
 
     async getProfile() {
       if (!currentSessionToken) {
-        throw new Error("No session token available. Please login first.");
+        throw new Error('No session token available. Please login first.');
       }
 
       const response = await apiClient.getProfile();
@@ -164,7 +137,7 @@ export function createWalletAuthManager(
         currentUser = response.user;
         return response.user;
       } else {
-        throw new Error(response.error || "Failed to get profile");
+        throw new Error(response.error || 'Failed to get profile');
       }
     },
 
@@ -174,7 +147,7 @@ export function createWalletAuthManager(
       if (response.success || response.balance !== undefined) {
         return response.balance ?? 0;
       } else {
-        throw new Error(response.error || "Failed to get wallet balance");
+        throw new Error(response.error || 'Failed to get wallet balance');
       }
     },
 

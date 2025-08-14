@@ -62,16 +62,19 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
  */
 export type OpenRouterUsageAccounting = {
   promptTokens: number;
-  promptTokensDetails?: {
-    cachedTokens: number;
-  };
+  // TODO: Router doesn't track cached tokens yet
+  // promptTokensDetails?: {
+  //   cachedTokens: number;
+  // };
   completionTokens: number;
-  completionTokensDetails?: {
-    reasoningTokens: number;
-  };
+  // TODO: Router doesn't separate reasoning tokens in response yet
+  // completionTokensDetails?: {
+  //   reasoningTokens: number;
+  // };
   totalTokens: number;
   cost?: number;
-  costDetails: {
-    upstreamInferenceCost: number;
-  };
+  // TODO: Router doesn't provide upstream cost breakdown yet
+  // costDetails: {
+  //   upstreamInferenceCost: number;
+  // };
 };
