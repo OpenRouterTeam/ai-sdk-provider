@@ -129,7 +129,7 @@ export class DreamsRouterApiClient {
   private onTokenExpired?: () => Promise<string | null>;
 
   constructor(options: DreamsRouterApiClientOptions = {}) {
-    this.baseURL = options.baseURL || 'https://dev-router.daydreams.systems/v1';
+    this.baseURL = options.baseURL || 'https://api-beta.daydreams.systems/v1';
 
     if (options.apiKey) {
       this.setApiKey(options.apiKey);
