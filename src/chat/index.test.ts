@@ -110,6 +110,8 @@ const TEST_LOGPROBS = {
 
 const TEST_IMAGE_URL = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAAiXpUWHRSYXcgcHJvZmlsZSB0eXBlIGlwdGMAAAiZTYwxDgIxDAT7vOKekDjrtV1T0VHwgbtcIiEhgfh/QaDgmGlWW0w6X66n5fl6jNu9p+ULkapDENgzpj+Kl5aFfa6KnYWgSjZjGOiSYRxTY/v8KIijI==`;
 
+const TEST_IMAGE_BASE64 = TEST_IMAGE_URL.split(',')[1]!;
+
 const provider = createOpenRouter({
   apiKey: 'test-api-key',
   compatibility: 'strict',
@@ -606,7 +608,7 @@ describe('doGenerate', () => {
       {
         type: 'file',
         mediaType: 'image/png',
-        data: TEST_IMAGE_URL,
+        data: TEST_IMAGE_BASE64,
       },
     ]);
   });
@@ -1268,7 +1270,7 @@ describe('doStream', () => {
       {
         type: 'file',
         mediaType: 'image/png',
-        data: TEST_IMAGE_URL,
+        data: TEST_IMAGE_BASE64,
       },
       {
         type: 'response-metadata',

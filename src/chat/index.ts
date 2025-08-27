@@ -36,7 +36,7 @@ import {
   OpenRouterNonStreamChatCompletionResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
 } from './schemas';
-import { getMediaType } from './file-url-utils';
+import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 
 type OpenRouterChatConfig = {
   provider: string;
@@ -331,7 +331,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         content.push({
           type: 'file' as const,
           mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
-          data: image.image_url.url,
+          data: getBase64FromDataUrl(image.image_url.url),
         });
       }
     }
@@ -787,7 +787,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 controller.enqueue({
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
-                  data: image.image_url.url,
+                  data: getBase64FromDataUrl(image.image_url.url),
                 })
               }
             }
