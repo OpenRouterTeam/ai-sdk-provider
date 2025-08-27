@@ -30,3 +30,8 @@ export function getFileUrl({
     ? stringUrl
     : `data:${part.mediaType ?? defaultMediaType};base64,${stringUrl}`;
 }
+
+export function getMediaType(base64: string, defaultMediaType: string): string {
+  const match = base64.match(/^data:([^;]+)/);
+  return match ? match[1] ?? defaultMediaType : defaultMediaType;
+}
