@@ -9,7 +9,18 @@ export type {
   DreamsRouterAuthConfig,
 } from './dreams-router-payment-config';
 
-export type OpenRouterProviderOptions = {
+// SOL signer support
+export type SolanaSigner = NodeSolanaSigner;
+
+export interface NodeSolanaSigner {
+  type: 'node';
+  /** Base58-encoded 64-byte secret key */
+  secretKeyBase58: string;
+  /** Optional RPC endpoint override */
+  rpcUrl?: string;
+}
+
+export type DreamsRouterProviderOptions = {
   models?: string[];
 
   /**
@@ -36,7 +47,7 @@ export type OpenRouterProviderOptions = {
   user?: string;
 };
 
-export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
+export type OpenRouterSharedSettings = DreamsRouterProviderOptions & {
   /**
    * @deprecated use `reasoning` instead
    */

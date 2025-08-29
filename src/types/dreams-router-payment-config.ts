@@ -3,33 +3,43 @@
  */
 
 /**
- * Payment configuration (no private key needed - handled by signer)
+ * Simplified payment configuration - amounts and addresses auto-fetched from router
  */
 export interface DreamsRouterPaymentConfig {
   /**
-   * Payment amount in USDC (6 decimals). Defaults to 100000 ($0.10)
+   * Preferred network for payments. If not specified, router will choose based on signer availability.
+   * The router will return requirements for the appropriate network.
    */
-  amount?: string;
-
-  /**
-   * Service wallet address to receive payments
-   */
-  serviceWallet?: string;
-
-  /**
-   * USDC contract address. Defaults to Base Sepolia USDC
-   */
-  usdcAddress?: string;
-
-  /**
-   * Network to use for payments. Defaults to 'base-sepolia'
-   */
-  network?: 'base-sepolia' | 'base' | 'avalanche-fuji' | 'avalanche' | 'iotex';
+  network?:
+    | 'base-sepolia'
+    | 'base'
+    | 'avalanche-fuji'
+    | 'avalanche'
+    | 'iotex'
+    | 'solana'
+    | 'solana-devnet';
 
   /**
    * Payment validity duration in seconds. Defaults to 600 (10 minutes)
    */
   validityDuration?: number;
+
+  /**
+   * Autopay mode. When 'lazy' (default), the SDK performs a 402 handshake,
+   * generates a payment for the required amount, and retries once automatically.
+   * When 'eager', the SDK will attempt to pre-attach a payment on first attempt
+   * if a fresh cached requirement is available.
+   */
+  mode?: 'lazy' | 'eager';
+
+  /**
+   * Optional RPC endpoint override for SOL networks.
+   */
+  rpcUrl?: string;
+
+  // Legacy fields for backwards compatibility - will be ignored in favor of router requirements
+  /** @deprecated Use network preference instead. Amount is determined by router. */
+  amount?: string;
 }
 
 /**

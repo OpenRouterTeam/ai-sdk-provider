@@ -26,38 +26,54 @@ npm install @daydreamsai/ai-sdk-provider viem x402
 
 ## 🚀 Quick Start
 
-### Payment-Based Authentication (x402)
+### Separated Authentication - Clean & Type-Safe
 
-Use x402 payments to access AI models without traditional API keys:
+Dreams Router supports both EVM and Solana with dedicated, clean auth functions:
 
 ```typescript
-import {
-  createDreamsRouterAuth,
-  generateX402Payment,
+import { 
+  createEVMAuthFromPrivateKey,
+  createSolanaAuthFromPrivateKey
 } from '@daydreamsai/ai-sdk-provider';
 import { generateText } from 'ai';
-import { privateKeyToAccount } from 'viem/accounts';
 
-// Create a wallet account
-const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+// EVM Authentication (Ethereum, Base, etc.)
+const { dreamsRouter } = await createEVMAuthFromPrivateKey(
+  process.env.EVM_PRIVATE_KEY as `0x${string}`,
+  {
+    payments: {
+      network: 'base-sepolia', // EVM-specific networks
+      // Router provides exact requirements - no manual amounts!
+    },
+  }
+);
 
-// Generate payment (minimum amount varies by model complexity)
-const payment = await generateX402Payment(account, {
-  amount: '100000', // $0.10 USDC - adjust based on model requirements
-  network: 'base-sepolia',
-});
+// Solana Authentication
+const { dreamsRouter: solRouter } = await createSolanaAuthFromPrivateKey(
+  process.env.SOL_PRIVATE_KEY, // base58 encoded
+  {
+    payments: {
+      network: 'solana-devnet', // Solana-specific networks  
+      rpcUrl: 'https://api.devnet.solana.com', // Solana-specific config
+      // Router provides exact requirements - no manual amounts!
+    },
+  }
+);
 
-// Create authenticated router instance
-const { dreamsRouter, user } = await createDreamsRouterAuth(account, {
-  payment,
-});
-
-// Make AI requests
+// Same AI API for both chains!
 const { text } = await generateText({
   model: dreamsRouter('openai/gpt-4o'),
-  prompt: 'Hello, Dreams Router!',
+  prompt: 'Hello from any blockchain!',
 });
 ```
+
+#### 🎯 Why Separated Functions?
+
+- **🔒 Type Safety**: EVM and Solana have different configuration options
+- **📚 Clarity**: Clear intent - you know exactly which blockchain you're using  
+- **🛠️ Specificity**: Chain-specific options (RPC URLs, network names, etc.)
+- **🔧 Maintainability**: Easy to extend with new blockchain types
+- **📦 Bundle Size**: Import only what you need
 
 ### API Key Authentication
 

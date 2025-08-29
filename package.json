@@ -56,6 +56,11 @@
     "vitest": "3.2.4",
     "zod": "4.0.17"
   },
+  "optionalDependencies": {
+    "@solana/web3.js": "^1.95.1",
+    "@solana/spl-token": "^0.4.7",
+    "bs58": "^6.0.0"
+  },
   "peerDependencies": {
     "ai": "^5.0.11",
     "zod": "^4.0.5"

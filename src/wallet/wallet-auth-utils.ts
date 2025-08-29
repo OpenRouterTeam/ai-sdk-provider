@@ -5,12 +5,10 @@
 
 import type { Account } from 'viem';
 import type { User } from './dreams-router-api-client.js';
-import type { DreamsRouterPaymentConfig } from './types';
+import type { DreamsRouterPaymentConfig, SolanaSigner } from '../types';
 
 import { DreamsRouterApiClient } from './dreams-router-api-client.js';
-import { createDreamsRouter } from './provider';
-// TODO: Re-enable when router supports x402 auth
-// import { generateX402Payment } from './x402-payment-utils';
+import { createDreamsRouter } from '../provider';
 
 export interface WalletAuthManager {
   apiClient: DreamsRouterApiClient;
@@ -28,6 +26,7 @@ export interface WalletAuthManager {
    */
   createDreamsRouter(options?: {
     payments?: DreamsRouterPaymentConfig;
+    solanaSigner?: SolanaSigner;
   }): ReturnType<typeof createDreamsRouter>;
 
   /**
@@ -112,7 +111,10 @@ export function createWalletAuthManager(
     },
 
     createDreamsRouter(
-      routerOptions: { payments?: DreamsRouterPaymentConfig } = {}
+      routerOptions: {
+        payments?: DreamsRouterPaymentConfig;
+        solanaSigner?: SolanaSigner;
+      } = {}
     ) {
       if (!currentSessionToken) {
         throw new Error('No session token available. Please login first.');
@@ -123,6 +125,7 @@ export function createWalletAuthManager(
         baseURL: options.baseURL || 'https://api-beta.daydreams.systems/v1',
         payment: routerOptions.payments,
         signer: currentAccount || undefined,
+        solanaSigner: routerOptions.solanaSigner,
       });
     },
 
@@ -168,6 +171,7 @@ export async function createDreamsRouterAuth(
   account: Account,
   options: WalletAuthManagerOptions & {
     payments?: DreamsRouterPaymentConfig;
+    solanaSigner?: SolanaSigner;
   } = {}
 ) {
   const authManager = createWalletAuthManager(options);
@@ -178,6 +182,7 @@ export async function createDreamsRouterAuth(
   // Create Dreams Router provider
   const dreamsRouter = authManager.createDreamsRouter({
     payments: options.payments,
+    solanaSigner: options.solanaSigner,
   });
 
   return {

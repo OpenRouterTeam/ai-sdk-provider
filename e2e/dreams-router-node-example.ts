@@ -4,11 +4,9 @@
  */
 
 import { generateText, streamText } from 'ai';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createEVMAuthFromPrivateKey } from '../src';
 
-import { createDreamsRouterAuth } from '../src/wallet-auth-utils';
-
-const ROUTER_BASE_URL = 'http://localhost:8080/v1';
+const ROUTER_BASE_URL = 'http://localhost:8090/v1';
 const PRIVATE_KEY = process.env.PRIVATE_KEY as `0x${string}`;
 
 if (!PRIVATE_KEY) {
@@ -17,18 +15,17 @@ if (!PRIVATE_KEY) {
 }
 
 async function example1_ViemNative() {
-  console.log('\nExample 1: Viem Native Account');
+  console.log('\nExample 1: EVM Account');
 
-  const account = privateKeyToAccount(PRIVATE_KEY);
-  console.log(`Account address: ${account.address}`);
-
-  const { dreamsRouter, user } = await createDreamsRouterAuth(account, {
-    baseURL: ROUTER_BASE_URL,
-    payments: {
-      amount: '100000', // $0.10 USDC
-      network: 'base-sepolia',
-    },
-  });
+  const { dreamsRouter, user } = await createEVMAuthFromPrivateKey(
+    PRIVATE_KEY,
+    {
+      baseURL: ROUTER_BASE_URL,
+      payments: {
+        network: 'base-sepolia', // EVM-specific networks
+      },
+    }
+  );
 
   const { text, usage } = await generateText({
     model: dreamsRouter('google-vertex/gemini-2.5-flash'),
@@ -44,16 +41,15 @@ async function example1_ViemNative() {
 async function example2_Streaming() {
   console.log('\nExample 2: Streaming Text Generation');
 
-  const account = privateKeyToAccount(PRIVATE_KEY);
-  console.log(`Account address: ${account.address}`);
-
-  const { dreamsRouter } = await createDreamsRouterAuth(account, {
-    baseURL: ROUTER_BASE_URL,
-    payments: {
-      amount: '50000', // $0.05 USDC
-      network: 'base-sepolia',
-    },
-  });
+  const { dreamsRouter } = await createEVMAuthFromPrivateKey(
+    PRIVATE_KEY,
+    {
+      baseURL: ROUTER_BASE_URL,
+      payments: {
+        network: 'base-sepolia', // EVM-specific networks
+      },
+    }
+  );
 
   console.log('Streaming response:');
   const stream = streamText({

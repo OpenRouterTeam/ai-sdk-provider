@@ -1,23 +1,22 @@
-import type { LanguageModelV2 } from "@ai-sdk/provider";
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
-} from "./types/openrouter-chat-settings";
+} from './types/openrouter-chat-settings';
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
-} from "./types/openrouter-completion-settings";
+} from './types/openrouter-completion-settings';
 
-import { loadApiKey, withoutTrailingSlash } from "@ai-sdk/provider-utils";
-import { OpenRouterChatLanguageModel } from "./chat";
-import { OpenRouterCompletionLanguageModel } from "./completion";
-import { generateX402Payment } from "./x402-payment-utils";
-import type { DreamsRouterPaymentConfig } from "./types";
-import type { Account } from "viem";
+import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+import { OpenRouterChatLanguageModel } from './chat';
+import { OpenRouterCompletionLanguageModel } from './completion';
+import { X402FetchWrapper } from './wallet/x402-fetch-wrapper';
+import type { DreamsRouterPaymentConfig, SolanaSigner } from './types';
+import type { Account } from 'viem';
 
 export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends LanguageModelV2 {
+export interface DreamsRouterProvider {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings
@@ -53,7 +52,7 @@ Creates an OpenRouter completion model for text generation.
   ): OpenRouterCompletionLanguageModel;
 }
 
-export interface OpenRouterProviderSettings {
+export interface DreamsRouterProviderSettings {
   /**
 Base URL for the OpenRouter API calls.
      */
@@ -79,7 +78,7 @@ OpenRouter compatibility mode. Should be set to `strict` when using the OpenRout
 and `compatible` when using 3rd party providers. In `compatible` mode, newer
 information such as streamOptions are not being sent. Defaults to 'compatible'.
    */
-  compatibility?: "strict" | "compatible";
+  compatibility?: 'strict' | 'compatible';
 
   /**
 Custom fetch implementation. You can use it as a middleware to intercept requests,
@@ -103,77 +102,55 @@ A JSON object to send as the request body to access OpenRouter features & upstre
    * Account for generating x402 payments. Used internally by wallet auth utils.
    */
   signer?: Account;
+
+  /**
+   * Solana signer for SOL x402 payments (Node environments only, for now).
+   */
+  solanaSigner?: SolanaSigner;
 }
 
 /**
 Create a Dreams router provider instance.
  */
-export function createDreamsRouter(
-  options: OpenRouterProviderSettings = {}
-): OpenRouterProvider {
+function createDreamsRouterBase(
+  options: DreamsRouterProviderSettings = {}
+): DreamsRouterProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    "https://api-beta.daydreams.systems/v1";
+    'https://api-beta.daydreams.systems/v1';
 
   // we default to compatible, because strict breaks providers like Groq:
-  const compatibility = options.compatibility ?? "compatible";
+  const compatibility = options.compatibility ?? 'compatible';
 
   const getHeaders = () => {
-    // Fall back to API key
-    return {
-      Authorization: `Bearer ${loadApiKey({
+    const headers: Record<string, string> = { ...options.headers };
+
+    // Only add Authorization header if we have an API key
+    if (options.apiKey !== undefined) {
+      headers.Authorization = `Bearer ${loadApiKey({
         apiKey: options.apiKey,
-        environmentVariableName: "DREAMSROUTER_API_KEY",
+        environmentVariableName: 'DREAMSROUTER_API_KEY',
         description:
-          "Dreams Router. This can be an API key or a session token.",
-      })}`,
-      ...options.headers,
-    };
+          'Dreams Router. This can be an API key or a session token.',
+      })}`;
+    }
+
+    return headers;
   };
 
-  // Create a custom fetch function that automatically includes x402 payments in headers
-  const customFetch = options.payment
-    ? async (url: string | URL | Request, init?: RequestInit) => {
-        let headers: Record<string, string> = {};
+  // Create x402 fetch wrapper if payment is enabled
+  const x402Wrapper = options.payment
+    ? new X402FetchWrapper({
+        baseFetch: options.fetch,
+        payment: options.payment,
+        signer: options.signer,
+        solanaSigner: options.solanaSigner,
+      })
+    : null;
 
-        // Copy existing headers if they exist
-        if (init?.headers) {
-          if (init.headers instanceof Headers) {
-            init.headers.forEach((value, key) => {
-              headers[key] = value;
-            });
-          } else if (Array.isArray(init.headers)) {
-            for (const [key, value] of init.headers) {
-              headers[key] = value;
-            }
-          } else {
-            headers = { ...init.headers } as Record<string, string>;
-          }
-        }
-
-        // Generate x402 payment if both signer and payment config are provided
-        if (options.payment && options.signer) {
-          try {
-            const x402Payment = await generateX402Payment(
-              options.signer,
-              options.payment
-            );
-            if (x402Payment) {
-              headers["x-payment"] = x402Payment;
-            }
-          } catch (error) {
-            console.error("Failed to generate x402 payment:", error);
-            // Continue without payment - let server handle the error
-          }
-        }
-
-        const newInit = {
-          ...init,
-          headers,
-        };
-
-        return (options.fetch || fetch)(url, newInit);
-      }
+  const customFetch = x402Wrapper
+    ? (url: string | URL | Request, init?: RequestInit) =>
+        x402Wrapper.fetch(url, init)
     : options.fetch;
 
   const createChatModel = (
@@ -181,7 +158,7 @@ export function createDreamsRouter(
     settings: OpenRouterChatSettings = {}
   ) =>
     new OpenRouterChatLanguageModel(modelId, settings, {
-      provider: "openrouter.chat",
+      provider: 'openrouter.chat',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -194,7 +171,7 @@ export function createDreamsRouter(
     settings: OpenRouterCompletionSettings = {}
   ) =>
     new OpenRouterCompletionLanguageModel(modelId, settings, {
-      provider: "openrouter.completion",
+      provider: 'openrouter.completion',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
       compatibility,
@@ -208,11 +185,11 @@ export function createDreamsRouter(
   ) => {
     if (new.target) {
       throw new Error(
-        "The OpenRouter model function cannot be called with the new keyword."
+        'The OpenRouter model function cannot be called with the new keyword.'
       );
     }
 
-    if (modelId === "openai/gpt-3.5-turbo-instruct") {
+    if (modelId === 'openai/gpt-3.5-turbo-instruct') {
       return createCompletionModel(
         modelId,
         settings as OpenRouterCompletionSettings
@@ -231,12 +208,91 @@ export function createDreamsRouter(
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
 
-  return provider as OpenRouterProvider;
+  return provider as DreamsRouterProvider;
 }
+
+// Namespace pattern implementation
+interface CreateDreamsRouterNamespace {
+  (): DreamsRouterProvider;
+  (options: DreamsRouterProviderSettings): DreamsRouterProvider;
+
+  evm(
+    signer: Account,
+    options?: Omit<DreamsRouterProviderSettings, 'signer' | 'apiKey'> & {
+      network?: 'base' | 'base-sepolia';
+      validityDuration?: number;
+    }
+  ): DreamsRouterProvider;
+
+  solana(
+    solanaSigner: SolanaSigner,
+    options?: Omit<DreamsRouterProviderSettings, 'solanaSigner' | 'apiKey'> & {
+      network?: 'solana' | 'solana-devnet';
+      validityDuration?: number;
+    }
+  ): DreamsRouterProvider;
+}
+
+// Create the main function with namespace methods attached
+const createDreamsRouterWithNamespace = ((
+  options: DreamsRouterProviderSettings = {}
+) => {
+  return createDreamsRouterBase(options);
+}) as CreateDreamsRouterNamespace;
+
+// Attach namespace methods
+createDreamsRouterWithNamespace.evm = (
+  signer: Account,
+  options: Omit<DreamsRouterProviderSettings, 'signer' | 'apiKey'> & {
+    network?: 'base' | 'base-sepolia';
+    validityDuration?: number;
+  } = {}
+): DreamsRouterProvider => {
+  return createDreamsRouterBase({
+    ...options,
+    apiKey: undefined, // No API key required
+    signer,
+    payment: {
+      network: options.network || 'base-sepolia',
+      validityDuration: options.validityDuration || 600,
+      mode: 'lazy',
+    },
+    headers: {
+      ...options.headers,
+      // Don't include Authorization header since we're using wallet payments
+    },
+  });
+};
+
+createDreamsRouterWithNamespace.solana = (
+  solanaSigner: SolanaSigner,
+  options: Omit<DreamsRouterProviderSettings, 'solanaSigner' | 'apiKey'> & {
+    network?: 'solana' | 'solana-devnet';
+    validityDuration?: number;
+  } = {}
+): DreamsRouterProvider => {
+  return createDreamsRouterBase({
+    ...options,
+    apiKey: undefined, // No API key required
+    solanaSigner,
+    payment: {
+      network: options.network || 'solana-devnet',
+      validityDuration: options.validityDuration || 600,
+      mode: 'lazy',
+    },
+    headers: {
+      ...options.headers,
+      // Don't include Authorization header since we're using wallet payments
+    },
+  });
+};
+
+// Export the namespace function
+export { createDreamsRouterWithNamespace as createDreamsRouter };
 
 /**
 Default Dreams router provider instance. It uses 'strict' compatibility mode.
  */
-export const dreamsrouter = createDreamsRouter({
-  compatibility: "strict", // strict for Dreams Router API
+export const dreamsrouter = createDreamsRouterWithNamespace({
+  compatibility: 'strict', // strict for Dreams Router API
 });
