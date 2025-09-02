@@ -1,6 +1,6 @@
 # Dreams Router Provider for Vercel AI SDK
 
-Dreams Router is an AI language model router that enables payment-integrated access to large language models through the [Vercel AI SDK](https://sdk.vercel.ai/docs). Built with x402 payment protocol support, it allows seamless micropayments within API requests, creating a foundation for intelligent microservices.
+Dreams Router is an AI model router with built‑in x402 payments for the [Vercel AI SDK](https://sdk.vercel.ai/docs). It supports EVM and Solana, API keys or wallet auth, and auto‑generates exact payment headers from server requirements.
 
 ## 🌟 Key Features
 
@@ -11,133 +11,167 @@ Dreams Router is an AI language model router that enables payment-integrated acc
 
 ## 📋 Prerequisites
 
-Before using Dreams Router, you need:
-- An account at [router.daydreams.systems](https://router.daydreams.systems)
-- Either:
-  - USDC for payment-based requests
-  - Account credit
-  - An API key for traditional authentication
+- Account at `router.daydreams.systems`
+- One of: API key, account credit, or a wallet with USDC (router returns amounts; you don’t set them manually)
 
 ## 📦 Installation
 
 ```bash
 npm install @daydreamsai/ai-sdk-provider viem x402
+
 ```
 
 ## 🚀 Quick Start
 
-### Separated Authentication - Clean & Type-Safe
+### Separated Auth (clean EVM/Solana helpers)
 
-Dreams Router supports both EVM and Solana with dedicated, clean auth functions:
-
-```typescript
-import { 
-  createEVMAuthFromPrivateKey,
-  createSolanaAuthFromPrivateKey
-} from '@daydreamsai/ai-sdk-provider';
+```ts
 import { generateText } from 'ai';
+import {
+  createEVMAuthFromPrivateKey,
+  createSolanaAuthFromPublicKey,
+} from '@daydreamsai/ai-sdk-provider';
 
-// EVM Authentication (Ethereum, Base, etc.)
+// EVM (Ethereum, Base, etc.)
 const { dreamsRouter } = await createEVMAuthFromPrivateKey(
   process.env.EVM_PRIVATE_KEY as `0x${string}`,
   {
-    payments: {
-      network: 'base-sepolia', // EVM-specific networks
-      // Router provides exact requirements - no manual amounts!
-    },
+    payments: { network: 'base-sepolia' },
   }
 );
 
-// Solana Authentication
-const { dreamsRouter: solRouter } = await createSolanaAuthFromPrivateKey(
-  process.env.SOL_PRIVATE_KEY, // base58 encoded
+// Solana (browser/wallet-style: publicKey + signMessage)
+const { dreamsRouter: solanaRouter } = await createSolanaAuthFromPublicKey(
+  process.env.SOL_PUBLIC_KEY!,
+  async ({ message }) => wallet.signMessage(message),
   {
     payments: {
-      network: 'solana-devnet', // Solana-specific networks  
-      rpcUrl: 'https://api.devnet.solana.com', // Solana-specific config
-      // Router provides exact requirements - no manual amounts!
+      network: 'solana-devnet',
+      rpcUrl: 'https://api.devnet.solana.com',
     },
   }
 );
 
-// Same AI API for both chains!
 const { text } = await generateText({
-  model: dreamsRouter('openai/gpt-4o'),
-  prompt: 'Hello from any blockchain!',
+  model: dreamsRouter('google-vertex/gemini-2.5-flash'),
+  prompt: 'Hello from Dreams Router!',
 });
 ```
 
 #### 🎯 Why Separated Functions?
 
-- **🔒 Type Safety**: EVM and Solana have different configuration options
-- **📚 Clarity**: Clear intent - you know exactly which blockchain you're using  
-- **🛠️ Specificity**: Chain-specific options (RPC URLs, network names, etc.)
-- **🔧 Maintainability**: Easy to extend with new blockchain types
-- **📦 Bundle Size**: Import only what you need
+- Type safety per chain; chain‑specific options stay clear
+- Explicit intent (EVM vs Solana), smaller bundles
 
-### API Key Authentication
+### API Key Auth
 
-For traditional authentication using API keys:
-
-```typescript
+```ts
 import { createDreamsRouter } from '@daydreamsai/ai-sdk-provider';
 import { generateText } from 'ai';
 
-// Create router with API key
 const dreamsRouter = createDreamsRouter({
-  apiKey: process.env.DREAMSROUTER_API_KEY
+  apiKey: process.env.DREAMSROUTER_API_KEY,
 });
 
-// Make AI requests
 const { text } = await generateText({
-  model: dreamsRouter('openai/gpt-4o'),
+  model: dreamsRouter('google-vertex/gemini-2.5-flash'),
   prompt: 'Hello, Dreams Router!',
 });
 ```
 
+### Namespace `.evm` / `.solana` (Node)
+
+```ts
+import {
+  createDreamsRouter,
+  type SolanaSigner,
+} from '@daydreamsai/ai-sdk-provider';
+import { privateKeyToAccount } from 'viem/accounts';
+
+// EVM via viem Account
+const evm = createDreamsRouter.evm(
+  privateKeyToAccount(process.env.EVM_PRIVATE_KEY as `0x${string}`),
+  { network: 'base-sepolia' }
+);
+
+// Solana via Node signer (base58 secret)
+const solana = createDreamsRouter.solana(
+  {
+    type: 'node',
+    secretKeyBase58: process.env.SOLANA_SECRET_KEY!,
+    rpcUrl: process.env.SOLANA_RPC_URL,
+  },
+  { network: 'solana-devnet' }
+);
+```
+
 ## 🔐 Authentication Methods
 
-Dreams Router supports three authentication methods:
+- x402 payments (wallet‑based, EVM or Solana)
+- API key
+- Session token (JWT) from wallet login
 
-1. **x402 Payment**: Send USDC payments directly in requests
-2. **API Key**: Traditional API key authentication
-3. **JWT**: JSON Web Token authentication
+## 💡 When to Use
 
-## 💡 When to Use Dreams Router
-
-Dreams Router is ideal for:
-
-- **Microservice Architecture**: Build intelligent microservices that handle their own payments
-- **Pay-per-Use AI**: Create applications where users pay directly for AI usage
-- **Decentralized Applications**: Integrate AI capabilities without centralized billing
-- **x402 Protocol Applications**: Leverage the [x402 protocol](https://github.com/x402) for payment-integrated services
+- Microservices with per‑request payments
+- Pay‑per‑use apps without billing backends
+- Wallet‑native AI integrations (EVM or Solana)
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Environment
 
 ```bash
-# For API key authentication
-DREAMSROUTER_API_KEY=your-api-key-here
+# API key auth
+DREAMSROUTER_API_KEY=...
 
-# For wallet-based authentication
-PRIVATE_KEY=0x... # Your wallet private key
+# EVM auth
+EVM_PRIVATE_KEY=0x...
+
+# Solana (Node signer)
+SOLANA_SECRET_KEY=base58-encoded-64-byte-secret
+SOLANA_RPC_URL=https://api.devnet.solana.com
+
+# Solana (wallet-style)
+SOL_PUBLIC_KEY=...
+ROUTER_BASE_URL=https://api-beta.daydreams.systems
 ```
 
-## 📚 Advanced Usage
+## 📚 Advanced
 
-### Custom Payment Configuration
+### Payment config (auto‑requirements)
 
-```typescript
-const payment = await generateX402Payment(account, {
-  amount: '500000', // $0.50 USDC for more complex operations
-  network: 'base-sepolia',
-});
+```ts
+type DreamsRouterPaymentConfig = {
+  network?:
+    | 'base'
+    | 'base-sepolia'
+    | 'avalanche'
+    | 'avalanche-fuji'
+    | 'iotex'
+    | 'solana'
+    | 'solana-devnet';
+  validityDuration?: number; // default 600s
+  mode?: 'lazy' | 'eager'; // default 'lazy'
+  rpcUrl?: string; // Solana only
+};
 ```
 
-### Model Selection
+Amounts and pay‑to addresses come from the router’s 402 response and are signed automatically.
 
-Dreams Router supports various AI models. Check the [router.daydreams.systems](https://router.daydreams.systems) dashboard for available models and their pricing.
+### Solana signer interface (Node)
+
+```ts
+type SolanaSigner = {
+  type: 'node';
+  secretKeyBase58: string; // 64‑byte secret, base58
+  rpcUrl?: string;
+};
+```
+
+### Model selection
+
+Use any model available in the dashboard; e.g. `google-vertex/gemini-2.5-flash`.
 
 ## 🤝 Contributing
 
