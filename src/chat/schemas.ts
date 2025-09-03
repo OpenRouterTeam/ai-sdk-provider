@@ -1,6 +1,7 @@
 import { z } from 'zod/v4';
 import { OpenRouterErrorResponseSchema } from '../schemas/error-response';
 import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
+import { ImageResponseArraySchema } from '../schemas/image';
 
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
@@ -41,6 +42,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
           content: z.string().nullable().optional(),
           reasoning: z.string().nullable().optional(),
           reasoning_details: ReasoningDetailArraySchema.nullish(),
+          images: ImageResponseArraySchema.nullish(),
 
           tool_calls: z
             .array(
@@ -106,6 +108,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
             content: z.string().nullish(),
             reasoning: z.string().nullish().optional(),
             reasoning_details: ReasoningDetailArraySchema.nullish(),
+            images: ImageResponseArraySchema.nullish(),
             tool_calls: z
               .array(
                 z.object({

@@ -36,6 +36,7 @@ import {
   OpenRouterNonStreamChatCompletionResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
 } from './schemas';
+import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 
 type OpenRouterChatConfig = {
   provider: string;
@@ -321,6 +322,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
+        });
+      }
+    }
+
+    if (choice.message.images) {
+      for (const image of choice.message.images) {
+        content.push({
+          type: 'file' as const,
+          mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
+          data: getBase64FromDataUrl(image.image_url.url),
         });
       }
     }
@@ -768,6 +779,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                   toolCall.sent = true;
                 }
+              }
+            }
+
+            if (delta.images != null) {
+              for (const image of delta.images) {
+                controller.enqueue({
+                  type: 'file',
+                  mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
+                  data: getBase64FromDataUrl(image.image_url.url),
+                })
               }
             }
           },
