@@ -88,6 +88,12 @@ or to provide a custom fetch implementation for e.g. testing.
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
   */
   extraBody?: Record<string, unknown>;
+
+  /**
+   * Record of provider slugs to API keys for injecting into provider routing.
+   * Maps provider slugs (e.g. "anthropic", "openai") to their respective API keys.
+   */
+  api_keys?: Record<string, string>;
 }
 
 /**
@@ -110,6 +116,9 @@ export function createOpenRouter(
       description: 'OpenRouter',
     })}`,
     ...options.headers,
+    ...(options.api_keys && Object.keys(options.api_keys).length > 0 && {
+      'X-Provider-API-Keys': JSON.stringify(options.api_keys)
+    }),
   });
 
   const createChatModel = (
