@@ -1492,4 +1492,82 @@ describe('doStream', () => {
       },
     });
   });
+
+  it('should pass responseFormat for JSON schema structured outputs and tools', async () => {
+    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          description: 'Test tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'tool',
+        toolName: 'test-tool',
+      },
+    };
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'test-tool',
+            description: 'Test tool',
+            parameters: {
+              type: 'object',
+              properties: { value: { type: 'string' } },
+              required: ['value'],
+              additionalProperties: false,
+              $schema: 'http://json-schema.org/draft-07/schema#',
+            },
+          },
+        },
+      ],
+      tool_choice: {
+        type: 'function',
+        function: { name: 'test-tool' },
+      },
+    });
+  });
 });
