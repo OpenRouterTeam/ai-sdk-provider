@@ -5,6 +5,7 @@ import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
+
 import { createLLMGateway } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 
@@ -708,10 +709,11 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     // Filter for reasoning-related elements
-    const reasoningElements = elements.filter(el =>
-      el.type === 'reasoning-start' ||
-      el.type === 'reasoning-delta' ||
-      el.type === 'reasoning-end'
+    const reasoningElements = elements.filter(
+      (el) =>
+        el.type === 'reasoning-start' ||
+        el.type === 'reasoning-delta' ||
+        el.type === 'reasoning-end',
     );
 
     // Debug output to see what we're getting
@@ -724,14 +726,17 @@ describe('doStream', () => {
 
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
-      .filter(el => el.type === 'reasoning-delta')
-      .map(el => (el as { type: 'reasoning-delta'; delta: string; id: string }).delta);
+      .filter((el) => el.type === 'reasoning-delta')
+      .map(
+        (el) =>
+          (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
+      );
 
     expect(reasoningDeltas).toEqual([
-      'Let me think about this...',  // from reasoning_details text
-      'User wants a greeting',        // from reasoning_details summary
-      '[REDACTED]',                   // from reasoning_details encrypted
-      'This reasoning is used',       // from reasoning field (no reasoning_details)
+      'Let me think about this...', // from reasoning_details text
+      'User wants a greeting', // from reasoning_details summary
+      '[REDACTED]', // from reasoning_details encrypted
+      'This reasoning is used', // from reasoning field (no reasoning_details)
     ]);
 
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output

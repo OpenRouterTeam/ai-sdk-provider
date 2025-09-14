@@ -2,6 +2,7 @@ import type { LLMGatewayChatSettings } from '../types/llmgateway-chat-settings';
 
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
+
 import { LLMGatewayChatLanguageModel } from '../chat';
 
 describe('LLMGateway Usage Accounting', () => {

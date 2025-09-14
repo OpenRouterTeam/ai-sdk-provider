@@ -1,3 +1,6 @@
+import type { FinishReason } from 'ai';
+import type { z } from 'zod/v4';
+import type { LLMGatewayChatModelId } from '@/src/types/llmgateway-chat-settings';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
@@ -5,13 +8,8 @@ import type {
   LanguageModelV2Usage,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
-import type { z } from 'zod/v4';
 import type { LLMGatewayUsageAccounting } from '../types';
-import type {
-  LLMGatewayCompletionModelId,
-  LLMGatewayCompletionSettings,
-} from '../types/llmgateway-completion-settings';
+import type { LLMGatewayCompletionSettings } from '../types/llmgateway-completion-settings';
 
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import {
@@ -21,6 +19,7 @@ import {
   generateId,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
+
 import { llmgatewayFailedResponseHandler } from '../schemas/error-response';
 import { mapLLMGatewayFinishReason } from '../utils/map-finish-reason';
 import { convertToLLMGatewayCompletionPrompt } from './convert-to-llmgateway-completion-prompt';
@@ -38,7 +37,7 @@ type LLMGatewayCompletionConfig = {
 export class LLMGatewayCompletionLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider = 'llmgateway';
-  readonly modelId: LLMGatewayCompletionModelId;
+  readonly modelId: LLMGatewayChatModelId;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
@@ -53,7 +52,7 @@ export class LLMGatewayCompletionLanguageModel implements LanguageModelV2 {
   private readonly config: LLMGatewayCompletionConfig;
 
   constructor(
-    modelId: LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings: LLMGatewayCompletionSettings,
     config: LLMGatewayCompletionConfig,
   ) {

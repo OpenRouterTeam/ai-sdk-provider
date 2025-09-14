@@ -1,12 +1,4 @@
 import type { LLMGatewaySharedSettings } from '.';
-import type { models, Provider } from '../models';
-
-type ProviderModelName =
-  (typeof models)[number]['providers'][number]['modelName'];
-
-export type LLMGatewayCompletionModelId =
-  | (typeof models)[number]['id']
-  | `${Provider}/${ProviderModelName}`;
 
 export type LLMGatewayCompletionSettings = {
   /**

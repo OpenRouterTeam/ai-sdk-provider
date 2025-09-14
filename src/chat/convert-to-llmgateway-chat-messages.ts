@@ -1,3 +1,4 @@
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   LanguageModelV2FilePart,
   LanguageModelV2Prompt,
@@ -5,13 +6,13 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   LLMGatewayChatCompletionsInput,
 } from '../types/llmgateway-chat-completions-input';
 
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 

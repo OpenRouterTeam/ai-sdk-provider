@@ -3,10 +3,7 @@ import type {
   LLMGatewayChatModelId,
   LLMGatewayChatSettings,
 } from './types/llmgateway-chat-settings';
-import type {
-  LLMGatewayCompletionModelId,
-  LLMGatewayCompletionSettings,
-} from './types/llmgateway-completion-settings';
+import type { LLMGatewayCompletionSettings } from './types/llmgateway-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 
@@ -46,7 +43,7 @@ Creates an LLMGateway chat model for text generation.
 Creates an LLMGateway completion model for text generation.
    */
   completion(
-    modelId: LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings?: LLMGatewayCompletionSettings,
   ): LLMGatewayCompletionLanguageModel;
 }
@@ -127,7 +124,7 @@ export function createLLMGateway(
     });
 
   const createCompletionModel = (
-    modelId: LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings: LLMGatewayCompletionSettings = {},
   ) =>
     new LLMGatewayCompletionLanguageModel(modelId, settings, {
@@ -140,7 +137,7 @@ export function createLLMGateway(
     });
 
   const createLanguageModel = (
-    modelId: LLMGatewayChatModelId | LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings?: LLMGatewayChatSettings | LLMGatewayCompletionSettings,
   ) => {
     if (new.target) {
@@ -160,7 +157,7 @@ export function createLLMGateway(
   };
 
   const provider = (
-    modelId: LLMGatewayChatModelId | LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings?: LLMGatewayChatSettings | LLMGatewayCompletionSettings,
   ) => createLanguageModel(modelId, settings);
 

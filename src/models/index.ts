@@ -18,8 +18,6 @@ import { zaiModels } from './zai';
 
 export type Provider = (typeof providers)[number]['id'];
 
-export type Model = (typeof models)[number]['providers'][number]['modelName'];
-
 export interface ProviderModelMapping {
   providerId: (typeof providers)[number]['id'];
   modelName: string;

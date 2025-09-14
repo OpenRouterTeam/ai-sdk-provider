@@ -3,6 +3,7 @@ import type { ModelMessage } from 'ai';
 import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
+
 import { createLLMGateway } from '../provider';
 
 // Add type assertions for the mocked classes

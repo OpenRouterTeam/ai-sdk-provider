@@ -5,6 +5,7 @@ import {
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
+
 import { LLMGatewayChatLanguageModel } from '../chat';
 
 describe('LLMGateway Streaming Usage Accounting', () => {

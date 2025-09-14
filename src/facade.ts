@@ -3,12 +3,10 @@ import type {
   LLMGatewayChatModelId,
   LLMGatewayChatSettings,
 } from './types/llmgateway-chat-settings';
-import type {
-  LLMGatewayCompletionModelId,
-  LLMGatewayCompletionSettings,
-} from './types/llmgateway-completion-settings';
+import type { LLMGatewayCompletionSettings } from './types/llmgateway-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+
 import { LLMGatewayChatLanguageModel } from './chat';
 import { LLMGatewayCompletionLanguageModel } from './completion';
 
@@ -68,7 +66,7 @@ Custom headers to include in the requests.
   }
 
   completion(
-    modelId: LLMGatewayCompletionModelId,
+    modelId: LLMGatewayChatModelId,
     settings: LLMGatewayCompletionSettings = {},
   ) {
     return new LLMGatewayCompletionLanguageModel(modelId, settings, {

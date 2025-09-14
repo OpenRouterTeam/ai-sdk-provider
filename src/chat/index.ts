@@ -1,3 +1,7 @@
+import type { FinishReason } from 'ai';
+import type { z } from 'zod/v4';
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { LLMGatewayUsageAccounting } from '@/src/types/index';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
@@ -10,14 +14,12 @@ import type {
   SharedV2Headers,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
-import type { z } from 'zod/v4';
-import type { LLMGatewayUsageAccounting } from '@/src/types/index';
 import type {
   LLMGatewayChatModelId,
   LLMGatewayChatSettings,
 } from '../types/llmgateway-chat-settings';
 
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { InvalidResponseDataError } from '@ai-sdk/provider';
 import {
   combineHeaders,
@@ -27,7 +29,7 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+
 import { llmgatewayFailedResponseHandler } from '../schemas/error-response';
 import { mapLLMGatewayFinishReason } from '../utils/map-finish-reason';
 import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
@@ -276,7 +278,10 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
               }
               return null;
             })
-            .filter((p: LanguageModelV2Content | null): p is LanguageModelV2Content => p !== null)
+            .filter(
+              (p: LanguageModelV2Content | null): p is LanguageModelV2Content =>
+                p !== null,
+            )
         : choice.message.reasoning
           ? [
               {
@@ -524,7 +529,6 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
               });
             };
 
-            
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {

@@ -2,11 +2,9 @@ import type { LLMGatewaySharedSettings } from '..';
 import type { models, Provider } from '../models';
 
 // Available models can be found at the LLMGateway API endpoint
-type ProviderModelName =
-  (typeof models)[number]['providers'][number]['modelName'];
 export type LLMGatewayChatModelId =
   | (typeof models)[number]['id']
-  | `${Provider}/${ProviderModelName}`
+  | `${Provider}/${(typeof models)[number]['id']}`
   | 'test-model';
 
 export type LLMGatewayChatSettings = {
