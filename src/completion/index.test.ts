@@ -4,6 +4,7 @@ import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
+
 import { createLLMGateway } from '../provider';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
@@ -42,7 +43,7 @@ const provider = createLLMGateway({
   compatibility: 'strict',
 });
 
-const model = provider.completion('openai/gpt-3.5-turbo-instruct');
+const model = provider.completion('openai/gpt-3.5-turbo');
 
 describe('doGenerate', () => {
   const server = createTestServer({
@@ -80,7 +81,7 @@ describe('doGenerate', () => {
         id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
         object: 'text_completion',
         created: 1711363706,
-        model: 'openai/gpt-3.5-turbo-instruct',
+        model: 'openai/gpt-3.5-turbo',
         choices: [
           {
             text: content,
@@ -144,7 +145,7 @@ describe('doGenerate', () => {
     });
 
     const { finishReason } = await provider
-      .completion('openai/gpt-3.5-turbo-instruct')
+      .completion('openai/gpt-3.5-turbo')
       .doGenerate({
         prompt: TEST_PROMPT,
       });
@@ -159,7 +160,7 @@ describe('doGenerate', () => {
     });
 
     const { finishReason } = await provider
-      .completion('openai/gpt-3.5-turbo-instruct')
+      .completion('openai/gpt-3.5-turbo')
       .doGenerate({
         prompt: TEST_PROMPT,
       });
@@ -175,7 +176,7 @@ describe('doGenerate', () => {
     });
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'openai/gpt-3.5-turbo-instruct',
+      model: 'openai/gpt-3.5-turbo',
       prompt: 'Hello',
     });
   });
@@ -183,7 +184,7 @@ describe('doGenerate', () => {
   it('should pass the models array when provided', async () => {
     prepareJsonResponse({ content: '' });
 
-    const customModel = provider.completion('openai/gpt-3.5-turbo-instruct', {
+    const customModel = provider.completion('openai/gpt-3.5-turbo', {
       models: ['openai/gpt-4', 'claude-3-5-sonnet'],
     });
 
@@ -192,7 +193,7 @@ describe('doGenerate', () => {
     });
 
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'openai/gpt-3.5-turbo-instruct',
+      model: 'openai/gpt-3.5-turbo',
       models: ['openai/gpt-4', 'claude-3-5-sonnet'],
       prompt: 'Hello',
     });
@@ -208,7 +209,7 @@ describe('doGenerate', () => {
       },
     });
 
-    await provider.completion('openai/gpt-3.5-turbo-instruct').doGenerate({
+    await provider.completion('openai/gpt-3.5-turbo').doGenerate({
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',
@@ -260,12 +261,12 @@ describe('doStream', () => {
       type: 'stream-chunks',
       chunks: [
         ...content.map((text) => {
-          return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`;
+          return `data: {"id":"cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo"}\n\n`;
         }),
         `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":${JSON.stringify(
           logprobs,
-        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
-        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":${JSON.stringify(
+        )},"finish_reason":"${finish_reason}"}],"model":"openai/gpt-3.5-turbo"}\n\n`,
+        `data: {"id":"cmpl-96c3yLQE1TtZCd6n6OILVmzev8M8H","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo","usage":${JSON.stringify(
           usage,
         )},"choices":[]}\n\n`,
         'data: [DONE]\n\n',
@@ -408,7 +409,7 @@ describe('doStream', () => {
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
-      model: 'openai/gpt-3.5-turbo-instruct',
+      model: 'openai/gpt-3.5-turbo',
       prompt: 'Hello',
     });
   });
@@ -423,7 +424,7 @@ describe('doStream', () => {
       },
     });
 
-    await provider.completion('openai/gpt-3.5-turbo-instruct').doStream({
+    await provider.completion('openai/gpt-3.5-turbo').doStream({
       prompt: TEST_PROMPT,
       headers: {
         'Custom-Request-Header': 'request-header-value',

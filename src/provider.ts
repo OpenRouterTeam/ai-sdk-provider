@@ -9,6 +9,7 @@ import type {
 } from './types/llmgateway-completion-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+
 import { LLMGatewayChatLanguageModel } from './chat';
 import { LLMGatewayCompletionLanguageModel } from './completion';
 
@@ -148,7 +149,7 @@ export function createLLMGateway(
       );
     }
 
-    if (modelId === 'openai/gpt-3.5-turbo-instruct') {
+    if (modelId === 'openai/gpt-3.5-turbo') {
       return createCompletionModel(
         modelId,
         settings as LLMGatewayCompletionSettings,

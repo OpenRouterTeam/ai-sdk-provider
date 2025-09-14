@@ -15,10 +15,6 @@
     "**/.swc": true,
     "**/*.log": true
   },
-  "workbench.colorCustomizations": {
-    "titleBar.activeForeground": "#eee",
-    "titleBar.activeBackground": "#f4f" // Change this color!
-  },
   "editor.formatOnSave": true,
   "files.insertFinalNewline": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
