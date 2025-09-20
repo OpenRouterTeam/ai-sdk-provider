@@ -57,6 +57,10 @@ monitor and detect abuse. Learn more.
      * Custom search prompt to guide the search query
      */
     search_prompt?: string;
+    /**
+     * Search engine to use (default: `exa`)
+     */
+    engine?: 'native' | 'exa' | undefined;
   }>;
 
   /**
@@ -71,6 +75,14 @@ monitor and detect abuse. Learn more.
      * Custom search prompt to guide the search query
      */
     search_prompt?: string;
+    /**
+     * Determines which search engine to use
+     * • "native" — use provider’s `built-in` web search
+     * • "exa" — use `Exa's` search API
+     * • undefined — native if supported, otherwise `Exa`
+     * @see https://openrouter.ai/docs/features/web-search
+     */
+    engine?: 'native' | 'exa' | undefined;
   };
 
   /**
