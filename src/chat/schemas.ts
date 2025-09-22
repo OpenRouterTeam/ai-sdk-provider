@@ -2,6 +2,7 @@ import { z } from 'zod/v4';
 import { OpenRouterErrorResponseSchema } from '../schemas/error-response';
 import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
 import { ImageResponseArraySchema } from '../schemas/image';
+import { AnnotationArraySchema } from '../schemas/annotations';
 
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
@@ -43,6 +44,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
           reasoning: z.string().nullable().optional(),
           reasoning_details: ReasoningDetailArraySchema.nullish(),
           images: ImageResponseArraySchema.nullish(),
+          annotations: AnnotationArraySchema.nullish(),
 
           tool_calls: z
             .array(
@@ -56,21 +58,6 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
               }),
             )
             .optional(),
-
-          annotations: z
-            .array(
-              z.object({
-                type: z.enum(['url_citation']),
-                url_citation: z.object({
-                  end_index: z.number(),
-                  start_index: z.number(),
-                  title: z.string(),
-                  url: z.string(),
-                  content: z.string().optional(),
-                }),
-              }),
-            )
-            .nullish(),
         }),
         index: z.number().nullish(),
         logprobs: z
@@ -109,6 +96,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
             reasoning: z.string().nullish().optional(),
             reasoning_details: ReasoningDetailArraySchema.nullish(),
             images: ImageResponseArraySchema.nullish(),
+            annotations: AnnotationArraySchema.nullish(),
             tool_calls: z
               .array(
                 z.object({
@@ -118,21 +106,6 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                   function: z.object({
                     name: z.string().nullish(),
                     arguments: z.string().nullish(),
-                  }),
-                }),
-              )
-              .nullish(),
-
-            annotations: z
-              .array(
-                z.object({
-                  type: z.enum(['url_citation']),
-                  url_citation: z.object({
-                    end_index: z.number(),
-                    start_index: z.number(),
-                    title: z.string(),
-                    url: z.string(),
-                    content: z.string().optional(),
                   }),
                 }),
               )

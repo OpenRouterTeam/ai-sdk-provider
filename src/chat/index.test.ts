@@ -1,5 +1,6 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
+import type { AnnotationUnion } from '../schemas/annotations';
 
 import {
   convertReadableStreamToArray,
@@ -131,6 +132,7 @@ describe('doGenerate', () => {
     reasoning,
     reasoning_details,
     images,
+    annotations,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -143,6 +145,7 @@ describe('doGenerate', () => {
     reasoning?: string;
     reasoning_details?: Array<ReasoningDetailUnion>;
     images?: Array<ImageResponse>;
+    annotations?: Array<AnnotationUnion>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -175,6 +178,7 @@ describe('doGenerate', () => {
               reasoning,
               reasoning_details,
               images,
+              annotations,
             },
             logprobs,
             finish_reason,
@@ -612,6 +616,73 @@ describe('doGenerate', () => {
       },
     ]);
   });
+
+  it('should handle file annotations', async () => {
+    prepareJsonResponse({
+      content: 'Here is the document summary.',
+      annotations: [
+        {
+          type: 'file',
+          file: {
+            hash: '666ad042331aa9cfd0a5d334fc96825be408e71a428f7508225d99d4354e202c',
+            name: 'document.pdf',
+            content: [{ type: 'text', text: 'Sample document content' }],
+          },
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'text',
+        text: 'Here is the document summary.',
+      },
+    ]);
+  });
+
+  it('should handle url_citation annotations', async () => {
+    prepareJsonResponse({
+      content: 'Here is some information from a source.',
+      annotations: [
+        {
+          type: 'url_citation',
+          url_citation: {
+            end_index: 414,
+            start_index: 327,
+            title: 'What to see at Berlin Art Week 2025 | Wallpaper*',
+            url: 'https://www.wallpaper.com/art/exhibitions-shows/berlin-art-week-2025',
+          },
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'text',
+        text: 'Here is some information from a source.',
+      },
+      {
+        type: 'source',
+        sourceType: 'url',
+        id: 'https://www.wallpaper.com/art/exhibitions-shows/berlin-art-week-2025',
+        url: 'https://www.wallpaper.com/art/exhibitions-shows/berlin-art-week-2025',
+        title: 'What to see at Berlin Art Week 2025 | Wallpaper*',
+        providerMetadata: {
+          openrouter: {
+            content: '',
+          },
+        },
+      },
+    ]);
+  });
 });
 
 describe('doStream', () => {
@@ -899,8 +970,8 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type);
+
     // Find the positions of key events
     const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
     const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
@@ -926,10 +997,7 @@ describe('doStream', () => {
       .filter((el) => el.type === 'text-delta')
       .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
   it('should stream tool deltas', async () => {

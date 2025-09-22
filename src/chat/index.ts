@@ -351,6 +351,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               },
             },
           });
+        } else if (annotation.type === 'file') {
+          // File annotations are handled but not currently converted to content
+          // This allows the schema to parse them without breaking
         }
       }
     }
@@ -648,6 +651,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                       },
                     },
                   });
+                } else if (annotation.type === 'file') {
+                  // File annotations are handled but not currently converted to stream events
+                  // This allows the schema to parse them without breaking
                 }
               }
             }
@@ -788,7 +794,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
                   data: getBase64FromDataUrl(image.image_url.url),
-                })
+                });
               }
             }
           },
@@ -832,12 +838,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             } = {
               usage: openrouterUsage,
             };
-            
+
             // Only include provider if it's actually set
             if (provider !== undefined) {
               openrouterMetadata.provider = provider;
             }
-            
+
             controller.enqueue({
               type: 'finish',
               finishReason,
