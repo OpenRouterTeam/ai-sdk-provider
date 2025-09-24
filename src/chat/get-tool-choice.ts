@@ -16,6 +16,13 @@ const ChatCompletionToolChoiceSchema = z.union([
 
 type ChatCompletionToolChoice = z.infer<typeof ChatCompletionToolChoiceSchema>;
 
+/**
+ * Gets the chat completion tool choice from the language model tool choice.
+ *
+ * @param {LanguageModelV2ToolChoice} toolChoice - The language model tool choice to convert.
+ * @returns {ChatCompletionToolChoice} The chat completion tool choice.
+ * @throws {Error} If the tool choice type is invalid.
+ */
 export function getChatCompletionToolChoice(
   toolChoice: LanguageModelV2ToolChoice,
 ): ChatCompletionToolChoice {

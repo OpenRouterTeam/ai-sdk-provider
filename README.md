@@ -2,7 +2,20 @@
 
 The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
 
-## Setup for AI SDK v5
+## Overview
+
+This provider allows you to use the Vercel AI SDK with the OpenRouter API. It provides a seamless integration, allowing you to leverage the power of OpenRouter's extensive model catalog with the convenience of the AI SDK.
+
+## Features
+
+- **Access to over 300 models**: Use any of the models available on OpenRouter, including the latest open-source and proprietary models.
+- **Chat and completion APIs**: Use both the chat and completion APIs, with support for streaming and non-streaming responses.
+- **Tool support**: Use tools with supported models to build powerful applications.
+- **Usage accounting**: Track your token usage and costs with OpenRouter's usage accounting feature.
+- **Anthropic prompt caching**: Leverage Anthropic's prompt caching for faster and cheaper responses.
+- **Provider routing**: Control how your requests are routed to different providers.
+
+## Setup
 
 ```bash
 # For pnpm
@@ -15,26 +28,23 @@ npm install @openrouter/ai-sdk-provider
 yarn add @openrouter/ai-sdk-provider
 ```
 
-## (LEGACY) Setup for AI SDK v4
-
-```bash
-# For pnpm
-pnpm add @openrouter/ai-sdk-provider@ai-sdk-v4
-
-# For npm
-npm install @openrouter/ai-sdk-provider@ai-sdk-v4
-
-# For yarn
-yarn add @openrouter/ai-sdk-provider@ai-sdk-v4
-
-```
-
 ## Provider Instance
 
 You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
 
 ```ts
 import { openrouter } from '@openrouter/ai-sdk-provider';
+```
+
+You can also create your own provider instance with custom settings:
+
+```ts
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+const openrouter = createOpenRouter({
+  apiKey: 'YOUR_API_KEY',
+  baseURL: 'https://my-proxy.com/api/v1',
+});
 ```
 
 ## Example
@@ -197,3 +207,7 @@ if (result.providerMetadata?.openrouter?.usage) {
   );
 }
 ```
+
+## API Reference
+
+The full API reference is available in the [generated documentation](<LINK_TO_GENERATED_DOCS>).

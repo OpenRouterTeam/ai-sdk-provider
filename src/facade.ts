@@ -58,6 +58,13 @@ Custom headers to include in the requests.
     };
   }
 
+  /**
+   * Creates a new chat model.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the chat model to use.
+   * @param {OpenRouterChatSettings} [settings={}] - The settings for the chat model.
+   * @returns {OpenRouterChatLanguageModel} A new chat model instance.
+   */
   chat(modelId: OpenRouterChatModelId, settings: OpenRouterChatSettings = {}) {
     return new OpenRouterChatLanguageModel(modelId, settings, {
       provider: 'openrouter.chat',
@@ -67,6 +74,13 @@ Custom headers to include in the requests.
     });
   }
 
+  /**
+   * Creates a new completion model.
+   *
+   * @param {OpenRouterCompletionModelId} modelId - The ID of the completion model to use.
+   * @param {OpenRouterCompletionSettings} [settings={}] - The settings for the completion model.
+   * @returns {OpenRouterCompletionLanguageModel} A new completion model instance.
+   */
   completion(
     modelId: OpenRouterCompletionModelId,
     settings: OpenRouterCompletionSettings = {},

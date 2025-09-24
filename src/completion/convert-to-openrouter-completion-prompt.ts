@@ -12,6 +12,18 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 
+/**
+ * Converts a language model prompt to the OpenRouter completion prompt format.
+ *
+ * @param {object} options - The options for the conversion.
+ * @param {LanguageModelV2Prompt} options.prompt - The prompt to convert.
+ * @param {'prompt' | 'messages'} options.inputFormat - The input format of the prompt.
+ * @param {string} [options.user='user'] - The user role label.
+ * @param {string} [options.assistant='assistant'] - The assistant role label.
+ * @returns {{ prompt: string }} The converted prompt.
+ * @throws {InvalidPromptError} If the prompt is invalid.
+ * @throws {UnsupportedFunctionalityError} If the prompt contains unsupported functionality.
+ */
 export function convertToOpenRouterCompletionPrompt({
   prompt,
   inputFormat,

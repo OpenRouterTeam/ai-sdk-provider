@@ -15,7 +15,10 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
-// Type for OpenRouter Cache Control following Anthropic's pattern
+/**
+ * Type for OpenRouter Cache Control, following Anthropic's pattern.
+ * It is used to control caching behavior for requests.
+ */
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
@@ -31,6 +34,12 @@ function getCacheControl(
     anthropic?.cache_control) as OpenRouterCacheControl | undefined;
 }
 
+/**
+ * Converts a prompt from the AI SDK V2 format to the OpenRouter Chat Completions format.
+ *
+ * @param {LanguageModelV2Prompt} prompt - The prompt to convert.
+ * @returns {OpenRouterChatCompletionsInput} The converted prompt in OpenRouter format.
+ */
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {

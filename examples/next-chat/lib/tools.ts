@@ -6,6 +6,9 @@ function roundTo(value: number, decimals: number) {
   return Math.round(value * factor) / factor;
 }
 
+/**
+ * A tool for getting the current weather.
+ */
 export const getCurrentWeather = tool({
   description:
     'Look up an approximate weather report for a location. Useful for travel planning or casual questions.',
@@ -39,6 +42,9 @@ export const getCurrentWeather = tool({
   },
 });
 
+/**
+ * A tool for getting the current time.
+ */
 export const getCurrentTime = tool({
   description:
     'Return the current local time for a requested IANA timezone or city description. '
@@ -76,6 +82,9 @@ export const getCurrentTime = tool({
   },
 });
 
+/**
+ * A set of basic tools that can be used by the assistant.
+ */
 export const BASIC_TOOLS = {
   getCurrentWeather,
   getCurrentTime,

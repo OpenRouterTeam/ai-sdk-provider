@@ -35,6 +35,13 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
+/**
+ * A concrete implementation of a language model that interacts with the OpenRouter API for completions.
+ * This class is responsible for making API calls to OpenRouter for text completions.
+ * It handles both streaming and non-streaming responses.
+ *
+ * @implements {LanguageModelV2}
+ */
 export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
@@ -136,6 +143,14 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     };
   }
 
+  /**
+   * Performs a non-streaming generation task.
+   * It sends a request to the OpenRouter API and returns the result as a promise.
+   *
+   * @param {LanguageModelV2CallOptions} options - The options for the language model call.
+   * @returns {Promise<object>} A promise that resolves to an object containing the content, finish reason, usage, and other metadata.
+   * @throws {Error} If the response from the API is invalid or does not contain a choice.
+   */
   async doGenerate(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
@@ -198,6 +213,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     };
   }
 
+  /**
+   * Performs a streaming generation task.
+   * It sends a request to the OpenRouter API and returns a readable stream of the response.
+   *
+   * @param {LanguageModelV2CallOptions} options - The options for the language model call.
+   * @returns {Promise<object>} A promise that resolves to an object containing the stream, warnings, and other metadata.
+   */
   async doStream(
     options: LanguageModelV2CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {

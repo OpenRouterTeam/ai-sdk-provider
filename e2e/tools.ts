@@ -9,6 +9,9 @@ const openrouter = createOpenRouter({
   baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
 });
 
+/**
+ * A tool for sending an SMS message.
+ */
 export const sendSMSTool = tool({
   description: 'Send an SMS to any phone number',
   inputSchema: z.object({
@@ -24,6 +27,9 @@ export const sendSMSTool = tool({
   },
 });
 
+/**
+ * A tool for reading an SMS message.
+ */
 export const readSMSTool = tool({
   description: 'Read the nth SMS from a phone number',
   inputSchema: z.object({
@@ -39,6 +45,9 @@ export const readSMSTool = tool({
   },
 });
 
+/**
+ * A tool for executing a command in the terminal.
+ */
 export const executeCommandInTerminalTool = tool({
   description: 'Execute a command in the terminal',
   inputSchema: z.object({

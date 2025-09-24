@@ -31,8 +31,11 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
     })
     .nullish(),
 });
-// limited version of the schema, focussed on what is needed for the implementation
-// this approach limits breakages when the API changes and increases efficiency
+/**
+ * Zod schema for the response of a non-streaming OpenRouter chat completion.
+ * It is a limited version of the schema, focussed on what is needed for the implementation.
+ * This approach limits breakages when the API changes and increases efficiency.
+ */
 export const OpenRouterNonStreamChatCompletionResponseSchema =
   OpenRouterChatCompletionBaseResponseSchema.extend({
     choices: z.array(
@@ -96,8 +99,11 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
       }),
     ),
   });
-// limited version of the schema, focussed on what is needed for the implementation
-// this approach limits breakages when the API changes and increases efficiency
+/**
+ * Zod schema for a chunk of a streaming OpenRouter chat completion.
+ * It is a limited version of the schema, focussed on what is needed for the implementation.
+ * This approach limits breakages when the API changes and increases efficiency.
+ */
 export const OpenRouterStreamChatCompletionChunkSchema = z.union([
   OpenRouterChatCompletionBaseResponseSchema.extend({
     choices: z.array(

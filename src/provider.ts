@@ -14,27 +14,62 @@ import { OpenRouterCompletionLanguageModel } from './completion';
 
 export type { OpenRouterCompletionSettings };
 
+/**
+ * A provider for the OpenRouter API.
+ */
 export interface OpenRouterProvider extends LanguageModelV2 {
+  /**
+   * Creates a new OpenRouter language model.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the model to use.
+   * @param {OpenRouterCompletionSettings} [settings] - The settings for the model.
+   * @returns {OpenRouterCompletionLanguageModel} A new completion model instance.
+   */
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
   ): OpenRouterCompletionLanguageModel;
+  /**
+   * Creates a new OpenRouter language model.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the model to use.
+   * @param {OpenRouterChatSettings} [settings] - The settings for the model.
+   * @returns {OpenRouterChatLanguageModel} A new chat model instance.
+   */
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterChatSettings,
   ): OpenRouterChatLanguageModel;
 
+  /**
+   * Creates a new OpenRouter language model.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the model to use.
+   * @param {OpenRouterCompletionSettings} [settings] - The settings for the model.
+   * @returns {OpenRouterCompletionLanguageModel} A new completion model instance.
+   */
   languageModel(
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
   ): OpenRouterCompletionLanguageModel;
+  /**
+   * Creates a new OpenRouter language model.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the model to use.
+   * @param {OpenRouterChatSettings} [settings] - The settings for the model.
+   * @returns {OpenRouterChatLanguageModel} A new chat model instance.
+   */
   languageModel(
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterChatSettings,
   ): OpenRouterChatLanguageModel;
 
   /**
-Creates an OpenRouter chat model for text generation.
+   * Creates an OpenRouter chat model for text generation.
+   *
+   * @param {OpenRouterChatModelId} modelId - The ID of the chat model to use.
+   * @param {OpenRouterChatSettings} [settings] - The settings for the chat model.
+   * @returns {OpenRouterChatLanguageModel} A new chat model instance.
    */
   chat(
     modelId: OpenRouterChatModelId,
@@ -42,7 +77,11 @@ Creates an OpenRouter chat model for text generation.
   ): OpenRouterChatLanguageModel;
 
   /**
-Creates an OpenRouter completion model for text generation.
+   * Creates an OpenRouter completion model for text generation.
+   *
+   * @param {OpenRouterCompletionModelId} modelId - The ID of the completion model to use.
+   * @param {OpenRouterCompletionSettings} [settings] - The settings for the completion model.
+   * @returns {OpenRouterCompletionLanguageModel} A new completion model instance.
    */
   completion(
     modelId: OpenRouterCompletionModelId,
@@ -50,43 +89,46 @@ Creates an OpenRouter completion model for text generation.
   ): OpenRouterCompletionLanguageModel;
 }
 
+/**
+ * Settings for the OpenRouter provider.
+ */
 export interface OpenRouterProviderSettings {
   /**
-Base URL for the OpenRouter API calls.
-     */
+   * Base URL for the OpenRouter API calls.
+   */
   baseURL?: string;
 
   /**
-@deprecated Use `baseURL` instead.
-     */
+   * @deprecated Use `baseURL` instead.
+   */
   baseUrl?: string;
 
   /**
-API key for authenticating requests.
-     */
+   * API key for authenticating requests.
+   */
   apiKey?: string;
 
   /**
-Custom headers to include in the requests.
-     */
+   * Custom headers to include in the requests.
+   */
   headers?: Record<string, string>;
 
   /**
-OpenRouter compatibility mode. Should be set to `strict` when using the OpenRouter API,
-and `compatible` when using 3rd party providers. In `compatible` mode, newer
-information such as streamOptions are not being sent. Defaults to 'compatible'.
+   * OpenRouter compatibility mode. Should be set to `strict` when using the OpenRouter API,
+   * and `compatible` when using 3rd party providers. In `compatible` mode, newer
+   * information such as streamOptions are not being sent. Defaults to 'compatible'.
    */
   compatibility?: 'strict' | 'compatible';
 
   /**
-Custom fetch implementation. You can use it as a middleware to intercept requests,
-or to provide a custom fetch implementation for e.g. testing.
-    */
+   * Custom fetch implementation. You can use it as a middleware to intercept requests,
+   * or to provide a custom fetch implementation for e.g. testing.
+   */
   fetch?: typeof fetch;
 
   /**
-A JSON object to send as the request body to access OpenRouter features & upstream provider features.
-  */
+   * A JSON object to send as the request body to access OpenRouter features & upstream provider features.
+   */
   extraBody?: Record<string, unknown>;
 }
 

@@ -1,12 +1,33 @@
+/**
+ * Represents a model option in the UI.
+ */
 export interface ModelOption {
+  /**
+   * The ID of the model.
+   */
   id: string;
+  /**
+   * The label for the model.
+   */
   label: string;
+  /**
+   * A description of the model.
+   */
   description: string;
+  /**
+   * Whether the model supports tools.
+   */
   supportsTools: boolean;
 }
 
+/**
+ * The mode for using tools.
+ */
 export type ToolMode = 'auto' | 'disabled';
 
+/**
+ * The available model options.
+ */
 export const MODEL_OPTIONS: ModelOption[] = [
   {
     id: 'openai/gpt-4.1-mini',
@@ -31,10 +52,19 @@ export const MODEL_OPTIONS: ModelOption[] = [
   },
 ];
 
+/**
+ * The default model ID.
+ */
 export const DEFAULT_MODEL_ID = MODEL_OPTIONS[0]?.id ?? 'openai/gpt-4.1-mini';
 
+/**
+ * The default tool mode.
+ */
 export const DEFAULT_TOOL_MODE: ToolMode = 'auto';
 
+/**
+ * The default system prompt.
+ */
 export const DEFAULT_SYSTEM_PROMPT =
   'You are an expert assistant running on OpenRouter. Provide concise, actionable answers, '
   + 'call the available tools when they make the response more helpful, and always explain how '
