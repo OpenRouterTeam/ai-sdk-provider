@@ -1,4 +1,5 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
@@ -7,7 +8,6 @@ import {
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
-import type { ImageResponse } from '../schemas/image';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -408,6 +408,32 @@ describe('doGenerate', () => {
     expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
       model: 'anthropic/claude-3.5-sonnet',
       models: ['anthropic/claude-2', 'gryphe/mythomax-l2-13b'],
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+  });
+
+  it('should support 0G Compute Network models', async () => {
+    prepareJsonResponse({ content: 'Test response from 0G model' });
+
+    // Test Llama 3.3 70B model
+    const llamaModel = provider.chat('0g/llama-3.3-70b-instruct');
+    await llamaModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: '0g/llama-3.3-70b-instruct',
+      messages: [{ role: 'user', content: 'Hello' }],
+    });
+
+    // Test DeepSeek R1 70B model
+    const deepseekModel = provider.chat('0g/deepseek-r1-70b');
+    await deepseekModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[1]!.requestBodyJson).toStrictEqual({
+      model: '0g/deepseek-r1-70b',
       messages: [{ role: 'user', content: 'Hello' }],
     });
   });
@@ -899,8 +925,8 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type);
+
     // Find the positions of key events
     const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
     const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
@@ -926,10 +952,7 @@ describe('doStream', () => {
       .filter((el) => el.type === 'text-delta')
       .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
   it('should stream tool deltas', async () => {
