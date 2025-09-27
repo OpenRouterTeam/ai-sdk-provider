@@ -55,6 +55,38 @@ This list is not a definitive list of models supported by OpenRouter, as it cons
 
 You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
 
+For detailed information about specific models, including text generation capabilities and advanced usage examples, see our [Models Documentation](./docs/models.md).
+
+### 0G Compute Network Models
+
+The OpenRouter provider now supports models from the [0G Compute Network](https://docs.0g.ai/0g-compute/for-developers/inference-sdk), a decentralized AI inference network with verified computation capabilities:
+
+| Model | Provider Address | Description | Verification |
+|-------|------------------|-------------|--------------|
+| `0g/llama-3.3-70b-instruct` | `0xf07240Efa67755B5311bc75784a061eDB47165Dd` | State-of-the-art 70B parameter model for general AI tasks | TEE (TeeML) |
+| `0g/deepseek-r1-70b` | `0x3feE5a4dd5FDb8a32dDA97Bed899830605dBD9D3` | Advanced reasoning model optimized for complex problem solving | TEE (TeeML) |
+
+These models run on the 0G Compute Network and provide verified AI inference through Trusted Execution Environments (TEE). For detailed text generation capabilities and examples, see the [Models Documentation](./docs/models.md#0g-compute-network-models).
+
+#### Example Usage with 0G Compute Models
+
+```typescript
+import { openrouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
+
+// Using the Llama 3.3 70B model from 0G Compute Network
+const { text } = await generateText({
+  model: openrouter('0g/llama-3.3-70b-instruct'),
+  prompt: 'Explain quantum computing in simple terms.',
+});
+
+// Using the DeepSeek R1 70B reasoning model
+const { text: reasoning } = await generateText({
+  model: openrouter('0g/deepseek-r1-70b'),
+  prompt: 'Solve this step by step: If a train travels 120 km in 2 hours, what is its average speed?',
+});
+```
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:
