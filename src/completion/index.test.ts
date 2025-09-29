@@ -228,7 +228,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk-openrouter/0.0.0-test',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 });
@@ -444,7 +444,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk-openrouter/0.0.0-test',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 

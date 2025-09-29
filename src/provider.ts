@@ -114,7 +114,7 @@ export function createOpenRouter(
     })}`,
     ...options.headers,
   },
-  `ai-sdk-openrouter/${VERSION}`,
+  `ai-sdk/openrouter/${VERSION}`,
   ));
 
   const createChatModel = (
