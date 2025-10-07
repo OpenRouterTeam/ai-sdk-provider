@@ -1,6 +1,6 @@
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 
-// Type for OpenRouter Cache Control following Anthropic's pattern (important-comment)
+// Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
 
 export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>;
