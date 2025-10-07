@@ -557,4 +557,113 @@ describe('cache control', () => {
       },
     ]);
   });
+
+  it('should pass cache control with ttl from system message provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
+        content: 'System prompt',
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral', ttl: '5m' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: 'System prompt',
+        cache_control: { type: 'ephemeral', ttl: '5m' },
+      },
+    ]);
+  });
+
+  it('should pass cache control with ttl from user message content part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            providerOptions: {
+              openrouter: {
+                cache_control: { type: 'ephemeral', ttl: '1h' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello',
+            cache_control: { type: 'ephemeral', ttl: '1h' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control with ttl 5m from assistant message', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Assistant response' }],
+        providerOptions: {
+          openrouter: {
+            cacheControl: { type: 'ephemeral', ttl: '5m' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Assistant response',
+        cache_control: { type: 'ephemeral', ttl: '5m' },
+      },
+    ]);
+  });
+
+  it('should pass cache control with ttl 1h from tool message', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'tool-call-1',
+            toolName: 'test-tool',
+            output: {
+              type: 'json',
+              value: { result: 'Tool result' },
+            },
+            providerOptions: {
+              anthropic: {
+                cache_control: { type: 'ephemeral', ttl: '1h' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'tool-call-1',
+        content: JSON.stringify({ result: 'Tool result' }),
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ]);
+  });
 });

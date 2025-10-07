@@ -56,6 +56,7 @@ async function callLLM() {
               openrouter: {
                 cache_control: {
                   type: 'ephemeral',
+                  ttl: '5m',
                 },
               },
             },

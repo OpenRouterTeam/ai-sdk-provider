@@ -15,8 +15,8 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
-// Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+// Type for OpenRouter Cache Control following Anthropic's pattern (important-comment)
+export type OpenRouterCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
 
 function getCacheControl(
   providerMetadata: SharedV2ProviderMetadata | undefined,
