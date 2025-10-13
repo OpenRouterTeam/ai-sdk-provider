@@ -38,6 +38,7 @@ import {
   LLMGatewayNonStreamChatCompletionResponseSchema,
   LLMGatewayStreamChatCompletionChunkSchema,
 } from './schemas';
+import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 
 type LLMGatewayChatConfig = {
   provider: string;
@@ -328,6 +329,35 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
         });
+      }
+    }
+
+    if (choice.message.images) {
+      for (const image of choice.message.images) {
+        content.push({
+          type: 'file' as const,
+          mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
+          data: getBase64FromDataUrl(image.image_url.url),
+        });
+      }
+    }
+
+    if (choice.message.annotations) {
+      for (const annotation of choice.message.annotations) {
+        if (annotation.type === 'url_citation') {
+          content.push({
+            type: 'source' as const,
+            sourceType: 'url' as const,
+            id: annotation.url_citation.url,
+            url: annotation.url_citation.url,
+            title: annotation.url_citation.title,
+            providerMetadata: {
+              openrouter: {
+                content: annotation.url_citation.content || '',
+              },
+            },
+          });
+        }
       }
     }
 
@@ -720,6 +750,16 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
 
                   toolCall.sent = true;
                 }
+              }
+            }
+
+            if (delta.images != null) {
+              for (const image of delta.images) {
+                controller.enqueue({
+                  type: 'file',
+                  mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
+                  data: getBase64FromDataUrl(image.image_url.url),
+                })
               }
             }
           },

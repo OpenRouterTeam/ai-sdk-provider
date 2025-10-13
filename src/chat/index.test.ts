@@ -8,6 +8,7 @@ import {
 
 import { createLLMGateway } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
+import type { ImageResponse } from '../schemas/image';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -108,6 +109,10 @@ const TEST_LOGPROBS = {
   ],
 };
 
+const TEST_IMAGE_URL = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAAiXpUWHRSYXcgcHJvZmlsZSB0eXBlIGlwdGMAAAiZTYwxDgIxDAT7vOKekDjrtV1T0VHwgbtcIiEhgfh/QaDgmGlWW0w6X66n5fl6jNu9p+ULkapDENgzpj+Kl5aFfa6KnYWgSjZjGOiSYRxTY/v8KIijI==`;
+
+const TEST_IMAGE_BASE64 = TEST_IMAGE_URL.split(',')[1]!;
+
 const provider = createLLMGateway({
   apiKey: 'test-api-key',
   compatibility: 'strict',
@@ -126,6 +131,7 @@ describe('doGenerate', () => {
     content = '',
     reasoning,
     reasoning_details,
+    images,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -137,6 +143,7 @@ describe('doGenerate', () => {
     content?: string;
     reasoning?: string;
     reasoning_details?: Array<ReasoningDetailUnion>;
+    images?: Array<ImageResponse>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -168,6 +175,7 @@ describe('doGenerate', () => {
               content,
               reasoning,
               reasoning_details,
+              images,
             },
             logprobs,
             finish_reason,
@@ -504,6 +512,181 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+    });
+  });
+
+  it('should pass responseFormat for JSON schema structured outputs', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+    });
+  });
+
+  it('should use default name when name is not provided in responseFormat', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'response',
+        },
+      },
+    });
+  });
+
+  it('should pass images', async () => {
+    prepareJsonResponse({
+      content: '',
+      images: [
+        {
+          type: 'image_url',
+          image_url: { url: TEST_IMAGE_URL },
+        },
+      ],
+      usage: { prompt_tokens: 53, total_tokens: 70, completion_tokens: 17 },
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'file',
+        mediaType: 'image/png',
+        data: TEST_IMAGE_BASE64,
+      },
+    ]);
+  });
+
+  it('should support generateObject with image generation (gemini-2.5-flash-image-preview)', async () => {
+    prepareJsonResponse({
+      content: '{"description":"A beautiful sunset over the ocean"}',
+      images: [
+        {
+          type: 'image_url',
+          image_url: { url: TEST_IMAGE_URL },
+        },
+      ],
+      usage: { prompt_tokens: 45, total_tokens: 80, completion_tokens: 35 },
+    });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        description: { type: 'string' },
+      },
+      required: ['description'],
+      additionalProperties: false,
+    };
+
+    const imageGenModel = provider.chat('gemini-2.5-flash-image-preview');
+
+    const result = await imageGenModel.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Generate an image of a sunset and describe it',
+            },
+          ],
+        },
+      ],
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'ImageDescription',
+        description: 'Description of the generated image',
+      },
+    });
+
+    // Verify both structured content and image are present
+    expect(result.content).toStrictEqual([
+      {
+        type: 'text',
+        text: '{"description":"A beautiful sunset over the ocean"}',
+      },
+      {
+        type: 'file',
+        mediaType: 'image/png',
+        data: TEST_IMAGE_BASE64,
+      },
+    ]);
+
+    // Verify the request includes both responseFormat and the correct model
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'gemini-2.5-flash-image-preview',
+      messages: [
+        {
+          role: 'user',
+          content: 'Generate an image of a sunset and describe it',
+        },
+      ],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'ImageDescription',
+          description: 'Description of the generated image',
+        },
+      },
     });
   });
 });
@@ -1031,6 +1214,83 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'tool-calls',
+        providerMetadata: {
+          llmgateway: {
+            usage: {
+              completionTokens: 17,
+              promptTokens: 53,
+              totalTokens: 70,
+              cost: undefined,
+            },
+          },
+        },
+        usage: {
+          inputTokens: 53,
+          outputTokens: 17,
+          totalTokens: 70,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
+        },
+      },
+    ]);
+  });
+
+  it('should stream images', async () => {
+    server.urls['https://api.llmgateway.io/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"images":[{"type":"image_url","image_url":{"url":"${TEST_IMAGE_URL}"},"index":0}]},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'text-start',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'text-delta',
+        delta: '',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'file',
+        mediaType: 'image/png',
+        data: TEST_IMAGE_BASE64,
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'text-end',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'finish',
+        finishReason: 'stop',
         providerMetadata: {
           llmgateway: {
             usage: {

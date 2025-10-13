@@ -2,6 +2,7 @@ import { z } from 'zod/v4';
 
 import { LLMGatewayErrorResponseSchema } from '../schemas/error-response';
 import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
+import { ImageResponseArraySchema } from '../schemas/image';
 
 const LLMGatewayChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
@@ -41,6 +42,7 @@ export const LLMGatewayNonStreamChatCompletionResponseSchema =
           content: z.string().nullable().optional(),
           reasoning: z.string().nullable().optional(),
           reasoning_details: ReasoningDetailArraySchema.nullish(),
+          images: ImageResponseArraySchema.nullish(),
 
           tool_calls: z
             .array(
@@ -91,6 +93,7 @@ export const LLMGatewayStreamChatCompletionChunkSchema = z.union([
             content: z.string().nullish(),
             reasoning: z.string().nullish().optional(),
             reasoning_details: ReasoningDetailArraySchema.nullish(),
+            images: ImageResponseArraySchema.nullish(),
             tool_calls: z
               .array(
                 z.object({
