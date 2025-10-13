@@ -139,6 +139,23 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
     };
 
     if (responseFormat?.type === 'json') {
+      // Check if a schema is provided for structured output (json_schema)
+      if ('schema' in responseFormat && responseFormat.schema) {
+        return {
+          ...baseArgs,
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: responseFormat.schema.name || 'response',
+              description: responseFormat.schema.description,
+              schema: responseFormat.schema,
+              strict: responseFormat.schema.strict ?? true,
+            },
+          },
+        };
+      }
+
+      // Basic JSON mode (json_object)
       return {
         ...baseArgs,
         response_format: { type: 'json_object' },
