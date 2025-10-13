@@ -96,6 +96,7 @@ export function createLLMGateway(
 ): LLMGatewayProvider {
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
+    process.env.LLM_GATEWAY_API_BASE ??
     'https://api.llmgateway.io/v1';
 
   // we default to compatible, because strict breaks some providers:
