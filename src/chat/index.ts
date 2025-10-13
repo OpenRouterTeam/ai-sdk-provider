@@ -146,10 +146,10 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
           response_format: {
             type: 'json_schema',
             json_schema: {
-              name: responseFormat.schema.name || 'response',
-              description: responseFormat.schema.description,
+              name: responseFormat.name || 'response',
+              description: responseFormat.description,
               schema: responseFormat.schema,
-              strict: responseFormat.schema.strict ?? true,
+              strict: true,
             },
           },
         };
