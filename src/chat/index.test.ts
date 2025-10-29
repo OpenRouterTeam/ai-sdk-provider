@@ -899,8 +899,8 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type);
+
     // Find the positions of key events
     const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
     const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
@@ -926,10 +926,7 @@ describe('doStream', () => {
       .filter((el) => el.type === 'text-delta')
       .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
   it('should stream tool deltas', async () => {

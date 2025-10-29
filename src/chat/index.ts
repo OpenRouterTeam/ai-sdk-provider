@@ -338,7 +338,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     if (choice.message.annotations) {
       for (const annotation of choice.message.annotations) {
-        if (annotation.type === 'url_citation') {
+        if (annotation.type === 'url_citation' && annotation.url_citation) {
           content.push({
             type: 'source' as const,
             sourceType: 'url' as const,
@@ -635,7 +635,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.annotations) {
               for (const annotation of delta.annotations) {
-                if (annotation.type === 'url_citation') {
+                if (
+                  annotation.type === 'url_citation' &&
+                  annotation.url_citation
+                ) {
                   controller.enqueue({
                     type: 'source',
                     sourceType: 'url' as const,
@@ -788,7 +791,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
                   data: getBase64FromDataUrl(image.image_url.url),
-                })
+                });
               }
             }
           },
@@ -832,12 +835,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             } = {
               usage: openrouterUsage,
             };
-            
+
             // Only include provider if it's actually set
             if (provider !== undefined) {
               openrouterMetadata.provider = provider;
             }
-            
+
             controller.enqueue({
               type: 'finish',
               finishReason,

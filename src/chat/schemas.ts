@@ -60,14 +60,23 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
           annotations: z
             .array(
               z.object({
-                type: z.enum(['url_citation']),
-                url_citation: z.object({
-                  end_index: z.number(),
-                  start_index: z.number(),
-                  title: z.string(),
-                  url: z.string(),
-                  content: z.string().optional(),
-                }),
+                type: z.enum(['url_citation', 'file']),
+                url_citation: z
+                  .object({
+                    end_index: z.number(),
+                    start_index: z.number(),
+                    title: z.string(),
+                    url: z.string(),
+                    content: z.string().optional(),
+                  })
+                  .optional(),
+                file: z
+                  .object({
+                    hash: z.string(),
+                    name: z.string(),
+                    content: z.array(z.any()),
+                  })
+                  .optional(),
               }),
             )
             .nullish(),
@@ -126,14 +135,23 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
             annotations: z
               .array(
                 z.object({
-                  type: z.enum(['url_citation']),
-                  url_citation: z.object({
-                    end_index: z.number(),
-                    start_index: z.number(),
-                    title: z.string(),
-                    url: z.string(),
-                    content: z.string().optional(),
-                  }),
+                  type: z.enum(['url_citation', 'file']),
+                  url_citation: z
+                    .object({
+                      end_index: z.number(),
+                      start_index: z.number(),
+                      title: z.string(),
+                      url: z.string(),
+                      content: z.string().optional(),
+                    })
+                    .optional(),
+                  file: z
+                    .object({
+                      hash: z.string(),
+                      name: z.string(),
+                      content: z.array(z.any()),
+                    })
+                    .optional(),
                 }),
               )
               .nullish(),
