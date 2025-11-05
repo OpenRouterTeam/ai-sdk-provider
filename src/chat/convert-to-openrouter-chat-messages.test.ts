@@ -560,7 +560,7 @@ describe('cache control', () => {
 });
 
 describe('reasoning with tool calls', () => {
-  it('should transform reasoning to thinking blocks when tool calls are present', () => {
+  it('should use reasoning_details format when tool calls are present', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -586,14 +586,12 @@ describe('reasoning with tool calls', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: [
+        content: 'I will call the tool',
+        reasoning: 'Let me think about this...',
+        reasoning_details: [
           {
-            type: 'thinking',
-            thinking: 'Let me think about this...',
-          },
-          {
-            type: 'text',
-            text: 'I will call the tool',
+            type: 'reasoning.text',
+            text: 'Let me think about this...',
           },
         ],
         tool_calls: [
@@ -709,18 +707,16 @@ describe('reasoning with tool calls', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: [
+        content: 'Calling the tool',
+        reasoning: 'First thought...Second thought...',
+        reasoning_details: [
           {
-            type: 'thinking',
-            thinking: 'First thought...',
+            type: 'reasoning.text',
+            text: 'First thought...',
           },
           {
-            type: 'thinking',
-            thinking: 'Second thought...',
-          },
-          {
-            type: 'text',
-            text: 'Calling the tool',
+            type: 'reasoning.text',
+            text: 'Second thought...',
           },
         ],
         tool_calls: [
@@ -730,6 +726,55 @@ describe('reasoning with tool calls', () => {
             function: {
               name: 'calculator',
               arguments: JSON.stringify({ operation: 'add', a: 1, b: 2 }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert AI SDK thinking type to reasoning_details', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            // @ts-expect-error - thinking type may not be in AI SDK types yet
+            type: 'thinking',
+            thinking: 'Let me think...',
+          },
+          {
+            type: 'text',
+            text: 'Here is my answer',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-789',
+            toolName: 'search',
+            input: { query: 'test' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Here is my answer',
+        reasoning: 'Let me think...',
+        reasoning_details: [
+          {
+            type: 'reasoning.text',
+            text: 'Let me think...',
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-789',
+            type: 'function',
+            function: {
+              name: 'search',
+              arguments: JSON.stringify({ query: 'test' }),
             },
           },
         ],
