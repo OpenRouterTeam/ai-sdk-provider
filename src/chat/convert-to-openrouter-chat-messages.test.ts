@@ -558,3 +558,182 @@ describe('cache control', () => {
     ]);
   });
 });
+
+describe('reasoning with tool calls', () => {
+  it('should transform reasoning to thinking blocks when tool calls are present', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+          },
+          {
+            type: 'text',
+            text: 'I will call the tool',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'sendSMS',
+            input: { to: '555-1234', body: 'Hello' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'thinking',
+            thinking: 'Let me think about this...',
+          },
+          {
+            type: 'text',
+            text: 'I will call the tool',
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-123',
+            type: 'function',
+            function: {
+              name: 'sendSMS',
+              arguments: JSON.stringify({ to: '555-1234', body: 'Hello' }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should use standard format when only reasoning without tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+          },
+          {
+            type: 'text',
+            text: 'Here is my response',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Here is my response',
+        reasoning: 'Let me think about this...',
+        reasoning_details: [
+          {
+            type: 'reasoning.text',
+            text: 'Let me think about this...',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should use standard format when only tool calls without reasoning', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'I will call the tool',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'sendSMS',
+            input: { to: '555-1234', body: 'Hello' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'I will call the tool',
+        tool_calls: [
+          {
+            id: 'call-123',
+            type: 'function',
+            function: {
+              name: 'sendSMS',
+              arguments: JSON.stringify({ to: '555-1234', body: 'Hello' }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should handle multiple reasoning blocks with tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First thought...',
+          },
+          {
+            type: 'reasoning',
+            text: 'Second thought...',
+          },
+          {
+            type: 'text',
+            text: 'Calling the tool',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-456',
+            toolName: 'calculator',
+            input: { operation: 'add', a: 1, b: 2 },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'thinking',
+            thinking: 'First thought...',
+          },
+          {
+            type: 'thinking',
+            thinking: 'Second thought...',
+          },
+          {
+            type: 'text',
+            text: 'Calling the tool',
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-456',
+            type: 'function',
+            function: {
+              name: 'calculator',
+              arguments: JSON.stringify({ operation: 'add', a: 1, b: 2 }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+});

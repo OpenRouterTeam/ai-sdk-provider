@@ -199,15 +199,48 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        messages.push({
-          role: 'assistant',
-          content: text,
-          tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-          reasoning: reasoning || undefined,
-          reasoning_details:
-            reasoningDetails.length > 0 ? reasoningDetails : undefined,
-          cache_control: getCacheControl(providerOptions),
-        });
+        // When both reasoning and tool calls are present, we need to transform the message
+        // to use thinking blocks in a content array instead of reasoning_details
+        // This is required by Anthropic's API for Claude 4 extended thinking with tools
+        if (reasoningDetails.length > 0 && toolCalls.length > 0) {
+          const contentParts: ChatCompletionContentPart[] = [];
+
+          // Add thinking blocks first (required to be before text/tool_use blocks)
+          for (const detail of reasoningDetails) {
+            if (detail.type === ReasoningDetailType.Text) {
+              contentParts.push({
+                type: 'thinking',
+                thinking: detail.text || '',
+              });
+            }
+          }
+
+          // Add text content after thinking blocks
+          if (text) {
+            contentParts.push({
+              type: 'text',
+              text: text,
+            });
+          }
+
+          messages.push({
+            role: 'assistant',
+            content: contentParts,
+            tool_calls: toolCalls,
+            cache_control: getCacheControl(providerOptions),
+          });
+        } else {
+          // Standard message format when no tool calls or no reasoning
+          messages.push({
+            role: 'assistant',
+            content: text,
+            tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
+            reasoning: reasoning || undefined,
+            reasoning_details:
+              reasoningDetails.length > 0 ? reasoningDetails : undefined,
+            cache_control: getCacheControl(providerOptions),
+          });
+        }
 
         break;
       }

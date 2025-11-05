@@ -26,7 +26,8 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile;
+  | ChatCompletionContentPartFile
+  | ChatCompletionContentPartThinking;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -52,9 +53,15 @@ export interface ChatCompletionContentPartText {
   cache_control?: OpenRouterCacheControl;
 }
 
+export interface ChatCompletionContentPartThinking {
+  type: 'thinking';
+  thinking: string;
+  cache_control?: OpenRouterCacheControl;
+}
+
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
-  content?: string | null;
+  content?: string | Array<ChatCompletionContentPart> | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;

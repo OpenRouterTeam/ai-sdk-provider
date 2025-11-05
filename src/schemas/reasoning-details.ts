@@ -4,6 +4,7 @@ export enum ReasoningDetailType {
   Summary = 'reasoning.summary',
   Encrypted = 'reasoning.encrypted',
   Text = 'reasoning.text',
+  Thinking = 'thinking',
 }
 
 export const ReasoningDetailSummarySchema = z.object({
@@ -30,10 +31,20 @@ export const ReasoningDetailTextSchema = z.object({
 
 export type ReasoningDetailText = z.infer<typeof ReasoningDetailTextSchema>;
 
+export const ReasoningDetailThinkingSchema = z.object({
+  type: z.literal(ReasoningDetailType.Thinking),
+  thinking: z.string(),
+});
+
+export type ReasoningDetailThinking = z.infer<
+  typeof ReasoningDetailThinkingSchema
+>;
+
 export const ReasoningDetailUnionSchema = z.union([
   ReasoningDetailSummarySchema,
   ReasoningDetailEncryptedSchema,
   ReasoningDetailTextSchema,
+  ReasoningDetailThinkingSchema,
 ]);
 
 const ReasoningDetailsWithUnknownSchema = z.union([
