@@ -66,7 +66,7 @@ test('sending pdf base64 blob', async () => {
       new URL('./output.ignore.json', import.meta.url),
       JSON.stringify(messageHistory, null, 2),
     );
-  } catch (error) {
+  } catch {
     // Silent fail for file write
   }
 
