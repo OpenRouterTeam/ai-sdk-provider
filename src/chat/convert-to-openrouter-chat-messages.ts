@@ -190,17 +190,6 @@ export function convertToOpenRouterChatMessages(
 
               break;
             }
-            case 'thinking': {
-              // If AI SDK emits 'thinking' type, convert it to reasoning_details
-              // @ts-expect-error - thinking type may not be in AI SDK types yet
-              const thinkingText = part.text || part.thinking || '';
-              reasoning += thinkingText;
-              reasoningDetails.push({
-                type: ReasoningDetailType.Text,
-                text: thinkingText,
-              });
-              break;
-            }
 
             case 'file':
               break;
