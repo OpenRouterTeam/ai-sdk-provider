@@ -28,6 +28,7 @@ describe('Stream with reasoning and tools', () => {
     ];
 
     let stepCount = 0;
+    let errorOccurred: Error | null = null;
 
     const result = streamText({
       model,
@@ -49,7 +50,8 @@ describe('Stream with reasoning and tools', () => {
           }
         }
         console.error('[E2E] ========================================');
-        // Don't throw, let the test continue to see what parts we got
+        // Capture the error to check after the stream completes
+        errorOccurred = error as Error;
       },
       onStepFinish({ stepType, finishReason }) {
         console.log('[E2E] Step finished:', stepType, 'reason:', finishReason);
@@ -118,6 +120,11 @@ describe('Stream with reasoning and tools', () => {
     console.log('[E2E] Text parts:', textParts.length);
     console.log('[E2E] Total reasoning text length:', totalReasoningText.length);
     console.log('[E2E] Total text length:', totalText.length);
+
+    // Fail the test if an error occurred during streaming
+    if (errorOccurred) {
+      throw new Error(`Stream failed with error: ${errorOccurred.message}`, { cause: errorOccurred });
+    }
 
     // Basic checks - at least we should get some content
     expect(parts.length).toBeGreaterThan(0);

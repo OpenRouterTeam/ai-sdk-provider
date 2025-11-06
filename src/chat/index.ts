@@ -363,6 +363,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       providerMetadata: {
         openrouter: {
           provider: response.provider ?? '',
+          reasoning_details: choice.message.reasoning_details ?? [],
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
@@ -462,6 +463,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+
+    // Track reasoning details to preserve for multi-turn conversations
+    const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
     let textStarted = false;
     let reasoningStarted = false;
@@ -577,6 +581,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             };
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
+              // Accumulate reasoning_details to preserve for multi-turn conversations
+              accumulatedReasoningDetails.push(...delta.reasoning_details);
+
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
@@ -829,15 +836,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             const openrouterMetadata: {
               usage: Partial<OpenRouterUsageAccounting>;
               provider?: string;
+              reasoning_details?: ReasoningDetailUnion[];
             } = {
               usage: openrouterUsage,
             };
-            
+
             // Only include provider if it's actually set
             if (provider !== undefined) {
               openrouterMetadata.provider = provider;
             }
-            
+
+            // Include accumulated reasoning_details if any were received
+            if (accumulatedReasoningDetails.length > 0) {
+              openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
+            }
+
             controller.enqueue({
               type: 'finish',
               finishReason,

@@ -157,7 +157,6 @@ export function convertToOpenRouterChatMessages(
       case 'assistant': {
         let text = '';
         let reasoning = '';
-        const reasoningDetails: ReasoningDetailUnion[] = [];
         const toolCalls: Array<{
           id: string;
           type: 'function';
@@ -183,11 +182,6 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              reasoningDetails.push({
-                type: ReasoningDetailType.Text,
-                text: part.text,
-              });
-
               break;
             }
 
@@ -199,13 +193,22 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
+        // Check if we have preserved reasoning_details from the original OpenRouter response
+        // OpenRouter requires reasoning_details to be passed back unmodified for multi-turn conversations
+        // If we don't have the preserved version (AI SDK doesn't pass providerOptions back),
+        // we should NOT send reconstructed reasoning_details as they won't match the original
+        // Instead, only use the legacy reasoning field
+        const preservedReasoningDetails = providerOptions?.openrouter?.reasoning_details;
+
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
-          reasoning_details:
-            reasoningDetails.length > 0 ? reasoningDetails : undefined,
+          // Only include reasoning_details if we have the preserved original version
+          reasoning_details: preservedReasoningDetails && Array.isArray(preservedReasoningDetails) && preservedReasoningDetails.length > 0
+            ? preservedReasoningDetails
+            : undefined,
           cache_control: getCacheControl(providerOptions),
         });
 

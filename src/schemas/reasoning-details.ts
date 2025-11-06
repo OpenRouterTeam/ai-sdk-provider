@@ -9,6 +9,9 @@ export enum ReasoningDetailType {
 export const ReasoningDetailSummarySchema = z.object({
   type: z.literal(ReasoningDetailType.Summary),
   summary: z.string(),
+  id: z.string().nullish(),
+  format: z.string().nullish(),
+  index: z.number().nullish(),
 });
 export type ReasoningDetailSummary = z.infer<
   typeof ReasoningDetailSummarySchema
@@ -17,6 +20,10 @@ export type ReasoningDetailSummary = z.infer<
 export const ReasoningDetailEncryptedSchema = z.object({
   type: z.literal(ReasoningDetailType.Encrypted),
   data: z.string(),
+  signature: z.string().nullish(),
+  id: z.string().nullish(),
+  format: z.string().nullish(),
+  index: z.number().nullish(),
 });
 export type ReasoningDetailEncrypted = z.infer<
   typeof ReasoningDetailEncryptedSchema
@@ -26,6 +33,9 @@ export const ReasoningDetailTextSchema = z.object({
   type: z.literal(ReasoningDetailType.Text),
   text: z.string().nullish(),
   signature: z.string().nullish(),
+  id: z.string().nullish(),
+  format: z.string().nullish(),
+  index: z.number().nullish(),
 });
 
 export type ReasoningDetailText = z.infer<typeof ReasoningDetailTextSchema>;
