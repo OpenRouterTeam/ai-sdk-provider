@@ -27,8 +27,9 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -193,6 +194,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     providerMetadata?: {
       openrouter: {
         provider: string;
+        reasoning_details?: ReasoningDetailUnion[];
         usage: OpenRouterUsageAccounting;
       };
     };
@@ -361,8 +363,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       usage: usageInfo,
       warnings: [],
       providerMetadata: {
-        openrouter: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: response.provider ?? '',
+          reasoning_details: choice.message.reasoning_details ?? [],
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
@@ -382,7 +385,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 response.usage?.cost_details?.upstream_inference_cost ?? 0,
             },
           },
-        },
+        }),
       },
       request: { body: args },
       response: {
@@ -462,6 +465,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+
+    // Track reasoning details to preserve for multi-turn conversations
+    const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
     let textStarted = false;
     let reasoningStarted = false;
@@ -577,6 +583,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             };
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
+              // Accumulate reasoning_details to preserve for multi-turn conversations
+              accumulatedReasoningDetails.push(...delta.reasoning_details);
+
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
@@ -829,15 +838,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             const openrouterMetadata: {
               usage: Partial<OpenRouterUsageAccounting>;
               provider?: string;
+              reasoning_details?: ReasoningDetailUnion[];
             } = {
               usage: openrouterUsage,
             };
-            
+
             // Only include provider if it's actually set
             if (provider !== undefined) {
               openrouterMetadata.provider = provider;
             }
-            
+
+            // Include accumulated reasoning_details if any were received
+            if (accumulatedReasoningDetails.length > 0) {
+              openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
+            }
+
             controller.enqueue({
               type: 'finish',
               finishReason,
