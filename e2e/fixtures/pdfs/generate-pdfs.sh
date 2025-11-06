@@ -11,17 +11,23 @@
 
 set -e
 
+# Verification codes
+SMALL_CODE="SMALL-7X9Q2"
+MEDIUM_CODE="MEDIUM-K4P8R"
+LARGE_CODE="LARGE-M9N3T"
+XLARGE_CODE="XLARGE-W6H5V"
+
 echo "Generating test PDFs with verification codes..."
 echo
 
 # Small PDF (33KB) - Text only with minimal content
-echo "Creating small.pdf with code SMALL-7X9Q2..."
+echo "Creating small.pdf with code $SMALL_CODE..."
 convert -size 800x600 xc:white \
   -pointsize 36 -gravity center \
   -annotate +0-150 'SMALL PDF TEST' \
   -annotate +0-80 'Verification Code:' \
   -fill red -pointsize 42 \
-  -annotate +0-20 'SMALL-7X9Q2' \
+  -annotate +0-20 "$SMALL_CODE" \
   -fill black -pointsize 18 \
   -annotate +0+60 'If you can read this code, PDF processing works.' \
   small_text.jpg
@@ -30,14 +36,14 @@ convert small_text.jpg small.pdf
 rm small_text.jpg
 
 # Medium PDF (813KB) - Text + some image padding
-echo "Creating medium.pdf with code MEDIUM-K4P8R..."
+echo "Creating medium.pdf with code $MEDIUM_CODE..."
 magick -size 1200x900 xc:white \
   -pointsize 48 -gravity center \
   -annotate +0-250 'MEDIUM PDF TEST' \
   -pointsize 32 \
   -annotate +0-150 'Verification Code:' \
   -fill blue -pointsize 38 \
-  -annotate +0-80 'MEDIUM-K4P8R' \
+  -annotate +0-80 "$MEDIUM_CODE" \
   -fill black -pointsize 20 \
   -annotate +0+20 'This is a medium test document.' \
   -annotate +0+60 'Code confirms AI processed the PDF.' \
@@ -50,14 +56,14 @@ magick medium_base.pdf med_fill1.jpg med_fill2.jpg medium.pdf
 rm medium_base.pdf med_fill*.jpg
 
 # Large PDF (3.4MB) - Text + more image padding
-echo "Creating large.pdf with code LARGE-M9N3T..."
+echo "Creating large.pdf with code $LARGE_CODE..."
 magick -size 1600x1200 xc:white \
   -pointsize 60 -gravity center \
   -annotate +0-350 'LARGE PDF TEST' \
   -pointsize 40 \
   -annotate +0-250 'Verification Code:' \
   -fill green -pointsize 46 \
-  -annotate +0-170 'LARGE-M9N3T' \
+  -annotate +0-170 "$LARGE_CODE" \
   -fill black -pointsize 24 \
   -annotate +0-80 'Large test document for PDF uploads.' \
   -annotate +0-40 'Verification code confirms processing.' \
@@ -72,14 +78,14 @@ magick large_base.pdf lg_fill1.jpg lg_fill2.jpg lg_fill3.jpg lg_fill4.jpg large.
 rm large_base.pdf lg_fill*.jpg
 
 # XLarge PDF (11MB) - Text + lots of image padding
-echo "Creating xlarge.pdf with code XLARGE-W6H5V..."
+echo "Creating xlarge.pdf with code $XLARGE_CODE..."
 magick -size 2000x1500 xc:white \
   -pointsize 72 -gravity center \
   -annotate +0-450 'XLARGE PDF TEST' \
   -pointsize 48 \
   -annotate +0-330 'Verification Code:' \
   -fill purple -pointsize 56 \
-  -annotate +0-240 'XLARGE-W6H5V' \
+  -annotate +0-240 "$XLARGE_CODE" \
   -fill black -pointsize 28 \
   -annotate +0-140 'Extra-large test document.' \
   -annotate +0-100 'Code confirms AI read the PDF.' \
@@ -101,9 +107,9 @@ echo
 # Create JSON metadata for each PDF with verification code
 # Format: { "verificationCode": "CODE", "description": "...", "size": "...", "type": "test_fixture" }
 
-cat > small.json << 'EOF'
+cat > small.json << EOF
 {
-  "verificationCode": "SMALL-7X9Q2",
+  "verificationCode": "$SMALL_CODE",
   "description": "Small test PDF (33KB) with minimal content",
   "size": "small",
   "type": "test_fixture",
@@ -112,9 +118,9 @@ cat > small.json << 'EOF'
 EOF
 echo "  ✓ small.json"
 
-cat > medium.json << 'EOF'
+cat > medium.json << EOF
 {
-  "verificationCode": "MEDIUM-K4P8R",
+  "verificationCode": "$MEDIUM_CODE",
   "description": "Medium test PDF (813KB) with text and image padding",
   "size": "medium",
   "type": "test_fixture",
@@ -123,9 +129,9 @@ cat > medium.json << 'EOF'
 EOF
 echo "  ✓ medium.json"
 
-cat > large.json << 'EOF'
+cat > large.json << EOF
 {
-  "verificationCode": "LARGE-M9N3T",
+  "verificationCode": "$LARGE_CODE",
   "description": "Large test PDF (3.4MB) for FileParserPlugin regression testing",
   "size": "large",
   "type": "test_fixture",
@@ -135,9 +141,9 @@ cat > large.json << 'EOF'
 EOF
 echo "  ✓ large.json"
 
-cat > xlarge.json << 'EOF'
+cat > xlarge.json << EOF
 {
-  "verificationCode": "XLARGE-W6H5V",
+  "verificationCode": "$XLARGE_CODE",
   "description": "Extra-large test PDF (11MB) with extensive content",
   "size": "xlarge",
   "type": "test_fixture",
@@ -151,10 +157,10 @@ echo "Generated files:"
 ls -lh *.pdf *.json
 echo
 echo "Verification codes:"
-echo "  small.pdf  -> SMALL-7X9Q2   (small.json)"
-echo "  medium.pdf -> MEDIUM-K4P8R  (medium.json)"
-echo "  large.pdf  -> LARGE-M9N3T   (large.json)"
-echo "  xlarge.pdf -> XLARGE-W6H5V  (xlarge.json)"
+echo "  small.pdf  -> $SMALL_CODE   (small.json)"
+echo "  medium.pdf -> $MEDIUM_CODE  (medium.json)"
+echo "  large.pdf  -> $LARGE_CODE   (large.json)"
+echo "  xlarge.pdf -> $XLARGE_CODE  (xlarge.json)"
 echo
 echo "Validating PDFs..."
 for pdf in small.pdf medium.pdf large.pdf xlarge.pdf; do
