@@ -11,7 +11,7 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
-import { ReasoningDetailType, ReasoningFormat } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -186,10 +186,6 @@ export function convertToOpenRouterChatMessages(
               reasoningDetails.push({
                 type: ReasoningDetailType.Text,
                 text: part.text,
-                id: null,
-                format: ReasoningFormat.AnthropicClaudeV1,
-                index: reasoningDetails.length,
-                signature: null,
               });
 
               break;
@@ -203,8 +199,6 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        // Use standard OpenRouter format with reasoning_details
-        // OpenRouter expects reasoning_details, not thinking blocks
         messages.push({
           role: 'assistant',
           content: text,

@@ -48,12 +48,13 @@ export interface ChatCompletionContentPartImage {
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
+  reasoning?: string | null;
   cache_control?: OpenRouterCacheControl;
 }
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
-  content?: string | Array<ChatCompletionContentPart> | null;
+  content?: string | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;

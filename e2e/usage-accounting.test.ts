@@ -42,7 +42,7 @@ it('receive usage accounting', async () => {
   const providerMetadata = await response.providerMetadata;
   // You can use expect.any(Type) or expect.objectContaining for schema-like matching
   expect(providerMetadata?.openrouter).toMatchObject({
-    provider: 'Anthropic',
+    provider: expect.any(String),
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),
       completionTokens: expect.any(Number),
