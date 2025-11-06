@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai';
 
 import { generateText } from 'ai';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { expect, test, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
@@ -59,16 +59,6 @@ test('sending pdf base64 blob', async () => {
     role: 'assistant',
     content: response.text,
   });
-
-  // Write to file without logging large response objects on failure
-  try {
-    await writeFile(
-      new URL('./output.ignore.json', import.meta.url),
-      JSON.stringify(messageHistory, null, 2),
-    );
-  } catch {
-    // Silent fail for file write
-  }
 
   // Minimal assertion that doesn't spam logs with full response
   expect(response.text).toBeTruthy();
@@ -135,26 +125,7 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
   // Assert FileParserPlugin was active (token count should be low, <150)
   // Without the plugin, AI SDK would send raw base64 causing much higher token usage
   expect(
-    (response.usage?.totalTokens || 0),
+    response.usage?.totalTokens || 0,
     'Token usage should be < 150 (proves FileParserPlugin is active)',
   ).toBeLessThan(150);
-
-  // Write diagnostic data without logging on failure
-  try {
-    await writeFile(
-      new URL('./output.large.ignore.json', import.meta.url),
-      JSON.stringify(
-        {
-          metadata,
-          responseText: response.text.substring(0, 500), // Only first 500 chars to avoid huge logs
-          tokensUsed: response.usage?.totalTokens || 0,
-          testPassed: true,
-        },
-        null,
-        2,
-      ),
-    );
-  } catch {
-    // Silent fail for file write
-  }
 });
