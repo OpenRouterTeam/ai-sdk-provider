@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 describe('Payload Comparison - Large PDF', () => {
   it('should send payload matching fetch baseline for large PDFs', async () => {
     // Capture what the provider actually sends
+    // biome-ignore lint/suspicious/noExplicitAny: Test uses dynamic request body structure
     let capturedRequestBody: any = null;
 
     const mockFetch = vi.fn(async (_url: string, init?: RequestInit) => {
@@ -36,7 +37,7 @@ describe('Payload Comparison - Large PDF', () => {
         {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
-        }
+        },
       );
     });
 
@@ -95,7 +96,7 @@ describe('Payload Comparison - Large PDF', () => {
     expect(messages[0].content).toBeInstanceOf(Array);
 
     const content = messages[0].content;
-    
+
     // Find the file part
     const filePart = content.find((part: any) => part.type === 'file');
     expect(filePart).toBeDefined();
@@ -119,9 +120,9 @@ describe('Payload Comparison - Large PDF', () => {
     // CRITICAL: Check for plugins array (FileParserPlugin should be auto-enabled for files)
     expect(capturedRequestBody.plugins).toBeDefined();
     expect(capturedRequestBody.plugins).toBeInstanceOf(Array);
-    
+
     const fileParserPlugin = capturedRequestBody.plugins.find(
-      (p: any) => p.id === 'file-parser'
+      (p: any) => p.id === 'file-parser',
     );
     expect(fileParserPlugin).toBeDefined();
     expect(fileParserPlugin).toMatchObject({
@@ -130,8 +131,5 @@ describe('Payload Comparison - Large PDF', () => {
         engine: expect.stringMatching(/^(mistral-ocr|pdf-text|native)$/),
       },
     });
-
-    // Log the actual payload for inspection
-    console.log('Captured payload:', JSON.stringify(capturedRequestBody, null, 2));
   });
 });

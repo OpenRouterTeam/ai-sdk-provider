@@ -21,7 +21,9 @@ describe('Large PDF Response Handling', () => {
     it('should handle HTTP 200 responses with error payloads (500 internal errors)', async () => {
       // This is the actual response OpenRouter returns for large PDF failures
       // HTTP 200 status but contains error object instead of choices
-      server.urls['https://test.openrouter.ai/api/v1/chat/completions'].response = {
+      server.urls[
+        'https://test.openrouter.ai/api/v1/chat/completions'
+      ].response = {
         type: 'json-value',
         body: {
           error: {
@@ -37,13 +39,15 @@ describe('Large PDF Response Handling', () => {
       await expect(
         model.doGenerate({
           prompt: TEST_PROMPT,
-        })
+        }),
       ).rejects.toThrow('Internal Server Error');
     });
 
     it('should parse successful large PDF responses with file annotations', async () => {
       // Successful response with file annotations from FileParserPlugin
-      server.urls['https://test.openrouter.ai/api/v1/chat/completions'].response = {
+      server.urls[
+        'https://test.openrouter.ai/api/v1/chat/completions'
+      ].response = {
         type: 'json-value',
         body: {
           id: 'gen-123',

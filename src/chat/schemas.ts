@@ -86,10 +86,14 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                   file: z.object({
                     hash: z.string(),
                     name: z.string(),
-                    content: z.array(z.object({
-                      type: z.string(),
-                      text: z.string(),
-                    })).optional(),
+                    content: z
+                      .array(
+                        z.object({
+                          type: z.string(),
+                          text: z.string(),
+                        }),
+                      )
+                      .optional(),
                   }),
                 }),
               ]),
