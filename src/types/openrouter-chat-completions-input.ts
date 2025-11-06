@@ -26,8 +26,7 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile
-  | ChatCompletionContentPartThinking;
+  | ChatCompletionContentPartFile;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -49,13 +48,6 @@ export interface ChatCompletionContentPartImage {
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
-  reasoning?: string | null;
-  cache_control?: OpenRouterCacheControl;
-}
-
-export interface ChatCompletionContentPartThinking {
-  type: 'thinking';
-  thinking: string;
   cache_control?: OpenRouterCacheControl;
 }
 

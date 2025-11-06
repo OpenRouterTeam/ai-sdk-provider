@@ -6,7 +6,7 @@ import {
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
-import { ReasoningDetailType } from '../schemas/reasoning-details';
+import { ReasoningDetailType, ReasoningFormat } from '../schemas/reasoning-details';
 import type { ImageResponse } from '../schemas/image';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
@@ -284,10 +284,14 @@ describe('doGenerate', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Let me analyze this request...',
+          id: null,
+          format: ReasoningFormat.AnthropicClaudeV1,
         },
         {
           type: ReasoningDetailType.Summary,
           summary: 'The user wants a greeting response.',
+          id: null,
+          format: ReasoningFormat.AnthropicClaudeV1,
         },
       ],
     });
@@ -319,6 +323,8 @@ describe('doGenerate', () => {
         {
           type: ReasoningDetailType.Encrypted,
           data: 'encrypted_reasoning_data_here',
+          id: null,
+          format: ReasoningFormat.AnthropicClaudeV1,
         },
       ],
     });
@@ -347,10 +353,14 @@ describe('doGenerate', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Processing from reasoning_details...',
+          id: null,
+          format: ReasoningFormat.AnthropicClaudeV1,
         },
         {
           type: ReasoningDetailType.Summary,
           summary: 'Summary from reasoning_details',
+          id: null,
+          format: ReasoningFormat.AnthropicClaudeV1,
         },
       ],
     });
@@ -777,13 +787,13 @@ describe('doStream', () => {
         `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
           `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
           `"reasoning":"This should be ignored...",` +
-          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this..."}]},` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this...","id":null,"format":"${ReasoningFormat.AnthropicClaudeV1}"}]},` +
           `"logprobs":null,"finish_reason":null}]}\n\n`,
         // Second chunk: reasoning_details with multiple types
         `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
           `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
           `"reasoning":"Also ignored",` +
-          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"User wants a greeting"},{"type":"${ReasoningDetailType.Encrypted}","data":"secret"}]},` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"User wants a greeting","id":null,"format":"${ReasoningFormat.AnthropicClaudeV1}"},{"type":"${ReasoningDetailType.Encrypted}","data":"secret","id":null,"format":"${ReasoningFormat.AnthropicClaudeV1}"}]},` +
           `"logprobs":null,"finish_reason":null}]}\n\n`,
         // Third chunk: only reasoning field (should be processed)
         `data: {"id":"chatcmpl-reasoning","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +

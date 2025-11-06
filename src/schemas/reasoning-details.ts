@@ -4,10 +4,23 @@ export enum ReasoningDetailType {
   Summary = 'reasoning.summary',
   Encrypted = 'reasoning.encrypted',
   Text = 'reasoning.text',
-  Thinking = 'thinking',
 }
 
-export const ReasoningDetailSummarySchema = z.object({
+export enum ReasoningFormat {
+  Unknown = 'unknown',
+  OpenAIResponsesV1 = 'openai-responses-v1',
+  XAIResponsesV1 = 'xai-responses-v1',
+  AnthropicClaudeV1 = 'anthropic-claude-v1',
+}
+
+// Common fields for all reasoning detail types
+const BaseReasoningDetailSchema = z.object({
+  id: z.string().nullable(),
+  format: z.nativeEnum(ReasoningFormat).default(ReasoningFormat.AnthropicClaudeV1),
+  index: z.number().optional(),
+});
+
+export const ReasoningDetailSummarySchema = BaseReasoningDetailSchema.extend({
   type: z.literal(ReasoningDetailType.Summary),
   summary: z.string(),
 });
@@ -15,7 +28,7 @@ export type ReasoningDetailSummary = z.infer<
   typeof ReasoningDetailSummarySchema
 >;
 
-export const ReasoningDetailEncryptedSchema = z.object({
+export const ReasoningDetailEncryptedSchema = BaseReasoningDetailSchema.extend({
   type: z.literal(ReasoningDetailType.Encrypted),
   data: z.string(),
 });
@@ -23,28 +36,18 @@ export type ReasoningDetailEncrypted = z.infer<
   typeof ReasoningDetailEncryptedSchema
 >;
 
-export const ReasoningDetailTextSchema = z.object({
+export const ReasoningDetailTextSchema = BaseReasoningDetailSchema.extend({
   type: z.literal(ReasoningDetailType.Text),
-  text: z.string().nullish(),
-  signature: z.string().nullish(),
+  text: z.string(),
+  signature: z.string().nullable().optional(),
 });
 
 export type ReasoningDetailText = z.infer<typeof ReasoningDetailTextSchema>;
-
-export const ReasoningDetailThinkingSchema = z.object({
-  type: z.literal(ReasoningDetailType.Thinking),
-  thinking: z.string(),
-});
-
-export type ReasoningDetailThinking = z.infer<
-  typeof ReasoningDetailThinkingSchema
->;
 
 export const ReasoningDetailUnionSchema = z.union([
   ReasoningDetailSummarySchema,
   ReasoningDetailEncryptedSchema,
   ReasoningDetailTextSchema,
-  ReasoningDetailThinkingSchema,
 ]);
 
 const ReasoningDetailsWithUnknownSchema = z.union([

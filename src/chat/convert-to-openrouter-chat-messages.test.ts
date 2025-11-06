@@ -592,6 +592,10 @@ describe('reasoning with tool calls', () => {
           {
             type: 'reasoning.text',
             text: 'Let me think about this...',
+            id: null,
+            format: 'anthropic-claude-v1',
+            index: 0,
+            signature: null,
           },
         ],
         tool_calls: [
@@ -634,6 +638,10 @@ describe('reasoning with tool calls', () => {
           {
             type: 'reasoning.text',
             text: 'Let me think about this...',
+            id: null,
+            format: 'anthropic-claude-v1',
+            index: 0,
+            signature: null,
           },
         ],
       },
@@ -713,10 +721,18 @@ describe('reasoning with tool calls', () => {
           {
             type: 'reasoning.text',
             text: 'First thought...',
+            id: null,
+            format: 'anthropic-claude-v1',
+            index: 0,
+            signature: null,
           },
           {
             type: 'reasoning.text',
             text: 'Second thought...',
+            id: null,
+            format: 'anthropic-claude-v1',
+            index: 1,
+            signature: null,
           },
         ],
         tool_calls: [
@@ -733,52 +749,4 @@ describe('reasoning with tool calls', () => {
     ]);
   });
 
-  it('should convert AI SDK thinking type to reasoning_details', () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'assistant',
-        content: [
-          {
-            // @ts-expect-error - thinking type may not be in AI SDK types yet
-            type: 'thinking',
-            thinking: 'Let me think...',
-          },
-          {
-            type: 'text',
-            text: 'Here is my answer',
-          },
-          {
-            type: 'tool-call',
-            toolCallId: 'call-789',
-            toolName: 'search',
-            input: { query: 'test' },
-          },
-        ],
-      },
-    ]);
-
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: 'Here is my answer',
-        reasoning: 'Let me think...',
-        reasoning_details: [
-          {
-            type: 'reasoning.text',
-            text: 'Let me think...',
-          },
-        ],
-        tool_calls: [
-          {
-            id: 'call-789',
-            type: 'function',
-            function: {
-              name: 'search',
-              arguments: JSON.stringify({ query: 'test' }),
-            },
-          },
-        ],
-      },
-    ]);
-  });
 });

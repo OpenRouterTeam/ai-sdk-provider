@@ -11,7 +11,7 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType, ReasoningFormat } from '@/src/schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -186,6 +186,10 @@ export function convertToOpenRouterChatMessages(
               reasoningDetails.push({
                 type: ReasoningDetailType.Text,
                 text: part.text,
+                id: null,
+                format: ReasoningFormat.AnthropicClaudeV1,
+                index: reasoningDetails.length,
+                signature: null,
               });
 
               break;

@@ -287,16 +287,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   }
                   break;
                 }
-                case ReasoningDetailType.Thinking: {
-                  // Convert thinking blocks back to reasoning for the AI SDK
-                  if (detail.thinking) {
-                    return {
-                      type: 'reasoning' as const,
-                      text: detail.thinking,
-                    };
-                  }
-                  break;
-                }
                 default: {
                   detail satisfies never;
                 }
@@ -604,13 +594,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   case ReasoningDetailType.Summary: {
                     if (detail.summary) {
                       emitReasoningChunk(detail.summary);
-                    }
-                    break;
-                  }
-                  case ReasoningDetailType.Thinking: {
-                    // Convert thinking blocks back to reasoning for streaming
-                    if (detail.thinking) {
-                      emitReasoningChunk(detail.thinking);
                     }
                     break;
                   }
