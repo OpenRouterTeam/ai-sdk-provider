@@ -1,5 +1,5 @@
 import { streamText, tool } from 'ai';
-import { describe, it, vi } from 'vitest';
+import { describe, it, vi, expect } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '@/src';
 
@@ -56,7 +56,6 @@ describe('Stream with reasoning and tools', () => {
             location: z.string().describe('The city and state, e.g. San Francisco, CA'),
           }),
           execute: async ({ location }) => {
-            console.log('[E2E] Weather tool called for:', location);
             // Simulate some delay
             await new Promise((res) => setTimeout(res, 1000));
             // Simulate weather data
@@ -93,43 +92,27 @@ describe('Stream with reasoning and tools', () => {
       } else if (part.type === 'finish') {
         parts.push({ type: 'finish' });
       }
-
-      // Log the part for debugging
-      if (part.type === 'reasoning-delta') {
-        console.log('[E2E] Reasoning delta received:', part.text?.substring(0, 50) || '');
-      } else if (part.type === 'tool-call') {
-        console.log('[E2E] Tool call:', part.toolName);
-      } else if (part.type === 'tool-result') {
-        console.log('[E2E] Tool result for:', part.toolName);
-      }
     }
-
-    console.log('[E2E] Total parts collected:', parts.length);
-    console.log('[E2E] Step count:', stepCount);
-    console.log('[E2E] Part types:', parts.map((p) => p.type).join(', '));
 
     // Verify we got reasoning deltas
     const reasoningParts = parts.filter((p) => p.type === 'reasoning-delta');
-    console.log('[E2E] Reasoning parts count:', reasoningParts.length);
+    const totalReasoningText = reasoningParts.map((p) => p.reasoning).join('');
 
     // Verify we got tool calls
     const toolCallParts = parts.filter((p) => p.type === 'tool-call');
-    console.log('[E2E] Tool call parts count:', toolCallParts.length);
 
     // Verify we got text deltas
     const textParts = parts.filter((p) => p.type === 'text-delta');
-    console.log('[E2E] Text parts count:', textParts.length);
+    const totalText = textParts.map((p) => p.text).join('');
 
-    // Basic assertions - the test should complete without errors
-    // and we should get some reasoning, tool calls, and text
-    if (reasoningParts.length === 0) {
-      console.warn('[E2E] Warning: No reasoning deltas received');
-    }
-    if (toolCallParts.length === 0) {
-      console.warn('[E2E] Warning: No tool calls received');
-    }
-    if (textParts.length === 0) {
-      console.warn('[E2E] Warning: No text deltas received');
-    }
+    // Assertions
+    expect(reasoningParts.length).toBeGreaterThan(0);
+    expect(totalReasoningText.length).toBeGreaterThan(1);
+
+    expect(toolCallParts.length).toBeGreaterThan(0);
+    expect(toolCallParts.some((p) => p.toolName === 'getWeather')).toBe(true);
+
+    expect(textParts.length).toBeGreaterThan(0);
+    expect(totalText.length).toBeGreaterThan(1);
   });
 });
