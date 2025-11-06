@@ -134,13 +134,10 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
 
   // Assert FileParserPlugin was active (token count should be low, <150)
   // Without the plugin, AI SDK would send raw base64 causing much higher token usage
-  const totalTokens = response.usage?.totalTokens || 0;
-  if (totalTokens >= 150) {
-    expect(
-      totalTokens,
-      'Token usage should be < 150 (proves FileParserPlugin is active)',
-    ).toBeLessThan(150);
-  }
+  expect(
+    (response.usage?.totalTokens || 0),
+    'Token usage should be < 150 (proves FileParserPlugin is active)',
+  ).toBeLessThan(150);
 
   // Write diagnostic data without logging on failure
   try {
