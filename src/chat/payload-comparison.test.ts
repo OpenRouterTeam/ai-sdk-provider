@@ -2,16 +2,37 @@ import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 import { createOpenRouter } from '../provider';
 import { describe, it, expect, vi } from 'vitest';
 
+type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'file'; file: { filename: string; file_data: string } }
+  | { type: 'image_url'; image_url: { url: string } };
+
+interface CapturedRequestBody {
+  model: string;
+  messages: Array<{
+    role: string;
+    content: string | ContentPart[];
+  }>;
+  plugins?: Array<{
+    id: string;
+    pdf?: { engine: string };
+    max_results?: number;
+    search_prompt?: string;
+  }>;
+  usage?: { include: boolean };
+}
+
 describe('Payload Comparison - Large PDF', () => {
   it('should send payload matching fetch baseline for large PDFs', async () => {
     // Capture what the provider actually sends
-    // biome-ignore lint/suspicious/noExplicitAny: Test uses dynamic request body structure
-    let capturedRequestBody: any = null;
+    let capturedRequestBody: CapturedRequestBody | null = null;
 
     const mockFetch = vi.fn(async (_url: string, init?: RequestInit) => {
       // Capture the request body
       if (init?.body) {
-        capturedRequestBody = JSON.parse(init.body as string);
+        capturedRequestBody = JSON.parse(
+          init.body as string,
+        ) as CapturedRequestBody;
       }
 
       // Return a minimal success response
@@ -43,7 +64,7 @@ describe('Payload Comparison - Large PDF', () => {
 
     const provider = createOpenRouter({
       apiKey: 'test-key',
-      fetch: mockFetch as any,
+      fetch: mockFetch as typeof fetch,
     });
 
     // Simulate a large PDF (use a small base64 for testing, but structure matters)
@@ -75,6 +96,7 @@ describe('Payload Comparison - Large PDF', () => {
 
     // Now assert the payload structure matches fetch baseline
     expect(capturedRequestBody).toBeDefined();
+    expect(capturedRequestBody).not.toBeNull();
 
     // Expected structure based on fetch example:
     // {
@@ -90,15 +112,18 @@ describe('Payload Comparison - Large PDF', () => {
     //   usage: { include: true }
     // }
 
-    const messages = capturedRequestBody.messages;
+    const messages = capturedRequestBody!.messages;
     expect(messages).toHaveLength(1);
-    expect(messages[0].role).toBe('user');
-    expect(messages[0].content).toBeInstanceOf(Array);
+    expect(messages[0]?.role).toBe('user');
+    expect(messages[0]?.content).toBeInstanceOf(Array);
 
-    const content = messages[0].content;
+    const content = messages[0]?.content;
+    if (!Array.isArray(content)) {
+      throw new Error('Content should be an array');
+    }
 
     // Find the file part
-    const filePart = content.find((part: any) => part.type === 'file');
+    const filePart = content.find((part) => part.type === 'file');
     expect(filePart).toBeDefined();
 
     // CRITICAL ASSERTION: The file part should have a nested 'file' object with 'file_data'
@@ -111,19 +136,22 @@ describe('Payload Comparison - Large PDF', () => {
     });
 
     // Find the text part
-    const textPart = content.find((part: any) => part.type === 'text');
+    const textPart = content.find((part) => part.type === 'text');
     expect(textPart).toMatchObject({
       type: 'text',
       text: 'Extract the verification code. Reply with ONLY the code.',
     });
 
     // CRITICAL: Check for plugins array (FileParserPlugin should be auto-enabled for files)
-    expect(capturedRequestBody.plugins).toBeDefined();
-    expect(capturedRequestBody.plugins).toBeInstanceOf(Array);
+    expect(capturedRequestBody!.plugins).toBeDefined();
+    expect(capturedRequestBody!.plugins).toBeInstanceOf(Array);
 
-    const fileParserPlugin = capturedRequestBody.plugins.find(
-      (p: any) => p.id === 'file-parser',
-    );
+    const { plugins } = capturedRequestBody!;
+    if (!plugins) {
+      throw new Error('Plugins should be defined');
+    }
+
+    const fileParserPlugin = plugins.find((p) => p.id === 'file-parser');
     expect(fileParserPlugin).toBeDefined();
     expect(fileParserPlugin).toMatchObject({
       id: 'file-parser',
