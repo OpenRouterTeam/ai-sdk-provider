@@ -55,6 +55,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         providerOptions: {
           openrouter: {
             reasoning: {
+              exclude: false,
               max_tokens: 2048,
             },
           },
