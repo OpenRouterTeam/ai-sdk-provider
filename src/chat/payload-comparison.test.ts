@@ -117,8 +117,6 @@ describe('Payload Comparison - Large PDF', () => {
     });
 
     // CRITICAL: Check for plugins array (FileParserPlugin should be auto-enabled for files)
-    // Based on refs/AGENTS.md:62, FileParserPlugin is "automatically enabled" with AI SDK provider
-    // The fetch baseline always includes: plugins: [{ id: 'file-parser', pdf: { engine: 'mistral-ocr' } }]
     expect(capturedRequestBody.plugins).toBeDefined();
     expect(capturedRequestBody.plugins).toBeInstanceOf(Array);
     
