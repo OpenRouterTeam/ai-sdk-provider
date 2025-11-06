@@ -91,27 +91,29 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     tools,
     toolChoice,
   }: LanguageModelV2CallOptions) {
-    // Check if prompt contains any file attachments
-    const hasFiles = prompt.some(message => {
-      const content = message.content;
-      if (Array.isArray(content)) {
-        return content.some(part => part.type === 'file');
-      }
-      return false;
-    });
-
     // Auto-enable FileParserPlugin when files are present
     // unless user has explicitly configured plugins
     let plugins = this.settings.plugins;
-    if (hasFiles && !plugins) {
-      plugins = [
-        {
-          id: 'file-parser' as any,
-          pdf: {
-            engine: 'mistral-ocr',
-          },
-        } as any,
-      ];
+    if (!plugins) {
+      // Check if prompt contains any file attachments
+      const hasFiles = prompt.some(message => {
+        const content = message.content;
+        if (Array.isArray(content)) {
+          return content.some(part => part.type === 'file');
+        }
+        return false;
+      });
+
+      if (hasFiles) {
+        plugins = [
+          {
+            id: 'file-parser' as any,
+            pdf: {
+              engine: 'mistral-ocr',
+            },
+          } as any,
+        ];
+      }
     }
 
     const baseArgs = {
