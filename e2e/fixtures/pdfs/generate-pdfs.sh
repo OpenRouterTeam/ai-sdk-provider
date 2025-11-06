@@ -95,14 +95,66 @@ rm xlarge_base.pdf xl_fill*.jpg
 echo
 echo "✓ PDF generation complete!"
 echo
+echo "Generating JSON metadata files..."
+echo
+
+# Create JSON metadata for each PDF with verification code
+# Format: { "verificationCode": "CODE", "description": "...", "size": "...", "type": "test_fixture" }
+
+cat > small.json << 'EOF'
+{
+  "verificationCode": "SMALL-7X9Q2",
+  "description": "Small test PDF (33KB) with minimal content",
+  "size": "small",
+  "type": "test_fixture",
+  "purpose": "Test basic PDF processing with FileParserPlugin"
+}
+EOF
+echo "  ✓ small.json"
+
+cat > medium.json << 'EOF'
+{
+  "verificationCode": "MEDIUM-K4P8R",
+  "description": "Medium test PDF (813KB) with text and image padding",
+  "size": "medium",
+  "type": "test_fixture",
+  "purpose": "Test PDF processing with moderate file size"
+}
+EOF
+echo "  ✓ medium.json"
+
+cat > large.json << 'EOF'
+{
+  "verificationCode": "LARGE-M9N3T",
+  "description": "Large test PDF (3.4MB) for FileParserPlugin regression testing",
+  "size": "large",
+  "type": "test_fixture",
+  "purpose": "Test large PDF handling and plugin activation",
+  "regression": "Validates fix for FileParserPlugin large PDF issue"
+}
+EOF
+echo "  ✓ large.json"
+
+cat > xlarge.json << 'EOF'
+{
+  "verificationCode": "XLARGE-W6H5V",
+  "description": "Extra-large test PDF (11MB) with extensive content",
+  "size": "xlarge",
+  "type": "test_fixture",
+  "purpose": "Test maximum file size handling with FileParserPlugin"
+}
+EOF
+echo "  ✓ xlarge.json"
+
+echo
 echo "Generated files:"
-ls -lh *.pdf
+ls -lh *.pdf *.json
 echo
 echo "Verification codes:"
-echo "  small.pdf  -> SMALL-7X9Q2"
-echo "  medium.pdf -> MEDIUM-K4P8R"
-echo "  large.pdf  -> LARGE-M9N3T"
-echo "  xlarge.pdf -> XLARGE-W6H5V"
+echo "  small.pdf  -> SMALL-7X9Q2   (small.json)"
+echo "  medium.pdf -> MEDIUM-K4P8R  (medium.json)"
+echo "  large.pdf  -> LARGE-M9N3T   (large.json)"
+echo "  xlarge.pdf -> XLARGE-W6H5V  (xlarge.json)"
 echo
 echo "Validating PDFs..."
 for pdf in small.pdf medium.pdf large.pdf xlarge.pdf; do
@@ -110,5 +162,14 @@ for pdf in small.pdf medium.pdf large.pdf xlarge.pdf; do
     echo "  ✓ $pdf is valid"
   else
     echo "  ✗ $pdf has issues"
+  fi
+done
+echo
+echo "Validating JSON metadata..."
+for json in small.json medium.json large.json xlarge.json; do
+  if python3 -m json.tool "$json" > /dev/null 2>&1; then
+    echo "  ✓ $json is valid"
+  else
+    echo "  ✗ $json has syntax errors"
   fi
 done
