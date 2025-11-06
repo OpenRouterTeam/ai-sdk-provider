@@ -72,12 +72,24 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                     content: z.string().optional(),
                   }),
                 }),
-                // File annotation from FileParserPlugin
+                // File annotation from FileParserPlugin (old format)
                 z.object({
                   type: z.literal('file_annotation'),
                   file_annotation: z.object({
                     file_id: z.string(),
                     quote: z.string().optional(),
+                  }),
+                }),
+                // File annotation from FileParserPlugin (new format)
+                z.object({
+                  type: z.literal('file'),
+                  file: z.object({
+                    hash: z.string(),
+                    name: z.string(),
+                    content: z.array(z.object({
+                      type: z.string(),
+                      text: z.string(),
+                    })).optional(),
                   }),
                 }),
               ]),
