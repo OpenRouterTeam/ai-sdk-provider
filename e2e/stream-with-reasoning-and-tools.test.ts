@@ -1,4 +1,4 @@
-import { streamText, tool, stepCountIs, convertToModelMessages, type UIMessage } from 'ai';
+import { streamText, tool, stepCountIs } from 'ai';
 import { describe, it, vi, expect } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '@/src';
@@ -17,6 +17,7 @@ describe('Stream with reasoning and tools', () => {
     const model = openrouter('anthropic/claude-haiku-4.5', {
       reasoning: {
         enabled: true,
+        max_tokens: 2000,
       },
     });
 
@@ -53,8 +54,8 @@ describe('Stream with reasoning and tools', () => {
         // Capture the error to check after the stream completes
         errorOccurred = error as Error;
       },
-      onStepFinish({ stepType, finishReason }) {
-        console.log('[E2E] Step finished:', stepType, 'reason:', finishReason);
+      onStepFinish({ finishReason }) {
+        console.log('[E2E] Step finished:', 'reason:', finishReason);
       },
       tools: {
         getWeather: tool({
@@ -123,7 +124,10 @@ describe('Stream with reasoning and tools', () => {
 
     // Fail the test if an error occurred during streaming
     if (errorOccurred) {
-      throw new Error(`Stream failed with error: ${errorOccurred.message}`, { cause: errorOccurred });
+      const error = errorOccurred as Error;
+      const streamError = new Error(`Stream failed with error: ${error.message}`);
+      (streamError as any).cause = error;
+      throw streamError;
     }
 
     // Basic checks - at least we should get some content

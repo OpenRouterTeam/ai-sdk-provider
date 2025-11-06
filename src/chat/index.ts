@@ -27,7 +27,7 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
@@ -383,6 +383,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 response.usage?.cost_details?.upstream_inference_cost ?? 0,
             },
           },
+        } as {
+          provider: string;
+          reasoning_details: ReasoningDetailUnion[];
+          usage: OpenRouterUsageAccounting;
         },
       },
       request: { body: args },
