@@ -17,6 +17,7 @@ describe('Stream with reasoning and tools', () => {
     const model = openrouter('anthropic/claude-sonnet-4', {
       reasoning: {
         enabled: true,
+        effort: 'medium',
       },
     });
 
@@ -28,7 +29,6 @@ describe('Stream with reasoning and tools', () => {
     ];
 
     let stepCount = 0;
-    const maxSteps = 5;
 
     const result = streamText({
       model,
@@ -36,9 +36,9 @@ describe('Stream with reasoning and tools', () => {
       onError({ error }) {
         console.error('[E2E] Stream error:', error);
         // Log the raw response if available
-        if ('responseBody' in error && error.responseBody) {
+        if (typeof error === 'object' && error !== null && 'responseBody' in error && error.responseBody) {
           try {
-            const parsed = JSON.parse(error.responseBody);
+            const parsed = JSON.parse(error.responseBody as string);
             console.error('[E2E] Error response body:', JSON.stringify(parsed, null, 2));
             if (parsed.error?.metadata?.raw) {
               console.error('[E2E] Raw error:', parsed.error.metadata.raw);
@@ -49,8 +49,6 @@ describe('Stream with reasoning and tools', () => {
         }
         throw error;
       },
-      experimental_continueSteps: true,
-      maxSteps,
       tools: {
         getWeather: tool({
           description: 'Get the current weather for a location',
@@ -85,22 +83,20 @@ describe('Stream with reasoning and tools', () => {
       stepCount++;
 
       if (part.type === 'text-delta') {
-        parts.push({ type: 'text-delta', text: part.textDelta });
+        parts.push({ type: 'text-delta', text: part.text });
       } else if (part.type === 'reasoning-delta') {
-        parts.push({ type: 'reasoning-delta', reasoning: part.delta });
+        parts.push({ type: 'reasoning-delta', reasoning: part.text });
       } else if (part.type === 'tool-call') {
         parts.push({ type: 'tool-call', toolName: part.toolName });
       } else if (part.type === 'tool-result') {
         parts.push({ type: 'tool-result', toolName: part.toolName });
-      } else if (part.type === 'step-finish') {
-        parts.push({ type: 'step-finish' });
       } else if (part.type === 'finish') {
         parts.push({ type: 'finish' });
       }
 
       // Log the part for debugging
       if (part.type === 'reasoning-delta') {
-        console.log('[E2E] Reasoning delta received:', part.delta?.substring(0, 50) || '');
+        console.log('[E2E] Reasoning delta received:', part.text?.substring(0, 50) || '');
       } else if (part.type === 'tool-call') {
         console.log('[E2E] Tool call:', part.toolName);
       } else if (part.type === 'tool-result') {
