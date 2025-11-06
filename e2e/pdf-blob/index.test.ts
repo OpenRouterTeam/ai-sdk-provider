@@ -127,11 +127,9 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
   });
 
   // Check verification code - use custom message to avoid dumping large objects
-  if (!response.text.includes(metadata.verificationCode)) {
-    expect(response.text, `Response should contain code ${metadata.verificationCode}`).toContain(
-      metadata.verificationCode,
-    );
-  }
+  expect(response.text, `Response should contain code ${metadata.verificationCode}`).toContain(
+    metadata.verificationCode,
+  );
 
   // Assert FileParserPlugin was active (token count should be low, <150)
   // Without the plugin, AI SDK would send raw base64 causing much higher token usage
