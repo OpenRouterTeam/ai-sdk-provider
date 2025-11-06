@@ -5,6 +5,12 @@ import {
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
 import { createOpenRouter } from '../provider';
+import { vi } from 'vitest';
+
+vi.mock('@/src/version', () => ({
+  VERSION: '0.0.0-test',
+}));
+
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -222,6 +228,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 });
@@ -437,6 +444,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 
