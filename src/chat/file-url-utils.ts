@@ -36,7 +36,8 @@ export function getMediaType(
   defaultMediaType: string,
 ): string {
   const match = dataUrl.match(/^data:([^;]+)/);
-  return match ? (match[1] ?? defaultMediaType) : defaultMediaType;
+  const [match] = dataUrl.match(/^data:([^;]+)/);
+  return match ? (match ?? defaultMediaType) : defaultMediaType;
 }
 
 export function getBase64FromDataUrl(dataUrl: string): string {
