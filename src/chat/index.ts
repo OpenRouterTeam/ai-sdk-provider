@@ -29,6 +29,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -193,6 +194,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     providerMetadata?: {
       openrouter: {
         provider: string;
+        reasoning_details?: ReasoningDetailUnion[];
         usage: OpenRouterUsageAccounting;
       };
     };
@@ -361,7 +363,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       usage: usageInfo,
       warnings: [],
       providerMetadata: {
-        openrouter: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: response.provider ?? '',
           reasoning_details: choice.message.reasoning_details ?? [],
           usage: {
@@ -383,11 +385,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 response.usage?.cost_details?.upstream_inference_cost ?? 0,
             },
           },
-        } as {
-          provider: string;
-          reasoning_details: ReasoningDetailUnion[];
-          usage: OpenRouterUsageAccounting;
-        },
+        }),
       },
       request: { body: args },
       response: {

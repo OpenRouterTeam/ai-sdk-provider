@@ -5,12 +5,12 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
+import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -197,7 +197,13 @@ export function convertToOpenRouterChatMessages(
         // If we don't have the preserved version (AI SDK doesn't pass providerOptions back),
         // we should NOT send reconstructed reasoning_details as they won't match the original
         // Instead, only use the legacy reasoning field
-        const preservedReasoningDetails = (providerOptions?.openrouter as { reasoning_details?: ReasoningDetailUnion[] } | undefined)?.reasoning_details;
+        const parsedProviderOptions = OpenRouterProviderOptionsSchema.safeParse(
+          providerOptions,
+        );
+        const preservedReasoningDetails =
+          parsedProviderOptions.success
+            ? parsedProviderOptions.data?.openrouter?.reasoning_details
+            : undefined;
 
         messages.push({
           role: 'assistant',
