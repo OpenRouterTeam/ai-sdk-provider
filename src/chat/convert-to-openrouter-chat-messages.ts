@@ -197,13 +197,11 @@ export function convertToOpenRouterChatMessages(
         // If we don't have the preserved version (AI SDK doesn't pass providerOptions back),
         // we should NOT send reconstructed reasoning_details as they won't match the original
         // Instead, only use the legacy reasoning field
-        const parsedProviderOptions = OpenRouterProviderOptionsSchema.safeParse(
-          providerOptions,
-        );
-        const preservedReasoningDetails =
-          parsedProviderOptions.success
-            ? parsedProviderOptions.data?.openrouter?.reasoning_details
-            : undefined;
+        const parsedProviderOptions =
+          OpenRouterProviderOptionsSchema.safeParse(providerOptions);
+        const preservedReasoningDetails = parsedProviderOptions.success
+          ? parsedProviderOptions.data?.openrouter?.reasoning_details
+          : undefined;
 
         messages.push({
           role: 'assistant',
@@ -211,9 +209,12 @@ export function convertToOpenRouterChatMessages(
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
           // Only include reasoning_details if we have the preserved original version
-          reasoning_details: preservedReasoningDetails && Array.isArray(preservedReasoningDetails) && preservedReasoningDetails.length > 0
-            ? preservedReasoningDetails
-            : undefined,
+          reasoning_details:
+            preservedReasoningDetails &&
+            Array.isArray(preservedReasoningDetails) &&
+            preservedReasoningDetails.length > 0
+              ? preservedReasoningDetails
+              : undefined,
           cache_control: getCacheControl(providerOptions),
         });
 

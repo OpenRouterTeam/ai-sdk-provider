@@ -47,14 +47,17 @@ pnpm dev
 
 ### Code Style and Formatting
 
-We use Prettier for code formatting. Before submitting a PR, make sure your code is properly formatted:
+We use Biome for code linting and formatting. Before submitting a PR, make sure your code passes all checks:
 
 ```bash
-# Check formatting
+# Check both linting and formatting
 pnpm stylecheck
 
-# Fix formatting issues
+# Fix formatting issues automatically
 pnpm format
+
+# Run linting and formatting checks
+pnpm stylecheck
 ```
 
 ### Type Checking
@@ -115,11 +118,19 @@ The usage accounting feature provides an example of how to add features to the p
 
 1. Create a new branch for your changes
 2. Make your changes, including tests and documentation updates
-3. Ensure all tests pass
-4. Run formatting checks and fix any issues
+3. Run all checks locally before submitting:
+   ```bash
+   pnpm stylecheck    # Check formatting
+   pnpm typecheck     # Check types
+   pnpm build         # Build the project
+   pnpm test          # Run all tests
+   ```
+4. Fix any issues found by the checks (use `pnpm format` for formatting)
 5. Commit with clear, descriptive messages
 6. Push to your fork and submit a pull request
 7. Update the PR description with any relevant information
+
+**Note:** Our CI will automatically run all these checks on your PR. PRs with failing checks cannot be merged.
 
 ### PR Title Convention
 

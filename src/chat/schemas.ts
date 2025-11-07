@@ -1,7 +1,7 @@
 import { z } from 'zod/v4';
 import { OpenRouterErrorResponseSchema } from '../schemas/error-response';
-import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
 import { ImageResponseArraySchema } from '../schemas/image';
+import { ReasoningDetailArraySchema } from '../schemas/reasoning-details';
 
 const OpenRouterChatCompletionBaseResponseSchema = z.object({
   id: z.string().optional(),
