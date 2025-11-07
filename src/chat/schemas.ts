@@ -60,16 +60,43 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
 
           annotations: z
             .array(
-              z.object({
-                type: z.enum(['url_citation']),
-                url_citation: z.object({
-                  end_index: z.number(),
-                  start_index: z.number(),
-                  title: z.string(),
-                  url: z.string(),
-                  content: z.string().optional(),
+              z.union([
+                // URL citation from web search
+                z.object({
+                  type: z.literal('url_citation'),
+                  url_citation: z.object({
+                    end_index: z.number(),
+                    start_index: z.number(),
+                    title: z.string(),
+                    url: z.string(),
+                    content: z.string().optional(),
+                  }),
                 }),
-              }),
+                // File annotation from FileParserPlugin (old format)
+                z.object({
+                  type: z.literal('file_annotation'),
+                  file_annotation: z.object({
+                    file_id: z.string(),
+                    quote: z.string().optional(),
+                  }),
+                }),
+                // File annotation from FileParserPlugin (new format)
+                z.object({
+                  type: z.literal('file'),
+                  file: z.object({
+                    hash: z.string(),
+                    name: z.string(),
+                    content: z
+                      .array(
+                        z.object({
+                          type: z.string(),
+                          text: z.string(),
+                        }),
+                      )
+                      .optional(),
+                  }),
+                }),
+              ]),
             )
             .nullish(),
         }),

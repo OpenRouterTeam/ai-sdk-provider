@@ -91,6 +91,31 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     tools,
     toolChoice,
   }: LanguageModelV2CallOptions) {
+    // Auto-enable FileParserPlugin when files are present
+    // unless user has explicitly configured plugins
+    let plugins = this.settings.plugins;
+    if (!plugins) {
+      // Check if prompt contains any file attachments
+      const hasFiles = prompt.some((message) => {
+        const content = message.content;
+        if (Array.isArray(content)) {
+          return content.some((part) => part.type === 'file');
+        }
+        return false;
+      });
+
+      if (hasFiles) {
+        plugins = [
+          {
+            id: 'file-parser',
+            pdf: {
+              engine: 'mistral-ocr',
+            },
+          },
+        ];
+      }
+    }
+
     const baseArgs = {
       // model id:
       model: this.modelId,
@@ -135,7 +160,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       usage: this.settings.usage,
 
       // Web search settings:
-      plugins: this.settings.plugins,
+      plugins,
       web_search_options: this.settings.web_search_options,
       // Provider routing settings:
       provider: this.settings.provider,
@@ -213,7 +238,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       ...openrouterOptions,
     };
 
-    const { value: response, responseHeaders } = await postJsonToApi({
+    const { value: responseValue, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -229,9 +254,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     });
 
     // Check if response is an error (HTTP 200 with error payload)
-    if ('error' in response) {
+    if ('error' in responseValue) {
       throw new APICallError({
-        message: response.error.message,
+        message: responseValue.error.message,
         url: this.config.url({
           path: '/chat/completions',
           modelId: this.modelId,
@@ -239,9 +264,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         requestBodyValues: args,
         statusCode: 200,
         responseHeaders,
-        data: response.error,
+        data: responseValue.error,
       });
     }
+
+    // Now TypeScript knows this is the success response
+    const response = responseValue;
 
     const choice = response.choices[0];
 
