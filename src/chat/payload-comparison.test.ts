@@ -1,19 +1,19 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
-
-import { describe, expect, it, vi } from 'vitest';
-import { createOpenRouter } from '../provider';
 import type { OpenRouterChatCompletionsInput } from '../types/openrouter-chat-completions-input';
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-interface CapturedRequestBody {
-  model: string;
-  messages: OpenRouterChatCompletionsInput;
-  plugins?: OpenRouterChatSettings['plugins'];
-  usage?: { include: boolean };
-}
+import { describe, expect, it, vi } from 'vitest';
+import { createOpenRouter } from '../provider';
 
 describe('Payload Comparison - Large PDF', () => {
   it('should send payload matching fetch baseline for large PDFs', async () => {
+    interface CapturedRequestBody {
+      model: string;
+      messages: OpenRouterChatCompletionsInput;
+      plugins?: OpenRouterChatSettings['plugins'];
+      usage?: { include: boolean };
+    }
+
     // Capture what the provider actually sends
     let capturedRequestBody: CapturedRequestBody | null = null;
 
@@ -50,11 +50,11 @@ describe('Payload Comparison - Large PDF', () => {
           headers: { 'Content-Type': 'application/json' },
         },
       );
-    });
+    }) as typeof fetch;
 
     const provider = createOpenRouter({
       apiKey: 'test-key',
-      fetch: mockFetch as typeof fetch,
+      fetch: mockFetch,
     });
 
     // Simulate a large PDF (use a small base64 for testing, but structure matters)
