@@ -2,24 +2,13 @@ import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
-
-type ContentPart =
-  | { type: 'text'; text: string }
-  | { type: 'file'; file: { filename: string; file_data: string } }
-  | { type: 'image_url'; image_url: { url: string } };
+import type { OpenRouterChatCompletionsInput } from '../types/openrouter-chat-completions-input';
+import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
 interface CapturedRequestBody {
   model: string;
-  messages: Array<{
-    role: string;
-    content: string | ContentPart[];
-  }>;
-  plugins?: Array<{
-    id: string;
-    pdf?: { engine: string };
-    max_results?: number;
-    search_prompt?: string;
-  }>;
+  messages: OpenRouterChatCompletionsInput;
+  plugins?: OpenRouterChatSettings['plugins'];
   usage?: { include: boolean };
 }
 
