@@ -1,6 +1,7 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+
+import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
-import { describe, it, expect, vi } from 'vitest';
 
 type ContentPart =
   | { type: 'text'; text: string }
