@@ -19,7 +19,7 @@ import type {
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
 
-import { InvalidResponseDataError } from '@ai-sdk/provider';
+import { APICallError, InvalidResponseDataError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -227,6 +227,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     });
+
+    // Check if response is an error (HTTP 200 with error payload)
+    if ('error' in response) {
+      throw new APICallError({
+        message: response.error.message,
+        url: this.config.url({
+          path: '/chat/completions',
+          modelId: this.modelId,
+        }),
+        requestBodyValues: args,
+        statusCode: 200,
+        responseHeaders,
+        data: response.error,
+      });
+    }
 
     const choice = response.choices[0];
 
