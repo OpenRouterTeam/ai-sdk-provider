@@ -56,7 +56,7 @@ pnpm stylecheck
 # Fix formatting issues automatically
 pnpm format
 
-# Run linting only
+# Run linting and formatting checks
 pnpm stylecheck
 ```
 
