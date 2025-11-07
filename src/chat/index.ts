@@ -12,6 +12,7 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
+import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   OpenRouterChatModelId,
@@ -27,17 +28,17 @@ import {
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { ReasoningDetailType, type ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
 import {
   OpenRouterNonStreamChatCompletionResponseSchema,
   OpenRouterStreamChatCompletionChunkSchema,
 } from './schemas';
-import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 
 type OpenRouterChatConfig = {
   provider: string;
@@ -797,7 +798,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
                   data: getBase64FromDataUrl(image.image_url.url),
-                })
+                });
               }
             }
           },
@@ -850,7 +851,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             // Include accumulated reasoning_details if any were received
             if (accumulatedReasoningDetails.length > 0) {
-              openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
+              openrouterMetadata.reasoning_details =
+                accumulatedReasoningDetails;
             }
 
             controller.enqueue({

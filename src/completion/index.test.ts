@@ -4,13 +4,12 @@ import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
-import { createOpenRouter } from '../provider';
 import { vi } from 'vitest';
+import { createOpenRouter } from '../provider';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
-
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },

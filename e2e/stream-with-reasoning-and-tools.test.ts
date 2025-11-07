@@ -1,5 +1,5 @@
-import { streamText, tool, stepCountIs } from 'ai';
-import { describe, it, vi, expect } from 'vitest';
+import { stepCountIs, streamText, tool } from 'ai';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '@/src';
 
@@ -24,11 +24,12 @@ describe('Stream with reasoning and tools', () => {
     const messages = [
       {
         role: 'user' as const,
-        content: 'What is the weather in San Francisco? Then tell me what to wear.',
+        content:
+          'What is the weather in San Francisco? Then tell me what to wear.',
       },
     ];
 
-    let stepCount = 0;
+    let _stepCount = 0;
     let errorOccurred: Error | null = null;
 
     const result = streamText({
@@ -39,15 +40,26 @@ describe('Stream with reasoning and tools', () => {
         console.error('[E2E] ========== ERROR OCCURRED ==========');
         console.error('[E2E] Stream error:', error);
         // Log the raw response if available
-        if (typeof error === 'object' && error !== null && 'responseBody' in error && error.responseBody) {
+        if (
+          typeof error === 'object' &&
+          error !== null &&
+          'responseBody' in error &&
+          error.responseBody
+        ) {
           try {
             const parsed = JSON.parse(error.responseBody as string);
-            console.error('[E2E] Error response body:', JSON.stringify(parsed, null, 2));
+            console.error(
+              '[E2E] Error response body:',
+              JSON.stringify(parsed, null, 2),
+            );
             if (parsed.error?.metadata?.raw) {
               console.error('[E2E] Raw error:', parsed.error.metadata.raw);
             }
-          } catch (e) {
-            console.error('[E2E] Failed to parse error response:', error.responseBody);
+          } catch (_e) {
+            console.error(
+              '[E2E] Failed to parse error response:',
+              error.responseBody,
+            );
           }
         }
         console.error('[E2E] ========================================');
@@ -61,7 +73,9 @@ describe('Stream with reasoning and tools', () => {
         getWeather: tool({
           description: 'Get the current weather for a location',
           inputSchema: z.object({
-            location: z.string().describe('The city and state, e.g. San Francisco, CA'),
+            location: z
+              .string()
+              .describe('The city and state, e.g. San Francisco, CA'),
           }),
           execute: async ({ location }) => {
             // Simulate some delay
@@ -87,7 +101,7 @@ describe('Stream with reasoning and tools', () => {
     }> = [];
 
     for await (const part of result.fullStream) {
-      stepCount++;
+      _stepCount++;
       console.log('[E2E] Received part type:', part.type);
 
       if (part.type === 'text-delta') {
@@ -119,13 +133,18 @@ describe('Stream with reasoning and tools', () => {
     console.log('[E2E] Reasoning parts:', reasoningParts.length);
     console.log('[E2E] Tool call parts:', toolCallParts.length);
     console.log('[E2E] Text parts:', textParts.length);
-    console.log('[E2E] Total reasoning text length:', totalReasoningText.length);
+    console.log(
+      '[E2E] Total reasoning text length:',
+      totalReasoningText.length,
+    );
     console.log('[E2E] Total text length:', totalText.length);
 
     // Fail the test if an error occurred during streaming
     if (errorOccurred) {
       const error = errorOccurred as Error;
-      const streamError = new Error(`Stream failed with error: ${error.message}`);
+      const streamError = new Error(
+        `Stream failed with error: ${error.message}`,
+      );
       (streamError as any).cause = error;
       throw streamError;
     }
