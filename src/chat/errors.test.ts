@@ -1,7 +1,8 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+
 import { createTestServer } from '@ai-sdk/provider-utils/test';
+import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
-import { describe, it, expect } from 'vitest';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
