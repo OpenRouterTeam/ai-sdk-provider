@@ -33,7 +33,8 @@ const OpenRouterChatCompletionBaseResponseSchema = z.object({
 });
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
-export const OpenRouterNonStreamChatCompletionResponseSchema =
+export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
+  // Success response with choices
   OpenRouterChatCompletionBaseResponseSchema.extend({
     choices: z.array(
       z.object({
@@ -95,7 +96,12 @@ export const OpenRouterNonStreamChatCompletionResponseSchema =
         finish_reason: z.string().optional().nullable(),
       }),
     ),
-  });
+  }),
+  // Error response (HTTP 200 with error payload)
+  OpenRouterErrorResponseSchema.extend({
+    user_id: z.string().optional(),
+  }),
+]);
 // limited version of the schema, focussed on what is needed for the implementation
 // this approach limits breakages when the API changes and increases efficiency
 export const OpenRouterStreamChatCompletionChunkSchema = z.union([
