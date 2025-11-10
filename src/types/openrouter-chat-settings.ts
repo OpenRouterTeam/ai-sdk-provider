@@ -45,33 +45,19 @@ monitor and detect abuse. Learn more.
   user?: string;
 
   /**
-   * Plugin configurations for enabling various capabilities
+   * Web search plugin configuration for enabling web search capabilities
    */
-  plugins?: Array<
-    | {
-        id: 'web';
-        /**
-         * Maximum number of search results to include (default: 5)
-         */
-        max_results?: number;
-        /**
-         * Custom search prompt to guide the search query
-         */
-        search_prompt?: string;
-      }
-    | {
-        id: 'file-parser';
-        /**
-         * PDF parsing configuration
-         */
-        pdf?: {
-          /**
-           * PDF parsing engine to use (default: 'mistral-ocr')
-           */
-          engine?: 'mistral-ocr' | 'pdf-text' | 'native';
-        };
-      }
-  >;
+  plugins?: Array<{
+    id: 'web';
+    /**
+     * Maximum number of search results to include (default: 5)
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  }>;
 
   /**
    * Built-in web search options for models that support native web search
