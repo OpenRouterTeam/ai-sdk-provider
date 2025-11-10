@@ -76,5 +76,8 @@
   "keywords": [
     "ai"
   ],
-  "packageManager": "pnpm@10.12.4"
+  "packageManager": "pnpm@10.12.4",
+  "dependencies": {
+    "@openrouter/sdk": "^0.1.8"
+  }
 }
