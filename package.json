@@ -20,7 +20,10 @@
     "test": "pnpm test:node && pnpm test:edge",
     "test:edge": "vitest --config vitest.edge.config.ts --run",
     "test:node": "vitest --config vitest.node.config.ts --run",
-    "test:e2e": "vitest --config vitest.e2e.config.ts --run"
+    "test:e2e": "vitest --config vitest.e2e.config.ts --run",
+    "changeset": "changeset",
+    "changeset-version": "changeset version",
+    "changeset-publish": "pnpm build && pnpm test && changeset publish"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -40,6 +43,8 @@
     "@ai-sdk/provider": "2.0.0",
     "@ai-sdk/provider-utils": "3.0.1",
     "@biomejs/biome": "2.1.3",
+    "@changesets/changelog-github": "0.5.1",
+    "@changesets/cli": "2.29.7",
     "@edge-runtime/vm": "5.0.0",
     "@types/node": "24.2.0",
     "ai": "5.0.76",

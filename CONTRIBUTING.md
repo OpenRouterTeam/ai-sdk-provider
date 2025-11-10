@@ -118,17 +118,32 @@ The usage accounting feature provides an example of how to add features to the p
 
 1. Create a new branch for your changes
 2. Make your changes, including tests and documentation updates
-3. Run all checks locally before submitting:
+3. **Add a changeset** to describe your changes:
+   ```bash
+   pnpm changeset
+   ```
+   This will prompt you to select the type of change (patch/minor/major) and write a summary. The changeset will be used to automatically generate release notes and bump versions.
+   
+   - **patch**: Bug fixes and small changes that don't affect the API
+   - **minor**: New features that are backwards-compatible
+   - **major**: Breaking changes
+   
+   If your changes don't need a release (docs, tests, CI config), create an empty changeset:
+   ```bash
+   pnpm changeset --empty
+   ```
+
+4. Run all checks locally before submitting:
    ```bash
    pnpm stylecheck    # Check formatting
    pnpm typecheck     # Check types
    pnpm build         # Build the project
    pnpm test          # Run all tests
    ```
-4. Fix any issues found by the checks (use `pnpm format` for formatting)
-5. Commit with clear, descriptive messages
-6. Push to your fork and submit a pull request
-7. Update the PR description with any relevant information
+5. Fix any issues found by the checks (use `pnpm format` for formatting)
+6. Commit with clear, descriptive messages (including the changeset file)
+7. Push to your fork and submit a pull request
+8. Update the PR description with any relevant information
 
 **Note:** Our CI will automatically run all these checks on your PR. PRs with failing checks cannot be merged.
 
@@ -144,7 +159,32 @@ Use a descriptive title that explains the change:
 
 ## Release Process
 
-The project maintainers will handle versioning and publishing. When your contribution is merged, it will be included in the next release.
+This project uses [Changesets](https://github.com/changesets/changesets) for automated release management.
+
+### How it works
+
+1. **Contributors add changesets**: When you submit a PR with changes that affect the public API or fix bugs, you include a changeset file (created with `pnpm changeset`) that describes your changes.
+
+2. **Automated version PR**: When PRs with changesets are merged to `main`, the Release workflow automatically creates or updates a "Version Packages" PR. This PR:
+   - Bumps the version in `package.json` based on all pending changesets
+   - Updates `CHANGELOG.md` with all changes since the last release
+   - Removes the changeset files that have been processed
+
+3. **Publish to npm**: When a maintainer merges the "Version Packages" PR, the package is automatically published to npm with provenance.
+
+### For Maintainers
+
+To release a new version:
+
+1. Review the automatically created "Version Packages" PR
+2. Verify the version bump is appropriate
+3. Verify the CHANGELOG entries are accurate
+4. Merge the PR
+5. The Release workflow will automatically publish to npm
+
+### Manual releases (emergency only)
+
+In case of emergency, a manual release can be triggered using the legacy `publish-manual.yaml` workflow by creating a GitHub Release. This should only be used when the automated process is unavailable.
 
 ## Getting Help
 
