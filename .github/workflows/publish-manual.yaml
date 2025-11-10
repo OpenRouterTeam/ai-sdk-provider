@@ -1,5 +1,5 @@
 # DEPRECATED: This workflow is kept for emergency manual releases only.
-# Normal releases should use the changeset-based release.yml workflow.
+# Normal releases should use the changeset-based publish.yaml workflow.
 # To use this, manually create a GitHub Release.
 name: Publish package (legacy)
 on:
