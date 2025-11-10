@@ -183,7 +183,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new NoContentGeneratedError();
+      throw new NoContentGeneratedError({
+        message: 'No choice in OpenRouter completion response',
+      });
     }
 
     return {

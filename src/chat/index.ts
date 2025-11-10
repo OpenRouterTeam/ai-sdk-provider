@@ -253,7 +253,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new NoContentGeneratedError();
+      throw new NoContentGeneratedError({
+        message: 'No choice in response',
+      });
     }
 
     // Extract detailed usage information
