@@ -184,7 +184,7 @@ To release a new version:
 
 ### Manual releases (emergency only)
 
-In case of emergency, a manual release can be triggered using the legacy `publish.yaml` workflow by creating a GitHub Release. This should only be used when the automated process is unavailable.
+In case of emergency, a manual release can be triggered using the legacy `publish-manual.yaml` workflow by creating a GitHub Release. This should only be used when the automated process is unavailable.
 
 ## Getting Help
 
