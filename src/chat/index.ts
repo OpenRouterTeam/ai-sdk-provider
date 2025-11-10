@@ -725,7 +725,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   const toolCall = toolCalls[index];
 
                   if (toolCall == null) {
-                    throw new Error('Tool call is missing');
+                    throw new InvalidResponseDataError({
+                      data: { index, toolCallsLength: toolCalls.length },
+                      message: `Tool call at index ${index} is missing after creation.`,
+                    });
                   }
 
                   // check if tool call is complete (some providers send the full tool call in one chunk)
@@ -772,7 +775,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 const toolCall = toolCalls[index];
 
                 if (toolCall == null) {
-                  throw new Error('Tool call is missing');
+                  throw new InvalidResponseDataError({
+                    data: {
+                      index,
+                      toolCallsLength: toolCalls.length,
+                      toolCallDelta,
+                    },
+                    message: `Tool call at index ${index} is missing during merge.`,
+                  });
                 }
 
                 if (!toolCall.inputStarted) {
