@@ -1,3 +1,4 @@
+import type * as models from '@openrouter/sdk/models';
 import type { OpenRouterSharedSettings } from '..';
 
 // https://openrouter.ai/api/v1/models
@@ -49,27 +50,20 @@ monitor and detect abuse. Learn more.
    */
   plugins?: Array<
     | {
-        id: 'web';
-        /**
-         * Maximum number of search results to include (default: 5)
-         */
+        id: models.IdWeb;
         max_results?: number;
-        /**
-         * Custom search prompt to guide the search query
-         */
         search_prompt?: string;
+        engine?: models.Engine;
       }
     | {
-        id: 'file-parser';
-        /**
-         * PDF parsing configuration
-         */
+        id: models.IdFileParser;
+        max_files?: number;
         pdf?: {
-          /**
-           * PDF parsing engine to use (default: 'mistral-ocr')
-           */
-          engine?: 'mistral-ocr' | 'pdf-text' | 'native';
+          engine?: models.PdfEngine;
         };
+      }
+    | {
+        id: models.IdModeration;
       }
   >;
 
@@ -106,7 +100,7 @@ monitor and detect abuse. Learn more.
     /**
      * Control whether to use providers that may store data
      */
-    data_collection?: 'allow' | 'deny';
+    data_collection?: models.DataCollection;
     /**
      * List of provider slugs to allow for this request
      */
@@ -118,21 +112,11 @@ monitor and detect abuse. Learn more.
     /**
      * List of quantization levels to filter by (e.g. ["int4", "int8"])
      */
-    quantizations?: Array<
-      | 'int4'
-      | 'int8'
-      | 'fp4'
-      | 'fp6'
-      | 'fp8'
-      | 'fp16'
-      | 'bf16'
-      | 'fp32'
-      | 'unknown'
-    >;
+    quantizations?: Array<models.Quantization>;
     /**
      * Sort providers by price, throughput, or latency
      */
-    sort?: 'price' | 'throughput' | 'latency';
+    sort?: models.Sort;
     /**
      * Maximum pricing you want to pay for this request
      */
