@@ -13,7 +13,11 @@ import type {
   OpenRouterCompletionSettings,
 } from '../types/openrouter-completion-settings';
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import {
+  APICallError,
+  NoContentGeneratedError,
+  UnsupportedFunctionalityError,
+} from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -163,13 +167,25 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     });
 
     if ('error' in response) {
-      throw new Error(`${response.error.message}`);
+      throw new APICallError({
+        message: response.error.message,
+        url: this.config.url({
+          path: '/completions',
+          modelId: this.modelId,
+        }),
+        requestBodyValues: args,
+        statusCode: 200,
+        responseHeaders,
+        data: response.error,
+      });
     }
 
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error('No choice in OpenRouter completion response');
+      throw new NoContentGeneratedError({
+        message: 'No choice in OpenRouter completion response',
+      });
     }
 
     return {
