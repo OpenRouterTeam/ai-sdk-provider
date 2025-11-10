@@ -79,6 +79,7 @@ describe('Payload Comparison - Large PDF', () => {
     ];
 
     const model = provider('anthropic/claude-3.5-sonnet', {
+      plugins: [{ id: 'file-parser', pdf: { engine: 'mistral-ocr' } }],
       usage: { include: true },
     });
 
@@ -132,7 +133,7 @@ describe('Payload Comparison - Large PDF', () => {
       text: 'Extract the verification code. Reply with ONLY the code.',
     });
 
-    // CRITICAL: Check for plugins array (FileParserPlugin should be auto-enabled for files)
+    // Check for plugins array
     expect(capturedRequestBody!.plugins).toBeDefined();
     expect(capturedRequestBody!.plugins).toBeInstanceOf(Array);
 
