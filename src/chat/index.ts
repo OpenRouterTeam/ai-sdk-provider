@@ -19,7 +19,11 @@ import type {
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
 
-import { APICallError, InvalidResponseDataError } from '@ai-sdk/provider';
+import {
+  APICallError,
+  InvalidResponseDataError,
+  NoContentGeneratedError,
+} from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -249,7 +253,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error('No choice in response');
+      throw new NoContentGeneratedError();
     }
 
     // Extract detailed usage information
