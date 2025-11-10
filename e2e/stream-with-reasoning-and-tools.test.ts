@@ -144,8 +144,8 @@ describe('Stream with reasoning and tools', () => {
       const error = errorOccurred as Error;
       const streamError = new Error(
         `Stream failed with error: ${error.message}`,
+        { cause: error },
       );
-      (streamError as any).cause = error;
       throw streamError;
     }
 
