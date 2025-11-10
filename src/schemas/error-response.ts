@@ -1,5 +1,6 @@
-import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
 import type { ChatErrorError } from '@openrouter/sdk/models';
+
+import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
 
 // Use SDK's ChatErrorError type but wrap in response schema
