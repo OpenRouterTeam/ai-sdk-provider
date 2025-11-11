@@ -1,4 +1,4 @@
-import type { LanguageModelV2 } from '@ai-sdk/provider';
+import type { ProviderV2 } from '@ai-sdk/provider';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -16,7 +16,7 @@ import { VERSION } from './version';
 
 export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends LanguageModelV2 {
+export interface OpenRouterProvider extends ProviderV2 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
