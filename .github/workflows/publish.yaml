@@ -41,31 +41,37 @@ jobs:
         run: |
           echo "=== OIDC Preflight ==="
           
-          # Remove any auth tokens from .npmrc to ensure OIDC is used
-          if [ -f ~/.npmrc ]; then
-            echo "Cleaning ~/.npmrc of any existing auth tokens..."
-            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*_auth/d' ~/.npmrc
-            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*_authToken/d' ~/.npmrc
-            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*always-auth/d' ~/.npmrc
-          fi
+          # Remove auth tokens from all potential .npmrc locations to ensure OIDC is used
+          for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
+            if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
+              echo "Cleaning $npmrc of any existing auth tokens..."
+              # Remove registry-scoped auth tokens
+              sed -i '/\/\/registry\.npmjs\.org\/:_authToken/d' "$npmrc"
+              sed -i '/\/\/registry\.npmjs\.org\/:_auth=/d' "$npmrc"
+              # Remove global always-auth
+              sed -i '/^always-auth=/d' "$npmrc"
+            fi
+          done
           
           # Verify npm connectivity
           echo "Testing npm registry connectivity..."
           npm ping || exit 1
           
-          # Confirm no token is active (this should fail for OIDC to work)
+          # Verify no token is active (should fail for OIDC to work)
           echo "Verifying no auth token is configured..."
-          if npm whoami 2>&1 | grep -q "not logged in"; then
-            echo "✓ Confirmed: not logged in (OIDC will be used)"
+          if npm whoami >/dev/null 2>&1; then
+            echo "⚠ Warning: npm whoami succeeded without OIDC token"
           else
-            echo "⚠ Warning: npm whoami returned unexpected result"
+            echo "✓ Confirmed: npm whoami failed (OIDC will be used)"
           fi
           
           echo ""
           echo "Registry configuration:"
           npm config get registry
+          npm config get @openrouter:registry || echo "  (no @openrouter scope override)"
       
       - name: Publish with OIDC
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: pnpm changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -74,22 +80,25 @@ jobs:
         if: failure()
         run: |
           echo "=== Post-mortem Diagnostics ==="
-          echo "Node: $(node --version)"
-          echo "npm: $(npm --version)"
-          echo "pnpm: $(pnpm --version)"
+          echo "Versions:"
+          echo "  Node: $(node --version)"
+          echo "  npm: $(npm --version)"
+          echo "  pnpm: $(pnpm --version)"
           echo ""
-          echo "Registry config:"
-          npm config get registry
+          echo "Registry configuration:"
+          echo "  registry: $(npm config get registry)"
+          echo "  @openrouter scope: $(npm config get @openrouter:registry || echo '(inherited from global)')"
           echo ""
-          echo ".npmrc status:"
-          if [ -f ~/.npmrc ]; then
-            echo "File exists:"
-            wc -l ~/.npmrc
-            echo "Auth token lines:"
-            grep -c "authToken\|_auth" ~/.npmrc || echo "0"
-          else
-            echo "No .npmrc file"
-          fi
+          echo ".npmrc files status:"
+          for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
+            if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
+              echo "  $npmrc:"
+              echo "    Lines: $(wc -l < "$npmrc")"
+              echo "    Auth lines: $(grep -c "_auth\|_token" "$npmrc" || echo "0")"
+              echo "    Content (redacted):"
+              sed 's/\(_auth[^=]*=\).*/\1***REDACTED***/g; s/\(_token[^=]*=\).*/\1***REDACTED***/g' "$npmrc" | sed 's/^/      /'
+            fi
+          done
           echo ""
-          echo "Package info:"
-          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "Could not fetch"
+          echo "Package availability:"
+          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "  (could not fetch)"
