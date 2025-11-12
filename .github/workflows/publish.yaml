@@ -36,30 +36,33 @@ jobs:
           echo "npm version: $(npm --version)"
           echo "pnpm version: $(pnpm --version)"
           echo ""
-          echo "=== Environment ==="
-          echo "NPM_TOKEN length: ${#NPM_TOKEN}"
-          echo "NODE_AUTH_TOKEN length: ${#NODE_AUTH_TOKEN}"
+          echo "=== Environment Variables ==="
+          echo "NPM_TOKEN set: ${NPM_TOKEN:+yes (length ${#NPM_TOKEN})}"
+          echo "NODE_AUTH_TOKEN set: ${NODE_AUTH_TOKEN:+yes (length ${#NODE_AUTH_TOKEN})}"
+          echo "NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
           echo ""
           echo "=== npm config ==="
-          npm config get registry
-          npm config get @openrouter:registry
-          npm config get //registry.npmjs.org/:_authToken | head -c 20
-          echo "***[REDACTED]"
+          npm config list --json | jq '.registry, .["@openrouter:registry"], .["@openrouter/registry"]' || npm config list
           echo ""
-          echo "=== .npmrc location and content ==="
-          if [ -f ~/.npmrc ]; then
-            echo ".npmrc exists at ~/.npmrc"
-            wc -l ~/.npmrc
-            grep -E "registry|_auth|_token" ~/.npmrc || echo "No registry/auth lines found"
-          else
-            echo "No .npmrc at ~/.npmrc"
-          fi
+          echo "=== .npmrc files ==="
+          for rc in ~/.npmrc "$NPM_CONFIG_USERCONFIG" .npmrc; do
+            if [ -f "$rc" ]; then
+              echo "Found: $rc"
+              wc -l "$rc"
+            fi
+          done
+          echo ""
+          echo "=== Auth token in registry ==="
+          npm config get //registry.npmjs.org/:_authToken | head -c 10 && echo "***[rest redacted]"
           echo ""
           echo "=== npm whoami ==="
-          npm whoami || echo "npm whoami failed"
+          npm whoami 2>&1 || echo "FAILED"
           echo ""
           echo "=== npm ping ==="
-          npm ping || echo "npm ping failed"
+          npm ping 2>&1 || echo "FAILED"
+          echo ""
+          echo "=== Verify package exists on npm ==="
+          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "FAILED"
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create Release Pull Request or Publish
