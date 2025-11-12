@@ -29,47 +29,77 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Diagnose npm authentication
-        run: |
-          echo "=== NPM Authentication Diagnostics ==="
-          echo "Node version: $(node --version)"
-          echo "npm version: $(npm --version)"
-          echo "pnpm version: $(pnpm --version)"
-          echo ""
-          echo "=== Environment Variables ==="
-          echo "NPM_TOKEN set: ${NPM_TOKEN:+yes (length ${#NPM_TOKEN})}"
-          echo "NODE_AUTH_TOKEN set: ${NODE_AUTH_TOKEN:+yes (length ${#NODE_AUTH_TOKEN})}"
-          echo "NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
-          echo ""
-          echo "=== npm config ==="
-          npm config list --json | jq '.registry, .["@openrouter:registry"], .["@openrouter/registry"]' || npm config list
-          echo ""
-          echo "=== .npmrc files ==="
-          for rc in ~/.npmrc "$NPM_CONFIG_USERCONFIG" .npmrc; do
-            if [ -f "$rc" ]; then
-              echo "Found: $rc"
-              wc -l "$rc"
-            fi
-          done
-          echo ""
-          echo "=== Auth token in registry ==="
-          npm config get //registry.npmjs.org/:_authToken | head -c 10 && echo "***[rest redacted]"
-          echo ""
-          echo "=== npm whoami ==="
-          npm whoami 2>&1 || echo "FAILED"
-          echo ""
-          echo "=== npm ping ==="
-          npm ping 2>&1 || echo "FAILED"
-          echo ""
-          echo "=== Verify package exists on npm ==="
-          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "FAILED"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create Release Pull Request or Publish
+        id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm changeset-version
-          publish: pnpm changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: OIDC preflight - scrub .npmrc and verify registry
+        run: |
+          echo "=== OIDC Preflight ==="
+          
+          # Remove auth tokens from all potential .npmrc locations to ensure OIDC is used
+          for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
+            if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
+              echo "Cleaning $npmrc of any existing auth tokens..."
+              # Remove registry-scoped tokens (allow optional whitespace around =)
+              sed -i -E '/\/\/registry\.npmjs\.org\/:(_authToken|_auth)\s*=/d' "$npmrc"
+              # Remove global tokens in any form
+              sed -i -E '/^\s*(_authToken|_auth)\s*=/d' "$npmrc"
+              # Remove global always-auth (case-insensitive, allow spacing)
+              sed -i -E '/^\s*[Aa]lways-[Aa]uth\s*=/d' "$npmrc"
+            fi
+          done
+          
+          # Verify npm connectivity
+          echo "Testing npm registry connectivity..."
+          npm ping || exit 1
+          
+          # Verify no token is active (should fail for OIDC to work)
+          echo "Verifying no auth token is configured..."
+          if npm whoami >/dev/null 2>&1; then
+            echo "⚠ Warning: npm whoami succeeded without OIDC token"
+          else
+            echo "✓ Confirmed: npm whoami failed (OIDC will be used)"
+          fi
+          
+          echo ""
+          echo "Registry configuration:"
+          npm config get registry
+          npm config get @openrouter:registry || echo "  (no @openrouter scope override)"
+      
+      - name: Publish with OIDC
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: pnpm changeset-publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Post-mortem diagnostics
+        if: failure()
+        run: |
+          echo "=== Post-mortem Diagnostics ==="
+          echo "Versions:"
+          echo "  Node: $(node --version)"
+          echo "  npm: $(npm --version)"
+          echo "  pnpm: $(pnpm --version)"
+          echo ""
+          echo "Registry configuration:"
+          echo "  registry: $(npm config get registry)"
+          echo "  @openrouter scope: $(npm config get @openrouter:registry || echo '(inherited from global)')"
+          echo ""
+          echo ".npmrc files status:"
+          for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
+            if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
+              echo "  $npmrc:"
+              echo "    Lines: $(wc -l < "$npmrc")"
+              echo "    Auth lines: $(grep -c "_auth\|_token" "$npmrc" || echo "0")"
+              echo "    Content (redacted):"
+              sed 's/\(_auth[^=]*=\).*/\1***REDACTED***/g; s/\(_token[^=]*=\).*/\1***REDACTED***/g' "$npmrc" | sed 's/^/      /'
+            fi
+          done
+          echo ""
+          echo "Package availability:"
+          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "  (could not fetch)"
