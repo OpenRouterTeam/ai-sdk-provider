@@ -55,16 +55,11 @@ jobs:
           echo "=== Auth token in registry ==="
           npm config get //registry.npmjs.org/:_authToken | head -c 10 && echo "***[rest redacted]"
           echo ""
-          echo "=== npm whoami ==="
-          npm whoami 2>&1 || echo "FAILED"
-          echo ""
-          echo "=== npm ping ==="
-          npm ping 2>&1 || echo "FAILED"
+          echo "=== OIDC Enabled ==="
+          echo "Using OIDC for authentication (no token-based auth)"
           echo ""
           echo "=== Verify package exists on npm ==="
           npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "FAILED"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
@@ -72,4 +67,5 @@ jobs:
           publish: pnpm changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+          NODE_AUTH_TOKEN: ""
