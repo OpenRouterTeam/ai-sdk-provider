@@ -29,6 +29,42 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Diagnose npm authentication
+        run: |
+          echo "=== NPM Authentication Diagnostics ==="
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "pnpm version: $(pnpm --version)"
+          echo ""
+          echo "=== Environment Variables ==="
+          echo "NPM_TOKEN set: ${NPM_TOKEN:+yes (length ${#NPM_TOKEN})}"
+          echo "NODE_AUTH_TOKEN set: ${NODE_AUTH_TOKEN:+yes (length ${#NODE_AUTH_TOKEN})}"
+          echo "NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
+          echo ""
+          echo "=== npm config ==="
+          npm config list --json | jq '.registry, .["@openrouter:registry"], .["@openrouter/registry"]' || npm config list
+          echo ""
+          echo "=== .npmrc files ==="
+          for rc in ~/.npmrc "$NPM_CONFIG_USERCONFIG" .npmrc; do
+            if [ -f "$rc" ]; then
+              echo "Found: $rc"
+              wc -l "$rc"
+            fi
+          done
+          echo ""
+          echo "=== Auth token in registry ==="
+          npm config get //registry.npmjs.org/:_authToken | head -c 10 && echo "***[rest redacted]"
+          echo ""
+          echo "=== npm whoami ==="
+          npm whoami 2>&1 || echo "FAILED"
+          echo ""
+          echo "=== npm ping ==="
+          npm ping 2>&1 || echo "FAILED"
+          echo ""
+          echo "=== Verify package exists on npm ==="
+          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "FAILED"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
