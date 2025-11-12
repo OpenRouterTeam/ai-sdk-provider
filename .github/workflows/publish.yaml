@@ -29,43 +29,67 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Diagnose npm authentication
-        run: |
-          echo "=== NPM Authentication Diagnostics ==="
-          echo "Node version: $(node --version)"
-          echo "npm version: $(npm --version)"
-          echo "pnpm version: $(pnpm --version)"
-          echo ""
-          echo "=== Environment Variables ==="
-          echo "NPM_TOKEN set: ${NPM_TOKEN:+yes (length ${#NPM_TOKEN})}"
-          echo "NODE_AUTH_TOKEN set: ${NODE_AUTH_TOKEN:+yes (length ${#NODE_AUTH_TOKEN})}"
-          echo "NPM_CONFIG_USERCONFIG: $NPM_CONFIG_USERCONFIG"
-          echo ""
-          echo "=== npm config ==="
-          npm config list --json | jq '.registry, .["@openrouter:registry"], .["@openrouter/registry"]' || npm config list
-          echo ""
-          echo "=== .npmrc files ==="
-          for rc in ~/.npmrc "$NPM_CONFIG_USERCONFIG" .npmrc; do
-            if [ -f "$rc" ]; then
-              echo "Found: $rc"
-              wc -l "$rc"
-            fi
-          done
-          echo ""
-          echo "=== Auth token in registry ==="
-          npm config get //registry.npmjs.org/:_authToken | head -c 10 && echo "***[rest redacted]"
-          echo ""
-          echo "=== OIDC Enabled ==="
-          echo "Using OIDC for authentication (no token-based auth)"
-          echo ""
-          echo "=== Verify package exists on npm ==="
-          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "FAILED"
       - name: Create Release Pull Request or Publish
+        id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm changeset-version
-          publish: pnpm changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
-          NODE_AUTH_TOKEN: ""
+      
+      - name: OIDC preflight - scrub .npmrc and verify registry
+        run: |
+          echo "=== OIDC Preflight ==="
+          
+          # Remove any auth tokens from .npmrc to ensure OIDC is used
+          if [ -f ~/.npmrc ]; then
+            echo "Cleaning ~/.npmrc of any existing auth tokens..."
+            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*_auth/d' ~/.npmrc
+            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*_authToken/d' ~/.npmrc
+            sed -i '/^\s*\/\/registry\.npmjs\.org\/:\s*always-auth/d' ~/.npmrc
+          fi
+          
+          # Verify npm connectivity
+          echo "Testing npm registry connectivity..."
+          npm ping || exit 1
+          
+          # Confirm no token is active (this should fail for OIDC to work)
+          echo "Verifying no auth token is configured..."
+          if npm whoami 2>&1 | grep -q "not logged in"; then
+            echo "✓ Confirmed: not logged in (OIDC will be used)"
+          else
+            echo "⚠ Warning: npm whoami returned unexpected result"
+          fi
+          
+          echo ""
+          echo "Registry configuration:"
+          npm config get registry
+      
+      - name: Publish with OIDC
+        run: pnpm changeset-publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Post-mortem diagnostics
+        if: failure()
+        run: |
+          echo "=== Post-mortem Diagnostics ==="
+          echo "Node: $(node --version)"
+          echo "npm: $(npm --version)"
+          echo "pnpm: $(pnpm --version)"
+          echo ""
+          echo "Registry config:"
+          npm config get registry
+          echo ""
+          echo ".npmrc status:"
+          if [ -f ~/.npmrc ]; then
+            echo "File exists:"
+            wc -l ~/.npmrc
+            echo "Auth token lines:"
+            grep -c "authToken\|_auth" ~/.npmrc || echo "0"
+          else
+            echo "No .npmrc file"
+          fi
+          echo ""
+          echo "Package info:"
+          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "Could not fetch"
