@@ -29,6 +29,39 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      - name: Diagnose npm authentication
+        run: |
+          echo "=== NPM Authentication Diagnostics ==="
+          echo "Node version: $(node --version)"
+          echo "npm version: $(npm --version)"
+          echo "pnpm version: $(pnpm --version)"
+          echo ""
+          echo "=== Environment ==="
+          echo "NPM_TOKEN length: ${#NPM_TOKEN}"
+          echo "NODE_AUTH_TOKEN length: ${#NODE_AUTH_TOKEN}"
+          echo ""
+          echo "=== npm config ==="
+          npm config get registry
+          npm config get @openrouter:registry
+          npm config get //registry.npmjs.org/:_authToken | head -c 20
+          echo "***[REDACTED]"
+          echo ""
+          echo "=== .npmrc location and content ==="
+          if [ -f ~/.npmrc ]; then
+            echo ".npmrc exists at ~/.npmrc"
+            wc -l ~/.npmrc
+            grep -E "registry|_auth|_token" ~/.npmrc || echo "No registry/auth lines found"
+          else
+            echo "No .npmrc at ~/.npmrc"
+          fi
+          echo ""
+          echo "=== npm whoami ==="
+          npm whoami || echo "npm whoami failed"
+          echo ""
+          echo "=== npm ping ==="
+          npm ping || echo "npm ping failed"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
