@@ -20,7 +20,9 @@ describe('OpenRouterErrorResponseSchema', () => {
         code: null,
         type: null,
         param: null,
+        metadata: { provider_name: 'Morph' },
       },
+      user_id: 'example_1',
     });
   });
 
@@ -43,6 +45,7 @@ describe('OpenRouterErrorResponseSchema', () => {
         message: 'Example error message with type',
         type: 'invalid_request_error',
         param: 'canBeAnything',
+        metadata: { provider_name: 'Morph' },
       },
     });
   });
