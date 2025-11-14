@@ -104,7 +104,8 @@ describe('FileParser annotation schema', () => {
     // Check that parsing succeeded
     expect(result).toBeDefined();
     // The schema uses passthrough so we can't strictly type check, but we can verify structure
-    const firstChoice = (result as any).choices?.[0];
+    // @ts-expect-error test intentionally inspects passthrough data
+    const firstChoice = result.choices?.[0];
     expect(firstChoice?.message.annotations).toBeDefined();
     expect(firstChoice?.message.annotations?.[0]?.type).toBe('file');
   });
