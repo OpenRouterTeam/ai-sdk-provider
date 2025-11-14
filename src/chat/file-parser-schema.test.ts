@@ -46,7 +46,8 @@ describe('FileParser annotation schema', () => {
       },
     };
 
-    const result = OpenRouterNonStreamChatCompletionResponseSchema.parse(response);
+    const result =
+      OpenRouterNonStreamChatCompletionResponseSchema.parse(response);
     expect(result).toBeDefined();
   });
 
@@ -97,8 +98,9 @@ describe('FileParser annotation schema', () => {
       },
     };
 
-    const result = OpenRouterNonStreamChatCompletionResponseSchema.parse(response);
-    
+    const result =
+      OpenRouterNonStreamChatCompletionResponseSchema.parse(response);
+
     // Check that parsing succeeded
     expect(result).toBeDefined();
     // The schema uses passthrough so we can't strictly type check, but we can verify structure
