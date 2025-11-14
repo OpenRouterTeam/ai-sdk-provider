@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.3
+
+### Patch Changes
+
+- [#232](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/232) [`2b49df4`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/2b49df448550e393312f129bcfbf260d429e17c7) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Relax zod schemas with passthrough to allow unexpected API fields
+
+  Add `.passthrough()` to all zod object schemas to prevent validation failures when the API returns extra fields not in our schema definitions. This ensures forward compatibility with API changes and prevents breaking when new fields are added to responses.
+
 ## 1.2.2
 
 ### Patch Changes
