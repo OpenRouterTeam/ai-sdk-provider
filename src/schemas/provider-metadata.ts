@@ -4,29 +4,37 @@ import { ReasoningDetailUnionSchema } from './reasoning-details';
 /**
  * Schema for OpenRouter provider metadata attached to responses
  */
-export const OpenRouterProviderMetadataSchema = z.object({
-  provider: z.string(),
-  reasoning_details: z.array(ReasoningDetailUnionSchema).optional(),
-  usage: z.object({
-    promptTokens: z.number(),
-    promptTokensDetails: z
+export const OpenRouterProviderMetadataSchema = z
+  .object({
+    provider: z.string(),
+    reasoning_details: z.array(ReasoningDetailUnionSchema).optional(),
+    usage: z
       .object({
-        cachedTokens: z.number(),
+        promptTokens: z.number(),
+        promptTokensDetails: z
+          .object({
+            cachedTokens: z.number(),
+          })
+          .passthrough()
+          .optional(),
+        completionTokens: z.number(),
+        completionTokensDetails: z
+          .object({
+            reasoningTokens: z.number(),
+          })
+          .passthrough()
+          .optional(),
+        totalTokens: z.number(),
+        cost: z.number().optional(),
+        costDetails: z
+          .object({
+            upstreamInferenceCost: z.number(),
+          })
+          .passthrough(),
       })
-      .optional(),
-    completionTokens: z.number(),
-    completionTokensDetails: z
-      .object({
-        reasoningTokens: z.number(),
-      })
-      .optional(),
-    totalTokens: z.number(),
-    cost: z.number().optional(),
-    costDetails: z.object({
-      upstreamInferenceCost: z.number(),
-    }),
-  }),
-});
+      .passthrough(),
+  })
+  .passthrough();
 
 export type OpenRouterProviderMetadata = z.infer<
   typeof OpenRouterProviderMetadataSchema

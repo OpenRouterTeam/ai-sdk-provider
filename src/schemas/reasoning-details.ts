@@ -8,11 +8,13 @@ export enum ReasoningDetailType {
   Text = 'reasoning.text',
 }
 
-export const CommonReasoningDetailSchema = z.object({
-  id: z.string().nullish(),
-  format: z.nativeEnum(ReasoningFormat).nullish(),
-  index: z.number().optional(),
-});
+export const CommonReasoningDetailSchema = z
+  .object({
+    id: z.string().nullish(),
+    format: z.nativeEnum(ReasoningFormat).nullish(),
+    index: z.number().optional(),
+  })
+  .passthrough();
 
 export const ReasoningDetailSummarySchema = z
   .object({
