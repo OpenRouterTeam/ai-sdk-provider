@@ -167,8 +167,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     });
 
     if ('error' in response) {
+      const errorData = response.error as { message: string; code?: string };
       throw new APICallError({
-        message: response.error.message,
+        message: errorData.message,
         url: this.config.url({
           path: '/completions',
           modelId: this.modelId,
@@ -176,7 +177,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         requestBodyValues: args,
         statusCode: 200,
         responseHeaders,
-        data: response.error,
+        data: errorData,
       });
     }
 

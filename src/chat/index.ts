@@ -234,8 +234,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     // Check if response is an error (HTTP 200 with error payload)
     if ('error' in responseValue) {
+      const errorData = responseValue.error as {
+        message: string;
+        code?: string;
+      };
       throw new APICallError({
-        message: responseValue.error.message,
+        message: errorData.message,
         url: this.config.url({
           path: '/chat/completions',
           modelId: this.modelId,
@@ -243,7 +247,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         requestBodyValues: args,
         statusCode: 200,
         responseHeaders,
-        data: responseValue.error,
+        data: errorData,
       });
     }
 
