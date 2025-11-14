@@ -72,6 +72,14 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
   });
 
   const model = openrouter('anthropic/claude-3.5-sonnet', {
+    plugins: [
+      {
+        id: 'file-parser',
+        pdf: {
+          engine: 'mistral-ocr',
+        },
+      },
+    ],
     usage: {
       include: true,
     },
