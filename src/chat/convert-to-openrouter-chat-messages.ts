@@ -166,6 +166,7 @@ export function convertToOpenRouterChatMessages(
           switch (part.type) {
             case 'text': {
               text += part.text;
+
               break;
             }
             case 'tool-call': {
@@ -181,6 +182,7 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
+
               break;
             }
 

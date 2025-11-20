@@ -305,10 +305,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Let me analyze this request...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Let me analyze this request...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'The user wants a greeting response.',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'The user wants a greeting response.',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -336,6 +356,16 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: '[REDACTED]',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.encrypted',
+                data: 'encrypted_reasoning_data_here',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -368,10 +398,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Processing from reasoning_details...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Processing from reasoning_details...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'Summary from reasoning_details',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'Summary from reasoning_details',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -1099,6 +1149,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
@@ -1202,6 +1257,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
