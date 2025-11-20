@@ -110,7 +110,7 @@ export function convertToOpenRouterChatMessages(
                   if (
                     isUrl({
                       url: fileData,
-                      protocols: new Set(['http:', 'https:']),
+                      protocols: new Set(['http:', 'https:'] as const),
                     })
                   ) {
                     // For URLs, OpenRouter's input_audio doesn't support URLs directly
@@ -166,7 +166,7 @@ export function convertToOpenRouterChatMessages(
                 if (
                   isUrl({
                     url: fileData,
-                    protocols: new Set(['http:', 'https:']),
+                    protocols: new Set(['http:', 'https:'] as const),
                   })
                 ) {
                   return {

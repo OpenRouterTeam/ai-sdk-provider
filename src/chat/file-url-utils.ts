@@ -20,7 +20,7 @@ export function getFileUrl({
   if (
     isUrl({
       url: stringUrl,
-      protocols: new Set(['http:', 'https:']),
+      protocols: new Set(['http:', 'https:'] as const),
     })
   ) {
     return stringUrl;
