@@ -5,13 +5,13 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
-import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -172,9 +172,16 @@ export function convertToOpenRouterChatMessages(
               break;
             }
             case 'tool-call': {
-              const partReasoningDetails = (part.providerOptions as Record<string, unknown>)?.openrouter as Record<string, unknown> | undefined;
-              if (partReasoningDetails?.reasoning_details && Array.isArray(partReasoningDetails.reasoning_details)) {
-                accumulatedReasoningDetails.push(...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]));
+              const partReasoningDetails = (
+                part.providerOptions as Record<string, unknown>
+              )?.openrouter as Record<string, unknown> | undefined;
+              if (
+                partReasoningDetails?.reasoning_details &&
+                Array.isArray(partReasoningDetails.reasoning_details)
+              ) {
+                accumulatedReasoningDetails.push(
+                  ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
+                );
               }
               toolCalls.push({
                 id: part.toolCallId,
@@ -209,7 +216,9 @@ export function convertToOpenRouterChatMessages(
 
         // Use message-level reasoning_details if available, otherwise use accumulated from parts
         const finalReasoningDetails =
-          messageReasoningDetails && Array.isArray(messageReasoningDetails) && messageReasoningDetails.length > 0
+          messageReasoningDetails &&
+          Array.isArray(messageReasoningDetails) &&
+          messageReasoningDetails.length > 0
             ? messageReasoningDetails
             : accumulatedReasoningDetails.length > 0
               ? accumulatedReasoningDetails
