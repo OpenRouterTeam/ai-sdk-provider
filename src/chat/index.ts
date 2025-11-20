@@ -4,6 +4,7 @@ import type {
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
+  LanguageModelV2FunctionTool,
   LanguageModelV2ResponseMetadata,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
@@ -169,7 +170,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     if (tools && tools.length > 0) {
       // TODO: support built-in tools
       const mappedTools = tools
-        .filter((tool) => tool.type === 'function')
+        .filter(
+          (tool): tool is LanguageModelV2FunctionTool =>
+            tool.type === 'function',
+        )
         .map((tool) => ({
           type: 'function' as const,
           function: {
@@ -287,7 +291,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const reasoning: Array<LanguageModelV2Content> =
       reasoningDetails.length > 0
-        ? reasoningDetails
+        ? (reasoningDetails
             .map((detail) => {
               switch (detail.type) {
                 case ReasoningDetailType.Text: {
@@ -295,6 +299,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: detail.text,
+                      providerMetadata: {
+                        openrouter: {
+                          reasoning_details: [detail],
+                        },
+                      },
                     };
                   }
                   break;
@@ -304,6 +313,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: detail.summary,
+                      providerMetadata: {
+                        openrouter: {
+                          reasoning_details: [detail],
+                        },
+                      },
                     };
                   }
                   break;
@@ -314,6 +328,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: '[REDACTED]',
+                      providerMetadata: {
+                        openrouter: {
+                          reasoning_details: [detail],
+                        },
+                      },
                     };
                   }
                   break;
@@ -324,7 +343,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
               return null;
             })
-            .filter((p) => p !== null)
+            .filter((p) => p !== null) as Array<LanguageModelV2Content>)
         : choice.message.reasoning
           ? [
               {
@@ -353,6 +372,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
+          providerMetadata: {
+            openrouter: {
+              reasoning_details: reasoningDetails,
+            },
+          },
         });
       }
     }
@@ -613,7 +637,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               // Accumulate reasoning_details to preserve for multi-turn conversations
-              accumulatedReasoningDetails.push(...delta.reasoning_details);
+              // Merge consecutive reasoning.text items into a single entry
+              for (const detail of delta.reasoning_details) {
+                if (detail.type === ReasoningDetailType.Text) {
+                  const lastDetail =
+                    accumulatedReasoningDetails[
+                      accumulatedReasoningDetails.length - 1
+                    ];
+                  if (lastDetail?.type === ReasoningDetailType.Text) {
+                    // Merge with the previous text detail
+                    lastDetail.text =
+                      (lastDetail.text || '') + (detail.text || '');
+                  } else {
+                    // Start a new text detail
+                    accumulatedReasoningDetails.push({ ...detail });
+                  }
+                } else {
+                  // Non-text details (encrypted, summary) are pushed as-is
+                  accumulatedReasoningDetails.push(detail);
+                }
+              }
 
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
@@ -769,6 +812,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                       toolCallId: toolCall.id,
                       toolName: toolCall.function.name,
                       input: toolCall.function.arguments,
+                      providerMetadata: {
+                        openrouter: {
+                          reasoning_details: accumulatedReasoningDetails,
+                        },
+                      },
                     });
 
                     toolCall.sent = true;
@@ -823,6 +871,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
+                    providerMetadata: {
+                      openrouter: {
+                        reasoning_details: accumulatedReasoningDetails,
+                      },
+                    },
                   });
 
                   toolCall.sent = true;
@@ -854,6 +907,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     input: isParsableJson(toolCall.function.arguments)
                       ? toolCall.function.arguments
                       : '{}',
+                    providerMetadata: {
+                      openrouter: {
+                        reasoning_details: accumulatedReasoningDetails,
+                      },
+                    },
                   });
                   toolCall.sent = true;
                 }
