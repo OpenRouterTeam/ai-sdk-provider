@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.4
+
+### Patch Changes
+
+- [#242](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/242) [`55ac920`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/55ac920ffa386418cdbe9731e5879b2c31259787) Thanks [@subtleGradient](https://github.com/subtleGradient)! - reasoning_details preservation for Gemini 3 multi-turn conversations. Thanks @mattapperson!
+
 ## 1.2.3
 
 ### Patch Changes
