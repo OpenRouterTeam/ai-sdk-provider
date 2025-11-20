@@ -26,7 +26,8 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile;
+  | ChatCompletionContentPartFile
+  | ChatCompletionContentPartInputAudio;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -49,6 +50,15 @@ export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
   reasoning?: string | null;
+  cache_control?: OpenRouterCacheControl;
+}
+
+export interface ChatCompletionContentPartInputAudio {
+  type: 'input_audio';
+  input_audio: {
+    data: string;
+    format: 'wav' | 'mp3';
+  };
   cache_control?: OpenRouterCacheControl;
 }
 

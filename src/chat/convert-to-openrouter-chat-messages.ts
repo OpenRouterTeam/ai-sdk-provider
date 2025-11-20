@@ -11,7 +11,7 @@ import type {
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
-import { getFileUrl } from './file-url-utils';
+import { getFileUrl, getBase64FromDataUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -96,6 +96,60 @@ export function convertToOpenRouterChatMessages(
                     // For image parts, use part-specific or message-level cache control
                     cache_control: cacheControl,
                   };
+                }
+
+                // Handle audio files for input_audio format
+                if (part.mediaType?.startsWith('audio/')) {
+                  const fileData = getFileUrl({
+                    part,
+                    defaultMediaType: 'audio/mpeg',
+                  });
+
+                  // Check if fileData is a URL - if so, we need to download it
+                  let base64Data: string;
+                  if (
+                    isUrl({
+                      url: fileData,
+                      protocols: new Set(['http:', 'https:']),
+                    })
+                  ) {
+                    // For URLs, OpenRouter's input_audio doesn't support URLs directly
+                    // We need to download and convert to base64
+                    // For now, we'll throw an error to indicate this limitation
+                    throw new Error(
+                      'Audio URLs must be pre-downloaded and passed as base64 data. ' +
+                        "The OpenRouter input_audio format does not support external URLs.",
+                    );
+                  } else {
+                    // Extract base64 data (handles both data URLs and raw base64)
+                    base64Data = getBase64FromDataUrl(fileData);
+                  }
+
+                  // Map media type to format
+                  const mediaType = part.mediaType || 'audio/mpeg';
+                  let format = mediaType.replace('audio/', '');
+
+                  // Normalize format names for OpenRouter
+                  if (format === 'mpeg') format = 'mp3';
+                  if (format === 'x-wav') format = 'wav';
+
+                  // Validate format - OpenRouter only supports mp3 and wav
+                  if (format !== 'mp3' && format !== 'wav') {
+                    throw new Error(
+                      `Unsupported audio format: ${format}. ` +
+                        `OpenRouter only supports 'mp3' and 'wav' formats. ` +
+                        `Received mediaType: ${mediaType}`,
+                    );
+                  }
+
+                  return {
+                    type: 'input_audio' as const,
+                    input_audio: {
+                      data: base64Data,
+                      format: format as 'mp3' | 'wav',
+                    },
+                    cache_control: cacheControl,
+                  } satisfies ChatCompletionContentPart;
                 }
 
                 const fileName = String(
