@@ -169,4 +169,106 @@ describe('image generation', () => {
       }
     }
   });
+
+  it('should generate an image with custom aspect ratio and size', async () => {
+    const llmgateway = createLLMGateway({
+      apiKey: process.env.LLM_GATEWAY_API_KEY,
+      baseUrl: process.env.LLM_GATEWAY_API_BASE,
+    });
+    const model = llmgateway('gemini-2.5-flash-image-preview', {
+      image_config: {
+        aspect_ratio: '16:9',
+        image_size: '2K',
+      },
+    });
+
+    const result = await generateText({
+      model,
+      prompt: 'Generate a wide panoramic landscape',
+    });
+
+    expect(result.text).toBeDefined();
+    expect(typeof result.text).toBe('string');
+
+    // Check for image in response messages
+    expect(result.response).toBeDefined();
+    expect(result.response.messages).toBeDefined();
+    expect(Array.isArray(result.response.messages)).toBe(true);
+
+    // Find the assistant message with image content
+    const assistantMessage = result.response.messages.find(
+      (msg: any) => msg.role === 'assistant'
+    );
+    expect(assistantMessage).toBeDefined();
+
+    // Check if content is an array before calling find
+    const imageContent = Array.isArray(assistantMessage?.content)
+      ? (assistantMessage.content.find((content) => content.type === 'file') as FilePart | undefined)
+      : undefined;
+
+    if (imageContent) {
+      expect(imageContent.mediaType).toMatch(/^image\//);
+      expect(imageContent.data).toBeDefined();
+
+      // data can be URL or DataContent (string), check if it's a string
+      if (typeof imageContent.data === 'string') {
+        expect(imageContent.data.length).toBeGreaterThan(0);
+
+        // Base64 validation - should be a valid base64 string
+        const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+        expect(base64Regex.test(imageContent.data)).toBe(true);
+      }
+    }
+  });
+
+  it('should generate an image with square aspect ratio', async () => {
+    const llmgateway = createLLMGateway({
+      apiKey: process.env.LLM_GATEWAY_API_KEY,
+      baseUrl: process.env.LLM_GATEWAY_API_BASE,
+    });
+    const model = llmgateway('gemini-2.5-flash-image-preview', {
+      image_config: {
+        aspect_ratio: '1:1',
+        image_size: '1K',
+      },
+    });
+
+    const result = await generateText({
+      model,
+      prompt: 'Generate a square portrait of a robot',
+    });
+
+    expect(result.text).toBeDefined();
+    expect(typeof result.text).toBe('string');
+
+    // Check for image in response messages
+    expect(result.response).toBeDefined();
+    expect(result.response.messages).toBeDefined();
+    expect(Array.isArray(result.response.messages)).toBe(true);
+
+    // Find the assistant message with image content
+    const assistantMessage = result.response.messages.find(
+      (msg: any) => msg.role === 'assistant'
+    );
+    expect(assistantMessage).toBeDefined();
+
+    // Check if content is an array before calling find
+    const imageContent = Array.isArray(assistantMessage?.content)
+      ? (assistantMessage.content.find((content) => content.type === 'file') as FilePart | undefined)
+      : undefined;
+
+    if (imageContent) {
+      expect(imageContent.mediaType).toMatch(/^image\//);
+      expect(imageContent.data).toBeDefined();
+
+      // data can be URL or DataContent (string), check if it's a string
+      if (typeof imageContent.data === 'string') {
+        expect(imageContent.data.length).toBeGreaterThan(0);
+
+        // Base64 validation - should be a valid base64 string
+        const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+        expect(base64Regex.test(imageContent.data)).toBe(true);
+      }
+    }
+  });
 })
