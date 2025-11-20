@@ -117,8 +117,13 @@ export function convertToOpenRouterChatMessages(
                     // We need to download and convert to base64
                     // For now, we'll throw an error to indicate this limitation
                     throw new Error(
-                      'Audio URLs must be pre-downloaded and passed as base64 data. ' +
-                        "The OpenRouter input_audio format does not support external URLs.",
+                      `Audio files cannot be provided as URLs.\n\n` +
+                        `OpenRouter requires audio to be base64-encoded. Please:\n` +
+                        `1. Download the audio file locally\n` +
+                        `2. Read it as a Buffer or Uint8Array\n` +
+                        `3. Pass it as the data parameter\n\n` +
+                        `The AI SDK will automatically handle base64 encoding.\n\n` +
+                        `Learn more: https://openrouter.ai/docs/features/multimodal/audio`,
                     );
                   } else {
                     // Extract base64 data (handles both data URLs and raw base64)
@@ -130,15 +135,22 @@ export function convertToOpenRouterChatMessages(
                   let format = mediaType.replace('audio/', '');
 
                   // Normalize format names for OpenRouter
-                  if (format === 'mpeg') format = 'mp3';
-                  if (format === 'x-wav') format = 'wav';
+                  // Common MIME types: audio/mpeg, audio/mp3 -> mp3
+                  // audio/wav, audio/x-wav, audio/wave -> wav
+                  if (format === 'mpeg' || format === 'mp3') {
+                    format = 'mp3';
+                  } else if (format === 'x-wav' || format === 'wave' || format === 'wav') {
+                    format = 'wav';
+                  }
 
                   // Validate format - OpenRouter only supports mp3 and wav
                   if (format !== 'mp3' && format !== 'wav') {
                     throw new Error(
-                      `Unsupported audio format: ${format}. ` +
-                        `OpenRouter only supports 'mp3' and 'wav' formats. ` +
-                        `Received mediaType: ${mediaType}`,
+                      `Unsupported audio format: "${mediaType}"\n\n` +
+                        `OpenRouter only supports MP3 and WAV audio formats.\n` +
+                        `• For MP3: use "audio/mpeg" or "audio/mp3"\n` +
+                        `• For WAV: use "audio/wav" or "audio/x-wav"\n\n` +
+                        `Learn more: https://openrouter.ai/docs/features/multimodal/audio`,
                     );
                   }
 

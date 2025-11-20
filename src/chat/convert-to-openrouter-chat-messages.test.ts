@@ -193,6 +193,36 @@ describe('user messages', () => {
     ]);
   });
 
+  it('should support audio/mp3 MIME type (normalize to mp3)', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mp3',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should convert audio base64 data URL to input_audio', async () => {
     const result = convertToOpenRouterChatMessages([
       {
@@ -267,9 +297,7 @@ describe('user messages', () => {
           ],
         },
       ]),
-    ).toThrow(
-      'Audio URLs must be pre-downloaded and passed as base64 data. The OpenRouter input_audio format does not support external URLs.',
-    );
+    ).toThrow(/Audio files cannot be provided as URLs/);
   });
 
   it('should throw error for unsupported audio formats', async () => {
@@ -286,9 +314,7 @@ describe('user messages', () => {
           ],
         },
       ]),
-    ).toThrow(
-      "Unsupported audio format: ogg. OpenRouter only supports 'mp3' and 'wav' formats. Received mediaType: audio/ogg",
-    );
+    ).toThrow(/Unsupported audio format: "audio\/ogg"/);
   });
 });
 
