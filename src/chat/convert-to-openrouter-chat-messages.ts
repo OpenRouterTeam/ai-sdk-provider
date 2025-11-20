@@ -5,6 +5,7 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
@@ -34,6 +35,7 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
+  const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
@@ -170,6 +172,17 @@ export function convertToOpenRouterChatMessages(
               break;
             }
             case 'tool-call': {
+              const partReasoningDetails = (
+                part.providerOptions as Record<string, unknown>
+              )?.openrouter as Record<string, unknown> | undefined;
+              if (
+                partReasoningDetails?.reasoning_details &&
+                Array.isArray(partReasoningDetails.reasoning_details)
+              ) {
+                accumulatedReasoningDetails.push(
+                  ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
+                );
+              }
               toolCalls.push({
                 id: part.toolCallId,
                 type: 'function',
@@ -194,29 +207,29 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        // Check if we have preserved reasoning_details from the original OpenRouter response
-        // OpenRouter requires reasoning_details to be passed back unmodified for multi-turn conversations
-        // If we don't have the preserved version (AI SDK doesn't pass providerOptions back),
-        // we should NOT send reconstructed reasoning_details as they won't match the original
-        // Instead, only use the legacy reasoning field
+        // Check message-level providerOptions for preserved reasoning_details
         const parsedProviderOptions =
           OpenRouterProviderOptionsSchema.safeParse(providerOptions);
-        const preservedReasoningDetails = parsedProviderOptions.success
+        const messageReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
           : undefined;
+
+        // Use message-level reasoning_details if available, otherwise use accumulated from parts
+        const finalReasoningDetails =
+          messageReasoningDetails &&
+          Array.isArray(messageReasoningDetails) &&
+          messageReasoningDetails.length > 0
+            ? messageReasoningDetails
+            : accumulatedReasoningDetails.length > 0
+              ? accumulatedReasoningDetails
+              : undefined;
 
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
-          // Only include reasoning_details if we have the preserved original version
-          reasoning_details:
-            preservedReasoningDetails &&
-            Array.isArray(preservedReasoningDetails) &&
-            preservedReasoningDetails.length > 0
-              ? preservedReasoningDetails
-              : undefined,
+          reasoning_details: finalReasoningDetails,
           cache_control: getCacheControl(providerOptions),
         });
 
