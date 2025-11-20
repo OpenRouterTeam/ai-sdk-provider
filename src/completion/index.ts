@@ -128,6 +128,7 @@ export class LLMGatewayCompletionLanguageModel implements LanguageModelV2 {
       // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
+      reasoning_effort: this.settings.reasoning_effort,
       image_config: this.settings.image_config,
 
       // extra body:

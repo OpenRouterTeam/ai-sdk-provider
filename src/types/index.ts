@@ -52,6 +52,12 @@ export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
    */
   includeReasoning?: boolean;
 
+  /**
+   * Reasoning effort level for models that support it.
+   * Controls the computational effort applied to reasoning tasks.
+   */
+  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
+
   extraBody?: Record<string, unknown>;
 
   /**

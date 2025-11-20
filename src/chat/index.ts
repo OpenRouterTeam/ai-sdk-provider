@@ -132,6 +132,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
       // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
+      reasoning_effort: this.settings.reasoning_effort,
       usage: this.settings.usage,
       image_config: this.settings.image_config,
 
