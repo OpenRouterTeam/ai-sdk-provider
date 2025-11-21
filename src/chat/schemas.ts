@@ -113,7 +113,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                                 z
                                   .object({
                                     type: z.string(),
-                                    text: z.string(),
+                                    text: z.string().optional(),
                                   })
                                   .passthrough(),
                               )
@@ -237,7 +237,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                                 z
                                   .object({
                                     type: z.string(),
-                                    text: z.string(),
+                                    text: z.string().optional(),
                                   })
                                   .passthrough(),
                               )
