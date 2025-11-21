@@ -1,0 +1,60 @@
+{
+  "name": "@openrouter/ai-provider",
+  "version": "0.1.0",
+  "description": "OpenRouter provider for the Vercel AI SDK",
+  "keywords": [
+    "ai",
+    "openrouter",
+    "vercel-ai",
+    "ai-sdk",
+    "llm",
+    "language-model",
+    "embeddings",
+    "image-generation"
+  ],
+  "homepage": "https://github.com/openrouter/ai-provider",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openrouter/ai-provider.git"
+  },
+  "author": "OpenRouter",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "^2.0.0",
+    "@ai-sdk/provider-utils": "^3.0.17",
+    "@openrouter/sdk": "^0.1.0",
+    "ai": "^5.0.98",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.2"
+  },
+  "peerDependencies": {
+    "zod": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
