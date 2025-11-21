@@ -23,23 +23,6 @@ export type LLMGatewayProviderOptions = {
   );
 
   /**
-   * Image generation configuration for supported models (e.g., Google's image generation models).
-   * Specifies aspect ratio and image resolution for generated images.
-   */
-  image_config?: {
-    /**
-     * The aspect ratio of the generated image.
-     * Examples: "1:1", "16:9", "4:3", "5:4"
-     */
-    aspect_ratio?: string;
-    /**
-     * The resolution of the generated image.
-     * Options: "1K" (1024x1024), "2K" (2048x2048), "4K"
-     */
-    image_size?: string;
-  };
-
-  /**
    * A unique identifier representing your end-user, which can
    * help LLMGateway to monitor and detect abuse.
    */
@@ -51,12 +34,6 @@ export type LLMGatewaySharedSettings = LLMGatewayProviderOptions & {
    * @deprecated use `reasoning` instead
    */
   includeReasoning?: boolean;
-
-  /**
-   * Reasoning effort level for models that support it.
-   * Controls the computational effort applied to reasoning tasks.
-   */
-  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
 
   extraBody?: Record<string, unknown>;
 

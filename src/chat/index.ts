@@ -33,12 +33,12 @@ import {
 import { llmgatewayFailedResponseHandler } from '../schemas/error-response';
 import { mapLLMGatewayFinishReason } from '../utils/map-finish-reason';
 import { convertToLLMGatewayChatMessages } from './convert-to-llmgateway-chat-messages';
+import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
 import {
   LLMGatewayNonStreamChatCompletionResponseSchema,
   LLMGatewayStreamChatCompletionChunkSchema,
 } from './schemas';
-import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 
 type LLMGatewayChatConfig = {
   provider: string;
@@ -132,9 +132,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
       // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
       reasoning: this.settings.reasoning,
-      reasoning_effort: this.settings.reasoning_effort,
       usage: this.settings.usage,
-      image_config: this.settings.image_config,
 
       // extra body:
       ...this.config.extraBody,
@@ -761,7 +759,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
                   data: getBase64FromDataUrl(image.image_url.url),
-                })
+                });
               }
             }
           },
