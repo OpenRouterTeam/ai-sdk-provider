@@ -197,3 +197,35 @@ if (result.providerMetadata?.openrouter?.usage) {
   );
 }
 ```
+
+It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/docs/guides/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account.
+
+```typescript
+// Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
+
+// Enable usage accounting
+const model = openrouter('openai/gpt-3.5-turbo', {
+  usage: {
+    include: true,
+  },
+});
+
+// Access usage accounting data
+const result = await generateText({
+  model,
+  prompt: 'Hello, how are you today?',
+});
+
+// Provider-specific BYOK usage details (available in providerMetadata)
+if (result.providerMetadata?.openrouter?.usage) {
+  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  if (costDetails) {
+    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
+  }
+  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
+  console.log(
+    'Total Tokens:',
+    result.providerMetadata.openrouter.usage.totalTokens,
+  );
+}
+```
