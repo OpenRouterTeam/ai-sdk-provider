@@ -433,10 +433,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 response.usage?.completion_tokens_details?.reasoning_tokens ??
                 0,
             },
-            costDetails: {
-              upstreamInferenceCost:
-                response.usage?.cost_details?.upstream_inference_cost ?? 0,
-            },
+            ...(response.usage?.cost_details?.upstream_inference_cost != null
+              ? {
+                  costDetails: {
+                    upstreamInferenceCost:
+                      response.usage.cost_details.upstream_inference_cost,
+                  },
+                }
+              : {}),
           },
         }),
       },
@@ -605,6 +609,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
+              const upstreamInferenceCost =
+                value.usage.cost_details?.upstream_inference_cost;
+              if (upstreamInferenceCost != null) {
+                openrouterUsage.costDetails = {
+                  upstreamInferenceCost,
+                };
+              }
             }
 
             const choice = value.choices[0];
