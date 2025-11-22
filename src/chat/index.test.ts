@@ -857,7 +857,9 @@ describe('doStream', () => {
       stream,
     )) as LanguageModelV2StreamPart[];
     const finishChunk = elements.find(
-      (chunk): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -895,7 +897,9 @@ describe('doStream', () => {
       stream,
     )) as LanguageModelV2StreamPart[];
     const finishChunk = elements.find(
-      (chunk): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
