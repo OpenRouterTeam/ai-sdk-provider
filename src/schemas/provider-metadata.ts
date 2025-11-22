@@ -30,7 +30,8 @@ export const OpenRouterProviderMetadataSchema = z
           .object({
             upstreamInferenceCost: z.number(),
           })
-          .passthrough(),
+          .passthrough()
+          .optional(),
       })
       .passthrough(),
   })

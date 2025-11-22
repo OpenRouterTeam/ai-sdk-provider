@@ -38,7 +38,7 @@ describe('OpenRouter Usage Accounting', () => {
             total_tokens: 30,
             cost: 0.0015,
             cost_details: {
-              upstream_inference_cost: 19,
+              upstream_inference_cost: 0.0019,
             },
           }
         : undefined,
@@ -126,6 +126,9 @@ describe('OpenRouter Usage Accounting', () => {
       completionTokens: 20,
       totalTokens: 30,
       cost: 0.0015,
+      costDetails: {
+        upstreamInferenceCost: 0.0019,
+      },
       promptTokensDetails: {
         cachedTokens: 5,
       },
@@ -169,7 +172,7 @@ describe('OpenRouter Usage Accounting', () => {
       totalTokens: 30,
       cost: 0.0015,
       costDetails: {
-        upstreamInferenceCost: 19,
+        upstreamInferenceCost: 0.0019,
       },
       promptTokensDetails: {
         cachedTokens: 5,
