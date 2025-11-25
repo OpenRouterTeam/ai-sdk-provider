@@ -8,7 +8,10 @@ import type { OpenRouterModelConfig } from './openrouter-chat-language-model';
 import type { OpenRouterImageSettings } from './openrouter-provider';
 
 /**
- * OpenRouter image generation model implementation
+ * Response format for OpenRouter's image generation endpoint.
+ *
+ * This follows the OpenAI-compatible images API format that OpenRouter uses.
+ * Images can be returned as either base64-encoded data or temporary URLs.
  */
 type OpenRouterImageResponse = {
   data?: Array<{
@@ -18,10 +21,20 @@ type OpenRouterImageResponse = {
   model?: string;
 };
 
+/**
+ * OpenRouter image generation model implementation.
+ *
+ * Provides access to image generation models like DALL-E 3, Stable Diffusion,
+ * and others through OpenRouter's unified API. The implementation uses the
+ * OpenAI-compatible images endpoint format.
+ */
 export class OpenRouterImageModel implements ImageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider: string;
   readonly modelId: string;
+
+  // Maximum images per request - limited by most restrictive provider.
+  // DALL-E 3 supports 1, DALL-E 2 supports 10, SD models vary.
   readonly maxImagesPerCall = 10;
 
   private readonly settings: OpenRouterImageSettings;
@@ -34,6 +47,13 @@ export class OpenRouterImageModel implements ImageModelV2 {
     this.config = config;
   }
 
+  /**
+   * Generate images from a text prompt.
+   *
+   * Uses OpenRouter's OpenAI-compatible images endpoint. The SDK client isn't used
+   * here because image generation requires direct control over request/response
+   * handling for proper base64 image extraction.
+   */
   async doGenerate(options: ImageModelV2CallOptions): Promise<{
     images: Array<string> | Array<Uint8Array>;
     warnings: Array<ImageModelV2CallWarning>;
@@ -47,6 +67,8 @@ export class OpenRouterImageModel implements ImageModelV2 {
     const fetchImpl = this.config.fetch ?? fetch;
     const warnings: ImageModelV2CallWarning[] = [];
 
+    // Warn about unsupported AI SDK options.
+    // OpenRouter's image API uses size (WxH) rather than aspect ratio.
     if (options.aspectRatio !== undefined) {
       warnings.push({
         type: 'unsupported-setting',
@@ -55,6 +77,7 @@ export class OpenRouterImageModel implements ImageModelV2 {
       });
     }
 
+    // Deterministic seeds aren't universally supported across image models
     if (options.seed !== undefined) {
       warnings.push({
         type: 'unsupported-setting',
@@ -67,6 +90,7 @@ export class OpenRouterImageModel implements ImageModelV2 {
       Authorization: `Bearer ${this.config.apiKey}`,
       'Content-Type': 'application/json',
     };
+    // Merge any additional headers from the call options
     if (options.headers) {
       for (const [key, value] of Object.entries(options.headers)) {
         if (typeof value === 'string') {
@@ -75,6 +99,8 @@ export class OpenRouterImageModel implements ImageModelV2 {
       }
     }
 
+    // Build request body following OpenAI's images/generations format.
+    // Request b64_json format for reliable image data extraction.
     const requestBody: Record<string, unknown> = {
       model: this.modelId,
       prompt: options.prompt,

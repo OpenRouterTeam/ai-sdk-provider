@@ -1,24 +1,27 @@
 import type { EmbeddingModelV2, EmbeddingModelV2Embedding } from '@ai-sdk/provider';
+import type { CreateEmbeddingsResponseBody } from '@openrouter/sdk/esm/models/operations/createembeddings';
 import type { OpenRouterModelConfig } from './openrouter-chat-language-model';
 import type { OpenRouterEmbeddingSettings } from './openrouter-provider';
 
-interface EmbeddingResponse {
-  data: Array<{
-    embedding: number[];
-  }>;
-  usage?: {
-    total_tokens: number;
-  };
-}
-
 /**
- * OpenRouter embedding model implementation
+ * OpenRouter embedding model implementation.
+ *
+ * Embeddings convert text into numerical vectors that capture semantic meaning,
+ * enabling similarity search, clustering, and retrieval-augmented generation (RAG).
+ * OpenRouter provides access to various embedding models like OpenAI's text-embedding-3
+ * and Cohere's embed-v3 through a unified API.
  */
 export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
   readonly specificationVersion = 'v2' as const;
   readonly provider: string;
   readonly modelId: string;
+
+  // Batch limit based on the most restrictive underlying provider to ensure
+  // consistent behavior across all embedding models. Most providers support
+  // at least 2048 inputs per batch.
   readonly maxEmbeddingsPerCall = 2048;
+
+  // OpenRouter can parallelize embedding requests across multiple backend instances
   readonly supportsParallelCalls = true;
 
   private readonly settings: OpenRouterEmbeddingSettings;
@@ -48,7 +51,8 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       tokens: number;
     };
   }> {
-    // Use SDK for embeddings
+    // Use raw fetch instead of SDK client because the SDK's embeddings method
+    // doesn't yet expose all the parameters we need (dimensions, user)
     const response = await fetch(`${this.config.baseURL}/embeddings`, {
       method: 'POST',
       headers: this.getHeaders(),
@@ -65,13 +69,19 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       throw new Error(`Embedding request failed: ${response.statusText}`);
     }
 
-    const data = (await response.json()) as EmbeddingResponse;
+    const data = (await response.json()) as CreateEmbeddingsResponseBody;
 
     return {
-      embeddings: data.data.map((item) => item.embedding),
+      // SDK returns embedding as Array<number> | string, we need Array<number>
+      embeddings: data.data.map((item) =>
+        typeof item.embedding === 'string'
+          ? JSON.parse(item.embedding)
+          : item.embedding,
+      ),
       usage: data.usage
         ? {
-            tokens: data.usage.total_tokens,
+            // SDK uses camelCase (totalTokens) matching the parsed response
+            tokens: data.usage.totalTokens,
           }
         : undefined,
     };

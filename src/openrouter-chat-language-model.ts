@@ -4,14 +4,18 @@ import type {
   LanguageModelV2CallOptions,
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
+  LanguageModelV2FinishReason,
+  LanguageModelV2ResponseMetadata,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import type { OpenResponsesRequest, OpenResponsesUsage } from '@openrouter/sdk/esm/models';
+import type { OpenResponsesRequest } from '@openrouter/sdk/esm/models';
 
 import { OpenRouter } from '@openrouter/sdk';
+import { buildProviderMetadata } from './build-provider-metadata';
 import { convertToResponsesInput } from './convert-to-openrouter-messages';
+import { filterDefined } from './utils';
 
 /**
  * Model configuration (internal)
@@ -50,10 +54,6 @@ export interface OpenRouterChatSettings {
    */
   structuredOutputs?: boolean;
   /**
-   * Associate calls with an end-user identifier.
-   */
-  user?: OpenResponsesRequest['user'];
-  /**
    * Enable OpenRouter plugins for moderation, web search, or file parsing.
    */
   plugins?: OpenResponsesRequest['plugins'];
@@ -74,16 +74,32 @@ export interface OpenRouterChatSettings {
   };
 }
 
+// Extract the callModel argument type from the SDK client for type safety
 type CallModelArguments = Parameters<OpenRouter['callModel']>[0];
+// Extend with Record<string,unknown> to allow provider-specific passthrough options
 type ExtendedCallModelArguments = CallModelArguments & Record<string, unknown>;
 
 /**
- * OpenRouter chat language model implementation
+ * OpenRouter chat language model implementation.
+ *
+ * This class implements the AI SDK's LanguageModelV2 interface, enabling OpenRouter
+ * models to be used with generateText(), streamText(), generateObject(), and other
+ * AI SDK functions. It handles the translation between AI SDK's message format and
+ * OpenRouter's API format, including support for:
+ * - Streaming and non-streaming responses
+ * - Tool/function calling
+ * - Reasoning/chain-of-thought (Claude thinking, o1 models)
+ * - Multimodal input (images, PDFs, documents)
+ * - Model routing and fallbacks
  */
 export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider: string;
   readonly modelId: string;
+
+  // Use 'tool' mode for structured output because OpenRouter's tool_call support
+  // is more reliable across providers than JSON mode. The AI SDK will use tool
+  // calls to enforce schema compliance when generating objects.
   readonly defaultObjectGenerationMode = 'tool' as const;
 
   private readonly settings: OpenRouterChatSettings;
@@ -102,6 +118,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     });
   }
 
+  /**
+   * URL patterns for multimodal input that OpenRouter can process.
+   *
+   * OpenRouter proxies file URLs to the underlying model provider, so we support
+   * both HTTPS and HTTP URLs (HTTP is useful for local development servers).
+   * Data URLs are also supported for inline base64-encoded content.
+   *
+   * Note: Actual file support depends on the specific model being used.
+   * Vision models support images, while document models support PDFs.
+   */
   get supportedUrls() {
     return {
       'image/*': [
@@ -120,6 +146,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     };
   }
 
+  /**
+   * Build API request arguments from AI SDK call options.
+   *
+   * This method handles the translation of AI SDK's normalized options into
+   * OpenRouter's API format. Settings are merged in priority order:
+   * 1. Base model settings (this.settings)
+   * 2. Per-call options (options.*)
+   * 3. Provider-specific overrides (providerOptions.openrouter)
+   */
   private getArgs(options: LanguageModelV2CallOptions): {
     args: ExtendedCallModelArguments;
     warnings: LanguageModelV2CallWarning[];
@@ -132,59 +167,41 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       input,
     };
 
-    if (options.temperature !== undefined) {
-      args.temperature = options.temperature;
-    }
-    if (options.maxOutputTokens !== undefined) {
-      args.maxOutputTokens = options.maxOutputTokens;
-    }
-    if (options.topP !== undefined) {
-      args.topP = options.topP;
-    }
-    if (options.topK !== undefined) {
-      args.topK = options.topK;
-    }
-    if (options.frequencyPenalty !== undefined) {
-      args.frequencyPenalty = options.frequencyPenalty;
-    }
-    if (options.presencePenalty !== undefined) {
-      args.presencePenalty = options.presencePenalty;
-    }
-    if (options.stopSequences?.length) {
-      args.stop = options.stopSequences;
-    }
-    if (options.seed !== undefined) {
-      args.seed = options.seed;
-    }
+    // Assign options that are defined at call time (filtering out undefined values)
+    Object.assign(args, filterDefined({
+      temperature: options.temperature,
+      maxOutputTokens: options.maxOutputTokens,
+      topP: options.topP,
+      topK: options.topK,
+      frequencyPenalty: options.frequencyPenalty,
+      presencePenalty: options.presencePenalty,
+      stop: options.stopSequences?.length ? options.stopSequences : undefined,
+      seed: options.seed,
+      user: (options.providerOptions?.openrouter as Record<string, unknown>)?.user as string | undefined,
+    }));
 
-    if (this.settings.user) {
-      args.user = this.settings.user;
-    }
-    if (this.settings.transforms) {
-      args.transforms = this.settings.transforms;
-    }
-    if (this.settings.models) {
-      args.models = this.settings.models;
-    }
-    if (this.settings.route) {
-      args.route = this.settings.route;
-    }
-    if (this.settings.provider) {
-      args.provider = this.settings.provider;
-    }
-    if (this.settings.plugins) {
-      args.plugins = this.settings.plugins;
-    }
-    if (this.settings.usage) {
-      args.usage = this.settings.usage;
-    }
+    // Assign settings that are defined in the model configuration.
+    Object.assign(args, filterDefined({
+      transforms: this.settings.transforms,
+      models: this.settings.models,
+      route: this.settings.route,
+      provider: this.settings.provider,
+      plugins: this.settings.plugins,
+      usage: this.settings.usage,
+    }));
 
+    // Enable JSON mode when structured outputs are requested.
+    // OpenRouter normalizes response_format across providers - json_object tells
+    // the model to output valid JSON. Note: not all models support this mode.
     if (this.settings.structuredOutputs || options.responseFormat?.type === 'json') {
       args.response_format = {
         type: 'json_object',
       };
     }
 
+    // Convert AI SDK tool definitions to OpenRouter's function calling format.
+    // We only support 'function' type tools - other tool types (like 'code_interpreter')
+    // would require provider-specific handling.
     if (options.tools && options.tools.length > 0) {
       const toolDefinitions = options.tools
         .map((tool) => {
@@ -245,13 +262,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
   async doGenerate(options: LanguageModelV2CallOptions): Promise<{
     content: Array<LanguageModelV2Content>;
-    finishReason: import('@ai-sdk/provider').LanguageModelV2FinishReason;
+    finishReason: LanguageModelV2FinishReason;
     usage: LanguageModelV2Usage;
-    providerMetadata?: import('@ai-sdk/provider').SharedV2ProviderMetadata;
+    providerMetadata?: SharedV2ProviderMetadata;
     request?: {
       body?: unknown;
     };
-    response?: import('@ai-sdk/provider').LanguageModelV2ResponseMetadata & {
+    response?: LanguageModelV2ResponseMetadata & {
       headers?: Record<string, string>;
       body?: unknown;
     };
@@ -267,15 +284,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const content: LanguageModelV2Content[] = [];
 
-    // Extract reasoning_details from the message to preserve for multi-turn conversations
-    // This includes both reasoning.text and reasoning.encrypted items that must be sent back
+    // Extract reasoning_details from the message to preserve for multi-turn conversations.
+    //
+    // WHY: Claude and other reasoning models (like o1) return encrypted/signed reasoning
+    // content that MUST be sent back verbatim in subsequent turns. Without preserving and
+    // re-sending reasoning_details, the model loses context about its previous thought
+    // process, breaking extended reasoning chains.
+    //
+    // The details include: reasoning.text (visible thinking), reasoning.encrypted (opaque
+    // continuation data), and reasoning.summary (condensed context for the model).
     let reasoningDetails = (
       message as {
         reasoning_details?: JSONValue[];
       }
     ).reasoning_details;
 
-    // Also check fullResponse.output for reasoning items (some providers return it here)
+    // Different providers return reasoning in different response locations.
+    // Check fullResponse.output as a fallback for providers that structure it there.
     if (!reasoningDetails || reasoningDetails.length === 0) {
       const extractedDetails: JSONValue[] = [];
       for (const outputItem of fullResponse.output) {
@@ -364,7 +389,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       cachedInputTokens: responseUsage?.inputTokensDetails?.cachedTokens,
     };
 
-    let finishReason: import('@ai-sdk/provider').LanguageModelV2FinishReason = 'unknown';
+    // Map OpenRouter's response status to AI SDK's finish reasons:
+    // 'completed' means the model stopped naturally, 'incomplete' means max tokens was hit
+    let finishReason: LanguageModelV2FinishReason = 'unknown';
     if (fullResponse.status === 'completed') {
       finishReason = 'stop';
     } else if (fullResponse.status === 'incomplete') {
@@ -406,7 +433,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         let isFirstChunk = true;
         let currentTextId: string | undefined;
         let currentReasoningId: string | undefined;
-        let _accumulatedReasoningText = '';
 
         try {
           for await (const delta of responseWrapper.getTextStream()) {
@@ -437,7 +463,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 id: currentReasoningId,
               });
             }
-            _accumulatedReasoningText += delta;
             controller.enqueue({
               type: 'reasoning-delta',
               id: currentReasoningId,
@@ -573,7 +598,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             cachedInputTokens: responseUsage?.inputTokensDetails?.cachedTokens,
           };
 
-          let finishReason: import('@ai-sdk/provider').LanguageModelV2FinishReason = 'unknown';
+          // Map OpenRouter's response status to AI SDK's finish reasons
+          let finishReason: LanguageModelV2FinishReason = 'unknown';
           if (fullResponse.status === 'completed') {
             finishReason = 'stop';
           } else if (fullResponse.status === 'incomplete') {
@@ -604,100 +630,4 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       warnings,
     };
   }
-}
-
-function buildProviderMetadata(
-  modelId: string | undefined,
-  usage?: OpenResponsesUsage,
-  output?: unknown[],
-  messageReasoningDetails?: JSONValue[],
-): SharedV2ProviderMetadata {
-  const providerRecord: Record<string, JSONValue> = {
-    provider: modelId?.split('/')[0] || 'unknown',
-  };
-
-  if (modelId) {
-    providerRecord.model_id = modelId;
-  }
-
-  const usageMetadata = buildUsageMetadata(usage);
-  if (usageMetadata) {
-    providerRecord.usage = usageMetadata;
-  }
-
-  // Include reasoning_details from the message for multi-turn support
-  // First try the message's reasoning_details, then fallback to output items
-  if (messageReasoningDetails && messageReasoningDetails.length > 0) {
-    providerRecord.reasoning_details = messageReasoningDetails;
-  } else if (output) {
-    // Fallback: extract reasoning_details from output message
-    for (const item of output) {
-      if (
-        typeof item === 'object' &&
-        item !== null &&
-        'type' in item &&
-        (
-          item as {
-            type: string;
-          }
-        ).type === 'message'
-      ) {
-        const msg = item as {
-          reasoning_details?: JSONValue[];
-        };
-        if (
-          msg.reasoning_details &&
-          Array.isArray(msg.reasoning_details) &&
-          msg.reasoning_details.length > 0
-        ) {
-          providerRecord.reasoning_details = msg.reasoning_details;
-          break;
-        }
-      }
-    }
-  }
-
-  return {
-    openrouter: providerRecord,
-  };
-}
-
-function buildUsageMetadata(usage?: OpenResponsesUsage): Record<string, JSONValue> | undefined {
-  if (!usage) {
-    return undefined;
-  }
-
-  const metadata: Record<string, JSONValue> = {
-    promptTokens: usage.inputTokens,
-    completionTokens: usage.outputTokens,
-    totalTokens: usage.totalTokens,
-  };
-
-  if (usage.inputTokensDetails) {
-    metadata.promptTokensDetails = usage.inputTokensDetails;
-  }
-
-  if (usage.outputTokensDetails) {
-    metadata.completionTokensDetails = usage.outputTokensDetails;
-  }
-
-  if (usage.cost !== undefined && usage.cost !== null) {
-    metadata.cost = usage.cost;
-  }
-
-  if (usage.isByok !== undefined) {
-    metadata.isByok = usage.isByok;
-  }
-
-  if (usage.costDetails) {
-    metadata.costDetails = pruneUndefined(usage.costDetails);
-  }
-
-  return metadata;
-}
-
-function pruneUndefined(value: Record<string, unknown>): Record<string, JSONValue> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
-  ) as Record<string, JSONValue>;
 }
