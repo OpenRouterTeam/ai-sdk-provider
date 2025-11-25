@@ -1,5 +1,15 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.6
+
+### Patch Changes
+
+- [#251](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/251) [`c8c639d`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/c8c639d523e38bb20300d127f23cfa2419692e37) Thanks [@subtleGradient](https://github.com/subtleGradient)! - fix: make text field optional in file annotation content schema
+
+  When processing PDFs with the file-parser plugin using Mistral OCR, image elements in the response were failing validation. The schema required a `text` field on all content elements, but image elements (`type: "image_url"`) only have `image_url` data—no text. This made it impossible to process PDFs containing images.
+
+  Thanks @smorimoto for the fix! (#235)
+
 ## 1.2.4
 
 ### Patch Changes
