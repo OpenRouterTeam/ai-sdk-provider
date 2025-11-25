@@ -16,6 +16,7 @@ import { OpenRouter } from '@openrouter/sdk';
 import { buildProviderMetadata } from './build-provider-metadata';
 import { convertToResponsesInput } from './convert-to-openrouter-messages';
 import { filterDefined } from './utils';
+import type { CallModelTools } from '@openrouter/sdk/esm/funcs/callModel';
 
 /**
  * Model configuration (internal)
@@ -203,7 +204,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     // We only support 'function' type tools - other tool types (like 'code_interpreter')
     // would require provider-specific handling.
     if (options.tools && options.tools.length > 0) {
-      const toolDefinitions = options.tools
+      const toolDefinitions: CallModelTools = options.tools
         .map((tool) => {
           if (tool.type !== 'function') {
             warnings.push({
@@ -219,31 +220,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             parameters: tool.inputSchema ?? null,
           };
         })
-        .filter(Boolean);
+        .filter(Boolean) as CallModelTools;
 
-      if (toolDefinitions.length > 0) {
-        args.tools = toolDefinitions as NonNullable<typeof args.tools>;
+      args.tools = toolDefinitions as NonNullable<typeof args.tools>;
+
+
+      if (options.toolChoice?.type === 'tool') {
+        args.toolChoice = {
+          type: 'function',
+          name: options.toolChoice.toolName,
+        };
+      } else {
+        args.toolChoice = options.toolChoice?.type;
       }
 
-      if (options.toolChoice) {
-        switch (options.toolChoice.type) {
-          case 'auto':
-            args.toolChoice = 'auto';
-            break;
-          case 'none':
-            args.toolChoice = 'none';
-            break;
-          case 'required':
-            args.toolChoice = 'required';
-            break;
-          case 'tool':
-            args.toolChoice = {
-              type: 'function',
-              name: options.toolChoice.toolName,
-            };
-            break;
-        }
-      }
     }
 
     const providerOptions = {
