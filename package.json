@@ -42,14 +42,17 @@
   "dependencies": {
     "@ai-sdk/provider": "^2.0.0",
     "@ai-sdk/provider-utils": "^3.0.17",
-    "@openrouter/sdk": "^0.1.0",
+    "@openrouter/sdk": "^0.1.24",
     "ai": "^5.0.98",
     "zod": "^4.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.9",
+    "dotenv": "^17.2.3",
     "tsup": "^8.1.0",
-    "typescript": "^5.5.2"
+    "typescript": "^5.5.2",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.13"
   },
   "peerDependencies": {
     "zod": "^4.1.0"

@@ -15,7 +15,7 @@ test('sending pdf base64 blob', async () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-sonnet-4', {
+  const model = openrouter('anthropic/claude-4.5-sonnet', {
     usage: {
       include: true,
     },

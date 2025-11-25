@@ -1,3 +1,4 @@
+import path from 'path';
 import { config } from 'dotenv';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
@@ -8,6 +9,12 @@ const envPath = new URL('./.env.e2e', import.meta.url);
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: {
+      '@/src': path.resolve(__dirname, './src/index'),
+      '@/e2e': path.resolve(__dirname, './e2e'),
+    },
+  },
   test: {
     environment: 'node',
     globals: true,

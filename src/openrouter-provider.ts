@@ -4,76 +4,51 @@ import {
   withoutTrailingSlash,
 } from '@ai-sdk/provider-utils';
 import type { ProviderV2 } from '@ai-sdk/provider';
-import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
+import { OpenRouterChatLanguageModel, OpenRouterChatSettings, OpenRouterModelConfig } from './openrouter-chat-language-model';
 import { OpenRouterEmbeddingModel } from './openrouter-embedding-model';
 import { OpenRouterImageModel } from './openrouter-image-model';
-import type {
-  OpenRouterProviderSettings,
-  OpenRouterChatSettings,
-  OpenRouterEmbeddingSettings,
-  OpenRouterImageSettings,
-  OpenRouterModelConfig,
-} from './types';
 
 /**
- * OpenRouter provider interface extending ProviderV2
+ * OpenRouter provider settings
+ */
+export interface OpenRouterProviderSettings {
+  baseURL?: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
+  fetch?: typeof fetch;
+  generateId?: () => string;
+}
+
+/**
+ * Embedding settings
+ */
+export interface OpenRouterEmbeddingSettings {
+  dimensions?: number;
+  user?: string;
+}
+
+/**
+ * Image settings
+ */
+export interface OpenRouterImageSettings {
+  size?: string;
+  quality?: string;
+  style?: string;
+  n?: number;
+  user?: string;
+}
+
+/**
+ * OpenRouter provider interface
  */
 export interface OpenRouterProvider extends ProviderV2 {
-  /**
-   * Create a chat language model with the specified model ID and settings
-   */
   (modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
-
-  /**
-   * Create a chat language model with the specified model ID and settings
-   */
-  languageModel(
-    modelId: string,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
-
-  /**
-   * Create a chat language model with the specified model ID and settings
-   * Alias for languageModel
-   */
-  chat(
-    modelId: string,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
-
-  /**
-   * Create a text embedding model with the specified model ID and settings
-   */
-  textEmbeddingModel(
-    modelId: string,
-    settings?: OpenRouterEmbeddingSettings,
-  ): OpenRouterEmbeddingModel;
-
-  /**
-   * Create a text embedding model with the specified model ID and settings
-   * Alias for textEmbeddingModel
-   */
-  embedding(
-    modelId: string,
-    settings?: OpenRouterEmbeddingSettings,
-  ): OpenRouterEmbeddingModel;
-
-  /**
-   * Create an image generation model with the specified model ID and settings
-   */
-  imageModel(
-    modelId: string,
-    settings?: OpenRouterImageSettings,
-  ): OpenRouterImageModel;
-
-  /**
-   * Create an image generation model with the specified model ID and settings
-   * Alias for imageModel
-   */
-  image(
-    modelId: string,
-    settings?: OpenRouterImageSettings,
-  ): OpenRouterImageModel;
+  languageModel(modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
+  chat(modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
+  textEmbeddingModel(modelId: string, settings?: OpenRouterEmbeddingSettings): OpenRouterEmbeddingModel;
+  embedding(modelId: string, settings?: OpenRouterEmbeddingSettings): OpenRouterEmbeddingModel;
+  imageModel(modelId: string, settings?: OpenRouterImageSettings): OpenRouterImageModel;
+  image(modelId: string, settings?: OpenRouterImageSettings): OpenRouterImageModel;
 }
 
 /**
@@ -128,7 +103,6 @@ export function createOpenRouter(
         'The OpenRouter model factory function cannot be called with the new keyword.',
       );
     }
-
     return createChatModel(modelId, settings);
   };
 

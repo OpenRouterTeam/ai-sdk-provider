@@ -1,17 +1,10 @@
 import type {
   EmbeddingModelV2,
   EmbeddingModelV2Embedding,
-  SharedV2ProviderOptions,
 } from '@ai-sdk/provider';
-import {
-  postJsonToApi,
-  createJsonResponseHandler,
-} from '@ai-sdk/provider-utils';
-import type {
-  OpenRouterEmbeddingSettings,
-  OpenRouterModelConfig,
-  OpenRouterEmbeddingResponse,
-} from './types';
+import { OpenRouter } from '@openrouter/sdk';
+import type { OpenRouterModelConfig } from './openrouter-chat-language-model';
+import type { OpenRouterEmbeddingSettings } from './openrouter-provider';
 
 /**
  * OpenRouter embedding model implementation
@@ -20,11 +13,12 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
   readonly specificationVersion = 'v2' as const;
   readonly provider: string;
   readonly modelId: string;
-  readonly maxEmbeddingsPerCall = 2048; // OpenRouter/OpenAI default
+  readonly maxEmbeddingsPerCall = 2048;
   readonly supportsParallelCalls = true;
 
   private readonly settings: OpenRouterEmbeddingSettings;
   private readonly config: OpenRouterModelConfig;
+  private readonly client: OpenRouter;
 
   constructor(
     modelId: string,
@@ -35,80 +29,42 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
     this.modelId = modelId;
     this.settings = settings;
     this.config = config;
+
+    this.client = new OpenRouter({
+      apiKey: config.headers()['Authorization']?.replace('Bearer ', ''),
+      serverURL: config.baseURL,
+    });
   }
 
-  /**
-   * Generate embeddings for the given values
-   */
   async doEmbed(options: {
-    values: Array<string>;
+    values: string[];
     abortSignal?: AbortSignal;
-    providerOptions?: SharedV2ProviderOptions;
-    headers?: Record<string, string | undefined>;
   }): Promise<{
     embeddings: Array<EmbeddingModelV2Embedding>;
     usage?: { tokens: number };
   }> {
-    const warnings: Array<{ type: string; message: string }> = [];
-
-    // Check if we exceed the maximum number of embeddings per call
-    if (options.values.length > this.maxEmbeddingsPerCall) {
-      warnings.push({
-        type: 'other',
-        message: `OpenRouter embedding model ${this.modelId} can only process up to ${this.maxEmbeddingsPerCall} embeddings per call. Processing first ${this.maxEmbeddingsPerCall} values.`,
-      });
-    }
-
-    // Prepare the request body
-    const body: Record<string, any> = {
-      model: this.modelId,
-      input: options.values.slice(0, this.maxEmbeddingsPerCall),
-      user: this.settings.user,
-    };
-
-    // Add dimensions if specified
-    if (this.settings.dimensions) {
-      body.dimensions = this.settings.dimensions;
-    }
-
-    // Merge provider options
-    const providerOptions = {
-      ...this.settings.providerOptions?.openrouter,
-      ...options.providerOptions?.openrouter,
-    };
-
-    if (providerOptions) {
-      Object.assign(body, providerOptions);
-    }
-
-    // Combine headers
-    const headers = {
-      ...this.config.headers(),
-      ...options.headers,
-    };
-
-    // Make the API call
-    const { value: response } = await postJsonToApi({
-      url: `${this.config.baseURL}/embeddings`,
-      headers,
-      body,
-      failedResponseHandler: createJsonResponseHandler({} as any),
-      successfulResponseHandler: createJsonResponseHandler({} as any),
-      abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
+    // Use SDK for embeddings
+    const response = await fetch(`${this.config.baseURL}/embeddings`, {
+      method: 'POST',
+      headers: this.config.headers() as Record<string, string>,
+      body: JSON.stringify({
+        model: this.modelId,
+        input: options.values,
+        dimensions: this.settings.dimensions,
+        user: this.settings.user,
+      }),
+      signal: options.abortSignal,
     });
 
-    const openRouterResponse = response as OpenRouterEmbeddingResponse;
+    if (!response.ok) {
+      throw new Error(`Embedding request failed: ${response.statusText}`);
+    }
 
-    // Sort embeddings by index and extract the vectors
-    const sortedEmbeddings = openRouterResponse.data.sort((a, b) => a.index - b.index);
-    const embeddings = sortedEmbeddings.map(item => item.embedding);
+    const data = await response.json();
 
     return {
-      embeddings,
-      usage: openRouterResponse.usage?.prompt_tokens
-        ? { tokens: openRouterResponse.usage.prompt_tokens }
-        : undefined,
+      embeddings: data.data.map((item: { embedding: number[] }) => item.embedding),
+      usage: data.usage ? { tokens: data.usage.total_tokens } : undefined,
     };
   }
 }

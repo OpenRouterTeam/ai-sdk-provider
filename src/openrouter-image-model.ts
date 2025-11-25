@@ -4,19 +4,17 @@ import type {
   ImageModelV2CallWarning,
   ImageModelV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import {
-  postJsonToApi,
-  createJsonResponseHandler,
-} from '@ai-sdk/provider-utils';
-import type {
-  OpenRouterImageSettings,
-  OpenRouterModelConfig,
-  OpenRouterImageResponse,
-} from './types';
+import type { OpenRouterModelConfig } from './openrouter-chat-language-model';
+import type { OpenRouterImageSettings } from './openrouter-provider';
 
 /**
  * OpenRouter image generation model implementation
  */
+type OpenRouterImageResponse = {
+  data?: Array<{ b64_json?: string; url?: string }>;
+  model?: string;
+};
+
 export class OpenRouterImageModel implements ImageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider: string;
@@ -37,12 +35,7 @@ export class OpenRouterImageModel implements ImageModelV2 {
     this.config = config;
   }
 
-  /**
-   * Generate images based on the prompt
-   */
-  async doGenerate(
-    options: ImageModelV2CallOptions,
-  ): Promise<{
+  async doGenerate(options: ImageModelV2CallOptions): Promise<{
     images: Array<string> | Array<Uint8Array>;
     warnings: Array<ImageModelV2CallWarning>;
     providerMetadata?: ImageModelV2ProviderMetadata;
@@ -52,104 +45,93 @@ export class OpenRouterImageModel implements ImageModelV2 {
       headers: Record<string, string> | undefined;
     };
   }> {
+    const fetchImpl = this.config.fetch ?? fetch;
     const warnings: ImageModelV2CallWarning[] = [];
 
-    // Prepare the request body
-    const body: Record<string, any> = {
-      model: this.modelId,
-      prompt: options.prompt,
-      n: options.n ?? this.settings.n ?? 1,
-      size: this.settings.size ?? '1024x1024',
-      quality: this.settings.quality ?? 'standard',
-      style: this.settings.style ?? 'vivid',
-      user: this.settings.user,
-    };
-
-    // Handle response format
-    if (options.providerOptions?.openrouter?.response_format) {
-      body.response_format = options.providerOptions.openrouter.response_format;
-    } else {
-      // Default to b64_json for the V2 interface
-      body.response_format = 'b64_json';
+    if (options.aspectRatio !== undefined) {
+      warnings.push({
+        type: 'unsupported-setting',
+        setting: 'aspectRatio',
+        details: 'OpenRouter image generation currently ignores aspect ratios.',
+      });
     }
 
-    // Merge provider options
-    const providerOptions = {
-      ...this.settings.providerOptions?.openrouter,
-      ...options.providerOptions?.openrouter,
-    };
-
-    if (providerOptions) {
-      // Don't override response_format if already set
-      const { response_format, ...otherOptions } = providerOptions;
-      Object.assign(body, otherOptions);
+    if (options.seed !== undefined) {
+      warnings.push({
+        type: 'unsupported-setting',
+        setting: 'seed',
+        details: 'OpenRouter image generation does not support deterministic seeds.',
+      });
     }
 
-    // Combine headers
-    const headers = {
+    const headerEntries = {
       ...this.config.headers(),
       ...options.headers,
     };
+    const requestHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headerEntries)) {
+      if (typeof value === 'string') {
+        requestHeaders[key] = value;
+      }
+    }
 
-    // Make the API call
-    const { value: response } = await postJsonToApi({
-      url: `${this.config.baseURL}/images/generations`,
-      headers,
-      body,
-      failedResponseHandler: createJsonResponseHandler({} as any),
-      successfulResponseHandler: createJsonResponseHandler({} as any),
-      abortSignal: options.abortSignal,
-      fetch: this.config.fetch,
+    const requestBody: Record<string, unknown> = {
+      model: this.modelId,
+      prompt: options.prompt,
+      n: options.n ?? this.settings.n ?? 1,
+      size: options.size ?? this.settings.size,
+      quality: this.settings.quality,
+      style: this.settings.style,
+      user: this.settings.user,
+      response_format: 'b64_json',
+    };
+
+    const providerOptions = options.providerOptions?.openrouter;
+    if (providerOptions) {
+      Object.assign(requestBody, providerOptions);
+    }
+
+    const sanitizedBody = Object.fromEntries(
+      Object.entries(requestBody).filter(([, value]) => value !== undefined),
+    );
+
+    const response = await fetchImpl(`${this.config.baseURL}/images/generations`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: JSON.stringify(sanitizedBody),
+      signal: options.abortSignal,
     });
 
-    const openRouterResponse = response as OpenRouterImageResponse;
+    const responseTimestamp = new Date();
 
-    // Convert response to V2 format - return base64 strings
-    const images: string[] = [];
-    const imageMetadata: Array<{ revisedPrompt?: string }> = [];
-
-    for (const item of openRouterResponse.data) {
-      if (item.b64_json) {
-        images.push(item.b64_json);
-      } else if (item.url) {
-        // If we got a URL, we need to fetch the image
-        // For now, just return the URL as a string
-        images.push(item.url);
-      }
-
-      if (item.revised_prompt) {
-        imageMetadata.push({ revisedPrompt: item.revised_prompt });
-      }
+    if (!response.ok) {
+      throw new Error(`Image generation failed: ${response.statusText}`);
     }
 
-    // Add warning if no images were generated
-    if (images.length === 0) {
-      warnings.push({
-        type: 'other',
-        message: 'No images were generated',
-      });
-    }
+    const data = (await response.json()) as OpenRouterImageResponse;
+    const rawImages: Array<{ b64_json?: string; url?: string }> = Array.isArray(data?.data)
+      ? data.data
+      : [];
 
-    // Add warning if fewer images than requested
-    if (body.n && images.length < body.n) {
-      warnings.push({
-        type: 'other',
-        message: `Requested ${body.n} images but only ${images.length} were generated`,
-      });
-    }
+    const images = rawImages.map(item => item.b64_json ?? item.url ?? '');
+    const responseHeadersObject = Object.fromEntries(response.headers.entries());
+
+    const providerMetadata: ImageModelV2ProviderMetadata | undefined = rawImages.length
+      ? {
+          openrouter: {
+            images: rawImages,
+          },
+        }
+      : undefined;
 
     return {
       images,
       warnings,
-      providerMetadata: {
-        openrouter: {
-          images: imageMetadata,
-        },
-      },
+      providerMetadata,
       response: {
-        timestamp: new Date(openRouterResponse.created * 1000),
-        modelId: this.modelId,
-        headers: undefined,
+        timestamp: responseTimestamp,
+        modelId: data?.model ?? this.modelId,
+        headers: Object.keys(responseHeadersObject).length ? responseHeadersObject : undefined,
       },
     };
   }

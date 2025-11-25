@@ -1,6 +1,6 @@
 import { streamText } from 'ai';
 import { it, vi } from 'vitest';
-import { createOpenRouter } from '@/src';
+import { createOpenRouter } from '../src';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -12,6 +12,10 @@ it('should trigger cache read', async () => {
   // Second call to test cache read
   const response = await callLLM();
   const providerMetadata = await response.providerMetadata;
+
+  console.log('Provider metadata:', JSON.stringify(providerMetadata, null, 2));
+  console.log('Usage from response:', JSON.stringify(await response.usage, null, 2));
+
   expect(providerMetadata?.openrouter).toMatchObject({
     usage: expect.objectContaining({
       promptTokens: expect.any(Number),
@@ -36,7 +40,7 @@ it('should trigger cache read', async () => {
 async function callLLM() {
   const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    baseURL: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
   const model = openrouter('anthropic/claude-3.7-sonnet', {
     usage: {
@@ -51,7 +55,7 @@ async function callLLM() {
         content: [
           {
             type: 'text',
-            text: 'a'.repeat(4200),
+            text: 'a '.repeat(2100),
             providerOptions: {
               openrouter: {
                 cache_control: {
@@ -70,5 +74,7 @@ async function callLLM() {
   });
 
   await response.consumeStream();
+  const request = await response.request;
+  console.log('Request body:', JSON.stringify(request?.body, null, 2));
   return response;
 }
