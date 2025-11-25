@@ -2,11 +2,7 @@ import type { ModelMessage } from 'ai';
 
 import { generateText } from 'ai';
 import { it, vi } from 'vitest';
-import {
-  executeCommandInTerminalTool,
-  readSMSTool,
-  sendSMSTool,
-} from '@/e2e/tools';
+import { executeCommandInTerminalTool, readSMSTool, sendSMSTool } from '@/e2e/tools';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({

@@ -1,0 +1,13 @@
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Match: Promise<Result<T>>
+  `Promise<Result<$inner>>` as $match where {
+    register_diagnostic(span=$match, message="Prefer AsyncResult<T> over Promise<Result<T>>. AsyncResult is a type alias that improves readability and follows our codebase conventions.", severity="warning")
+  },
+  // Match: Promise<Result<T, E>>
+  `Promise<Result<$success, $error>>` as $match where {
+    register_diagnostic(span=$match, message="Prefer AsyncResult<T, E> over Promise<Result<T, E>>. AsyncResult is a type alias that improves readability and follows our codebase conventions.", severity="warning")
+  }
+}

@@ -1,8 +1,9 @@
-import { generateText, stepCountIs, streamText, tool, type FilePart, type JSONValue, type ModelMessage, type TextPart, type UIMessage } from 'ai';
+import type { JSONValue, ModelMessage } from 'ai';
+
+import { generateText, stepCountIs, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '../src';
-import type { ReasoningPart, ToolCallPart, ToolResultPart } from '@ai-sdk/provider-utils';
 
 vi.setConfig({
   testTimeout: 120_000,
@@ -16,7 +17,9 @@ const reasoningModels = [
     id: 'anthropic/claude-sonnet-4',
     name: 'Claude Sonnet 4',
     reasoningOptions: {
-      reasoning: { effort: 'low' },
+      reasoning: {
+        effort: 'low',
+      },
     },
   },
   {
@@ -24,7 +27,11 @@ const reasoningModels = [
     name: 'Gemini 3 Pro',
     reasoningOptions: {
       // Gemini 3 Pro has reasoning enabled by default, don't pass reasoning options
-      provider: { only: ['google-ai-studio'] },
+      provider: {
+        only: [
+          'google-ai-studio',
+        ],
+      },
     },
   },
 ] as const;
@@ -69,19 +76,27 @@ const calculatorTool = tool({
   execute: async ({ expression }) => {
     try {
       const result = Function(`"use strict"; return (${expression})`)();
-      return { expression, result };
+      return {
+        expression,
+        result,
+      };
     } catch {
-      return { expression, error: 'Invalid expression' };
+      return {
+        expression,
+        error: 'Invalid expression',
+      };
     }
   },
 });
 
 describe('Reasoning with Provider Metadata - Matrix Tests', () => {
-  describe.each(reasoningModels)('$name ($id)', ({ id, name, reasoningOptions }) => {
+  describe.each(reasoningModels)('$name ($id)', ({ id, reasoningOptions }) => {
     it('generateText: should emit provider metadata with reasoning', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const response = await generateText({
@@ -113,17 +128,20 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
           completionTokens: expect.any(Number),
           totalTokens: expect.any(Number),
         }),
+        reasoning_details: expect.any(Array),
       });
     });
 
     it('streamText: should emit provider metadata in finish event with reasoning', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       let finishProviderMetadata: Record<string, unknown> | undefined;
-      let hasReasoningDelta = false;
+      let _hasReasoningDelta = false;
       let hasTextDelta = false;
 
       const result = streamText({
@@ -144,7 +162,7 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
 
       for await (const chunk of result.fullStream) {
         if (chunk.type === 'reasoning-delta') {
-          hasReasoningDelta = true;
+          _hasReasoningDelta = true;
         }
         if (chunk.type === 'text-delta') {
           hasTextDelta = true;
@@ -166,6 +184,7 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
           completionTokens: expect.any(Number),
           totalTokens: expect.any(Number),
         }),
+        reasoning_details: expect.any(Array),
       });
 
       // Verify the awaited providerMetadata matches
@@ -174,10 +193,12 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
       });
     });
 
-    it('generateText with tools: should emit provider metadata with reasoning and tool calls', async () => {
+    it('streamText with tools: should emit provider metadata with reasoning and tool calls', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Using streamText for tool calls is more reliable across models
@@ -217,9 +238,11 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
 
       // Check if tool was called
       const response = await result.response;
-      const toolCalls = response.messages
+      const _toolCalls = response.messages
         .filter((m) => m.role === 'assistant')
-        .flatMap((m) => (Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : []));
+        .flatMap((m) =>
+          Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : [],
+        );
 
       // Some models may use the tool, others may answer directly - both are valid
       expect(parts.includes('finish')).toBe(true);
@@ -228,10 +251,15 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
     it('streamText with tools: should stream reasoning and tool interactions', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
-      const parts: Array<{ type: string; toolName?: string }> = [];
+      const parts: Array<{
+        type: string;
+        toolName?: string;
+      }> = [];
       let finishProviderMetadata: Record<string, unknown> | undefined;
 
       const result = streamText({
@@ -256,15 +284,27 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
 
       for await (const chunk of result.fullStream) {
         if (chunk.type === 'reasoning-delta') {
-          parts.push({ type: 'reasoning-delta' });
+          parts.push({
+            type: 'reasoning-delta',
+          });
         } else if (chunk.type === 'text-delta') {
-          parts.push({ type: 'text-delta' });
+          parts.push({
+            type: 'text-delta',
+          });
         } else if (chunk.type === 'tool-call') {
-          parts.push({ type: 'tool-call', toolName: chunk.toolName });
+          parts.push({
+            type: 'tool-call',
+            toolName: chunk.toolName,
+          });
         } else if (chunk.type === 'tool-result') {
-          parts.push({ type: 'tool-result', toolName: chunk.toolName });
+          parts.push({
+            type: 'tool-result',
+            toolName: chunk.toolName,
+          });
         } else if (chunk.type === 'finish') {
-          parts.push({ type: 'finish' });
+          parts.push({
+            type: 'finish',
+          });
         }
       }
 
@@ -285,7 +325,9 @@ describe('UI Message Stream Interop', () => {
     it('should produce valid UIMessage structure from streamText', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const result = streamText({
@@ -320,7 +362,13 @@ describe('UI Message Stream Interop', () => {
           for (const part of msg.content) {
             expect(part).toHaveProperty('type');
             // Valid types: text, reasoning, tool-call, tool-result, etc.
-            expect(['text', 'reasoning', 'tool-call', 'tool-result', 'file']).toContain(part.type);
+            expect([
+              'text',
+              'reasoning',
+              'tool-call',
+              'tool-result',
+              'file',
+            ]).toContain(part.type);
           }
         }
       }
@@ -329,7 +377,9 @@ describe('UI Message Stream Interop', () => {
     it('should produce valid UIMessage with tools', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Single turn with tool usage
@@ -364,7 +414,9 @@ describe('UI Message Stream Interop', () => {
     it('should accumulate reasoning in message content for multi-turn', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // First turn with reasoning
@@ -382,8 +434,8 @@ describe('UI Message Stream Interop', () => {
       });
 
       // Check if reasoning was captured
-      const hasReasoning = result1.steps.some((step) =>
-        step.content.some((c) => c.type === 'reasoning')
+      const _hasReasoning = result1.steps.some((step) =>
+        step.content.some((c) => c.type === 'reasoning'),
       );
 
       // Build messages for second turn including the response
@@ -420,7 +472,9 @@ describe('Multi-Turn Conversations', () => {
     it('should handle 3-turn conversation without tools with valid output at each turn', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Turn 1: Initial question
@@ -501,7 +555,9 @@ describe('Multi-Turn Conversations', () => {
     it('should handle 2-turn conversation with tools with valid output at each turn', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Turn 1: Weather query (should use tool)
@@ -526,7 +582,7 @@ describe('Multi-Turn Conversations', () => {
       const metadata1 = await result1.providerMetadata;
 
       // Extract reasoning_details from first turn for Gemini multi-turn support
-      const turn1ReasoningDetails = (metadata1?.openrouter?.reasoning_details as unknown[]) || [];
+      const _turn1ReasoningDetails = (metadata1?.openrouter?.reasoning_details as unknown[]) || [];
 
       // Verify Turn 1 output - messages should exist
       expect(response1.messages.length).toBeGreaterThan(0);
@@ -574,7 +630,9 @@ describe('Multi-Turn Conversations', () => {
     it('should maintain conversation context across turns without tools', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Turn 1: Set context
@@ -622,7 +680,9 @@ describe('Multi-Turn Conversations', () => {
     it('should maintain tool results context across turns', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       // Turn 1: Get weather
@@ -647,7 +707,7 @@ describe('Multi-Turn Conversations', () => {
       const metadata1 = await result1.providerMetadata;
 
       // Extract reasoning_details from first turn for Gemini multi-turn support
-      const turn1ReasoningDetails = (metadata1?.openrouter?.reasoning_details as unknown[]) || [];
+      const _turn1ReasoningDetails = (metadata1?.openrouter?.reasoning_details as unknown[]) || [];
 
       // Verify Turn 1 produced messages
       expect(response1.messages.length).toBeGreaterThan(0);
@@ -692,12 +752,19 @@ describe('Provider Metadata Content Verification', () => {
     it('should include model_id in provider metadata', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const response = await generateText({
         model,
-        messages: [{ role: 'user', content: 'Hello' }],
+        messages: [
+          {
+            role: 'user',
+            content: 'Hello',
+          },
+        ],
         providerOptions: {
           openrouter: reasoningOptions as Record<string, JSONValue>,
         },
@@ -712,12 +779,19 @@ describe('Provider Metadata Content Verification', () => {
     it('should include usage details in provider metadata', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const response = await generateText({
         model,
-        messages: [{ role: 'user', content: 'What is 1+1?' }],
+        messages: [
+          {
+            role: 'user',
+            content: 'What is 1+1?',
+          },
+        ],
         providerOptions: {
           openrouter: reasoningOptions as Record<string, JSONValue>,
         },
@@ -735,12 +809,19 @@ describe('Provider Metadata Content Verification', () => {
     it('should include cost information when available', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const response = await generateText({
         model,
-        messages: [{ role: 'user', content: 'Say hi' }],
+        messages: [
+          {
+            role: 'user',
+            content: 'Say hi',
+          },
+        ],
         providerOptions: {
           openrouter: reasoningOptions as Record<string, JSONValue>,
         },
@@ -762,7 +843,9 @@ describe('Stream Part Ordering', () => {
     it('should emit stream parts in correct order', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const partTypes: string[] = [];
@@ -795,7 +878,9 @@ describe('Stream Part Ordering', () => {
     it('should handle stream cancellation gracefully', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const result = streamText({
@@ -838,7 +923,9 @@ describe('UIMessageStream Protocol Compliance', () => {
     it('should have start-step and finish-step events for multi-step flows', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const partTypes: string[] = [];
@@ -882,10 +969,15 @@ describe('UIMessageStream Protocol Compliance', () => {
     it('should emit reasoning-start and reasoning-end with matching IDs', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
-      const reasoningEvents: Array<{ type: string; id?: string }> = [];
+      const reasoningEvents: Array<{
+        type: string;
+        id?: string;
+      }> = [];
 
       const result = streamText({
         model,
@@ -898,8 +990,19 @@ describe('UIMessageStream Protocol Compliance', () => {
       });
 
       for await (const chunk of result.fullStream) {
-        if (chunk.type === 'reasoning-start' || chunk.type === 'reasoning-end' || chunk.type === 'reasoning-delta') {
-          reasoningEvents.push({ type: chunk.type, id: (chunk as any).id });
+        if (
+          chunk.type === 'reasoning-start' ||
+          chunk.type === 'reasoning-end' ||
+          chunk.type === 'reasoning-delta'
+        ) {
+          reasoningEvents.push({
+            type: chunk.type,
+            id: (
+              chunk as {
+                id?: string;
+              }
+            ).id,
+          });
         }
       }
 
@@ -932,10 +1035,15 @@ describe('UIMessageStream Protocol Compliance', () => {
     it('should emit text-start and text-end with matching IDs', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
-      const textEvents: Array<{ type: string; id?: string }> = [];
+      const textEvents: Array<{
+        type: string;
+        id?: string;
+      }> = [];
 
       const result = streamText({
         model,
@@ -951,8 +1059,19 @@ describe('UIMessageStream Protocol Compliance', () => {
       });
 
       for await (const chunk of result.fullStream) {
-        if (chunk.type === 'text-start' || chunk.type === 'text-end' || chunk.type === 'text-delta') {
-          textEvents.push({ type: chunk.type, id: (chunk as any).id });
+        if (
+          chunk.type === 'text-start' ||
+          chunk.type === 'text-end' ||
+          chunk.type === 'text-delta'
+        ) {
+          textEvents.push({
+            type: chunk.type,
+            id: (
+              chunk as {
+                id?: string;
+              }
+            ).id,
+          });
         }
       }
 
@@ -985,7 +1104,9 @@ describe('UIMessageStream Protocol Compliance', () => {
     it('should provide response metadata through result object', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       const result = streamText({
@@ -1021,11 +1142,17 @@ describe('UIMessageStream Protocol Compliance', () => {
     it('should include finish reason and usage in result', async () => {
       const openrouter = createProvider();
       const model = openrouter(id, {
-        usage: { include: true },
+        usage: {
+          include: true,
+        },
       });
 
       let finishReason: string | undefined;
-      let usageData: any;
+      let usageData:
+        | {
+          totalTokens?: number;
+        }
+        | undefined;
 
       const result = streamText({
         model,
@@ -1049,11 +1176,16 @@ describe('UIMessageStream Protocol Compliance', () => {
 
       // Should have finish reason
       expect(finishReason).toBeDefined();
-      expect(['stop', 'length', 'tool-calls', 'unknown']).toContain(finishReason);
+      expect([
+        'stop',
+        'length',
+        'tool-calls',
+        'unknown',
+      ]).toContain(finishReason);
 
       // Should have usage data
       expect(usageData).toBeDefined();
-      expect(usageData.totalTokens).toBeGreaterThan(0);
+      expect(usageData?.totalTokens).toBeGreaterThan(0);
     });
   });
 });

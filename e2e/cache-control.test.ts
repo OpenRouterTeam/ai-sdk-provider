@@ -1,20 +1,26 @@
 import { streamText } from 'ai';
-import { it, vi } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { createOpenRouter } from '../src';
 
 vi.setConfig({
   testTimeout: 42_000,
 });
 
+// TODO: This test is currently failing because the OpenRouter SDK (v0.1.27)
+// strips the cache_control property from content items during Zod schema validation.
+// The ResponseInputText$outboundSchema only includes `type` and `text` properties,
+// so cache_control is discarded when the request is parsed.
+// See: node_modules/@openrouter/sdk/esm/models/responseinputtext.js
+//
+// The provider correctly passes cache_control to the SDK, but the SDK strips it
+// before sending to the API. This needs to be fixed in the OpenRouter SDK by
+// either adding cache_control to the schema or using .passthrough() on the Zod schemas.
 it('should trigger cache read', async () => {
   // First call to warm the cache
   await callLLM();
   // Second call to test cache read
   const response = await callLLM();
   const providerMetadata = await response.providerMetadata;
-
-  console.log('Provider metadata:', JSON.stringify(providerMetadata, null, 2));
-  console.log('Usage from response:', JSON.stringify(await response.usage, null, 2));
 
   expect(providerMetadata?.openrouter).toMatchObject({
     usage: expect.objectContaining({
@@ -30,7 +36,7 @@ it('should trigger cache read', async () => {
   });
 
   const cachedTokens = Number(
-    // @ts-ignore
+    // @ts-expect-error
     providerMetadata?.openrouter?.usage?.promptTokensDetails?.cachedTokens,
   );
 
@@ -74,7 +80,5 @@ async function callLLM() {
   });
 
   await response.consumeStream();
-  const request = await response.request;
-  console.log('Request body:', JSON.stringify(request?.body, null, 2));
   return response;
 }

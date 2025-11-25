@@ -11,7 +11,10 @@ import type { OpenRouterImageSettings } from './openrouter-provider';
  * OpenRouter image generation model implementation
  */
 type OpenRouterImageResponse = {
-  data?: Array<{ b64_json?: string; url?: string }>;
+  data?: Array<{
+    b64_json?: string;
+    url?: string;
+  }>;
   model?: string;
 };
 
@@ -24,11 +27,7 @@ export class OpenRouterImageModel implements ImageModelV2 {
   private readonly settings: OpenRouterImageSettings;
   private readonly config: OpenRouterModelConfig;
 
-  constructor(
-    modelId: string,
-    settings: OpenRouterImageSettings,
-    config: OpenRouterModelConfig,
-  ) {
+  constructor(modelId: string, settings: OpenRouterImageSettings, config: OpenRouterModelConfig) {
     this.provider = config.provider;
     this.modelId = modelId;
     this.settings = settings;
@@ -64,14 +63,15 @@ export class OpenRouterImageModel implements ImageModelV2 {
       });
     }
 
-    const headerEntries = {
-      ...this.config.headers(),
-      ...options.headers,
+    const requestHeaders: Record<string, string> = {
+      Authorization: `Bearer ${this.config.apiKey}`,
+      'Content-Type': 'application/json',
     };
-    const requestHeaders: Record<string, string> = {};
-    for (const [key, value] of Object.entries(headerEntries)) {
-      if (typeof value === 'string') {
-        requestHeaders[key] = value;
+    if (options.headers) {
+      for (const [key, value] of Object.entries(options.headers)) {
+        if (typeof value === 'string') {
+          requestHeaders[key] = value;
+        }
       }
     }
 
@@ -109,11 +109,12 @@ export class OpenRouterImageModel implements ImageModelV2 {
     }
 
     const data = (await response.json()) as OpenRouterImageResponse;
-    const rawImages: Array<{ b64_json?: string; url?: string }> = Array.isArray(data?.data)
-      ? data.data
-      : [];
+    const rawImages: Array<{
+      b64_json?: string;
+      url?: string;
+    }> = Array.isArray(data?.data) ? data.data : [];
 
-    const images = rawImages.map(item => item.b64_json ?? item.url ?? '');
+    const images = rawImages.map((item) => item.b64_json ?? item.url ?? '');
     const responseHeadersObject = Object.fromEntries(response.headers.entries());
 
     const providerMetadata: ImageModelV2ProviderMetadata | undefined = rawImages.length

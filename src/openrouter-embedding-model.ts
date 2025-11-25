@@ -1,10 +1,15 @@
-import type {
-  EmbeddingModelV2,
-  EmbeddingModelV2Embedding,
-} from '@ai-sdk/provider';
-import { OpenRouter } from '@openrouter/sdk';
+import type { EmbeddingModelV2, EmbeddingModelV2Embedding } from '@ai-sdk/provider';
 import type { OpenRouterModelConfig } from './openrouter-chat-language-model';
 import type { OpenRouterEmbeddingSettings } from './openrouter-provider';
+
+interface EmbeddingResponse {
+  data: Array<{
+    embedding: number[];
+  }>;
+  usage?: {
+    total_tokens: number;
+  };
+}
 
 /**
  * OpenRouter embedding model implementation
@@ -18,7 +23,6 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
 
   private readonly settings: OpenRouterEmbeddingSettings;
   private readonly config: OpenRouterModelConfig;
-  private readonly client: OpenRouter;
 
   constructor(
     modelId: string,
@@ -29,24 +33,25 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
     this.modelId = modelId;
     this.settings = settings;
     this.config = config;
-
-    this.client = new OpenRouter({
-      apiKey: config.headers()['Authorization']?.replace('Bearer ', ''),
-      serverURL: config.baseURL,
-    });
   }
 
-  async doEmbed(options: {
-    values: string[];
-    abortSignal?: AbortSignal;
-  }): Promise<{
+  private getHeaders(): Record<string, string> {
+    return {
+      Authorization: `Bearer ${this.config.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  async doEmbed(options: { values: string[]; abortSignal?: AbortSignal }): Promise<{
     embeddings: Array<EmbeddingModelV2Embedding>;
-    usage?: { tokens: number };
+    usage?: {
+      tokens: number;
+    };
   }> {
     // Use SDK for embeddings
     const response = await fetch(`${this.config.baseURL}/embeddings`, {
       method: 'POST',
-      headers: this.config.headers() as Record<string, string>,
+      headers: this.getHeaders(),
       body: JSON.stringify({
         model: this.modelId,
         input: options.values,
@@ -60,11 +65,15 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       throw new Error(`Embedding request failed: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as EmbeddingResponse;
 
     return {
-      embeddings: data.data.map((item: { embedding: number[] }) => item.embedding),
-      usage: data.usage ? { tokens: data.usage.total_tokens } : undefined,
+      embeddings: data.data.map((item) => item.embedding),
+      usage: data.usage
+        ? {
+            tokens: data.usage.total_tokens,
+          }
+        : undefined,
     };
   }
 }

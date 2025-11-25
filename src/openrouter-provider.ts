@@ -1,10 +1,11 @@
-import {
-  generateId,
-  loadApiKey,
-  withoutTrailingSlash,
-} from '@ai-sdk/provider-utils';
 import type { ProviderV2 } from '@ai-sdk/provider';
-import { OpenRouterChatLanguageModel, OpenRouterChatSettings, OpenRouterModelConfig } from './openrouter-chat-language-model';
+import type {
+  OpenRouterChatSettings,
+  OpenRouterModelConfig,
+} from './openrouter-chat-language-model';
+
+import { generateId, loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+import { OpenRouterChatLanguageModel } from './openrouter-chat-language-model';
 import { OpenRouterEmbeddingModel } from './openrouter-embedding-model';
 import { OpenRouterImageModel } from './openrouter-image-model';
 
@@ -45,7 +46,10 @@ export interface OpenRouterProvider extends ProviderV2 {
   (modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
   languageModel(modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
   chat(modelId: string, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
-  textEmbeddingModel(modelId: string, settings?: OpenRouterEmbeddingSettings): OpenRouterEmbeddingModel;
+  textEmbeddingModel(
+    modelId: string,
+    settings?: OpenRouterEmbeddingSettings,
+  ): OpenRouterEmbeddingModel;
   embedding(modelId: string, settings?: OpenRouterEmbeddingSettings): OpenRouterEmbeddingModel;
   imageModel(modelId: string, settings?: OpenRouterImageSettings): OpenRouterImageModel;
   image(modelId: string, settings?: OpenRouterImageSettings): OpenRouterImageModel;
@@ -54,50 +58,33 @@ export interface OpenRouterProvider extends ProviderV2 {
 /**
  * Create an OpenRouter provider instance
  */
-export function createOpenRouter(
-  options: OpenRouterProviderSettings = {},
-): OpenRouterProvider {
-  const baseURL =
-    withoutTrailingSlash(options.baseURL) ?? 'https://openrouter.ai/api/v1';
+export function createOpenRouter(options: OpenRouterProviderSettings = {}): OpenRouterProvider {
+  const baseURL = withoutTrailingSlash(options.baseURL) ?? 'https://openrouter.ai/api/v1';
 
-  const getHeaders = () => ({
-    Authorization: `Bearer ${loadApiKey({
-      apiKey: options.apiKey,
-      environmentVariableName: 'OPENROUTER_API_KEY',
-      description: 'OpenRouter',
-    })}`,
-    'X-Title': 'OpenRouter AI SDK Provider',
-    'Content-Type': 'application/json',
-    ...options.headers,
+  const apiKey = loadApiKey({
+    apiKey: options.apiKey,
+    environmentVariableName: 'OPENROUTER_API_KEY',
+    description: 'OpenRouter',
   });
 
   const createModelConfig = (): OpenRouterModelConfig => ({
     provider: 'openrouter',
     baseURL,
-    headers: getHeaders,
+    apiKey,
     generateId: options.generateId ?? generateId,
     fetch: options.fetch,
   });
 
-  const createChatModel = (
-    modelId: string,
-    settings: OpenRouterChatSettings = {},
-  ) => new OpenRouterChatLanguageModel(modelId, settings, createModelConfig());
+  const createChatModel = (modelId: string, settings: OpenRouterChatSettings = {}) =>
+    new OpenRouterChatLanguageModel(modelId, settings, createModelConfig());
 
-  const createEmbeddingModel = (
-    modelId: string,
-    settings: OpenRouterEmbeddingSettings = {},
-  ) => new OpenRouterEmbeddingModel(modelId, settings, createModelConfig());
+  const createEmbeddingModel = (modelId: string, settings: OpenRouterEmbeddingSettings = {}) =>
+    new OpenRouterEmbeddingModel(modelId, settings, createModelConfig());
 
-  const createImageModel = (
-    modelId: string,
-    settings: OpenRouterImageSettings = {},
-  ) => new OpenRouterImageModel(modelId, settings, createModelConfig());
+  const createImageModel = (modelId: string, settings: OpenRouterImageSettings = {}) =>
+    new OpenRouterImageModel(modelId, settings, createModelConfig());
 
-  const provider = function (
-    modelId: string,
-    settings?: OpenRouterChatSettings,
-  ) {
+  const provider = function (modelId: string, settings?: OpenRouterChatSettings) {
     if (new.target) {
       throw new Error(
         'The OpenRouter model factory function cannot be called with the new keyword.',

@@ -1,0 +1,24 @@
+// Pattern: Detect .optional().nullable() or .nullable().optional() on zod schemas
+// These should be replaced with .nullish() for better clarity and correctness
+// Matches both direct chains and chains with other method calls in between
+// Only matches expressions that start with z. to ensure we're targeting zod schemas
+
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Direct chains starting from a zod constructor
+  `z.$fn($...).nullable().optional()` as $match where {
+    register_diagnostic(span=$match, message="Use .nullish() instead of .nullable().optional(). The .nullish() method is equivalent and more concise.", severity="warning")
+  },
+  `z.$fn($...).optional().nullable()` as $match where {
+    register_diagnostic(span=$match, message="Use .nullish() instead of .optional().nullable(). The .nullish() method is equivalent and more concise.", severity="warning")
+  },
+  // Allow one method in between (covers common cases like .default(), .array(), .openapi(), etc.)
+  `z.$fn($...).$mid.nullable().optional()` as $match where {
+    register_diagnostic(span=$match, message="Use .nullish() instead of .nullable().optional() with extra chaining. The .nullish() method is equivalent and more concise.", severity="warning")
+  },
+  `z.$fn($...).$mid.optional().nullable()` as $match where {
+    register_diagnostic(span=$match, message="Use .nullish() instead of .optional().nullable() with extra chaining. The .nullish() method is equivalent and more concise.", severity="warning")
+  }
+}

@@ -1,0 +1,21 @@
+// Prefer runIfCalledAsScript over main().catch() pattern for zx shell scripts
+// The runIfCalledAsScript function from @openrouter-monorepo/script-utils/run
+// provides a cleaner way to handle script execution and errors.
+//
+// Example transformation:
+// Before:
+//   main().catch((error) => {
+//     process.stderr.write(`❌ Error: ${error instanceof Error ? error.message : String(error)}\n`);
+//     process.exit(1);
+//   });
+//
+// After:
+//   void runIfCalledAsScript(main, import.meta.url);
+
+engine biome(2.0)
+language js(typescript)
+
+`$func().catch($handler)` as $match where {
+  $func <: `main`,
+  register_diagnostic(span=$match, message="Prefer runIfCalledAsScript for zx shell scripts. Use 'void runIfCalledAsScript(main, import.meta.url)' instead of main().catch(). Import from '@openrouter-monorepo/script-utils/run'.", severity="info")
+}

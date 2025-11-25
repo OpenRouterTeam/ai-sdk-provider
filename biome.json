@@ -1,13 +1,44 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.1.3/schema.json",
-  "files": {
-    "ignoreUnknown": true,
-    "experimentalScannerIgnores": ["reference/**"]
-  },
+  "$schema": "https://biomejs.dev/schemas/2.3.7/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
     "useIgnoreFile": true
+  },
+  "plugins": [
+    ".grit/no-negated-result-checks.grit",
+    ".grit/no-iife.grit",
+    ".grit/prefer-async-result.grit",
+    ".grit/openai-responses-pattern.grit",
+    ".grit/openai-naming-convention.grit",
+    ".grit/openresponses-pattern.grit",
+    ".grit/no-promise-race.grit",
+    ".grit/use-named-arguments.grit",
+    ".grit/prefer-nullish-over-optional-nullable.grit",
+    ".grit/prefer-assert-over-expect-result.grit"
+  ],
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "./.vscode/extensions/**",
+      "!**/*.json",
+      "!**/basehub-types.d.ts",
+      "!**/projects/docs/fern/imports",
+      "!**/supabase/index.ts",
+      "!**/.next",
+      "!!**/biome.json",
+      "!sdks/python",
+      "!sdks/typescript"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "expand": "always",
+    "attributePosition": "multiline"
   },
   "assist": {
     "actions": {
@@ -16,9 +47,25 @@
           "level": "on",
           "options": {
             "groups": [
-              { "type": true },
+              {
+                "type": true
+              },
               ":BLANK_LINE:",
-              { "type": false },
+              {
+                "type": false
+              },
+              [
+                ":NODE:"
+              ],
+              ":BLANK_LINE:",
+              [
+                "!@openrouter-monorepo/**"
+              ],
+              ":BLANK_LINE:",
+              [
+                "@openrouter-monorepo/**",
+                "@/**"
+              ],
               ":BLANK_LINE:",
               ":ALIAS:"
             ]
@@ -27,16 +74,13 @@
       }
     }
   },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 80
-  },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
+      "nursery": {
+        "noFloatingPromises": "off"
+      },
       "a11y": {
         "useSemanticElements": "off"
       },
@@ -49,25 +93,43 @@
       },
       "style": {
         "noNonNullAssertion": "off",
-        "useNodejsImportProtocol": "off",
+        "useNodejsImportProtocol": "error",
         "useTemplate": "off",
         "useBlockStatements": "error",
         "noParameterAssign": "error",
         "useConst": "error",
+        "useAsConstAssertion": "error",
+        "useDefaultParameterLast": "error",
+        "useEnumInitializers": "error",
+        "useSelfClosingElements": "error",
+        "useSingleVarDeclarator": "error",
+        "noUnusedTemplateLiteral": "error",
+        "useNumberNamespace": "error",
+        "noInferrableTypes": "error",
+        "noUselessElse": "error",
         "useImportType": {
           "level": "on",
           "options": {
             "style": "separatedType"
           }
+        },
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "node:module": "Don't use `node:module`. Did you mean to import `wrap` from our `@openrouter-monorepo/type-utils/result-monad` package?",
+              "crypto": "Use `node:crypto` instead of `crypto` to follow the Node.js import protocol."
+            }
+          }
         }
       },
       "correctness": {
-        "noUnsafeFinally": "error",
         "noUnusedImports": "error",
         "useExhaustiveDependencies": "off",
         "noUnknownFunction": "off",
         "noChildrenProp": "off",
-        "noInnerDeclarations": "error"
+        "noInnerDeclarations": "error",
+        "useParseIntRadix": "error"
       },
       "suspicious": {
         "noExplicitAny": "error",
@@ -79,10 +141,11 @@
         "noDoubleEquals": {
           "level": "error",
           "options": {
-            "ignoreNull": true
+            "ignoreNull": false
           }
         },
-        "noExtraNonNullAssertion": "error"
+        "noExtraNonNullAssertion": "error",
+        "noUnknownAtRules": "off"
       },
       "performance": {
         "recommended": true,
@@ -91,23 +154,22 @@
       "security": {
         "recommended": true
       }
-    }
+    },
+    "includes": [
+      "**",
+      "!.vscode/**",
+      "./.vscode/extensions/**",
+      "!**/.next/**",
+      "!**/*.test.ts.snap",
+      "!**/basehub-types.d.ts",
+      "!**/worker-configuration.d.ts",
+      "!sdks/**"
+    ]
   },
-  "overrides": [
-    {
-      "includes": ["e2e/**/*.test.ts", "*.test.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noConsole": "off",
-            "noExplicitAny": "warn"
-          }
-        }
-      }
-    }
-  ],
   "javascript": {
     "formatter": {
+      "expand": "always",
+      "lineWidth": 100,
       "arrowParentheses": "always",
       "jsxQuoteStyle": "single",
       "attributePosition": "multiline",
@@ -116,6 +178,15 @@
       "semicolons": "always",
       "bracketSpacing": true,
       "bracketSameLine": false,
+      "quoteStyle": "single",
+      "enabled": true
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    },
+    "formatter": {
       "quoteStyle": "single"
     }
   }

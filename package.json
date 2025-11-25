@@ -35,18 +35,20 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "type-check": "tsc --noEmit",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "typecheck": "tsc --noEmit",
+    "test": "node -r dotenv/config ./node_modules/.bin/vitest run",
+    "test:watch": "node -r dotenv/config ./node_modules/.bin/vitest",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@ai-sdk/provider": "^2.0.0",
     "@ai-sdk/provider-utils": "^3.0.17",
-    "@openrouter/sdk": "^0.1.24",
+    "@openrouter/sdk": "^0.1.27",
     "ai": "^5.0.98",
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.3.7",
     "@types/node": "^20.14.9",
     "dotenv": "^17.2.3",
     "tsup": "^8.1.0",

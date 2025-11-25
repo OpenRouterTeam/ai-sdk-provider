@@ -1,0 +1,26 @@
+// Prefer React components over render helper functions
+// React components provide better composition, type safety, and testability
+// compared to render helper functions.
+//
+// Example transformation:
+// Bad:
+//   {renderDeprecationBadge(endpoint.deprecation_date)}
+//
+// Good:
+//   <DeprecationBadge deprecationDate={endpoint.deprecation_date} />
+//
+// This pattern detects function calls that start with "render" followed by
+// a capitalized letter (e.g., renderSomething, renderMyComponent) which
+// typically indicates a render helper function that should be a component.
+
+engine biome(2.0)
+language js(jsx)
+
+or {
+  // Match: {renderSomething(...)} in JSX expressions
+  `{$call}` as $match where {
+    $call <: `$func($args)`,
+    $func <: r"render[A-Z].*",
+    register_diagnostic(span=$match, message="Prefer React component over render helper function. Convert this render helper to a proper React component for better composition and type safety.", severity="warning")
+  }
+}

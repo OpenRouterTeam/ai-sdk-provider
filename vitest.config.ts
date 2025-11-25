@@ -24,6 +24,7 @@ export default defineConfig(() => ({
       path: envPath.pathname,
     }).parsed,
     include: [
+      './src/**/*.test.ts',
       './e2e/**/*.test.ts',
     ],
   },
