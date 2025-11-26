@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.7
+
+### Patch Changes
+
+- [#255](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/255) [`f48fa96`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f48fa963428f20c82f6cceb805a084242b7cbe70) Thanks [@subtleGradient](https://github.com/subtleGradient)! - support for audio input with input_audio format (#241) Thanks @Karavil!
+
 ## 1.2.6
 
 ### Patch Changes
