@@ -1,3 +1,4 @@
+import { ReasoningFormat } from '../schemas/format';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
 describe('user messages', () => {
@@ -556,5 +557,245 @@ describe('cache control', () => {
         ],
       },
     ]);
+  });
+});
+
+describe('reasoning_details handling', () => {
+  it('should use message-level reasoning_details from providerOptions when present', () => {
+    const messageReasoningDetails = [
+      {
+        type: 'reasoning.text',
+        text: 'message level reasoning',
+        format: ReasoningFormat.AnthropicClaudeV1,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: 'reasoning.text',
+                    text: 'tool call reasoning',
+                    format: ReasoningFormat.GoogleGeminiV1,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: messageReasoningDetails,
+          },
+        },
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toEqual(messageReasoningDetails);
+  });
+
+  it('should include accumulated reasoning_details for Gemini format when no message-level details', () => {
+    const geminiReasoningDetails = [
+      {
+        type: 'reasoning.text',
+        text: 'gemini reasoning',
+        format: ReasoningFormat.GoogleGeminiV1,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: geminiReasoningDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toEqual(geminiReasoningDetails);
+  });
+
+  it('should NOT include accumulated reasoning_details for Anthropic format when no message-level details', () => {
+    const anthropicReasoningDetails = [
+      {
+        type: 'reasoning.text',
+        text: 'anthropic reasoning',
+        format: ReasoningFormat.AnthropicClaudeV1,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: anthropicReasoningDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toBeUndefined();
+  });
+
+  it('should NOT include accumulated reasoning_details when format is unknown', () => {
+    const unknownFormatDetails = [
+      {
+        type: 'reasoning.text',
+        text: 'unknown format reasoning',
+        format: ReasoningFormat.Unknown,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: unknownFormatDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toBeUndefined();
+  });
+
+  it('should NOT include accumulated reasoning_details when format is missing', () => {
+    const noFormatDetails = [
+      {
+        type: 'reasoning.text',
+        text: 'no format reasoning',
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: noFormatDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toBeUndefined();
+  });
+
+  it('should scope accumulated reasoning_details to each assistant message independently', () => {
+    const geminiDetails1 = [
+      {
+        type: 'reasoning.text',
+        text: 'first message reasoning',
+        format: ReasoningFormat.GoogleGeminiV1,
+      },
+    ];
+    const geminiDetails2 = [
+      {
+        type: 'reasoning.text',
+        text: 'second message reasoning',
+        format: ReasoningFormat.GoogleGeminiV1,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: geminiDetails1,
+              },
+            },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'test',
+            output: { type: 'text', value: 'result' },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Second response' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'test',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: geminiDetails2,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.reasoning_details).toEqual(geminiDetails1);
+    expect(result[2]?.reasoning_details).toEqual(geminiDetails2);
   });
 });
