@@ -116,6 +116,8 @@ The usage accounting feature provides an example of how to add features to the p
 
 ## Pull Request Process
 
+> **Important:** All PRs that should trigger a release must include a changeset. Run `pnpm changeset` before submitting your PR.
+
 1. Create a new branch for your changes
 2. Make your changes, including tests and documentation updates
 3. **Add a changeset** to describe your changes:
