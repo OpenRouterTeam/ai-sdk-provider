@@ -98,6 +98,224 @@ describe('user messages', () => {
 
     expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
   });
+
+  it('should convert audio Uint8Array to input_audio with mp3 format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert audio Uint8Array to input_audio with wav format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/wav',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'wav',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should normalize audio/x-wav to wav format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/x-wav',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'wav',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should support audio/mp3 MIME type (normalize to mp3)', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mp3',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert audio base64 data URL to input_audio', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'data:audio/mpeg;base64,AAECAw==',
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert raw audio base64 string to input_audio', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'AAECAw==',
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should throw error for audio URLs', async () => {
+    expect(() =>
+      convertToOpenRouterChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: 'https://example.com/audio.mp3',
+              mediaType: 'audio/mpeg',
+            },
+          ],
+        },
+      ]),
+    ).toThrow(/Audio files cannot be provided as URLs/);
+  });
+
+  it('should throw error for unsupported audio formats', async () => {
+    expect(() =>
+      convertToOpenRouterChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: new Uint8Array([0, 1, 2, 3]),
+              mediaType: 'audio/ogg',
+            },
+          ],
+        },
+      ]),
+    ).toThrow(/Unsupported audio format: "audio\/ogg"/);
+  });
 });
 
 describe('cache control', () => {
@@ -551,6 +769,48 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'User prompt 2',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control to audio input parts from user message provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mpeg',
+          },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Listen to this',
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
             cache_control: { type: 'ephemeral' },
           },
         ],
