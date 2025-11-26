@@ -11,6 +11,7 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
+import { ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
@@ -35,7 +36,6 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
-  const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
@@ -163,6 +163,7 @@ export function convertToOpenRouterChatMessages(
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
+        const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
         for (const part of content) {
           switch (part.type) {
@@ -207,22 +208,25 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        // Check message-level providerOptions for preserved reasoning_details
         const parsedProviderOptions =
           OpenRouterProviderOptionsSchema.safeParse(providerOptions);
         const messageReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
           : undefined;
 
-        // Use message-level reasoning_details if available, otherwise use accumulated from parts
-        const finalReasoningDetails =
+        let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
+        if (
           messageReasoningDetails &&
           Array.isArray(messageReasoningDetails) &&
           messageReasoningDetails.length > 0
-            ? messageReasoningDetails
-            : accumulatedReasoningDetails.length > 0
-              ? accumulatedReasoningDetails
-              : undefined;
+        ) {
+          finalReasoningDetails = messageReasoningDetails;
+        } else if (accumulatedReasoningDetails.length > 0) {
+          const format = accumulatedReasoningDetails[0]?.format;
+          if (format === ReasoningFormat.GoogleGeminiV1) {
+            finalReasoningDetails = accumulatedReasoningDetails;
+          }
+        }
 
         messages.push({
           role: 'assistant',
