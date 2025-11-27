@@ -11,10 +11,10 @@ export enum ReasoningDetailType {
 export const CommonReasoningDetailSchema = z
   .object({
     id: z.string().nullish(),
-    format: z.nativeEnum(ReasoningFormat).nullish(),
+    format: z.enum(ReasoningFormat).nullish(),
     index: z.number().optional(),
   })
-  .passthrough();
+  .loose();
 
 export const ReasoningDetailSummarySchema = z
   .object({

@@ -618,7 +618,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             const delta = choice.delta;
-
             const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = openrouterResponseId || generateId();
@@ -648,6 +647,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     // Merge with the previous text detail
                     lastDetail.text =
                       (lastDetail.text || '') + (detail.text || '');
+
+                    lastDetail.signature =
+                      lastDetail.signature || detail.signature;
+
+                    lastDetail.format = lastDetail.format || detail.format;
                   } else {
                     // Start a new text detail
                     accumulatedReasoningDetails.push({ ...detail });
