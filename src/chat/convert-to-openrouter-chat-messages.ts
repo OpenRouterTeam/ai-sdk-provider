@@ -163,6 +163,11 @@ export function convertToOpenRouterChatMessages(
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
+
+        // Accumulates reasoning_details from individual tool-call parts within this message.
+        // IMPORTANT: This array is scoped to each assistant message to prevent cross-message
+        // bleeding of reasoning details. Previously this was at function scope which caused
+        // details from earlier messages to incorrectly appear in later messages.
         const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
         for (const part of content) {
@@ -173,6 +178,8 @@ export function convertToOpenRouterChatMessages(
               break;
             }
             case 'tool-call': {
+              // Gemini attaches reasoning_details to each tool-call part's providerOptions.
+              // We accumulate these to potentially use them at the message level.
               const partReasoningDetails = (
                 part.providerOptions as Record<string, unknown>
               )?.openrouter as Record<string, unknown> | undefined;
@@ -208,12 +215,29 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
+        // Check for preserved reasoning_details at the message level (from providerOptions).
+        // When the AI SDK passes back assistant messages in multi-turn conversations,
+        // the original reasoning_details should be preserved here.
         const parsedProviderOptions =
           OpenRouterProviderOptionsSchema.safeParse(providerOptions);
         const messageReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
           : undefined;
 
+        // Determine which reasoning_details to include in the output message.
+        //
+        // Priority:
+        // 1. Message-level reasoning_details from providerOptions (always preferred)
+        // 2. Accumulated details from tool-call parts, BUT ONLY for Gemini format
+        //
+        // Why Gemini-only for accumulated details?
+        // - Anthropic/Claude requires the EXACT original reasoning_details (with 'thinking'
+        //   blocks) to be passed back unmodified. Reconstructed details won't work and cause
+        //   the error: "Expected thinking or redacted_thinking, but found text"
+        // - Gemini's format ('google-gemini-v1') can safely use accumulated details
+        // - For unknown/missing formats, we err on the side of caution and exclude them
+        //
+        // See: https://github.com/OpenRouterTeam/ai-sdk-provider/issues/245
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (
           messageReasoningDetails &&
