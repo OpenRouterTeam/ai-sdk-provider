@@ -78,6 +78,6 @@
   ],
   "packageManager": "pnpm@10.12.4",
   "dependencies": {
-    "@openrouter/sdk": "^0.1.8"
+    "@openrouter/sdk": "^0.1.27"
   }
 }
