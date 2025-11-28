@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai';
 
 import { generateText } from 'ai';
-import { it, vi } from 'vitest';
+import { describe, it, vi } from 'vitest';
 import {
   executeCommandInTerminalTool,
   readSMSTool,

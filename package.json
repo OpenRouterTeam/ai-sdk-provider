@@ -47,7 +47,7 @@
     "@changesets/cli": "2.29.7",
     "@edge-runtime/vm": "5.0.0",
     "@types/node": "24.2.0",
-    "ai": "5.0.76",
+    "ai": "5.0.104",
     "dotenv": "17.2.1",
     "tsup": "8.5.0",
     "typescript": "5.9.2",
