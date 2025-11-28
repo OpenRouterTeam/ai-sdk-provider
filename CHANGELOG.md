@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.8
+
+### Patch Changes
+
+- [#258](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/258) [`a4ac615`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a4ac615206276b5c71f1d115dd296fa5408bb149) Thanks [@louisgv](https://github.com/louisgv)! - Fix reasoning details passing backup to include signature for Text part
+
 ## 1.2.7
 
 ### Patch Changes
