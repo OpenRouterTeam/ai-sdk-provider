@@ -315,6 +315,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
+              const upstreamInferenceCost =
+                value.usage.cost_details?.upstream_inference_cost;
+              if (upstreamInferenceCost != null) {
+                openrouterUsage.costDetails = {
+                  upstreamInferenceCost,
+                };
+              }
             }
 
             const choice = value.choices[0];

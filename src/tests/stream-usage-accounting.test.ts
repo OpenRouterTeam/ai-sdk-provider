@@ -30,6 +30,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
             completion_tokens_details: { reasoning_tokens: 8 },
             total_tokens: 30,
             cost: 0.0015,
+            cost_details: { upstream_inference_cost: 0.0019 },
           },
           choices: [],
         })}\n\n`,
@@ -125,6 +126,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       completionTokens: 20,
       totalTokens: 30,
       cost: 0.0015,
+      costDetails: { upstreamInferenceCost: 0.0019 },
       promptTokensDetails: { cachedTokens: 5 },
       completionTokensDetails: { reasoningTokens: 8 },
     });
