@@ -231,7 +231,9 @@ describe('OpenRouter Usage Accounting', () => {
       maxOutputTokens: 100,
     });
 
-    const usage = (result.providerMetadata?.openrouter as Record<string, unknown>)?.usage;
+    const usage = (
+      result.providerMetadata?.openrouter as Record<string, unknown>
+    )?.usage;
 
     // Should include basic token counts
     expect(usage).toMatchObject({
@@ -301,7 +303,9 @@ describe('OpenRouter Usage Accounting', () => {
       maxOutputTokens: 100,
     });
 
-    const usage = (result.providerMetadata?.openrouter as Record<string, unknown>)?.usage;
+    const usage = (
+      result.providerMetadata?.openrouter as Record<string, unknown>
+    )?.usage;
 
     // Should include promptTokensDetails since cached_tokens is present
     expect(usage).toHaveProperty('promptTokensDetails');
