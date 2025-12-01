@@ -1,0 +1,33 @@
+// Prefer wrap() over try/catch blocks for error handling
+// The wrap() function from @openrouter-monorepo/type-utils/result-monad
+// provides consistent error handling that returns Result<T, E> types
+// instead of throwing exceptions.
+//
+// Example transformation:
+// Before:
+//   try {
+//     const result = await someOperation();
+//     return result;
+//   } catch (error) {
+//     // handle error
+//   }
+//
+// After:
+//   const result = await wrap(() => someOperation());
+//   if (isErr(result)) {
+//     // handle error
+//   }
+
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Match: try { ... } catch (error) { ... }
+  `try { $body } catch ($error) { $catchBody }` as $match where {
+    register_diagnostic(span=$match, message="Prefer wrap() over try/catch blocks. Use wrap(() => ...) to return Result<T, E> for consistent error handling. Import from '@openrouter-monorepo/type-utils/result-monad'.", severity="info")
+  },
+  // Match: try { ... } catch { ... } (without error binding)
+  `try { $body } catch { $catchBody }` as $match where {
+    register_diagnostic(span=$match, message="Prefer wrap() over try/catch blocks. Use wrap(() => ...) to return Result<T, E> for consistent error handling. Import from '@openrouter-monorepo/type-utils/result-monad'.", severity="info")
+  }
+}

@@ -1,0 +1,6 @@
+engine biome(2.0)
+language js(typescript, jsx)
+
+`Promise.race($args)` as $match where {
+  register_diagnostic(span=$match, message="Use safeRace() instead of Promise.race(). Promise.race() can cause memory leaks with long-lived promises. Import safeRace from '@openrouter-monorepo/helpers/safe-race'.", severity="error")
+}

@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai';
 
+import { readFile } from 'node:fs/promises';
 import { generateText } from 'ai';
-import { readFile } from 'fs/promises';
 import { expect, test, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
@@ -15,15 +15,13 @@ test('sending pdf base64 blob', async () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-sonnet-4', {
+  const model = openrouter('anthropic/claude-4.5-sonnet', {
     usage: {
       include: true,
     },
   });
 
-  const pdfBlob = await fetch('https://bitcoin.org/bitcoin.pdf').then((res) =>
-    res.arrayBuffer(),
-  );
+  const pdfBlob = await fetch('https://bitcoin.org/bitcoin.pdf').then((res) => res.arrayBuffer());
 
   const pdfBase64 = Buffer.from(pdfBlob).toString('base64');
 
@@ -125,10 +123,9 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
   });
 
   // Check verification code - use custom message to avoid dumping large objects
-  expect(
-    response.text,
-    `Response should contain code ${metadata.verificationCode}`,
-  ).toContain(metadata.verificationCode);
+  expect(response.text, `Response should contain code ${metadata.verificationCode}`).toContain(
+    metadata.verificationCode,
+  );
 
   // Assert FileParserPlugin was active (token count should be low, <150)
   // Without the plugin, AI SDK would send raw base64 causing much higher token usage

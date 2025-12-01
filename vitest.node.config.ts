@@ -4,11 +4,15 @@ import packageJson from './package.json';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [
+    tsconfigPaths(),
+  ],
   test: {
     environment: 'node',
     globals: true,
-    include: ['./src/**/*.test.ts'],
+    include: [
+      './src/**/*.test.ts',
+    ],
   },
   define: {
     __PACKAGE_VERSION__: JSON.stringify(packageJson.version),

@@ -1,0 +1,28 @@
+// Pattern: OpenResponses schemas should reference base OpenAIResponses schemas
+
+// Note: This pattern is currently disabled due to GritQL limitations in matching multi-line expressions
+// The completeness checker (pnpm responses:check) provides comprehensive validation instead
+
+engine biome(2.0)
+language js(typescript, jsx)
+
+// Only check for violations - schemas that are defined from scratch without base
+`export const $name = $value` where {
+  $name <: r"OpenResponses.*Schema",
+  // Exclude enums/constants
+  $name <: not or {
+    r".*Type$",
+    r".*Type ",
+    r".*Status$",
+    r".*Reason$"
+  },
+  // Check if value starts with z.object/z.union/z.discriminatedUnion (inline definition)
+  $value <: or {
+    r"^z\.object",
+    r"^z\.union",
+    r"^z\.discriminatedUnion"
+  },
+  // Exclude inline definitions that have satisfies (those are valid)
+  $value <: not contains `satisfies`,
+  register_diagnostic(span=$name, message="OpenResponses schema should reference the base OpenAIResponses schema or have a satisfies clause. Use .extend(), .merge(), or direct assignment from OpenAIResponses. Example: export const OpenResponsesXSchema = OpenAIResponsesXSchema.extend({});", severity="info")
+}

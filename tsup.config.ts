@@ -1,28 +1,23 @@
-import { readFileSync } from 'node:fs';
 import { defineConfig } from 'tsup';
 
-const package_ = JSON.parse(
-  readFileSync(new URL('package.json', import.meta.url), 'utf8'),
-);
-
-export default defineConfig([
-  {
-    entry: ['src/index.ts'],
-    format: ['cjs', 'esm'],
-    dts: true,
-    sourcemap: true,
-    define: {
-      __PACKAGE_VERSION__: JSON.stringify(package_.version),
-    },
-  },
-  {
-    entry: ['src/internal/index.ts'],
-    outDir: 'dist/internal',
-    format: ['cjs', 'esm'],
-    dts: true,
-    sourcemap: true,
-    define: {
-      __PACKAGE_VERSION__: JSON.stringify(package_.version),
-    },
-  },
-]);
+export default defineConfig({
+  entry: [
+    'src/index.ts',
+  ],
+  format: [
+    'cjs',
+    'esm',
+  ],
+  dts: true,
+  clean: true,
+  sourcemap: true,
+  minify: false,
+  splitting: false,
+  treeshake: true,
+  external: [],
+  noExternal: [],
+  target: 'node18',
+  platform: 'node',
+  outDir: 'dist',
+  bundle: true,
+});

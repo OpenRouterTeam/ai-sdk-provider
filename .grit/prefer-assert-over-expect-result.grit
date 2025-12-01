@@ -1,0 +1,26 @@
+// Prefer assertOk() and assertErr() over expect(isOk()).toBe(true) and expect(isErr()).toBe(true)
+// The assertOk() and assertErr() functions from @openrouter-monorepo/type-utils/result-monad
+// provide better type narrowing and are the preferred pattern for testing Result types.
+//
+// Example transformations:
+// Before:
+//   expect(isErr(result)).toBe(true);
+//   expect(isOk(result)).toBe(true);
+//
+// After:
+//   assertErr(result);
+//   assertOk(result);
+
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Match: expect(isErr($expr)).toBe(true)
+  `expect(isErr($expr)).toBe(true)` as $match where {
+    register_diagnostic(span=$match, message="Prefer assertErr($expr) over expect(isErr($expr)).toBe(true). assertErr provides better type narrowing and is the preferred pattern. Import from '@openrouter-monorepo/type-utils/result-monad'.", severity="warning")
+  },
+  // Match: expect(isOk($expr)).toBe(true)
+  `expect(isOk($expr)).toBe(true)` as $match where {
+    register_diagnostic(span=$match, message="Prefer assertOk($expr) over expect(isOk($expr)).toBe(true). assertOk provides better type narrowing and is the preferred pattern. Import from '@openrouter-monorepo/type-utils/result-monad'.", severity="warning")
+  }
+}

@@ -1,0 +1,22 @@
+// Pattern: Exported OpenAIResponses*Schema without satisfies clause
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Match schemas without any satisfies clause
+  `export const $name = $value;` as $match where {
+    $name <: r"OpenAIResponses.*Schema",
+    // The value should NOT contain satisfies keyword
+    $value <: not contains `satisfies`,
+    // Exclude helper schemas
+    $name <: not or {
+      r".*WebSearchUserLocation.*",
+      r".*SearchContextSize.*",
+      r".*Annotation.*"
+    },
+    register_diagnostic(
+      span=$match,
+      message="Exported OpenAI-prefixed schema should include a 'satisfies' clause to ensure type safety. Add 'satisfies ZodShape<OpenAI.Responses.*>' or 'satisfies z.Schema<ImportedType>' after the schema definition.",
+      severity="warning"
+    )
+  }

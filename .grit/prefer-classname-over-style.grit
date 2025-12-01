@@ -1,0 +1,21 @@
+// Pattern: Prefer className with Tailwind over inline style attributes in React components
+// Inline styles make it harder to maintain consistent styling and don't benefit from
+// Tailwind's utility classes, design tokens, and responsive modifiers.
+//
+// Example:
+// Bad:  <div style={{ padding: '10px' }}>...</div>
+// Good: <div className='p-2.5'>...</div>
+//
+// If you absolutely need inline styles for dynamic values, you can suppress this warning
+// with a biome-ignore comment.
+
+or {
+  // Match JSX self-closing tags with style attribute
+  `<$T style={$v} />` as $match where {
+    register_diagnostic(span=$match, message="Prefer className with Tailwind classes over inline style attribute. Use Tailwind utilities for consistent styling.", severity="warning")
+  },
+  // Match JSX tags with children and style attribute
+  `<$T style={$v}>$children</$T>` as $match where {
+    register_diagnostic(span=$match, message="Prefer className with Tailwind classes over inline style attribute. Use Tailwind utilities for consistent styling.", severity="warning")
+  }
+}

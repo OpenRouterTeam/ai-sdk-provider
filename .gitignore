@@ -1,10 +1,38 @@
-node_modules
-dist
-./internal
+# Dependencies
+node_modules/
 
-.env.e2e*
+# Build output
+dist/
+*.tsbuildinfo
 
-.turbo/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Reference repositories (git submodules)
-reference/
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.*
+!example.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Misc
+.cache/
+tmp/
+temp/

@@ -1,166 +1,182 @@
-# OpenRouter Provider for Vercel AI SDK
+# OpenRouter AI SDK Provider
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
+A provider implementation for the [Vercel AI SDK](https://sdk.vercel.ai/) that enables integration with [OpenRouter](https://openrouter.ai/), providing unified access to multiple AI models through a single API.
 
-## Setup for AI SDK v5
+## Features
+
+- ✅ **Full AI SDK V2 Compatibility** - Implements LanguageModelV2, EmbeddingModelV2, and ImageModelV2
+- 🧠 **Advanced Reasoning Support** - Full support for reasoning/chain-of-thought (e.g., OpenAI o1, Claude with thinking)
+- 🔄 **Streaming & Non-streaming** - Support for both streaming and non-streaming responses
+- 🛠️ **Tool Calling** - Full support for function/tool calling
+- 🖼️ **Multimodal** - Support for text, images, and file inputs
+- 📊 **Embeddings** - Text embedding generation
+- 🎨 **Image Generation** - AI image generation support
+- 🔀 **Model Routing** - OpenRouter's intelligent model routing and fallbacks
+- ⚡ **Transforms** - Support for OpenRouter transforms
+- 📈 **Usage Tracking** - Detailed token usage including reasoning tokens
+
+## Installation
 
 ```bash
-# For pnpm
-pnpm add @openrouter/ai-sdk-provider
-
-# For npm
-npm install @openrouter/ai-sdk-provider
-
-# For yarn
-yarn add @openrouter/ai-sdk-provider
+npm install @openrouter/ai-provider ai
 ```
 
-## (LEGACY) Setup for AI SDK v4
+## Quick Start
 
-```bash
-# For pnpm
-pnpm add @openrouter/ai-sdk-provider@ai-sdk-v4
+```typescript
+import { openrouter } from '@openrouter/ai-provider';
+import { generateText, streamText } from 'ai';
 
-# For npm
-npm install @openrouter/ai-sdk-provider@ai-sdk-v4
+// Set your OpenRouter API key
+process.env.OPENROUTER_API_KEY = 'your-api-key';
 
-# For yarn
-yarn add @openrouter/ai-sdk-provider@ai-sdk-v4
-
-```
-
-## Provider Instance
-
-You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
-
-```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
-```
-
-## Example
-
-```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
-import { generateText } from 'ai';
-
+// Generate text
 const { text } = await generateText({
-  model: openrouter('openai/gpt-4o'),
-  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+  model: openrouter('anthropic/claude-3.5-sonnet'),
+  prompt: 'Write a haiku about programming',
+});
+
+// Stream text
+const { textStream } = await streamText({
+  model: openrouter('openai/gpt-4-turbo'),
+  prompt: 'Tell me a story',
+});
+
+for await (const chunk of textStream) {
+  console.log(chunk);
+}
+```
+
+## Configuration
+
+### Provider Settings
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-provider';
+
+const customProvider = createOpenRouter({
+  apiKey: 'your-api-key', // Optional, defaults to OPENROUTER_API_KEY env var
+  baseURL: 'https://openrouter.ai/api/v1', // Optional, for proxies
+  headers: {
+    'X-Custom-Header': 'value', // Optional custom headers
+  },
 });
 ```
 
-## Supported models
-
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
-
-You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
-
-## Passing Extra Body to OpenRouter
-
-There are 3 ways to pass extra body to OpenRouter:
-
-1. Via the `providerOptions.openrouter` property:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-     providerOptions: {
-       openrouter: {
-         reasoning: {
-           max_tokens: 10,
-         },
-       },
-     },
-   });
-   ```
-
-2. Via the `extraBody` property in the model settings:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-3. Via the `extraBody` property in the model factory.
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({
-     apiKey: 'your-api-key',
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-## Anthropic Prompt Caching
-
-You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
-
-### Basic Usage
+### Model Settings
 
 ```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
+const model = openrouter('anthropic/claude-3.5-sonnet', {
+  // OpenRouter-specific settings
+  transforms: ['middle-out'], // Apply transforms to output
+  models: ['model1', 'model2'], // Models for routing
+  route: 'fallback', // Routing strategy
+  provider: 'custom-provider', // Custom provider name for tracking
+  structuredOutputs: true, // Enable JSON mode
+  user: 'user-123', // User ID for rate limiting
+});
+```
 
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/<supported-caching-model>');
+## Reasoning Support
 
-await streamText({
-  model,
+The provider fully supports reasoning/chain-of-thought for compatible models:
+
+```typescript
+const { text, experimental_providerMetadata } = await generateText({
+  model: openrouter('openai/o1-preview'),
   messages: [
     {
-      role: 'system',
-      content:
-        'You are a podcast summary assistant. You are detail-oriented and critical about the content.',
+      role: 'user',
+      content: 'Solve this step-by-step: What is 25% of 80?',
     },
+  ],
+});
+
+// Access reasoning details
+const reasoning = experimental_providerMetadata?.openrouter?.reasoning;
+if (reasoning) {
+  console.log('Reasoning:', reasoning.content);
+  console.log('Reasoning tokens:', reasoning.tokens);
+}
+```
+
+### Streaming with Reasoning
+
+```typescript
+const { textStream } = await streamText({
+  model: openrouter('anthropic/claude-3.5-sonnet'),
+  messages: [
+    {
+      role: 'user',
+      content: 'Think through this problem step by step...',
+    },
+  ],
+});
+
+for await (const part of textStream) {
+  // The stream will include both reasoning and regular text
+  console.log(part);
+}
+```
+
+## Tool Calling
+
+```typescript
+import { tool } from 'ai';
+import { z } from 'zod';
+
+const { text, toolCalls } = await generateText({
+  model: openrouter('openai/gpt-4-turbo'),
+  prompt: 'What is the weather in San Francisco?',
+  tools: {
+    getWeather: tool({
+      description: 'Get weather information',
+      parameters: z.object({
+        location: z.string().describe('City name'),
+      }),
+      execute: async ({ location }) => {
+        // Your weather API call here
+        return { temperature: 72, condition: 'sunny' };
+      },
+    }),
+  },
+  toolChoice: 'auto', // or 'none', 'required', or specific tool
+});
+```
+
+## Multimodal Input
+
+```typescript
+// With image URL
+const { text } = await generateText({
+  model: openrouter('openai/gpt-4-vision'),
+  messages: [
     {
       role: 'user',
       content: [
+        { type: 'text', text: 'What is in this image?' },
         {
-          type: 'text',
-          text: 'Given the text body below:',
+          type: 'file',
+          data: 'https://example.com/image.jpg',
+          mediaType: 'image/jpeg',
         },
+      ],
+    },
+  ],
+});
+
+// With base64 image
+const { text: base64Response } = await generateText({
+  model: openrouter('anthropic/claude-3.5-sonnet'),
+  messages: [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Analyze this chart' },
         {
-          type: 'text',
-          text: `<LARGE BODY OF TEXT>`,
-          providerOptions: {
-            openrouter: {
-              cacheControl: { type: 'ephemeral' },
-            },
-          },
-        },
-        {
-          type: 'text',
-          text: 'List the speakers?',
+          type: 'file',
+          data: base64ImageData, // base64 string or Uint8Array
+          mediaType: 'image/png',
         },
       ],
     },
@@ -263,94 +279,192 @@ for await (const partialComponent of result.partialObjectStream) {
 
 
 
-## Use Cases
-
-### Debugging API Requests
-
-The provider supports a debug mode that echoes back the request body sent to the upstream provider. This is useful for troubleshooting and understanding how your requests are being processed. Note that debug mode only works with streaming requests.
+## Embeddings
 
 ```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
+import { embed } from 'ai';
 
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+// Single embedding
+const { embedding } = await embed({
+  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
+  value: 'Hello, world!',
+});
+
+// Batch embeddings
+const { embeddings } = await embed({
+  model: openrouter.embedding('openai/text-embedding-3-large'),
+  values: ['Hello', 'World', 'AI'],
+});
+
+// With dimensions
+const { embedding: customEmbed } = await embed({
+  model: openrouter.embedding('openai/text-embedding-3-small', {
+    dimensions: 512, // Reduce dimensions
+  }),
+  value: 'Dimensionality reduction example',
+});
+```
+
+## Image Generation
+
+```typescript
+import { generateImage } from 'ai';
+
+const { images } = await generateImage({
+  model: openrouter.imageModel('openai/dall-e-3'),
+  prompt: 'A futuristic city at sunset, digital art',
+  n: 1, // Number of images
+  size: '1024x1024', // Image size
+  quality: 'hd', // 'standard' or 'hd'
+  style: 'vivid', // 'vivid' or 'natural'
+});
+
+// Access generated images
+for (const image of images) {
+  console.log('Image URL:', image.url);
+  console.log('Revised prompt:', image.revisedPrompt);
+}
+
+// With base64 response
+const { images: base64Images } = await generateImage({
+  model: openrouter.image('stability-ai/stable-diffusion-xl'),
+  prompt: 'Abstract art',
+  providerOptions: {
+    openrouter: {
+      response_format: 'b64_json',
+    },
+  },
+});
+```
+
+## Advanced Usage
+
+### Model Routing
+
+```typescript
+// Use multiple models with fallback
+const model = openrouter('openai/gpt-4-turbo', {
+  models: [
+    'openai/gpt-4-turbo',
+    'anthropic/claude-3.5-sonnet',
+    'google/gemini-pro',
+  ],
+  route: 'fallback', // Use fallback routing
+});
+```
+
+### Transforms
+
+```typescript
+// Apply OpenRouter transforms
 const model = openrouter('anthropic/claude-3.5-sonnet', {
-  debug: {
-    echo_upstream_body: true,
-  },
+  transforms: ['middle-out'], // Apply middle-out transform
 });
-
-const result = await streamText({
-  model,
-  prompt: 'Hello, how are you?',
-});
-
-// The debug data is available in the stream's first chunk
-// and in the final response's providerMetadata
-for await (const chunk of result.fullStream) {
-  // Debug chunks have empty choices and contain debug.echo_upstream_body
-  console.log(chunk);
-}
 ```
 
-The debug response will include the request body that was sent to the upstream provider, with sensitive data redacted (user IDs, base64 content, etc.). This helps you understand how OpenRouter transforms your request before sending it to the model provider.
-
-### Usage Accounting
-
-The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
+### Structured Outputs
 
 ```typescript
-// Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
-  usage: {
-    include: true,
-  },
-});
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
-// Access usage accounting data
-const result = await generateText({
-  model,
-  prompt: 'Hello, how are you today?',
+const { object } = await generateObject({
+  model: openrouter('openai/gpt-4-turbo', {
+    structuredOutputs: true,
+  }),
+  schema: z.object({
+    name: z.string(),
+    age: z.number(),
+    email: z.string().email(),
+  }),
+  prompt: 'Generate a random person profile',
 });
-
-// Provider-specific usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
-}
 ```
 
-It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/docs/guides/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account.
+### Custom Headers and Provider Options
 
 ```typescript
-// Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
-
-// Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
-  usage: {
-    include: true,
+const { text } = await generateText({
+  model: openrouter('anthropic/claude-3.5-sonnet'),
+  prompt: 'Hello',
+  providerOptions: {
+    openrouter: {
+      transforms: ['middle-out'],
+      route: 'fallback',
+      // Any additional OpenRouter-specific options
+    },
   },
 });
+```
 
-// Access usage accounting data
-const result = await generateText({
-  model,
-  prompt: 'Hello, how are you today?',
-});
+## Error Handling
 
-// Provider-specific BYOK usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
-  if (costDetails) {
-    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
+The provider includes comprehensive error handling with proper error types:
+
+```typescript
+import { APICallError, TooManyRequestsError } from '@ai-sdk/provider';
+
+try {
+  const { text } = await generateText({
+    model: openrouter('anthropic/claude-3.5-sonnet'),
+    prompt: 'Hello',
+  });
+} catch (error) {
+  if (error instanceof TooManyRequestsError) {
+    // Handle rate limiting
+    console.log('Rate limited. Retry after:', error.retryAfter);
+  } else if (error instanceof APICallError) {
+    // Handle API errors
+    console.log('API Error:', error.message);
+    if (error.isRetryable) {
+      // Retry logic
+    }
   }
-  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
 }
 ```
+
+## Environment Variables
+
+- `OPENROUTER_API_KEY` - Your OpenRouter API key
+
+## Supported Models
+
+OpenRouter provides access to models from various providers:
+
+- **OpenAI**: GPT-4, GPT-3.5, DALL-E, Embeddings
+- **Anthropic**: Claude 3.5, Claude 3, Claude 2
+- **Google**: Gemini Pro, PaLM
+- **Meta**: Llama 2, Code Llama
+- **Mistral**: Mistral, Mixtral
+- **And many more...**
+
+Check [OpenRouter's model list](https://openrouter.ai/models) for the complete list of available models.
+
+## TypeScript Support
+
+The provider is fully typed and includes TypeScript definitions for all interfaces:
+
+```typescript
+import type {
+  OpenRouterProvider,
+  OpenRouterChatSettings,
+  OpenRouterReasoningDetails,
+} from '@openrouter/ai-provider';
+
+// All types are exported and documented
+```
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT
+
+## Links
+
+- [OpenRouter](https://openrouter.ai/)
+- [Vercel AI SDK](https://sdk.vercel.ai/)
+- [API Documentation](https://openrouter.ai/docs)
+- [Model List](https://openrouter.ai/models)
