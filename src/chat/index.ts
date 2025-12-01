@@ -9,6 +9,7 @@ import type {
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
   SharedV2Headers,
+  SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
@@ -639,16 +640,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             const delta = choice.delta;
-            const emitReasoningChunk = (chunkText: string) => {
+
+            const emitReasoningChunk = (
+              chunkText: string,
+              providerMetadata?: SharedV2ProviderMetadata,
+            ) => {
               if (!reasoningStarted) {
                 reasoningId = openrouterResponseId || generateId();
                 controller.enqueue({
+                  providerMetadata,
                   type: 'reasoning-start',
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
+                providerMetadata,
                 type: 'reasoning-delta',
                 delta: chunkText,
                 id: reasoningId || generateId(),
@@ -683,23 +690,31 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 }
               }
 
+              // Emit reasoning_details in providerMetadata for each delta chunk
+              // so users can accumulate them on their end before sending back
+              const reasoningMetadata: SharedV2ProviderMetadata = {
+                openrouter: {
+                  reasoning_details: delta.reasoning_details,
+                },
+              };
+
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
                     if (detail.text) {
-                      emitReasoningChunk(detail.text);
+                      emitReasoningChunk(detail.text, reasoningMetadata);
                     }
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
                     if (detail.data) {
-                      emitReasoningChunk('[REDACTED]');
+                      emitReasoningChunk('[REDACTED]', reasoningMetadata);
                     }
                     break;
                   }
                   case ReasoningDetailType.Summary: {
                     if (detail.summary) {
-                      emitReasoningChunk(detail.summary);
+                      emitReasoningChunk(detail.summary, reasoningMetadata);
                     }
                     break;
                   }
