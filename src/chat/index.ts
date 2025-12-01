@@ -424,19 +424,31 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             completionTokens: usageInfo.outputTokens ?? 0,
             totalTokens: usageInfo.totalTokens ?? 0,
             cost: response.usage?.cost,
-            promptTokensDetails: {
-              cachedTokens:
-                response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
-            },
-            completionTokensDetails: {
-              reasoningTokens:
-                response.usage?.completion_tokens_details?.reasoning_tokens ??
-                0,
-            },
-            costDetails: {
-              upstreamInferenceCost:
-                response.usage?.cost_details?.upstream_inference_cost ?? 0,
-            },
+            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
+              ? {
+                  promptTokensDetails: {
+                    cachedTokens:
+                      response.usage.prompt_tokens_details.cached_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
+            null
+              ? {
+                  completionTokensDetails: {
+                    reasoningTokens:
+                      response.usage.completion_tokens_details.reasoning_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.cost_details?.upstream_inference_cost != null
+              ? {
+                  costDetails: {
+                    upstreamInferenceCost:
+                      response.usage.cost_details.upstream_inference_cost,
+                  },
+                }
+              : {}),
           },
         }),
       },
