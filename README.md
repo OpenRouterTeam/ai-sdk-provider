@@ -170,6 +170,36 @@ await streamText({
 
 ## Use Cases
 
+### Debugging API Requests
+
+The provider supports a debug mode that echoes back the request body sent to the upstream provider. This is useful for troubleshooting and understanding how your requests are being processed. Note that debug mode only works with streaming requests.
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('anthropic/claude-3.5-sonnet', {
+  debug: {
+    echo_upstream_body: true,
+  },
+});
+
+const result = await streamText({
+  model,
+  prompt: 'Hello, how are you?',
+});
+
+// The debug data is available in the stream's first chunk
+// and in the final response's providerMetadata
+for await (const chunk of result.fullStream) {
+  // Debug chunks have empty choices and contain debug.echo_upstream_body
+  console.log(chunk);
+}
+```
+
+The debug response will include the request body that was sent to the upstream provider, with sensitive data redacted (user IDs, base64 content, etc.). This helps you understand how OpenRouter transforms your request before sending it to the model provider.
+
 ### Usage Accounting
 
 The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.

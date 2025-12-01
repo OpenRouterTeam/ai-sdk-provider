@@ -82,6 +82,20 @@ monitor and detect abuse. Learn more.
   };
 
   /**
+   * Debug options for troubleshooting API requests.
+   * Only works with streaming requests.
+   * @see https://openrouter.ai/docs/api-reference/debugging
+   */
+  debug?: {
+    /**
+     * When true, echoes back the request body that was sent to the upstream provider.
+     * The debug data will be returned as the first chunk in the stream with a `debug.echo_upstream_body` field.
+     * Sensitive data like user IDs and base64 content will be redacted.
+     */
+    echo_upstream_body?: boolean;
+  };
+
+  /**
    * Provider routing preferences to control request routing behavior
    */
   provider?: {

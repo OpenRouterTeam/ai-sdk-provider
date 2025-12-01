@@ -144,6 +144,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       web_search_options: this.settings.web_search_options,
       // Provider routing settings:
       provider: this.settings.provider,
+      // Debug settings:
+      debug: this.settings.debug,
 
       // extra body:
       ...this.config.extraBody,
