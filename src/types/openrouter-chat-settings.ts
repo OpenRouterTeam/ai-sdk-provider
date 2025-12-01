@@ -116,7 +116,7 @@ monitor and detect abuse. Learn more.
     /**
      * Sort providers by price, throughput, or latency
      */
-    sort?: models.Sort;
+    sort?: models.ProviderSort;
     /**
      * Maximum pricing you want to pay for this request
      */
