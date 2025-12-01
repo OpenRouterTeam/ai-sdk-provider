@@ -12,7 +12,7 @@ import type {
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
-import { getFileUrl } from './file-url-utils';
+import { getFileUrl, getInputAudioData } from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -100,6 +100,15 @@ export function convertToOpenRouterChatMessages(
                   };
                 }
 
+                // Handle audio files for input_audio format
+                if (part.mediaType?.startsWith('audio/')) {
+                  return {
+                    type: 'input_audio' as const,
+                    input_audio: getInputAudioData(part),
+                    cache_control: cacheControl,
+                  };
+                }
+
                 const fileName = String(
                   part.providerOptions?.openrouter?.filename ??
                     part.filename ??
@@ -114,7 +123,7 @@ export function convertToOpenRouterChatMessages(
                 if (
                   isUrl({
                     url: fileData,
-                    protocols: new Set(['http:', 'https:']),
+                    protocols: new Set(['http:', 'https:'] as const),
                   })
                 ) {
                   return {

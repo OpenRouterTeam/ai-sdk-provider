@@ -1,5 +1,27 @@
 # @openrouter/ai-sdk-provider
 
+## 1.2.8
+
+### Patch Changes
+
+- [#258](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/258) [`a4ac615`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a4ac615206276b5c71f1d115dd296fa5408bb149) Thanks [@louisgv](https://github.com/louisgv)! - Fix reasoning details passing backup to include signature for Text part
+
+## 1.2.7
+
+### Patch Changes
+
+- [#255](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/255) [`f48fa96`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f48fa963428f20c82f6cceb805a084242b7cbe70) Thanks [@subtleGradient](https://github.com/subtleGradient)! - support for audio input with input_audio format (#241) Thanks @Karavil!
+
+## 1.2.6
+
+### Patch Changes
+
+- [#251](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/251) [`c8c639d`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/c8c639d523e38bb20300d127f23cfa2419692e37) Thanks [@subtleGradient](https://github.com/subtleGradient)! - fix: make text field optional in file annotation content schema
+
+  When processing PDFs with the file-parser plugin using Mistral OCR, image elements in the response were failing validation. The schema required a `text` field on all content elements, but image elements (`type: "image_url"`) only have `image_url` data—no text. This made it impossible to process PDFs containing images.
+
+  Thanks @smorimoto for the fix! (#235)
+
 ## 1.2.4
 
 ### Patch Changes
