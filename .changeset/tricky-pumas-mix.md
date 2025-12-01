@@ -1,5 +1,5 @@
 ---
-"@openrouter/ai-sdk-provider": minor
+"@openrouter/ai-sdk-provider": patch
 ---
 
-Added support for OpenRouter's BYOK usage accounting. If you have a provider's own API key in your OpenRouter account, cost details are now accessible via usage.costDetails.upstreamInferenceCost
+Adds support for OpenRouter's BYOK usage accounting. If you have a provider's own API key in your OpenRouter account, cost details are now accessible via usage.costDetails.upstreamInferenceCost
