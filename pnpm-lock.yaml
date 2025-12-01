@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@openrouter/sdk':
-        specifier: ^0.1.8
-        version: 0.1.8(@tanstack/react-query@5.90.7(react@19.2.0))(react@19.2.0)
+        specifier: ^0.1.27
+        version: 0.1.27
     devDependencies:
       '@ai-sdk/provider':
         specifier: 2.0.0
@@ -405,19 +405,8 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@openrouter/sdk@0.1.8':
-    resolution: {integrity: sha512-Gx8haSQ7cQ3hoyWbK8LybTczMIabfgjIX4MActZ83PFIWKMSrAW9ozPXCULqaWLu0QsnrvwOTccy/scOvjEvEw==}
-    peerDependencies:
-      '@tanstack/react-query': ^5
-      react: ^18 || ^19
-      react-dom: ^18 || ^19
-    peerDependenciesMeta:
-      '@tanstack/react-query':
-        optional: true
-      react:
-        optional: true
-      react-dom:
-        optional: true
+  '@openrouter/sdk@0.1.27':
+    resolution: {integrity: sha512-RH//L10bSmc81q25zAZudiI4kNkLgxF2E+WU42vghp3N6TEvZ6F0jK7uT3tOxkEn91gzmMw9YVmDENy7SJsajQ==}
 
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
@@ -529,14 +518,6 @@ packages:
 
   '@standard-schema/spec@1.0.0':
     resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
-
-  '@tanstack/query-core@5.90.7':
-    resolution: {integrity: sha512-6PN65csiuTNfBMXqQUxQhCNdtm1rV+9kC9YwWAIKcaxAauq3Wu7p18j3gQY3YIBJU70jT/wzCCZ2uqto/vQgiQ==}
-
-  '@tanstack/react-query@5.90.7':
-    resolution: {integrity: sha512-wAHc/cgKzW7LZNFloThyHnV/AX9gTg3w5yAv0gvQHPZoCnepwqCMtzbuPbb2UvfvO32XZ46e8bPOYbfZhzVnnQ==}
-    peerDependencies:
-      react: ^18 || ^19
 
   '@types/chai@5.2.2':
     resolution: {integrity: sha512-8kB30R7Hwqf40JPiKhVzodJs2Qc1ZJ5zuT3uzw5Hq/dhNCl3G3l83jfpdI1e20BP348+fV7VIL/+FxaXkqBmWg==}
@@ -1079,10 +1060,6 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
-
-  react@19.2.0:
-    resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
-    engines: {node: '>=0.10.0'}
 
   read-yaml-file@1.1.0:
     resolution: {integrity: sha512-VIMnQi/Z4HT2Fxuwg5KrY174U1VdUIASQVWXXyqtNRtxSr9IYkn1rsI6Tb6HsrHCmB7gVpNwX6JxPTHcH6IoTA==}
@@ -1763,12 +1740,9 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
 
-  '@openrouter/sdk@0.1.8(@tanstack/react-query@5.90.7(react@19.2.0))(react@19.2.0)':
+  '@openrouter/sdk@0.1.27':
     dependencies:
       zod: 3.25.76
-    optionalDependencies:
-      '@tanstack/react-query': 5.90.7(react@19.2.0)
-      react: 19.2.0
 
   '@opentelemetry/api@1.9.0': {}
 
@@ -1836,15 +1810,6 @@ snapshots:
     optional: true
 
   '@standard-schema/spec@1.0.0': {}
-
-  '@tanstack/query-core@5.90.7':
-    optional: true
-
-  '@tanstack/react-query@5.90.7(react@19.2.0)':
-    dependencies:
-      '@tanstack/query-core': 5.90.7
-      react: 19.2.0
-    optional: true
 
   '@types/chai@5.2.2':
     dependencies:
@@ -2325,9 +2290,6 @@ snapshots:
   quansync@0.2.11: {}
 
   queue-microtask@1.2.3: {}
-
-  react@19.2.0:
-    optional: true
 
   read-yaml-file@1.1.0:
     dependencies:
