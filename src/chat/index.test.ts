@@ -1649,4 +1649,96 @@ describe('doStream', () => {
       },
     });
   });
+
+  it('should pass debug settings', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+});
+
+describe('debug settings', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 4,
+          total_tokens: 34,
+          completion_tokens: 30,
+        },
+      },
+    };
+  }
+
+  it('should pass debug settings in doGenerate', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+
+  it('should not include debug when not set', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody).not.toHaveProperty('debug');
+  });
 });
