@@ -167,6 +167,101 @@ await streamText({
   ],
 });
 ```
+## Anthropic Beta Features
+
+You can enable Anthropic beta features by passing custom headers through the OpenRouter SDK.
+
+### Fine-grained Tool Streaming
+
+[Fine-grained tool streaming](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming) allows streaming tool parameters without buffering, reducing latency for large schemas. This is particularly useful when working with large nested JSON structures.
+
+**Important:** This is a beta feature from Anthropic. Make sure to evaluate responses before using in production.
+
+#### Basic Usage
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamObject } from 'ai';
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+const result = await streamObject({
+  model,
+  schema: yourLargeSchema,
+  prompt: 'Generate a complex object...',
+});
+
+for await (const partialObject of result.partialObjectStream) {
+  console.log(partialObject);
+}
+```
+
+You can also pass the header at the request level:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+await generateText({
+  model,
+  prompt: 'Hello',
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+```
+
+**Note:** Fine-grained tool streaming is specific to Anthropic models. When using models from other providers, the header will be ignored.
+
+#### Use Case: Large Component Generation
+
+This feature is particularly beneficial when streaming large, nested JSON structures like UI component trees:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamObject } from 'ai';
+import { z } from 'zod';
+
+const componentSchema = z.object({
+  type: z.string(),
+  props: z.record(z.any()),
+  children: z.array(z.lazy(() => componentSchema)).optional(),
+});
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+const result = await streamObject({
+  model,
+  schema: componentSchema,
+  prompt: 'Create a responsive dashboard layout',
+});
+
+for await (const partialComponent of result.partialObjectStream) {
+  console.log('Partial component:', partialComponent);
+}
+```
+
+
 
 ## Use Cases
 
