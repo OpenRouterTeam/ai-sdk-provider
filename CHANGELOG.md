@@ -1,5 +1,32 @@
 # @openrouter/ai-sdk-provider
 
+## 1.3.0
+
+### Minor Changes
+
+- [#263](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/263) [`ed2bec5`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/ed2bec549c117375ec2d25f3df370cf23b082df8) Thanks [@talos](https://github.com/talos)! - Add support for debug flag to echo upstream request body
+
+  - Added `debug` option to `OpenRouterChatSettings` with `echo_upstream_body` boolean
+  - The debug flag is passed through to the OpenRouter API in both streaming and non-streaming requests
+  - Debug mode only works with streaming requests and returns the upstream request body (with sensitive data redacted) as the first chunk
+  - Updated README with usage documentation
+
+### Patch Changes
+
+- [#266](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/266) [`c3f6381`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/c3f63818b6a432a8fd86cafcf21669d8be18ef71) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Fix token details in providerMetadata to only be included when present in API response. Previously, `promptTokensDetails` and `completionTokensDetails` were always included with default values of 0, which could be misleading. Now they are only included when the API actually returns these details, matching the behavior of `costDetails`.
+
+- [#268](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/268) [`6ac3814`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/6ac38143fba8ae64895c4136662ab751bf54bcea) Thanks [@jamespsterling](https://github.com/jamespsterling)! - Add reasoning_details accumulation and providerMetadata support for multi-turn conversations
+
+  - Accumulate reasoning_details from reasoning parts when converting messages
+  - Include reasoning_details in providerMetadata for reasoning delta chunks during streaming
+  - Enables users to accumulate reasoning_details across multi-turn conversations
+
+- [#246](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/246) [`78d20ef`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/78d20ef3f87df20cf5ce7807d7a29aff40ebcc80) Thanks [@abromberg](https://github.com/abromberg)! - build was failing due to mismatch with @openrouter/sdk types. simply renamed models.Sort to models.ProviderSort and it now builds
+
+- [#260](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/260) [`c38eade`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/c38eade5fa31435731df20a49ec1b28866102e25) Thanks [@AviVahl](https://github.com/AviVahl)! - adjust sort type to latest @openrouter/sdk
+
+- [#267](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/267) [`89ae694`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/89ae6946ecf8180ec9fdac6c965439ab4519375d) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Adds support for OpenRouter's BYOK usage accounting. If you have a provider's own API key in your OpenRouter account, cost details are now accessible via usage.costDetails.upstreamInferenceCost -- Thanks @abromberg!
+
 ## 1.2.8
 
 ### Patch Changes
