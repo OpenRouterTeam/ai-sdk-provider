@@ -1003,7 +1003,9 @@ describe('doStream', () => {
     expect(reasoningElements).toHaveLength(6);
 
     // Verify the content comes from reasoning_details, not reasoning field
-    const reasoningDeltas = reasoningElements.filter(isReasoningDeltaPart).map((el) => el.delta);
+    const reasoningDeltas = reasoningElements
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'Let me think about this...', // from reasoning_details text
@@ -1221,7 +1223,9 @@ describe('doStream', () => {
     expect(reasoningEndIndex).toBeLessThan(textStartIndex);
 
     // Verify reasoning content
-    const reasoningDeltas = elements.filter(isReasoningDeltaPart).map((el) => el.delta);
+    const reasoningDeltas = elements
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'I need to think about this step by step...',

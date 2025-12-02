@@ -204,15 +204,15 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              const parsedPartProviderOptions = OpenRouterProviderOptionsSchema.safeParse(
-                part.providerOptions,
-              );
+              const parsedPartProviderOptions =
+                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
               if (
                 parsedPartProviderOptions.success &&
                 parsedPartProviderOptions.data?.openrouter?.reasoning_details
               ) {
                 accumulatedReasoningDetails.push(
-                  ...parsedPartProviderOptions.data.openrouter.reasoning_details,
+                  ...parsedPartProviderOptions.data.openrouter
+                    .reasoning_details,
                 );
               }
               break;
