@@ -21,4 +21,3 @@
 - Use `Effect.gen(function* () { ... })` for sequential Effect composition
 - Provide layers via `Effect.provide()` at entry points
 - Use `Layer.mergeAll()` to combine multiple service layers
-
