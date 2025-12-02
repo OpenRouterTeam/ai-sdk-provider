@@ -13,7 +13,24 @@
 import { Command, Options } from '@effect/cli';
 import { ActionUI } from '@openrouter-monorepo/github-action-utils/ActionUI';
 import { GitHub } from '@openrouter-monorepo/github-action-utils/GitHub';
-import { Config, Console, Effect, Match } from 'effect';
+import { Config, Console, Effect, Match, pipe } from 'effect';
+
+/**
+ * Enforces that this command will only run for expected action events
+ */
+const assertExpectedEvent = pipe(
+  GitHub,
+  Effect.flatMap((github) => github.whenEvent('push', 'star')),
+  Effect.flatMap(
+    Match.valueTags({
+      push: ({ ref }) => Console.info(`Push event detected: ${ref}`),
+      star: ({ action, sender }) =>
+        Console.info(`Star event by: ${sender.login} with action ${action}`),
+    }),
+  ),
+  // Allow running locally or with other events for testing
+  // Effect.catchTag('UnexpectedEvent', () => Effect.void),
+);
 
 export default Command.make(
   'ui-demo',
@@ -25,20 +42,10 @@ export default Command.make(
     ),
   },
   Effect.fnUntraced(function* (inputs) {
+    yield* assertExpectedEvent;
+
     const ui = yield* ActionUI;
     const github = yield* GitHub;
-
-    yield* github.whenEvent('push', 'star').pipe(
-      Effect.flatMap(
-        Match.valueTags({
-          push: ({ ref }) => ui.info(`Push event detected: ${ref}`),
-          star: ({ action, sender }) =>
-            ui.info(`Star event by: ${sender.login} with action ${action}`),
-        }),
-      ),
-      // Allow running locally or with other events for testing
-      // Effect.catchTag('UnexpectedEvent', () => Effect.void),
-    );
 
     // Basic info
     yield* Console.log(`ActionUI Demo - Hello, ${inputs.name}!`);
