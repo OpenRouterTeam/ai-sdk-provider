@@ -34,9 +34,19 @@ import type {
 import type { LayerErrors } from 'effect-octokit-layer';
 
 import * as ActionsGitHub from '@actions/github';
-import { Config, Context, Data, Effect, Layer, Option, Redacted } from 'effect';
+import {
+  Config,
+  ConfigError,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Option,
+  Redacted,
+} from 'effect';
 import { OctokitLayer, OctokitLayerLive } from 'effect-octokit-layer';
 import { ActionEventPayload } from './ActionEventPayload.js';
+import { $ } from './Exec.js';
 
 /**
  * Tagged event payload for pattern matching.
@@ -274,13 +284,37 @@ export class GitHub extends Context.Tag('@openrouter/GitHub')<
 >() {}
 
 /**
+ * Get token from GITHUB_TOKEN env var, falling back to `gh auth token` CLI
+ */
+const getToken = Effect.gen(function* () {
+  const envToken = yield* Config.option(GitHubConfig.token);
+
+  if (Option.isSome(envToken)) {
+    return envToken.value;
+  }
+
+  // Fallback to gh CLI
+  const ghToken = yield* $`gh auth token`.pipe(
+    Effect.map((output) => Redacted.make(output.trim())),
+    Effect.mapError((cause) =>
+      ConfigError.MissingData(
+        ['GITHUB_TOKEN'],
+        `GITHUB_TOKEN not set and 'gh auth token' failed: ${cause.cause.message}`,
+      ),
+    ),
+  );
+
+  return ghToken;
+});
+
+/**
  * Create the live GitHub service implementation
  */
 const makeLive = Effect.gen(function* () {
   const eventPayload = yield* ActionEventPayload;
   const eventName = yield* GitHubConfig.eventName;
   const repository = yield* GitHubConfig.repository;
-  const tokenRedacted = yield* GitHubConfig.token;
+  const tokenRedacted = yield* getToken;
   const repo = parseRepo(repository);
 
   // Raw Octokit client for operations not supported by effect-octokit-layer
