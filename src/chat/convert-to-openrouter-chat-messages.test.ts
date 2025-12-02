@@ -1,3 +1,4 @@
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
 describe('user messages', () => {
@@ -812,6 +813,220 @@ describe('cache control', () => {
               format: 'mp3',
             },
             cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+});
+
+describe('reasoning_details accumulation', () => {
+  it('should accumulate reasoning_details from reasoning part providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First reasoning chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'First reasoning chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second reasoning chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Second reasoning chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'text',
+            text: 'Final response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'First reasoning chunk',
+              },
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Second reasoning chunk',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Final response',
+        reasoning: 'First reasoning chunkSecond reasoning chunk',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Second reasoning chunk',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should use preserved reasoning_details from message-level providerOptions when available', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Reasoning text',
+            // No providerOptions on part
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Preserved reasoning detail',
+              },
+              {
+                type: ReasoningDetailType.Summary,
+                summary: 'Preserved summary',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'Reasoning text',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Preserved reasoning detail',
+          },
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Preserved summary',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should not include reasoning_details when not present in providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Reasoning text',
+            // No providerOptions
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        // No providerOptions
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'Reasoning text',
+        // reasoning_details should be undefined when not preserved
+        reasoning_details: undefined,
+      },
+    ]);
+  });
+
+  it('should handle mixed reasoning parts with and without providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'First chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second chunk',
+            // No providerOptions
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'First chunk',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'First chunkSecond chunk',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First chunk',
           },
         ],
       },

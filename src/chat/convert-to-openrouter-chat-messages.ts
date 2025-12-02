@@ -35,7 +35,6 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV2Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
-  const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
@@ -172,6 +171,7 @@ export function convertToOpenRouterChatMessages(
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
+        const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
         for (const part of content) {
           switch (part.type) {
@@ -204,7 +204,17 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-
+              const parsedPartProviderOptions =
+                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
+              if (
+                parsedPartProviderOptions.success &&
+                parsedPartProviderOptions.data?.openrouter?.reasoning_details
+              ) {
+                accumulatedReasoningDetails.push(
+                  ...parsedPartProviderOptions.data.openrouter
+                    .reasoning_details,
+                );
+              }
               break;
             }
 
