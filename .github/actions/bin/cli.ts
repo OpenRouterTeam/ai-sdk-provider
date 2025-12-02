@@ -11,7 +11,7 @@ import { ActionEventPayload } from '@openrouter-monorepo/github-action-utils/Act
 import { ActionUI } from '@openrouter-monorepo/github-action-utils/ActionUI';
 import { GitHubLive } from '@openrouter-monorepo/github-action-utils/GitHub';
 import { Effect, Layer } from 'effect';
-import actions from '../actions.js';
+import actions from '../actions/index.js';
 import pkg from '../package.json';
 
 // Root command with subcommands for each action

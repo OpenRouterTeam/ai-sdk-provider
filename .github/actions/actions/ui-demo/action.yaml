@@ -17,11 +17,11 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: ./packages/github-actions/actions/setup
+    - uses: ./.github/actions/setup
 
     - name: Run ActionUI Demo
       id: demo
       shell: bash
+      working-directory: .github/actions
       run: |
-        cd packages/github-actions
-        bun start:ci action-ui-demo
+        bun run bin/ci.ts ui-demo

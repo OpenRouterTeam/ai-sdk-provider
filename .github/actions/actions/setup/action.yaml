@@ -1,0 +1,16 @@
+name: Setup GitHub Actions Utils
+description: |
+  Sets up the environment for running GitHub Actions.
+  Required permissions:
+    contents: read
+
+runs:
+  using: composite
+  steps:
+    - name: Ensure Bun is installed
+      uses: oven-sh/setup-bun@v2
+
+    - name: Install dependencies
+      shell: bash
+      working-directory: .github/actions
+      run: bun install

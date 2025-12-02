@@ -1,0 +1,31 @@
+name: Smoke Test Actions Flow
+
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: Name to use in demo output
+        required: false
+        default: Smoke
+  push:
+    branches: [main]
+    paths:
+      - ".github/actions/**"
+      - ".github/workflows/smoke-actions.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  ui-demo:
+    name: UI Demo Job
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/actions/ui-demo
+        with:
+          name: ${{ github.event.inputs.name || 'Smoke' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

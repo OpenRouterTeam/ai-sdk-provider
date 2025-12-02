@@ -16,7 +16,7 @@ import { GitHub } from '@openrouter-monorepo/github-action-utils/GitHub';
 import { Config, Console, Effect, Match } from 'effect';
 
 export default Command.make(
-  'action-ui-demo',
+  'ui-demo',
   {
     name: Options.text('name').pipe(
       Options.withDescription('Name to use in demo output'),
@@ -67,7 +67,7 @@ export default Command.make(
           'This is a notice annotation - informational message',
           {
             title: 'Notice Annotation',
-            file: 'packages/github-actions/actions/action-ui-demo/index.ts',
+            file: '.github/actions/actions/ui-demo/action.ts',
             startLine: 60,
             endLine: 64,
           },
@@ -76,7 +76,7 @@ export default Command.make(
           'This is a warning annotation - something to be aware of',
           {
             title: 'Warning Annotation',
-            file: 'packages/github-actions/actions/action-ui-demo/index.ts',
+            file: '.github/actions/actions/ui-demo/action.ts',
             startLine: 66,
             endLine: 71,
           },
