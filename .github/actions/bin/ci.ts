@@ -21,13 +21,13 @@ import {
 } from '@openrouter-monorepo/github-action-utils/ActionUI';
 import { GitHubLive } from '@openrouter-monorepo/github-action-utils/GitHub';
 import { ConfigProvider, Effect, Layer } from 'effect';
-import { ActionUIDemoCommand } from '../action-ui-demo/index.js';
+import actions from '../actions.js';
 import pkg from '../package.json';
 
 // Root command with subcommands for each action
-const command = Command.make('github-actions').pipe(
-  Command.withSubcommands([ActionUIDemoCommand]),
-);
+const command = Command.make(
+  `pnpm --filter @openrouter-monorepo/github-action-utils act:ci`,
+).pipe(Command.withSubcommands(actions));
 
 // Combine all layers for GitHub Actions environment
 // BunContext.layer provides FileSystem and CommandExecutor

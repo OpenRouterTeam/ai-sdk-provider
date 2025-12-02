@@ -142,7 +142,14 @@ export class UnexpectedEvent extends Data.TaggedError('UnexpectedEvent')<{
   readonly expectedEvents: ReadonlyArray<string>;
 }> {
   override get message(): string {
-    return `Event '${this.eventName}' not in expected events: ${this.expectedEvents.join(', ')}`;
+    const expected = this.expectedEvents.join(', ');
+    if (this.eventName === 'local') {
+      return (
+        `Running locally without GitHub event context. ` +
+        `This action expects events: ${expected}.`
+      );
+    }
+    return `Event '${this.eventName}' not in expected events: ${expected}`;
   }
 }
 

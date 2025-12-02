@@ -11,13 +11,13 @@ import { ActionEventPayload } from '@openrouter-monorepo/github-action-utils/Act
 import { ActionUI } from '@openrouter-monorepo/github-action-utils/ActionUI';
 import { GitHubLive } from '@openrouter-monorepo/github-action-utils/GitHub';
 import { Effect, Layer } from 'effect';
-import { ActionUIDemoCommand } from '../action-ui-demo/index.js';
+import actions from '../actions.js';
 import pkg from '../package.json';
 
 // Root command with subcommands for each action
 const command = Command.make(
   `pnpm --filter @openrouter-monorepo/github-action-utils act`,
-).pipe(Command.withSubcommands([ActionUIDemoCommand]));
+).pipe(Command.withSubcommands(actions));
 
 // GitHubLive needs BunContext for CommandExecutor (used by gh auth token fallback)
 const GitHubLayer = GitHubLive.pipe(
