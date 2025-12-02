@@ -11,12 +11,12 @@ import { $, $cmd, $lines, $sh } from './Exec.js';
 const TestLayer = Layer.merge(BunContext.layer, ActionUI.Mock);
 
 describe('Exec', () => {
-  describe('$', () => {
+  it.layer(TestLayer)('$', (it) => {
     it.effect('should run simple commands', () =>
       Effect.gen(function* () {
         const result = yield* $`echo hello`;
         assert.equal(result.trim(), 'hello');
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
 
     it.effect('should handle interpolation', () =>
@@ -24,7 +24,7 @@ describe('Exec', () => {
         const name = 'world';
         const result = yield* $`echo hello ${name}`;
         assert.equal(result.trim(), 'hello world');
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
 
     it.effect('should handle multiple interpolations', () =>
@@ -33,18 +33,18 @@ describe('Exec', () => {
         const b = 'bar';
         const result = yield* $`echo ${a} and ${b}`;
         assert.equal(result.trim(), 'foo and bar');
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
   });
 
-  describe('$lines', () => {
+  it.layer(TestLayer)('$lines', (it) => {
     it.effect('should return output as array of lines', () =>
       Effect.gen(function* () {
         const result = yield* $lines`echo -e "line1\nline2\nline3"`;
         // Note: echo -e behavior varies, so we use printf for reliable newlines
         assert.ok(Array.isArray(result));
         assert.ok(result.length > 0);
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
 
     it.effect('should filter empty lines', () =>
@@ -54,7 +54,7 @@ describe('Exec', () => {
           Effect.map((output) => output.trim().split('\n').filter(Boolean)),
         );
         assert.deepEqual(result, ['a', 'b']);
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
   });
 
@@ -65,28 +65,30 @@ describe('Exec', () => {
       assert.equal(cmd._tag, 'StandardCommand');
     });
 
-    it.effect('should allow customization before execution', () =>
-      Effect.gen(function* () {
-        const cmd = $cmd`echo test`;
-        const result = yield* Command.string(cmd);
-        assert.equal(result.trim(), 'test');
-      }).pipe(Effect.provide(TestLayer)),
-    );
+    it.layer(TestLayer)('execution', (it) => {
+      it.effect('should allow customization before execution', () =>
+        Effect.gen(function* () {
+          const cmd = $cmd`echo test`;
+          const result = yield* Command.string(cmd);
+          assert.equal(result.trim(), 'test');
+        }),
+      );
+    });
   });
 
-  describe('$sh', () => {
+  it.layer(TestLayer)('$sh', (it) => {
     it.effect('should run commands through shell', () =>
       Effect.gen(function* () {
         const result = yield* $sh`echo hello`;
         assert.equal(result.trim(), 'hello');
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
 
     it.effect('should handle shell features like pipes', () =>
       Effect.gen(function* () {
         const result = yield* $sh`echo "hello world" | tr 'a-z' 'A-Z'`;
         assert.equal(result.trim(), 'HELLO WORLD');
-      }).pipe(Effect.provide(TestLayer)),
+      }),
     );
   });
 });
