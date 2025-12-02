@@ -29,19 +29,15 @@ export default Command.make(
     const github = yield* GitHub;
 
     yield* github.whenEvent('push', 'star').pipe(
-      Effect.flatMap((event) =>
-        Match.value(event).pipe(
-          Match.tag('push', ({ ref }) =>
-            ui.info(`Push event detected: ${ref}`),
-          ),
-          Match.tag('star', ({ action, sender }) =>
+      Effect.flatMap(
+        Match.valueTags({
+          push: ({ ref }) => ui.info(`Push event detected: ${ref}`),
+          star: ({ action, sender }) =>
             ui.info(`Star event by: ${sender.login} with action ${action}`),
-          ),
-          Match.exhaustive,
-        ),
+        }),
       ),
       // Allow running locally or with other events for testing
-      Effect.catchTag('UnexpectedEvent', () => Effect.void),
+      // Effect.catchTag('UnexpectedEvent', () => Effect.void),
     );
 
     // Basic info
