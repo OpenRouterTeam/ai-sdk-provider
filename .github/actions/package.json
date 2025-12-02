@@ -1,0 +1,36 @@
+{
+  "name": "@openrouter-monorepo/github-action-utils",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./ActionUI": "./lib/ActionUI.ts",
+    "./ActionEventPayload": "./lib/ActionEventPayload.ts",
+    "./Exec": "./lib/Exec.ts",
+    "./GitHub": "./lib/GitHub.ts",
+    "./MockConsole": "./lib/MockConsole.ts"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "check": "tsc -b tsconfig.json",
+    "act": "bun run ./bin/cli.ts",
+    "act:ci": "bun run ./bin/ci.ts"
+  },
+  "dependencies": {
+    "@actions/core": "1.11.1",
+    "@actions/github": "6.0.1",
+    "@effect/cli": "0.72.1",
+    "@effect/platform": "0.93.6",
+    "@effect/platform-bun": "0.86.0",
+    "@octokit/webhooks-types": "7.6.1",
+    "effect": "3.19.8",
+    "effect-octokit-layer": "1.15.1"
+  },
+  "devDependencies": {
+    "@effect/language-service": "0.58.4",
+    "@effect/vitest": "0.27.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
+}
