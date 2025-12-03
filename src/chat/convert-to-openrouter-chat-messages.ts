@@ -226,11 +226,14 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        // Check message-level providerOptions for preserved reasoning_details
+        // Check message-level providerOptions for preserved reasoning_details and annotations
         const parsedProviderOptions =
           OpenRouterProviderOptionsSchema.safeParse(providerOptions);
         const messageReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
+          : undefined;
+        const messageAnnotations = parsedProviderOptions.success
+          ? parsedProviderOptions.data?.openrouter?.annotations
           : undefined;
 
         // Use message-level reasoning_details if available, otherwise use accumulated from parts
@@ -249,6 +252,7 @@ export function convertToOpenRouterChatMessages(
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
           reasoning_details: finalReasoningDetails,
+          annotations: messageAnnotations,
           cache_control: getCacheControl(providerOptions),
         });
 
