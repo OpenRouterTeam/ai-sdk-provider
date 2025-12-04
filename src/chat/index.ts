@@ -63,10 +63,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   readonly modelId: OpenRouterChatModelId;
   readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
-    'image/*': [
-      /^data:image\/[a-zA-Z]+;base64,/,
-      /^https?:\/\/.+/i,
-    ],
+    'image/*': [/^data:image\/[a-zA-Z]+;base64,/, /^https?:\/\/.+/i],
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
     'application/*': [/^data:application\//, /^https?:\/\/.+$/],
   };
