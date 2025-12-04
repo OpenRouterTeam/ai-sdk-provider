@@ -413,6 +413,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       }
     }
 
+    // Extract file annotations to expose in providerMetadata
+    const fileAnnotations = choice.message.annotations?.filter(
+      (
+        a,
+      ): a is {
+        type: 'file';
+        file: {
+          hash: string;
+          name: string;
+          content?: Array<{ type: string; text?: string }>;
+        };
+      } => a.type === 'file',
+    );
+
     return {
       content,
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
@@ -422,6 +436,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: response.provider ?? '',
           reasoning_details: choice.message.reasoning_details ?? [],
+          annotations:
+            fileAnnotations && fileAnnotations.length > 0
+              ? fileAnnotations
+              : undefined,
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,

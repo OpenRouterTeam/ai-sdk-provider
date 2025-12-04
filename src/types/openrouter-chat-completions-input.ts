@@ -1,3 +1,4 @@
+import type { FileAnnotation } from '@/src/schemas/provider-metadata';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -67,6 +68,7 @@ export interface ChatCompletionAssistantMessageParam {
   content?: string | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
+  annotations?: FileAnnotation[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
   cache_control?: OpenRouterCacheControl;
 }
