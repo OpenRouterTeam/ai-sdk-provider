@@ -1,5 +1,19 @@
 # @openrouter/ai-sdk-provider
 
+## 1.4.0
+
+### Minor Changes
+
+- [#272](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/272) [`4c7176e`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/4c7176e92bd864657aef40a6d666a62ba9ccb603) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Add support for FileParser annotations to enable "Skip Parsing Costs" feature
+
+  - Annotations from file parsing are now exposed via `providerMetadata.openrouter.annotations`
+  - Pass annotations back via `providerOptions.openrouter.annotations` to skip re-parsing costs
+  - See https://openrouter.ai/docs/guides/overview/multimodal/pdfs#skip-parsing-costs
+
+### Patch Changes
+
+- [#274](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/274) [`4b7814b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/4b7814b33edec022c3fe202ceef5315c0b160246) Thanks [@yogasanas](https://github.com/yogasanas)! - Add supportsImageUrls property to indicate image URL support for all models
+
 ## 1.3.0
 
 ### Minor Changes
