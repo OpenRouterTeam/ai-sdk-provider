@@ -61,6 +61,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   readonly defaultObjectGenerationMode = 'tool' as const;
 
   readonly modelId: OpenRouterChatModelId;
+  readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,

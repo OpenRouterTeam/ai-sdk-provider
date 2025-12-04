@@ -43,6 +43,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
+  readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
