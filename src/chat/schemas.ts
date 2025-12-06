@@ -130,6 +130,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
           index: z.number().nullish(),
           logprobs: z
             .object({
+              // New OpenAI format with content array
               content: z
                 .array(
                   z
@@ -147,7 +148,9 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                     })
                     .passthrough(),
                 )
-                .nullable(),
+                .nullish(), // Changed from .nullable() to .nullish() to support legacy format
+              // Legacy format fields (e.g., Nineteen provider) - handled by .passthrough()
+              // text_offset, token_logprobs, tokens, top_logprobs
             })
             .passthrough()
             .nullable()
@@ -254,6 +257,7 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
             .nullish(),
           logprobs: z
             .object({
+              // New OpenAI format with content array
               content: z
                 .array(
                   z
@@ -271,7 +275,9 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                     })
                     .passthrough(),
                 )
-                .nullable(),
+                .nullish(), // Changed from .nullable() to .nullish() to support legacy format
+              // Legacy format fields (e.g., Nineteen provider) - handled by .passthrough()
+              // text_offset, token_logprobs, tokens, top_logprobs
             })
             .passthrough()
             .nullish(),
