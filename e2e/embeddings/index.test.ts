@@ -62,7 +62,6 @@ describe('Embeddings', () => {
   });
 
   it('works with deprecated embedding() method', async () => {
-    // eslint-disable-next-line deprecation/deprecation
     const model = openrouter.embedding('openai/text-embedding-3-small');
 
     const { embedding } = await embed({
