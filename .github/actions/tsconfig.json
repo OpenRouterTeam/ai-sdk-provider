@@ -2,7 +2,14 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "plugins": [{ "name": "@effect/language-service" }]
+    "declaration": false,
+    "declarationMap": false,
+    "plugins": [{ "name": "@effect/language-service" }],
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@openrouter-monorepo/github-action-utils/*": ["./lib/*"]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

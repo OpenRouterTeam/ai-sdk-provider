@@ -75,6 +75,21 @@ export class ActionUI extends Effect.Service<ActionUI>()('@openrouter/ActionUI',
   },
 }) {
   /**
+   * Static group wrapper for use with Effect.fn.
+   *
+   * @example
+   * ```typescript
+   * const myFn = Effect.fn('myFn')(function* () {
+   *   yield* Console.log('doing work...')
+   * }, ActionUI.group('My Group'))
+   * ```
+   */
+  static group(name: string) {
+    return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      Effect.flatMap(ActionUI, (ui) => ui.group(name, effect));
+  }
+
+  /**
    * Mock layer for local development.
    * Uses Effect's Console service (via consoleWith) instead of global console,
    * enabling proper testing by providing a mock Console layer.
@@ -111,7 +126,7 @@ export class ActionUI extends Effect.Service<ActionUI>()('@openrouter/ActionUI',
         Effect.acquireUseRelease(
           Effect.consoleWith((c) => c.log(`▶ ${name}`)),
           () => effect,
-          () => Effect.consoleWith((c) => c.log(`◀`)),
+          () => Effect.consoleWith((c) => c.log('◀')),
         ),
 
       setSecret: (secret: string) =>
