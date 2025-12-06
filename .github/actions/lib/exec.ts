@@ -30,7 +30,7 @@
 import type { PlatformError } from '@effect/platform/Error';
 
 import { Command } from '@effect/platform';
-import { Effect, Option } from 'effect';
+import { Console, Effect, Option, Stream } from 'effect';
 import { ActionUI } from './action-ui.js';
 
 /**
@@ -117,10 +117,23 @@ export const $ = (strings: TemplateStringsArray, ...values: ReadonlyArray<unknow
   return Effect.gen(function* () {
     const ui = yield* Effect.serviceOption(ActionUI);
 
-    const runCommand = Command.string(cmd).pipe(
-      Effect.map((output) => output.trim()),
-      Effect.mapError((cause) => makeExecError(commandString, cause)),
-    );
+    // Stream lines to stdout while collecting them for the return value
+    const runCommand = Effect.gen(function* () {
+      const lines: string[] = [];
+
+      yield* Command.streamLines(cmd).pipe(
+        Stream.tap((line) =>
+          Effect.gen(function* () {
+            lines.push(line);
+            yield* Console.log(line);
+          }),
+        ),
+        Stream.runDrain,
+        Effect.mapError((cause) => makeExecError(commandString, cause)),
+      );
+
+      return lines.join('\n').trim();
+    });
 
     // Wrap in ActionUI group if available
     if (Option.isSome(ui)) {
@@ -204,10 +217,23 @@ export const $sh = (strings: TemplateStringsArray, ...values: ReadonlyArray<unkn
   return Effect.gen(function* () {
     const ui = yield* Effect.serviceOption(ActionUI);
 
-    const runCommand = Command.string(cmd).pipe(
-      Effect.map((output) => output.trim()),
-      Effect.mapError((cause) => makeExecError(commandString, cause)),
-    );
+    // Stream lines to stdout while collecting them for the return value
+    const runCommand = Effect.gen(function* () {
+      const lines: string[] = [];
+
+      yield* Command.streamLines(cmd).pipe(
+        Stream.tap((line) =>
+          Effect.gen(function* () {
+            lines.push(line);
+            yield* Console.log(line);
+          }),
+        ),
+        Stream.runDrain,
+        Effect.mapError((cause) => makeExecError(commandString, cause)),
+      );
+
+      return lines.join('\n').trim();
+    });
 
     if (Option.isSome(ui)) {
       return yield* ui.value.group(groupLabel, runCommand);

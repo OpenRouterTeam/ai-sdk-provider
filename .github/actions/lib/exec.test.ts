@@ -93,5 +93,14 @@ describe('Exec', () => {
         assert.equal(result.trim(), 'HELLO WORLD');
       }),
     );
+
+    it.effect('should tee multiline output to stdout and return it', () =>
+      Effect.gen(function* () {
+        // This test verifies that output is both streamed to stdout (visible in test output)
+        // AND captured and returned as a string
+        const result = yield* $sh`printf 'line1\nline2\nline3'`;
+        assert.equal(result, 'line1\nline2\nline3');
+      }),
+    );
   });
 });
