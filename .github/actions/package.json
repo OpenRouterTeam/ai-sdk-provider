@@ -21,10 +21,10 @@
     "@actions/core": "1.11.1",
     "@actions/github": "6.0.1",
     "@effect/cli": "0.72.1",
-    "@effect/platform": "0.93.5",
+    "@effect/platform": "0.93.6",
     "@effect/platform-bun": "0.85.0",
     "@octokit/webhooks-types": "7.6.1",
-    "effect": "3.19.8",
+    "effect": "3.19.9",
     "effect-octokit-layer": "1.15.1"
   },
   "devDependencies": {
