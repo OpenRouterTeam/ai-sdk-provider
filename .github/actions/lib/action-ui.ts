@@ -264,16 +264,31 @@ const parseStackLine = (line: string) => {
 };
 
 /**
- * Extract the error message from a defect.
+ * Extract a short, readable message from any error/defect for annotations.
+ *
+ * For full error details including stack traces, use `Cause.pretty(cause)`.
+ * This function extracts just the message for GitHub Actions annotations.
  */
-const getDefectMessage = (defect: unknown) => {
-  if (defect instanceof Error) {
-    return defect.message;
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
   }
-  if (typeof defect === 'string') {
-    return defect;
+  if (typeof error === 'string') {
+    return error;
   }
-  return String(defect);
+  // Handle Effect tagged errors and Data.TaggedError which have a message getter
+  if (error && typeof error === 'object') {
+    const obj = error as Record<string, unknown>;
+    // Try the message property (works for Error subclasses and Data.TaggedError)
+    if ('message' in obj && typeof obj['message'] === 'string') {
+      return obj['message'];
+    }
+    // For other tagged objects, use the tag as context
+    if ('_tag' in obj && typeof obj['_tag'] === 'string') {
+      return obj['_tag'];
+    }
+  }
+  return String(error);
 };
 
 /**
@@ -302,10 +317,15 @@ const getDefectStack = (defect: unknown) => {
  */
 export const reportCauseToActions = <E>(cause: Cause.Cause<E>) =>
   Effect.sync(() => {
+    // Log the full cause with Effect's built-in pretty-printer for debugging
+    // This includes stack traces, fiber IDs, and all error details
+    const prettyError = Cause.pretty(cause);
+    ActionsCore.debug(`Full error details:\n${prettyError}`);
+
     // Report all defects (unexpected errors) with annotations
     const defects = Cause.defects(cause);
     for (const defect of Chunk.toReadonlyArray(defects)) {
-      const message = getDefectMessage(defect);
+      const message = getErrorMessage(defect);
       const stack = getDefectStack(defect);
 
       // Try to get the first user-code stack frame for annotation
@@ -337,7 +357,7 @@ export const reportCauseToActions = <E>(cause: Cause.Cause<E>) =>
     // Report all failures (expected errors)
     const failures = Cause.failures(cause);
     for (const failure of Chunk.toReadonlyArray(failures)) {
-      const message = failure instanceof Error ? failure.message : String(failure);
+      const message = getErrorMessage(failure);
       ActionsCore.error(`Error: ${message}`);
     }
 
@@ -345,9 +365,9 @@ export const reportCauseToActions = <E>(cause: Cause.Cause<E>) =>
     const primaryMessage = Cause.isInterruptedOnly(cause)
       ? 'Action was interrupted'
       : Chunk.size(defects) > 0
-        ? getDefectMessage(Chunk.unsafeHead(defects))
+        ? getErrorMessage(Chunk.unsafeHead(defects))
         : Chunk.size(failures) > 0
-          ? String(Chunk.unsafeHead(failures))
+          ? getErrorMessage(Chunk.unsafeHead(failures))
           : 'Action failed with unknown error';
 
     ActionsCore.setFailed(primaryMessage);
