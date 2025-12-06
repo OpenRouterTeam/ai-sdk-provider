@@ -6,7 +6,7 @@ import { createOpenRouter } from '@/src';
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
-  baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+  baseURL: `${process.env.OPENROUTER_API_BASE}/api/v1`,
 });
 
 export const sendSMSTool = tool({

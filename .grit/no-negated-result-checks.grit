@@ -1,0 +1,11 @@
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  `!isErr($expr)` as $match where {
+    register_diagnostic(span=$match, message="Prefer isOk() over !isErr()", severity="warning")
+  },
+  `!isOk($expr)` as $match where {
+    register_diagnostic(span=$match, message="Prefer isErr() over !isOk()", severity="warning")
+  }
+}

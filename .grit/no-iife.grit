@@ -1,0 +1,25 @@
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Match: (function() { ... })() or (function(args) { ... })()
+  `($func)()` as $match where {
+    $func <: or {
+      `function() { $body }`,
+      `function($args) { $body }`,
+      `async function() { $body }`,
+      `async function($args) { $body }`
+    },
+    register_diagnostic(span=$match, message="Avoid using IIFEs. Consider extracting to a helper function or using Effect.pipe() for composable operations.", severity="warning")
+  },
+  // Match: (() => { ... })() or ((args) => { ... })()
+  `($arrow)()` as $match where {
+    $arrow <: or {
+      `() => $body`,
+      `($args) => $body`,
+      `async () => $body`,
+      `async ($args) => $body`
+    },
+    register_diagnostic(span=$match, message="Avoid using IIFEs. Consider extracting to a helper function or using Effect.pipe() for composable operations.", severity="warning")
+  }
+}

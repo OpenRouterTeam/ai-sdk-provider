@@ -1,0 +1,35 @@
+// Pattern: Enforce naming conventions for OpenAI response schemas
+// Applies to:
+// 1. Schemas that start with "OpenAI" or "Open" prefix (anywhere)
+// 2. All schemas in packages/llm-interfaces/**/schemas directories
+
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Rule 1: Schemas starting with OpenAI must end with "Schema"
+  `export const $name = $value` where {
+    $name <: r"^OpenAI[A-Z]",
+    $value <: or {
+      `z.object($_)`,
+      `z.discriminatedUnion($_)`,
+      `z.union($_)`,
+      `z.array($_)`
+    },
+    $name <: not r".*Schema$",
+    register_diagnostic(span=$name, message="Schema constant should end with 'Schema' suffix. Current name: $name", severity="warning")
+  },
+  // Rule 2: Schemas starting with Open (but not OpenAI) must end with "Schema"
+  `export const $name = $value` where {
+    $name <: r"^Open[A-Z]",
+    $name <: not r"^OpenAI",
+    $value <: or {
+      `z.object($_)`,
+      `z.discriminatedUnion($_)`,
+      `z.union($_)`,
+      `z.array($_)`
+    },
+    $name <: not r".*Schema$",
+    register_diagnostic(span=$name, message="Schema constant should end with 'Schema' suffix. Current name: $name", severity="warning")
+  }
+}

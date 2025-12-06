@@ -1,0 +1,45 @@
+engine biome(2.0)
+language js(typescript, jsx)
+
+or {
+  // Function declarations
+  `function $name($a, $b, $c, $d, $...) { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Function declarations with return type
+  `function $name($a, $b, $c, $d, $...): $ret { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Async function declarations
+  `async function $name($a, $b, $c, $d, $...) { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Async function declarations with return type
+  `async function $name($a, $b, $c, $d, $...): $ret { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Function expressions
+  `function($a, $b, $c, $d, $...) { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Function expressions with return type
+  `function($a, $b, $c, $d, $...): $ret { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Async function expressions
+  `async function($a, $b, $c, $d, $...) { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Async function expressions with return type
+  `async function($a, $b, $c, $d, $...): $ret { $body }` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Arrow functions
+  `($a, $b, $c, $d, $...) => $body` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  },
+  // Arrow functions with return type
+  `($a, $b, $c, $d, $...): $ret => $body` as $match where {
+    register_diagnostic(span=$match, message="Functions with more than 3 parameters should use named arguments with object destructuring", severity="warning")
+  }
+}
