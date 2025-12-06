@@ -11,7 +11,9 @@ const openrouter = createOpenRouter({
 
 describe('Embeddings', () => {
   it('generates a single embedding', async () => {
-    const model = openrouter.textEmbeddingModel('openai/text-embedding-3-small');
+    const model = openrouter.textEmbeddingModel(
+      'openai/text-embedding-3-small',
+    );
 
     const { embedding } = await embed({
       model,
@@ -23,11 +25,17 @@ describe('Embeddings', () => {
   });
 
   it('generates multiple embeddings', async () => {
-    const model = openrouter.textEmbeddingModel('openai/text-embedding-3-small');
+    const model = openrouter.textEmbeddingModel(
+      'openai/text-embedding-3-small',
+    );
 
     const { embeddings } = await embedMany({
       model,
-      values: ['sunny day at the beach', 'rainy day in the city', 'snowy mountain peak'],
+      values: [
+        'sunny day at the beach',
+        'rainy day in the city',
+        'snowy mountain peak',
+      ],
     });
 
     expect(embeddings).toHaveLength(3);
@@ -37,7 +45,9 @@ describe('Embeddings', () => {
   });
 
   it('reports usage', async () => {
-    const model = openrouter.textEmbeddingModel('openai/text-embedding-3-small');
+    const model = openrouter.textEmbeddingModel(
+      'openai/text-embedding-3-small',
+    );
 
     const { usage } = await embed({
       model,
@@ -48,10 +58,13 @@ describe('Embeddings', () => {
   });
 
   it('accepts provider routing options', async () => {
-    const model = openrouter.textEmbeddingModel('openai/text-embedding-3-small', {
-      user: 'e2e-test-user',
-      provider: { order: ['openai'] },
-    });
+    const model = openrouter.textEmbeddingModel(
+      'openai/text-embedding-3-small',
+      {
+        user: 'e2e-test-user',
+        provider: { order: ['openai'] },
+      },
+    );
 
     const { embedding } = await embed({
       model,
@@ -73,7 +86,9 @@ describe('Embeddings', () => {
   });
 
   it('produces similar vectors for similar texts', async () => {
-    const model = openrouter.textEmbeddingModel('openai/text-embedding-3-small');
+    const model = openrouter.textEmbeddingModel(
+      'openai/text-embedding-3-small',
+    );
 
     const { embeddings } = await embedMany({
       model,
@@ -84,7 +99,11 @@ describe('Embeddings', () => {
       ],
     });
 
-    const [catMat, felineRug, stockMarket] = embeddings as [number[], number[], number[]];
+    const [catMat, felineRug, stockMarket] = embeddings as [
+      number[],
+      number[],
+      number[],
+    ];
 
     const similar = cosineSimilarity(catMat, felineRug);
     const dissimilar = cosineSimilarity(catMat, stockMarket);
