@@ -55,6 +55,64 @@ This list is not a definitive list of models supported by OpenRouter, as it cons
 
 You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
 
+## Embeddings
+
+OpenRouter supports embedding models for semantic search, RAG pipelines, and vector-native features. The provider exposes embeddings compatible with both AI SDK v5 and v4.
+
+### AI SDK v5 (Recommended)
+
+```ts
+import { embed } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { embedding } = await embed({
+  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
+  value: 'sunny day at the beach',
+});
+
+console.log(embedding); // Array of numbers representing the embedding
+```
+
+### Batch Embeddings
+
+```ts
+import { embedMany } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { embeddings } = await embedMany({
+  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
+  values: [
+    'sunny day at the beach',
+    'rainy day in the city',
+    'snowy mountain peak',
+  ],
+});
+
+console.log(embeddings); // Array of embedding arrays
+```
+
+### AI SDK v4 (Deprecated)
+
+For backwards compatibility, the `embedding` method is also available:
+
+```ts
+import { embed } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { embedding } = await embed({
+  model: openrouter.embedding('openai/text-embedding-3-small'),
+  value: 'sunny day at the beach',
+});
+```
+
+### Supported Embedding Models
+
+OpenRouter supports various embedding models including:
+- `openai/text-embedding-3-small`
+- `openai/text-embedding-3-large`
+- `openai/text-embedding-ada-002`
+- And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:

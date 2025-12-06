@@ -7,10 +7,15 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './types/openrouter-completion-settings';
+import type {
+  OpenRouterEmbeddingModelId,
+  OpenRouterEmbeddingSettings,
+} from './types/openrouter-embedding-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
+import { OpenRouterEmbeddingModel } from './embedding';
 
 /**
 @deprecated Use `createOpenRouter` instead.
@@ -87,5 +92,26 @@ Custom headers to include in the requests.
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
     });
+  }
+
+  textEmbeddingModel(
+    modelId: OpenRouterEmbeddingModelId,
+    settings: OpenRouterEmbeddingSettings = {},
+  ) {
+    return new OpenRouterEmbeddingModel(modelId, settings, {
+      provider: 'openrouter.embedding',
+      ...this.baseConfig,
+      url: ({ path }) => `${this.baseURL}${path}`,
+    });
+  }
+
+  /**
+   * @deprecated Use textEmbeddingModel instead
+   */
+  embedding(
+    modelId: OpenRouterEmbeddingModelId,
+    settings: OpenRouterEmbeddingSettings = {},
+  ) {
+    return this.textEmbeddingModel(modelId, settings);
   }
 }
