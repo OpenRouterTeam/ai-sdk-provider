@@ -1,0 +1,27 @@
+name: ActionUI Demo
+description: |
+  Demonstrates the ActionUI service capabilities including annotations,
+  groups, outputs, and debug logging. Used as a smoke test for GitHub Actions integration.
+
+inputs:
+  name:
+    description: Name to use in demo output
+    required: true
+    default: World
+
+outputs:
+  demo_output:
+    description: A demo output set by the action
+    value: ${{ steps.demo.outputs.demo_output }}
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/actions/setup
+
+    - name: Run ActionUI Demo
+      id: demo
+      shell: bash
+      working-directory: .github/actions
+      run: |
+        bun run bin/ci.ts example
