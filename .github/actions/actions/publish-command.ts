@@ -39,6 +39,7 @@ export default Command.make(
 
     yield* Console.info(`Attempting to publish ${desc}`);
     yield* oidcPreflight();
+    yield* runTests();
     yield* publish(tag).pipe(
       Effect.tapError(() => postMortemDiagnostics(tag)),
       Effect.tapError(() => ui.error(`did NOT publish ${desc}`)),
@@ -53,6 +54,14 @@ export default Command.make(
 // ─────────────────────────────────────────────────────────────────────────────
 // Steps
 // ─────────────────────────────────────────────────────────────────────────────
+
+const runTests = Effect.fn('runTests')(function* () {
+  yield* $`pnpm run test`;
+  yield* Console.log('✓ Unit tests passed');
+
+  yield* $`pnpm run test:e2e`;
+  yield* Console.log('✓ E2E tests passed');
+}, ActionUI.group('Run Tests'));
 
 const oidcPreflight = Effect.fn('oidcPreflight')(function* () {
   const ui = yield* ActionUI;
