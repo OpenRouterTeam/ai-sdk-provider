@@ -11,7 +11,7 @@ describe('Web Search E2E Tests', () => {
   it('should handle web search citations in streaming response', async () => {
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+      baseURL: `${process.env.OPENROUTER_API_BASE ?? 'https://openrouter.ai'}/api/v1`,
     });
 
     const model = openrouter('anthropic/claude-3.5-sonnet', {

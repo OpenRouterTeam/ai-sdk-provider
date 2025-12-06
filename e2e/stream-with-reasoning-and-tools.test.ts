@@ -11,7 +11,7 @@ describe('Stream with reasoning and tools', () => {
   it('should work with streamText, reasoning enabled, and tool calls', async () => {
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+      baseURL: `${process.env.OPENROUTER_API_BASE ?? 'https://openrouter.ai'}/api/v1`,
     });
 
     const model = openrouter('anthropic/claude-haiku-4.5', {

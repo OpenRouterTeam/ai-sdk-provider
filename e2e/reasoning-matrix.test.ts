@@ -42,7 +42,7 @@ const reasoningModels = [
 function createProvider() {
   return createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
-    baseURL: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    baseURL: `${process.env.OPENROUTER_API_BASE ?? 'https://openrouter.ai'}/api/v1`,
   });
 }
 
@@ -1150,8 +1150,8 @@ describe('UIMessageStream Protocol Compliance', () => {
       let finishReason: string | undefined;
       let usageData:
         | {
-          totalTokens?: number;
-        }
+            totalTokens?: number;
+          }
         | undefined;
 
       const result = streamText({
