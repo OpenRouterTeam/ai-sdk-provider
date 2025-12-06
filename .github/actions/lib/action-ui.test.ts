@@ -78,9 +78,10 @@ describe('ActionUI', () => {
           Effect.sync(() => groupContent.push('Building...')),
         );
         const lines = yield* MockConsole.getLines();
+        expect(lines[0]).toContain('▶');
         expect(lines[0]).toContain('Build');
         expect(groupContent[0]).toBe('Building...');
-        expect(lines[1]).toContain('Build');
+        expect(lines[1]).toContain('◀');
       }).pipe(Effect.provide(TestLayers)),
     );
 
