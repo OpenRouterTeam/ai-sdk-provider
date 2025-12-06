@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.5.0
+
+### Minor Changes
+
+- [#276](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/276) [`eb7d3a2`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/eb7d3a237dadbb09b279fe65cc3c25030d441bc8) Thanks [@jamespsterling](https://github.com/jamespsterling)! - Add TOON encoding/decoding helper functions for token-efficient data serialization
+
 ## 1.4.1
 
 ### Patch Changes
