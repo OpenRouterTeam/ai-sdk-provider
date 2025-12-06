@@ -1,6 +1,6 @@
 import type { JSONValue, ModelMessage } from 'ai';
 
-import { convertToModelMessages, generateText, stepCountIs, streamText, tool } from 'ai';
+import { generateText, stepCountIs, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '../src';
@@ -597,12 +597,13 @@ describe('Multi-Turn Conversations', () => {
       }
 
       // Build messages for Turn 2, preserving reasoning_details for Gemini
+      const steps1 = await result1.steps;
       const messagesForTurn2: Array<ModelMessage> = [
         {
           role: 'user' as const,
           content: 'What is the weather in Boston?',
         },
-        ...convertToModelMessages(response1.messages),
+        ...steps1.flatMap((step) => step.response.messages),
         {
           role: 'user' as const,
           content: 'Is that warm or cold?',
@@ -718,12 +719,13 @@ describe('Multi-Turn Conversations', () => {
 
       // Turn 2: Reference previous conversation - ask about the weather result
       // Preserve reasoning_details for Gemini multi-turn support
+      const steps1 = await result1.steps;
       const messagesForTurn2: Array<ModelMessage> = [
         {
           role: 'user' as const,
           content: 'What is the weather in Miami?',
         },
-        ...convertToModelMessages(response1.messages),
+        ...steps1.flatMap((step) => step.response.messages),
         {
           role: 'user' as const,
           content: 'Based on that weather, is it good for a beach day?',
