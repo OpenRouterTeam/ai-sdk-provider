@@ -141,5 +141,10 @@ monitor and detect abuse. Learn more.
       audio?: number | string;
       request?: number | string;
     };
+    /**
+     * Whether to restrict routing to only ZDR (Zero Data Retention) endpoints.
+     * When true, only endpoints that do not retain prompts will be used.
+     */
+    zdr?: boolean;
   };
 } & OpenRouterSharedSettings;
