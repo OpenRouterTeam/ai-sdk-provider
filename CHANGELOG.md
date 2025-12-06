@@ -1,5 +1,29 @@
 # @openrouter/ai-sdk-provider
 
+## 1.4.1
+
+### Patch Changes
+
+- [#279](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/279) [`922dc10`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/922dc1082c13b7c810f5adb2c7606868fa0cab84) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Add first-class embedding model support via OpenRouterEmbeddingModel -- Thanks @Loule95450 !
+
+- [#281](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/281) [`4294d67`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/4294d670486d6cf907de6a0cd79ed5866a189b37) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Add `engine` option to `web_search_options` for specifying search engine
+
+  Users can now specify which search engine to use for web search via `web_search_options.engine`:
+
+  - `"native"`: Use provider's built-in web search
+  - `"exa"`: Use Exa's search API
+  - `undefined`: Native if supported, otherwise Exa
+
+  Thanks to @xdagiz for identifying this missing option in #182.
+
+- [#280](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/280) [`f0d3bc9`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f0d3bc9b856889ae34fe0bfc54459d029004ebda) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Fix responseFormat and tools working together
+
+  Previously, when both `responseFormat` (with a JSON schema) and `tools` were provided to `doGenerate` or `doStream`, the tools would be silently ignored due to an early return in the `getArgs` method. Now both options work correctly together.
+
+  Thanks to @soksx for identifying and proposing the fix in #175.
+
+- [#170](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/170) [`261d44a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/261d44acca299f502f96ee616d654208c53f54a3) Thanks [@louisgv](https://github.com/louisgv)! - Add api_keys parameter for provider-specific API key injection via X-OpenRouter-API-Keys header
+
 ## 1.4.0
 
 ### Minor Changes
