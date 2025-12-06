@@ -36,8 +36,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "test": "node -r dotenv/config ./node_modules/.bin/vitest run",
-    "test:watch": "node -r dotenv/config ./node_modules/.bin/vitest",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
