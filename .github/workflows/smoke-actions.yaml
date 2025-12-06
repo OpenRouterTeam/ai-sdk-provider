@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       name:
-        description: Name to use in demo output
+        description: Name to use in example output
         required: false
         default: Smoke
   push:
-    branches: [main]
+    branches: [main, next]
     paths:
       - ".github/actions/**"
       - ".github/workflows/smoke-actions.yaml"
@@ -18,14 +18,19 @@ permissions:
 
 jobs:
   ui-demo:
-    name: UI Demo Job
+    name: UI Example Job
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-
-      - uses: ./.github/actions/actions/example
         with:
-          name: ${{ github.event.inputs.name || 'Smoke' }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/actions/setup
+
+      - name: Run ActionUI Example
+        shell: bash
+        run: bun run .github/actions/bin/ci.ts example
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_NAME: ${{ github.event.inputs.name || 'Smoke' }}
