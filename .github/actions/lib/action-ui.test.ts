@@ -9,8 +9,8 @@
 
 import { describe, it } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { expect } from 'vitest';
-import { ActionUI } from './action-ui.js';
+import { describe as vitestDescribe, expect, it as vitestIt } from 'vitest';
+import { ActionUI, toRelativePath } from './action-ui.js';
 import * as MockConsole from './mock-console.js';
 
 const TestLayers = Layer.mergeAll(MockConsole.layer, ActionUI.Mock);
@@ -183,5 +183,56 @@ describe('ActionUI', () => {
         process.env['PATH'] = originalPath;
       }).pipe(Effect.provide(TestLayers)),
     );
+  });
+});
+
+vitestDescribe('toRelativePath', () => {
+  const originalWorkspace = process.env['GITHUB_WORKSPACE'];
+  const originalCwd = process.cwd();
+
+  vitestIt('converts absolute path to relative using GITHUB_WORKSPACE', () => {
+    process.env['GITHUB_WORKSPACE'] = '/home/runner/work/repo/repo';
+    const result = toRelativePath('/home/runner/work/repo/repo/src/index.ts');
+    expect(result).toBe('src/index.ts');
+    // Cleanup
+    if (originalWorkspace === undefined) {
+      delete process.env['GITHUB_WORKSPACE'];
+    } else {
+      process.env['GITHUB_WORKSPACE'] = originalWorkspace;
+    }
+  });
+
+  vitestIt('converts absolute path to relative using cwd when GITHUB_WORKSPACE not set', () => {
+    delete process.env['GITHUB_WORKSPACE'];
+    const result = toRelativePath(`${originalCwd}/src/index.ts`);
+    expect(result).toBe('src/index.ts');
+    // Cleanup
+    if (originalWorkspace !== undefined) {
+      process.env['GITHUB_WORKSPACE'] = originalWorkspace;
+    }
+  });
+
+  vitestIt('returns path unchanged when not under workspace', () => {
+    process.env['GITHUB_WORKSPACE'] = '/home/runner/work/repo/repo';
+    const result = toRelativePath('/other/path/file.ts');
+    expect(result).toBe('/other/path/file.ts');
+    // Cleanup
+    if (originalWorkspace === undefined) {
+      delete process.env['GITHUB_WORKSPACE'];
+    } else {
+      process.env['GITHUB_WORKSPACE'] = originalWorkspace;
+    }
+  });
+
+  vitestIt('handles paths at the workspace root', () => {
+    process.env['GITHUB_WORKSPACE'] = '/home/runner/work/repo/repo';
+    const result = toRelativePath('/home/runner/work/repo/repo/file.ts');
+    expect(result).toBe('file.ts');
+    // Cleanup
+    if (originalWorkspace === undefined) {
+      delete process.env['GITHUB_WORKSPACE'];
+    } else {
+      process.env['GITHUB_WORKSPACE'] = originalWorkspace;
+    }
   });
 });

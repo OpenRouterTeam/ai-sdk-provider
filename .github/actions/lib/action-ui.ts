@@ -241,6 +241,25 @@ export const GitHubActionsLayer = Layer.mergeAll(ActionUI.Default, GitHubActions
 // ============================================================================
 
 /**
+ * Convert an absolute file path to a path relative to the repository root.
+ *
+ * In GitHub Actions, GITHUB_WORKSPACE is set to the repo root.
+ * For local development, falls back to process.cwd().
+ *
+ * @example
+ *   "/home/runner/work/repo/repo/src/index.ts" -> "src/index.ts"
+ */
+export const toRelativePath = (absolutePath: string): string => {
+  const workspace = process.env['GITHUB_WORKSPACE'] ?? process.cwd();
+  if (absolutePath.startsWith(workspace)) {
+    // Strip the workspace prefix and any leading slash
+    const relative = absolutePath.slice(workspace.length);
+    return relative.startsWith('/') ? relative.slice(1) : relative;
+  }
+  return absolutePath;
+};
+
+/**
  * Parse a stack trace line to extract file, line, and column info.
  * Handles both V8-style and Bun-style stack traces.
  *
@@ -255,7 +274,7 @@ const parseStackLine = (line: string) => {
   if (match) {
     const [, file, lineStr, colStr] = match;
     return {
-      file: file!,
+      file: toRelativePath(file!),
       line: Number.parseInt(lineStr!, 10),
       column: colStr ? Number.parseInt(colStr, 10) : undefined,
     };
