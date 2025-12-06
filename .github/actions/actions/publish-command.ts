@@ -9,10 +9,10 @@
  * - Post-mortem diagnostics on failure
  */
 
-import { Command } from '@effect/cli';
-import { ActionUI } from '@openrouter-monorepo/github-action-utils/action-ui';
-import { $, $sh } from '@openrouter-monorepo/github-action-utils/exec';
-import { Config, Console, Effect, Option } from 'effect';
+import { Command } from "@effect/cli";
+import { ActionUI } from "@openrouter-monorepo/github-action-utils/action-ui";
+import { $, $sh } from "@openrouter-monorepo/github-action-utils/exec";
+import { Config, Console, Effect, Option } from "effect";
 
 /**
  * OIDC Preflight - scrub .npmrc and verify registry
@@ -23,9 +23,9 @@ const oidcPreflight = Effect.gen(function* () {
   const ui = yield* ActionUI;
 
   yield* ui.group(
-    'OIDC Preflight',
+    "OIDC Preflight",
     Effect.gen(function* () {
-      yield* Console.log('=== OIDC Preflight ===');
+      yield* Console.log("=== OIDC Preflight ===");
 
       // Remove auth tokens from all potential .npmrc locations
       yield* $sh`
@@ -43,21 +43,24 @@ const oidcPreflight = Effect.gen(function* () {
       `;
 
       // Verify npm connectivity
-      yield* Console.log('Testing npm registry connectivity...');
+      yield* Console.log("Testing npm registry connectivity...");
       yield* $`npm ping`;
 
       // Verify no token is active (should fail for OIDC to work)
-      yield* Console.log('Verifying no auth token is configured...');
-      const whoamiResult = yield* $sh`npm whoami 2>/dev/null || echo "__OIDC_EXPECTED_FAIL__"`;
+      yield* Console.log("Verifying no auth token is configured...");
+      const whoamiResult =
+        yield* $sh`npm whoami 2>/dev/null || echo "__OIDC_EXPECTED_FAIL__"`;
 
-      if (whoamiResult.includes('__OIDC_EXPECTED_FAIL__')) {
-        yield* Console.log('✓ Confirmed: npm whoami failed (OIDC will be used)');
+      if (whoamiResult.includes("__OIDC_EXPECTED_FAIL__")) {
+        yield* Console.log(
+          "✓ Confirmed: npm whoami failed (OIDC will be used)",
+        );
       } else {
-        yield* ui.warning('npm whoami succeeded without OIDC token');
+        yield* ui.warning("npm whoami succeeded without OIDC token");
       }
 
-      yield* Console.log('');
-      yield* Console.log('Registry configuration:');
+      yield* Console.log("");
+      yield* Console.log("Registry configuration:");
       const registry = yield* $`npm config get registry`;
       yield* Console.log(`  registry: ${registry.trim()}`);
       const scopeRegistry =
@@ -69,27 +72,17 @@ const oidcPreflight = Effect.gen(function* () {
 
 /**
  * Publish packages using OIDC
- *
- * @param tag - Optional npm dist-tag (e.g., "next" for prerelease)
  */
-const publish = (tag: Option.Option<string>) =>
-  Effect.gen(function* () {
-    const ui = yield* ActionUI;
-
-    yield* ui.group(
-      'Publish with OIDC',
-      Effect.gen(function* () {
-        yield* Console.log('Publishing packages...');
-        if (Option.isSome(tag)) {
-          yield* Console.log(`Using npm dist-tag: ${tag.value}`);
-          yield* $sh`pnpm changeset publish --tag ${tag.value}`;
-        } else {
-          yield* $sh`pnpm changeset publish`;
-        }
-        yield* Console.log('✓ Publish completed successfully');
-      }),
-    );
-  });
+const publish = Effect.fn("publish")(function* (tag: Option.Option<string>) {
+  yield* Console.log("Publishing packages...");
+  if (Option.isSome(tag)) {
+    yield* Console.log(`Using npm dist-tag: ${tag.value}`);
+    yield* $sh`pnpm changeset publish --tag ${tag.value}`;
+  } else {
+    yield* $sh`pnpm changeset publish`;
+  }
+  yield* Console.log("✓ Publish completed successfully");
+}, ActionUI.group("Publish with OIDC"));
 
 /**
  * Post-mortem diagnostics (run on failure)
@@ -98,11 +91,11 @@ const postMortemDiagnostics = Effect.gen(function* () {
   const ui = yield* ActionUI;
 
   yield* ui.group(
-    'Post-mortem Diagnostics',
+    "Post-mortem Diagnostics",
     Effect.gen(function* () {
-      yield* Console.log('=== Post-mortem Diagnostics ===');
+      yield* Console.log("=== Post-mortem Diagnostics ===");
 
-      yield* Console.log('Versions:');
+      yield* Console.log("Versions:");
       const nodeVersion = yield* $`node --version`;
       const npmVersion = yield* $`npm --version`;
       const pnpmVersion = yield* $`pnpm --version`;
@@ -110,16 +103,16 @@ const postMortemDiagnostics = Effect.gen(function* () {
       yield* Console.log(`  npm: ${npmVersion.trim()}`);
       yield* Console.log(`  pnpm: ${pnpmVersion.trim()}`);
 
-      yield* Console.log('');
-      yield* Console.log('Registry configuration:');
+      yield* Console.log("");
+      yield* Console.log("Registry configuration:");
       const registry = yield* $`npm config get registry`;
       yield* Console.log(`  registry: ${registry.trim()}`);
       const scopeRegistry =
         yield* $sh`npm config get @openrouter:registry || echo "(inherited from global)"`;
       yield* Console.log(`  @openrouter scope: ${scopeRegistry.trim()}`);
 
-      yield* Console.log('');
-      yield* Console.log('.npmrc files status:');
+      yield* Console.log("");
+      yield* Console.log(".npmrc files status:");
       yield* $sh`
         for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
           if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
@@ -132,8 +125,8 @@ const postMortemDiagnostics = Effect.gen(function* () {
         done
       `;
 
-      yield* Console.log('');
-      yield* Console.log('Package availability:');
+      yield* Console.log("");
+      yield* Console.log("Package availability:");
       const pkgVersion =
         yield* $sh`npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "(could not fetch)"`;
       yield* Console.log(`  ${pkgVersion.trim()}`);
@@ -142,13 +135,13 @@ const postMortemDiagnostics = Effect.gen(function* () {
 });
 
 export default Command.make(
-  'publish',
+  "publish",
   {},
   Effect.fnUntraced(function* () {
-    yield* Console.log('Starting publish action...');
+    yield* Console.log("Starting publish action...");
 
     // Read optional npm dist-tag from INPUT_NPM_CHANNEL_TAG env var
-    const tag = yield* Config.string('NPM_CHANNEL_TAG').pipe(Config.option);
+    const tag = yield* Config.string("NPM_CHANNEL_TAG").pipe(Config.option);
 
     // Run OIDC preflight
     yield* oidcPreflight;
@@ -156,6 +149,6 @@ export default Command.make(
     // Publish with diagnostics on failure
     yield* publish(tag).pipe(Effect.tapError(() => postMortemDiagnostics));
 
-    yield* Console.log('Publish action completed successfully!');
+    yield* Console.log("Publish action completed successfully!");
   }),
 );
