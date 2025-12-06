@@ -34,6 +34,11 @@ Custom headers to include in the requests.
   readonly headers?: Record<string, string>;
 
   /**
+   * Record of provider slugs to API keys for injecting into provider routing.
+   */
+  readonly api_keys?: Record<string, string>;
+
+  /**
    * Creates a new OpenRouter provider instance.
    */
   constructor(options: OpenRouterProviderSettings = {}) {
@@ -42,6 +47,7 @@ Custom headers to include in the requests.
       'https://openrouter.ai/api/v1';
     this.apiKey = options.apiKey;
     this.headers = options.headers;
+    this.api_keys = options.api_keys;
   }
 
   private get baseConfig() {
@@ -54,6 +60,10 @@ Custom headers to include in the requests.
           description: 'OpenRouter',
         })}`,
         ...this.headers,
+        ...(this.api_keys &&
+          Object.keys(this.api_keys).length > 0 && {
+            'X-Provider-API-Keys': JSON.stringify(this.api_keys),
+          }),
       }),
     };
   }
