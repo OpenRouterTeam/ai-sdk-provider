@@ -1,0 +1,7 @@
+packages:
+  - "."
+  - ".github/actions"
+
+onlyBuiltDependencies:
+  - "@biomejs/biome"
+  - esbuild
