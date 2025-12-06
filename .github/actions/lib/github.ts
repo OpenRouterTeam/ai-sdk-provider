@@ -139,7 +139,7 @@ export class UnexpectedEvent extends Data.TaggedError('UnexpectedEvent')<{
     const expected = this.expectedEvents.join(', ');
     if (this.eventName === 'local') {
       return (
-        `Running locally without GitHub event context. ` +
+        'Running locally without GitHub event context. ' +
         `This action expects events: ${expected}.`
       );
     }
@@ -270,7 +270,22 @@ export interface GitHubService {
  * @since 0.0.1
  * @category services
  */
-export class GitHub extends Context.Tag('@openrouter/GitHub')<GitHub, GitHubService>() {}
+export class GitHub extends Context.Tag('@openrouter/GitHub')<GitHub, GitHubService>() {
+  /**
+   * Static event handler for use without service access.
+   *
+   * @example
+   * ```typescript
+   * const program = Effect.gen(function* () {
+   *   const event = yield* GitHub.whenEvent("push", "pull_request")
+   *   // event is TaggedEventPayload<"push" | "pull_request">
+   * })
+   * ```
+   */
+  static whenEvent<E extends Array<WebhookEventName>>(...events: E) {
+    return Effect.flatMap(GitHub, (gh) => gh.whenEvent(...events));
+  }
+}
 
 /**
  * Get token from GITHUB_TOKEN env var, falling back to `gh auth token` CLI
