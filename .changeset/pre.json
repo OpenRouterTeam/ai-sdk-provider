@@ -1,0 +1,8 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@openrouter/ai-provider": "2.0.0"
+  },
+  "changesets": []
+}
