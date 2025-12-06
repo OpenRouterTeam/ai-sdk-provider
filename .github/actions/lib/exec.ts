@@ -17,9 +17,9 @@
  *   const branch = 'feature-branch'
  *   yield* $`git checkout ${branch}`
  *
- *   // Capture output
+ *   // Capture output (automatically trimmed)
  *   const diff = yield* $`git diff --name-only origin/main`
- *   const files = diff.trim().split('\n')
+ *   const files = diff.split('\n')
  * })
  * ```
  *
@@ -118,6 +118,7 @@ export const $ = (strings: TemplateStringsArray, ...values: ReadonlyArray<unknow
     const ui = yield* Effect.serviceOption(ActionUI);
 
     const runCommand = Command.string(cmd).pipe(
+      Effect.map((output) => output.trim()),
       Effect.mapError((cause) => makeExecError(commandString, cause)),
     );
 
@@ -147,7 +148,7 @@ export const $lines = (strings: TemplateStringsArray, ...values: ReadonlyArray<u
     strings,
     ...values,
   ] as unknown as Parameters<typeof $>).pipe(
-    Effect.map((output) => output.trim().split('\n').filter(Boolean)),
+    Effect.map((output) => output.split('\n').filter(Boolean)),
   );
 };
 
@@ -204,6 +205,7 @@ export const $sh = (strings: TemplateStringsArray, ...values: ReadonlyArray<unkn
     const ui = yield* Effect.serviceOption(ActionUI);
 
     const runCommand = Command.string(cmd).pipe(
+      Effect.map((output) => output.trim()),
       Effect.mapError((cause) => makeExecError(commandString, cause)),
     );
 
