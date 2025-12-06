@@ -23,6 +23,15 @@ export default defineConfig(() => ({
     include: [
       './e2e/**/*.test.ts',
     ],
+    // Run e2e test files concurrently for faster CI
+    fileParallelism: true,
+    pool: 'threads',
+    poolOptions: {
+      threads: {
+        // Run tests within each file concurrently too
+        singleThread: false,
+      },
+    },
   },
   define: {
     __PACKAGE_VERSION__: JSON.stringify(packageJson.version),
