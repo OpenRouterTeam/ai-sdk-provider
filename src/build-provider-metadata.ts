@@ -1,12 +1,15 @@
 import type { JSONValue, SharedV2ProviderMetadata } from '@ai-sdk/provider';
 import type { OpenResponsesUsage } from '@openrouter/sdk/esm/models';
+
 import { pruneUndefined } from './utils';
 
 /**
  * Build usage metadata from OpenRouter response usage.
  * Transforms OpenRouter's usage format to the AI SDK's expected format.
  */
-export function buildUsageMetadata(usage?: OpenResponsesUsage): Record<string, JSONValue> | undefined {
+export function buildUsageMetadata(
+  usage?: OpenResponsesUsage,
+): Record<string, JSONValue> | undefined {
   if (!usage) {
     return undefined;
   }
@@ -44,12 +47,17 @@ export function buildUsageMetadata(usage?: OpenResponsesUsage): Record<string, J
  * Build provider metadata for AI SDK responses.
  * Includes model info, usage data, and reasoning details for multi-turn support.
  */
-export function buildProviderMetadata(
-  modelId: string | undefined,
-  usage?: OpenResponsesUsage,
-  output?: unknown[],
-  messageReasoningDetails?: JSONValue[],
-): SharedV2ProviderMetadata {
+export function buildProviderMetadata({
+  modelId,
+  usage,
+  output,
+  messageReasoningDetails,
+}: {
+  modelId: string | undefined;
+  usage?: OpenResponsesUsage;
+  output?: unknown[];
+  messageReasoningDetails?: JSONValue[];
+}): SharedV2ProviderMetadata {
   const providerRecord: Record<string, JSONValue> = {
     provider: modelId?.split('/')[0] || 'unknown',
   };

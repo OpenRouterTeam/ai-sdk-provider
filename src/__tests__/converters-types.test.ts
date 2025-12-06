@@ -5,16 +5,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertNever,
-  classifyFileData,
-  classifiedDataToUrl,
-  toolOutputToString,
-  isKnownToolOutputType,
   categorizeMediaType,
+  classifiedDataToUrl,
+  classifyFileData,
+  isKnownToolOutputType,
+  toolOutputToString,
 } from '../converters/types';
 
 describe('classifyFileData', () => {
   it('classifies Uint8Array as uint8array', () => {
-    const data = new Uint8Array([1, 2, 3]);
+    const data = new Uint8Array([
+      1,
+      2,
+      3,
+    ]);
     const result = classifyFileData(data);
     expect(result.kind).toBe('uint8array');
     expect(result.value).toBe(data);
@@ -61,64 +65,115 @@ describe('classifyFileData', () => {
 describe('classifiedDataToUrl', () => {
   it('returns URL string directly', () => {
     const result = classifiedDataToUrl(
-      { kind: 'url', value: 'https://example.com/img.png' },
+      {
+        kind: 'url',
+        value: 'https://example.com/img.png',
+      },
       'image/png',
     );
     expect(result).toBe('https://example.com/img.png');
   });
 
   it('converts base64 to data URL', () => {
-    const result = classifiedDataToUrl({ kind: 'base64', value: 'abc123' }, 'image/png');
+    const result = classifiedDataToUrl(
+      {
+        kind: 'base64',
+        value: 'abc123',
+      },
+      'image/png',
+    );
     expect(result).toBe('data:image/png;base64,abc123');
   });
 
   it('converts Uint8Array to data URL', () => {
-    const data = new Uint8Array([72, 101, 108, 108, 111]); // "Hello" in ASCII
-    const result = classifiedDataToUrl({ kind: 'uint8array', value: data }, 'text/plain');
+    const data = new Uint8Array([
+      72,
+      101,
+      108,
+      108,
+      111,
+    ]); // "Hello" in ASCII
+    const result = classifiedDataToUrl(
+      {
+        kind: 'uint8array',
+        value: data,
+      },
+      'text/plain',
+    );
     expect(result).toBe('data:text/plain;base64,SGVsbG8=');
   });
 
   it('returns null for unknown data', () => {
-    const result = classifiedDataToUrl({ kind: 'unknown', value: null }, 'image/png');
+    const result = classifiedDataToUrl(
+      {
+        kind: 'unknown',
+        value: null,
+      },
+      'image/png',
+    );
     expect(result).toBeNull();
   });
 
   it('handles empty media type', () => {
     // Empty string still produces valid data URL, just without a media type
-    const result = classifiedDataToUrl({ kind: 'base64', value: 'abc123' }, '');
+    const result = classifiedDataToUrl(
+      {
+        kind: 'base64',
+        value: 'abc123',
+      },
+      '',
+    );
     expect(result).toBe('data:;base64,abc123');
   });
 
   it('uses fallback for undefined-ish media type', () => {
     // Nullish coalescing applies default when mediaType is falsy but not empty string
-    const result = classifiedDataToUrl({ kind: 'base64', value: 'abc123' }, undefined as unknown as string);
+    const result = classifiedDataToUrl(
+      {
+        kind: 'base64',
+        value: 'abc123',
+      },
+      undefined as unknown as string,
+    );
     expect(result).toBe('data:application/octet-stream;base64,abc123');
   });
 });
 
 describe('toolOutputToString', () => {
   it('formats error-text with prefix', () => {
-    const result = toolOutputToString({ type: 'error-text', value: 'Something went wrong' });
+    const result = toolOutputToString({
+      type: 'error-text',
+      value: 'Something went wrong',
+    });
     expect(result).toBe('Error: Something went wrong');
   });
 
   it('formats error-json with prefix and JSON', () => {
     const result = toolOutputToString({
       type: 'error-json',
-      value: { code: 500, message: 'Server error' },
+      value: {
+        code: 500,
+        message: 'Server error',
+      },
     });
     expect(result).toBe('Error: {"code":500,"message":"Server error"}');
   });
 
   it('formats text directly', () => {
-    const result = toolOutputToString({ type: 'text', value: 'Hello world' });
+    const result = toolOutputToString({
+      type: 'text',
+      value: 'Hello world',
+    });
     expect(result).toBe('Hello world');
   });
 
   it('formats json as JSON string', () => {
     const result = toolOutputToString({
       type: 'json',
-      value: { name: 'John', age: 30 },
+      value: {
+        name: 'John',
+        age: 30,
+      },
     });
     expect(result).toBe('{"name":"John","age":30}');
   });
@@ -127,8 +182,14 @@ describe('toolOutputToString', () => {
     const result = toolOutputToString({
       type: 'content',
       value: [
-        { type: 'text', text: 'Line 1' },
-        { type: 'text', text: 'Line 2' },
+        {
+          type: 'text',
+          text: 'Line 1',
+        },
+        {
+          type: 'text',
+          text: 'Line 2',
+        },
       ],
     });
     expect(result).toBe('Line 1\nLine 2');
@@ -138,8 +199,14 @@ describe('toolOutputToString', () => {
     const result = toolOutputToString({
       type: 'content',
       value: [
-        { type: 'text', text: 'Here is an image:' },
-        { type: 'media', mediaType: 'image/png' },
+        {
+          type: 'text',
+          text: 'Here is an image:',
+        },
+        {
+          type: 'media',
+          mediaType: 'image/png',
+        },
       ],
     });
     expect(result).toBe('Here is an image:\n[Image: image/png]');
@@ -148,7 +215,9 @@ describe('toolOutputToString', () => {
   it('handles non-array content as JSON', () => {
     const result = toolOutputToString({
       type: 'content',
-      value: { unexpected: 'object' },
+      value: {
+        unexpected: 'object',
+      },
     });
     expect(result).toBe('{"unexpected":"object"}');
   });

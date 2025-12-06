@@ -4,8 +4,8 @@
  * Import this in both cli.ts and ci.ts to ensure consistent action registration.
  */
 
-import ExampleCommand from "./example-command.js";
-import PublishCommand from "./publish-command.js";
+import ExampleCommand from './example-command.js';
+import PublishCommand from './publish-command.js';
 
 export default [
   ExampleCommand,

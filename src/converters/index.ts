@@ -8,10 +8,7 @@
  * This module provides converters for both formats.
  */
 
-import type {
-  LanguageModelV2Message,
-  LanguageModelV2Prompt,
-} from '@ai-sdk/provider';
+import type { LanguageModelV2Message, LanguageModelV2Prompt } from '@ai-sdk/provider';
 import type {
   Message,
   OpenResponsesEasyInputMessage,
@@ -20,26 +17,33 @@ import type {
   OpenResponsesInput,
   ResponseInputText,
 } from '@openrouter/sdk/esm/models';
+import type { ResponsesContentItem } from './file-parts';
+import type { AssistantContentPart } from './message-parts';
+import type { ApiReasoningDetailItem } from './reasoning';
+import type { ToolOutputResult } from './types';
 
-import { type ResponsesContentItem } from './file-parts';
 import {
   buildResponsesContent,
   collapseChatContent,
   convertUserPart,
   createEmptyAssistantResult,
   processAssistantPart,
-  type AssistantContentPart,
 } from './message-parts';
-import { extractReasoningDetails, type ApiReasoningDetailItem } from './reasoning';
-import { assertNever, isKnownToolOutputType, toolOutputToString, type ToolOutputResult } from './types';
+import { extractReasoningDetails } from './reasoning';
+import { assertNever, isKnownToolOutputType, toolOutputToString } from './types';
 
+export type { ResponsesContentItem } from './file-parts';
+export type { ApiReasoningDetailItem } from './reasoning';
+export type { ClassifiedFileData, ToolOutputResult, ToolOutputType } from './types';
+
+export { convertFilePartToChatItem, convertFilePartToResponsesItem } from './file-parts';
+export {
+  extractReasoningDetails,
+  extractReasoningFromResponse,
+  transformReasoningToApiFormat,
+} from './reasoning';
 // Re-export types and utilities that consumers might need
 export { assertNever, classifyFileData, toolOutputToString } from './types';
-export type { ClassifiedFileData, ToolOutputResult, ToolOutputType } from './types';
-export { extractReasoningFromResponse, extractReasoningDetails, transformReasoningToApiFormat } from './reasoning';
-export type { ApiReasoningDetailItem } from './reasoning';
-export { convertFilePartToChatItem, convertFilePartToResponsesItem } from './file-parts';
-export type { ResponsesContentItem } from './file-parts';
 
 // =============================================================================
 // Message Role Type
@@ -55,7 +59,9 @@ type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
  * Convert user message to OpenRouter Chat API format.
  */
 function convertUserMessage(
-  message: LanguageModelV2Message & { role: 'user' },
+  message: LanguageModelV2Message & {
+    role: 'user';
+  },
 ): Message {
   if (typeof message.content === 'string') {
     return {
@@ -83,7 +89,9 @@ function convertUserMessage(
  * Convert assistant message to OpenRouter Chat API format.
  */
 function convertAssistantMessage(
-  message: LanguageModelV2Message & { role: 'assistant' },
+  message: LanguageModelV2Message & {
+    role: 'assistant';
+  },
 ): Message {
   const result = createEmptyAssistantResult();
 
@@ -103,7 +111,12 @@ function convertAssistantMessage(
     });
   }
 
-  const assistantMessage: Extract<Message, { role: 'assistant' }> = {
+  const assistantMessage: Extract<
+    Message,
+    {
+      role: 'assistant';
+    }
+  > = {
     role: 'assistant',
   };
 
@@ -129,14 +142,23 @@ function convertAssistantMessage(
  * Convert tool message to OpenRouter Chat API format.
  */
 function convertToolMessage(
-  message: LanguageModelV2Message & { role: 'tool' },
+  message: LanguageModelV2Message & {
+    role: 'tool';
+  },
 ): Message[] {
   return message.content
     .filter(
-      (part): part is typeof part & { type: 'tool-result' } => part.type === 'tool-result',
+      (
+        part,
+      ): part is typeof part & {
+        type: 'tool-result';
+      } => part.type === 'tool-result',
     )
     .map((part) => {
-      const output = part.output as { type: string; value: unknown };
+      const output = part.output as {
+        type: string;
+        value: unknown;
+      };
       const content = isKnownToolOutputType(output.type)
         ? toolOutputToString(output as ToolOutputResult)
         : JSON.stringify(output);
@@ -164,25 +186,41 @@ export function convertToOpenRouterMessages(prompt: LanguageModelV2Prompt): Mess
       case 'system':
         messages.push({
           role: 'system',
-          content: (message as LanguageModelV2Message & { role: 'system' }).content,
+          content: (
+            message as LanguageModelV2Message & {
+              role: 'system';
+            }
+          ).content,
         });
         break;
 
       case 'user':
         messages.push(
-          convertUserMessage(message as LanguageModelV2Message & { role: 'user' }),
+          convertUserMessage(
+            message as LanguageModelV2Message & {
+              role: 'user';
+            },
+          ),
         );
         break;
 
       case 'assistant':
         messages.push(
-          convertAssistantMessage(message as LanguageModelV2Message & { role: 'assistant' }),
+          convertAssistantMessage(
+            message as LanguageModelV2Message & {
+              role: 'assistant';
+            },
+          ),
         );
         break;
 
       case 'tool':
         messages.push(
-          ...convertToolMessage(message as LanguageModelV2Message & { role: 'tool' }),
+          ...convertToolMessage(
+            message as LanguageModelV2Message & {
+              role: 'tool';
+            },
+          ),
         );
         break;
 
@@ -202,7 +240,9 @@ export function convertToOpenRouterMessages(prompt: LanguageModelV2Prompt): Mess
  * Convert user message to Responses API format.
  */
 function convertUserToResponsesInput(
-  message: LanguageModelV2Message & { role: 'user' },
+  message: LanguageModelV2Message & {
+    role: 'user';
+  },
 ): OpenResponsesEasyInputMessage {
   if (typeof message.content === 'string') {
     return {
@@ -232,7 +272,9 @@ function convertUserToResponsesInput(
  * Convert assistant message to Responses API format.
  */
 function convertAssistantToResponsesInput(
-  message: LanguageModelV2Message & { role: 'assistant' },
+  message: LanguageModelV2Message & {
+    role: 'assistant';
+  },
 ): {
   assistantMessage: OpenResponsesEasyInputMessage;
   functionCalls: OpenResponsesFunctionToolCall[];
@@ -258,7 +300,9 @@ function convertAssistantToResponsesInput(
 
   // Append reasoning content to text if present
   if (result.reasoningContent) {
-    const lastTextItem = [...result.responsesContentItems]
+    const lastTextItem = [
+      ...result.responsesContentItems,
+    ]
       .reverse()
       .find((item): item is ResponseInputText => item.type === 'input_text');
 
@@ -291,14 +335,23 @@ function convertAssistantToResponsesInput(
  * Convert tool message to Responses API format.
  */
 function convertToolToResponsesInput(
-  message: LanguageModelV2Message & { role: 'tool' },
+  message: LanguageModelV2Message & {
+    role: 'tool';
+  },
 ): OpenResponsesFunctionCallOutput[] {
   return message.content
     .filter(
-      (part): part is typeof part & { type: 'tool-result' } => part.type === 'tool-result',
+      (
+        part,
+      ): part is typeof part & {
+        type: 'tool-result';
+      } => part.type === 'tool-result',
     )
     .map((part) => {
-      const output = part.output as { type: string; value: unknown };
+      const output = part.output as {
+        type: string;
+        value: unknown;
+      };
       const outputString = isKnownToolOutputType(output.type)
         ? toolOutputToString(output as ToolOutputResult)
         : JSON.stringify(output);
@@ -331,20 +384,30 @@ export function convertToResponsesInput(prompt: LanguageModelV2Prompt): OpenResp
         messages.push({
           type: 'message',
           role: 'system',
-          content: (message as LanguageModelV2Message & { role: 'system' }).content,
+          content: (
+            message as LanguageModelV2Message & {
+              role: 'system';
+            }
+          ).content,
         });
         break;
 
       case 'user':
         messages.push(
-          convertUserToResponsesInput(message as LanguageModelV2Message & { role: 'user' }),
+          convertUserToResponsesInput(
+            message as LanguageModelV2Message & {
+              role: 'user';
+            },
+          ),
         );
         break;
 
       case 'assistant': {
         const { assistantMessage, functionCalls, reasoningItems } =
           convertAssistantToResponsesInput(
-            message as LanguageModelV2Message & { role: 'assistant' },
+            message as LanguageModelV2Message & {
+              role: 'assistant';
+            },
           );
 
         // Map reasoning_details to their corresponding function calls by ID
@@ -404,7 +467,11 @@ export function convertToResponsesInput(prompt: LanguageModelV2Prompt): OpenResp
 
       case 'tool':
         messages.push(
-          ...convertToolToResponsesInput(message as LanguageModelV2Message & { role: 'tool' }),
+          ...convertToolToResponsesInput(
+            message as LanguageModelV2Message & {
+              role: 'tool';
+            },
+          ),
         );
         break;
 

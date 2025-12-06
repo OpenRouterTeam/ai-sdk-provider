@@ -25,16 +25,24 @@ describe('buildUsageMetadata', () => {
       inputTokens: 100,
       outputTokens: 50,
       totalTokens: 150,
-      inputTokensDetails: { cachedTokens: 20 },
-      outputTokensDetails: { reasoningTokens: 10 },
+      inputTokensDetails: {
+        cachedTokens: 20,
+      },
+      outputTokensDetails: {
+        reasoningTokens: 10,
+      },
     };
     const result = buildUsageMetadata(usage);
     expect(result).toEqual({
       promptTokens: 100,
       completionTokens: 50,
       totalTokens: 150,
-      promptTokensDetails: { cachedTokens: 20 },
-      completionTokensDetails: { reasoningTokens: 10 },
+      promptTokensDetails: {
+        cachedTokens: 20,
+      },
+      completionTokensDetails: {
+        reasoningTokens: 10,
+      },
     });
   });
 
@@ -92,7 +100,9 @@ describe('buildUsageMetadata', () => {
 
 describe('buildProviderMetadata', () => {
   it('extracts provider from modelId', () => {
-    const result = buildProviderMetadata('anthropic/claude-3-opus');
+    const result = buildProviderMetadata({
+      modelId: 'anthropic/claude-3-opus',
+    });
     expect(result.openrouter).toMatchObject({
       provider: 'anthropic',
       model_id: 'anthropic/claude-3-opus',
@@ -100,7 +110,9 @@ describe('buildProviderMetadata', () => {
   });
 
   it('uses "unknown" when modelId is undefined', () => {
-    const result = buildProviderMetadata(undefined);
+    const result = buildProviderMetadata({
+      modelId: undefined,
+    });
     expect(result.openrouter).toMatchObject({
       provider: 'unknown',
     });
@@ -113,7 +125,10 @@ describe('buildProviderMetadata', () => {
       outputTokens: 50,
       totalTokens: 150,
     };
-    const result = buildProviderMetadata('openai/gpt-4', usage);
+    const result = buildProviderMetadata({
+      modelId: 'openai/gpt-4',
+      usage,
+    });
     expect(result.openrouter).toHaveProperty('usage');
     expect((result.openrouter as Record<string, unknown>).usage).toEqual({
       promptTokens: 100,
@@ -124,53 +139,105 @@ describe('buildProviderMetadata', () => {
 
   it('includes reasoning_details from messageReasoningDetails', () => {
     const reasoningDetails = [
-      { type: 'reasoning', content: 'thinking...' },
+      {
+        type: 'reasoning',
+        content: 'thinking...',
+      },
     ];
-    const result = buildProviderMetadata('anthropic/claude-3-opus', undefined, undefined, reasoningDetails);
-    expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual(reasoningDetails);
+    const result = buildProviderMetadata({
+      modelId: 'anthropic/claude-3-opus',
+      messageReasoningDetails: reasoningDetails,
+    });
+    expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual(
+      reasoningDetails,
+    );
   });
 
   it('extracts reasoning_details from output when messageReasoningDetails is empty', () => {
     const output = [
       {
         type: 'message',
-        reasoning_details: [{ type: 'reasoning', content: 'from output' }],
+        reasoning_details: [
+          {
+            type: 'reasoning',
+            content: 'from output',
+          },
+        ],
       },
     ];
-    const result = buildProviderMetadata('anthropic/claude-3-opus', undefined, output, []);
+    const result = buildProviderMetadata({
+      modelId: 'anthropic/claude-3-opus',
+      output,
+      messageReasoningDetails: [],
+    });
     expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual([
-      { type: 'reasoning', content: 'from output' },
+      {
+        type: 'reasoning',
+        content: 'from output',
+      },
     ]);
   });
 
   it('prefers messageReasoningDetails over output extraction', () => {
-    const messageReasoningDetails = [{ type: 'reasoning', content: 'from message' }];
+    const messageReasoningDetails = [
+      {
+        type: 'reasoning',
+        content: 'from message',
+      },
+    ];
     const output = [
       {
         type: 'message',
-        reasoning_details: [{ type: 'reasoning', content: 'from output' }],
+        reasoning_details: [
+          {
+            type: 'reasoning',
+            content: 'from output',
+          },
+        ],
       },
     ];
-    const result = buildProviderMetadata('anthropic/claude-3-opus', undefined, output, messageReasoningDetails);
-    expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual(messageReasoningDetails);
+    const result = buildProviderMetadata({
+      modelId: 'anthropic/claude-3-opus',
+      output,
+      messageReasoningDetails,
+    });
+    expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual(
+      messageReasoningDetails,
+    );
   });
 
   it('does not include reasoning_details when not available', () => {
-    const result = buildProviderMetadata('openai/gpt-4');
+    const result = buildProviderMetadata({
+      modelId: 'openai/gpt-4',
+    });
     expect(result.openrouter).not.toHaveProperty('reasoning_details');
   });
 
   it('skips non-message output items when extracting reasoning_details', () => {
     const output = [
-      { type: 'other', data: 'something' },
+      {
+        type: 'other',
+        data: 'something',
+      },
       {
         type: 'message',
-        reasoning_details: [{ type: 'reasoning', content: 'found it' }],
+        reasoning_details: [
+          {
+            type: 'reasoning',
+            content: 'found it',
+          },
+        ],
       },
     ];
-    const result = buildProviderMetadata('anthropic/claude-3-opus', undefined, output);
+    const result = buildProviderMetadata({
+      modelId: 'anthropic/claude-3-opus',
+      output,
+    });
     expect((result.openrouter as Record<string, unknown>).reasoning_details).toEqual([
-      { type: 'reasoning', content: 'found it' },
+      {
+        type: 'reasoning',
+        content: 'found it',
+      },
     ]);
   });
 });

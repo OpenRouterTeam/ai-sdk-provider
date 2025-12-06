@@ -10,7 +10,10 @@ describe('pruneUndefined', () => {
       d: undefined,
     };
     const result = pruneUndefined(input);
-    expect(result).toEqual({ a: 'value', c: 123 });
+    expect(result).toEqual({
+      a: 'value',
+      c: 123,
+    });
   });
 
   it('returns empty object when all values are undefined', () => {
@@ -39,7 +42,10 @@ describe('pruneUndefined', () => {
       c: 'value',
     };
     const result = pruneUndefined(input);
-    expect(result).toEqual({ a: null, c: 'value' });
+    expect(result).toEqual({
+      a: null,
+      c: 'value',
+    });
   });
 
   it('preserves falsy values that are not undefined', () => {
@@ -50,7 +56,11 @@ describe('pruneUndefined', () => {
       d: undefined,
     };
     const result = pruneUndefined(input);
-    expect(result).toEqual({ a: 0, b: '', c: false });
+    expect(result).toEqual({
+      a: 0,
+      b: '',
+      c: false,
+    });
   });
 });
 
@@ -62,7 +72,10 @@ describe('filterDefined', () => {
       topP: 0.9,
     };
     const result = filterDefined(input);
-    expect(result).toEqual({ temperature: 0.7, topP: 0.9 });
+    expect(result).toEqual({
+      temperature: 0.7,
+      topP: 0.9,
+    });
   });
 
   it('returns empty object when all values are undefined', () => {
@@ -89,7 +102,9 @@ describe('filterDefined', () => {
       b: undefined,
     };
     const result = filterDefined(input);
-    expect(result).toEqual({ a: null });
+    expect(result).toEqual({
+      a: null,
+    });
   });
 
   it('preserves zero and empty string', () => {
@@ -99,6 +114,9 @@ describe('filterDefined', () => {
       missing: undefined,
     };
     const result = filterDefined(input);
-    expect(result).toEqual({ count: 0, name: '' });
+    expect(result).toEqual({
+      count: 0,
+      name: '',
+    });
   });
 });

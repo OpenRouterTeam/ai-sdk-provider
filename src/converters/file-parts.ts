@@ -12,14 +12,9 @@ import type {
   ResponseInputImage,
   ResponseInputText,
 } from '@openrouter/sdk/esm/models';
+import type { ClassifiedFileData } from './types';
 
-import {
-  assertNever,
-  categorizeMediaType,
-  classifiedDataToUrl,
-  classifyFileData,
-  type ClassifiedFileData,
-} from './types';
+import { assertNever, categorizeMediaType, classifiedDataToUrl, classifyFileData } from './types';
 
 // =============================================================================
 // Type Definitions

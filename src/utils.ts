@@ -15,7 +15,5 @@ export function pruneUndefined(value: Record<string, unknown>): Record<string, J
  * Returns a partial object containing only the defined properties.
  */
 export function filterDefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined),
-  ) as Partial<T>;
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }

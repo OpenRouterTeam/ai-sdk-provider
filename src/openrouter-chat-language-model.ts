@@ -10,13 +10,13 @@ import type {
   LanguageModelV2Usage,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
+import type { CallModelTools } from '@openrouter/sdk/esm/funcs/callModel';
 import type { OpenResponsesRequest } from '@openrouter/sdk/esm/models';
 
 import { OpenRouter } from '@openrouter/sdk';
 import { buildProviderMetadata } from './build-provider-metadata';
 import { convertToResponsesInput } from './convert-to-openrouter-messages';
 import { filterDefined } from './utils';
-import type { CallModelTools } from '@openrouter/sdk/esm/funcs/callModel';
 
 /**
  * Model configuration (internal)
@@ -169,27 +169,35 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     };
 
     // Assign options that are defined at call time (filtering out undefined values)
-    Object.assign(args, filterDefined({
-      temperature: options.temperature,
-      maxOutputTokens: options.maxOutputTokens,
-      topP: options.topP,
-      topK: options.topK,
-      frequencyPenalty: options.frequencyPenalty,
-      presencePenalty: options.presencePenalty,
-      stop: options.stopSequences?.length ? options.stopSequences : undefined,
-      seed: options.seed,
-      user: (options.providerOptions?.openrouter as Record<string, unknown>)?.user as string | undefined,
-    }));
+    Object.assign(
+      args,
+      filterDefined({
+        temperature: options.temperature,
+        maxOutputTokens: options.maxOutputTokens,
+        topP: options.topP,
+        topK: options.topK,
+        frequencyPenalty: options.frequencyPenalty,
+        presencePenalty: options.presencePenalty,
+        stop: options.stopSequences?.length ? options.stopSequences : undefined,
+        seed: options.seed,
+        user: (options.providerOptions?.openrouter as Record<string, unknown>)?.user as
+          | string
+          | undefined,
+      }),
+    );
 
     // Assign settings that are defined in the model configuration.
-    Object.assign(args, filterDefined({
-      transforms: this.settings.transforms,
-      models: this.settings.models,
-      route: this.settings.route,
-      provider: this.settings.provider,
-      plugins: this.settings.plugins,
-      usage: this.settings.usage,
-    }));
+    Object.assign(
+      args,
+      filterDefined({
+        transforms: this.settings.transforms,
+        models: this.settings.models,
+        route: this.settings.route,
+        provider: this.settings.provider,
+        plugins: this.settings.plugins,
+        usage: this.settings.usage,
+      }),
+    );
 
     // Enable JSON mode when structured outputs are requested.
     // OpenRouter normalizes response_format across providers - json_object tells
@@ -224,7 +232,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
       args.tools = toolDefinitions as NonNullable<typeof args.tools>;
 
-
       if (options.toolChoice?.type === 'tool') {
         args.toolChoice = {
           type: 'function',
@@ -233,7 +240,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       } else {
         args.toolChoice = options.toolChoice?.type;
       }
-
     }
 
     const providerOptions = {
@@ -399,12 +405,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       response: {
         body: fullResponse,
       },
-      providerMetadata: buildProviderMetadata(
-        fullResponse.model,
-        responseUsage,
-        fullResponse.output,
-        reasoningDetails,
-      ),
+      providerMetadata: buildProviderMetadata({
+        modelId: fullResponse.model,
+        usage: responseUsage,
+        output: fullResponse.output,
+        messageReasoningDetails: reasoningDetails,
+      }),
     };
   }
 
@@ -413,7 +419,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     warnings: LanguageModelV2CallWarning[];
   }> {
     const { args, warnings } = this.getArgs(options);
-    console.log('Args:', JSON.stringify(args, null, 2));
     const responseWrapper = this.client.callModel(args);
 
     const generateId = this.config.generateId;
@@ -600,12 +605,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             type: 'finish',
             finishReason,
             usage,
-            providerMetadata: buildProviderMetadata(
-              fullResponse.model,
-              responseUsage,
-              fullResponse.output,
-              reasoningDetails,
-            ),
+            providerMetadata: buildProviderMetadata({
+              modelId: fullResponse.model,
+              usage: responseUsage,
+              output: fullResponse.output,
+              messageReasoningDetails: reasoningDetails,
+            }),
           });
 
           controller.close();

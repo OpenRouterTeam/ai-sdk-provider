@@ -176,7 +176,13 @@ export interface ToolOutputResult {
 }
 
 export function isKnownToolOutputType(type: string): type is ToolOutputType {
-  return ['error-text', 'error-json', 'text', 'json', 'content'].includes(type);
+  return [
+    'error-text',
+    'error-json',
+    'text',
+    'json',
+    'content',
+  ].includes(type);
 }
 
 /**

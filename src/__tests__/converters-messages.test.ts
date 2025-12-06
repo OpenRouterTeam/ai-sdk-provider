@@ -2,31 +2,51 @@
  * Unit tests for message conversion functions.
  */
 
-import { describe, expect, it } from 'vitest';
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+
+import { describe, expect, it } from 'vitest';
 import { convertToOpenRouterMessages, convertToResponsesInput } from '../converters';
 
 describe('convertToOpenRouterMessages', () => {
   it('converts system message', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'system', content: 'You are a helpful assistant.' },
+      {
+        role: 'system',
+        content: 'You are a helpful assistant.',
+      },
     ];
 
     const result = convertToOpenRouterMessages(prompt);
 
     expect(result).toEqual([
-      { role: 'system', content: 'You are a helpful assistant.' },
+      {
+        role: 'system',
+        content: 'You are a helpful assistant.',
+      },
     ]);
   });
 
   it('converts simple user message', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'user', content: [{ type: 'text', text: 'Hello!' }] },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello!',
+          },
+        ],
+      },
     ];
 
     const result = convertToOpenRouterMessages(prompt);
 
-    expect(result).toEqual([{ role: 'user', content: 'Hello!' }]);
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: 'Hello!',
+      },
+    ]);
   });
 
   it('converts user message with multiple text parts', () => {
@@ -34,8 +54,14 @@ describe('convertToOpenRouterMessages', () => {
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'First part. ' },
-          { type: 'text', text: 'Second part.' },
+          {
+            type: 'text',
+            text: 'First part. ',
+          },
+          {
+            type: 'text',
+            text: 'Second part.',
+          },
         ],
       },
     ];
@@ -46,8 +72,14 @@ describe('convertToOpenRouterMessages', () => {
       {
         role: 'user',
         content: [
-          { type: 'text', text: 'First part. ' },
-          { type: 'text', text: 'Second part.' },
+          {
+            type: 'text',
+            text: 'First part. ',
+          },
+          {
+            type: 'text',
+            text: 'Second part.',
+          },
         ],
       },
     ]);
@@ -55,12 +87,25 @@ describe('convertToOpenRouterMessages', () => {
 
   it('converts simple assistant message', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'assistant', content: [{ type: 'text', text: 'Hello there!' }] },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello there!',
+          },
+        ],
+      },
     ];
 
     const result = convertToOpenRouterMessages(prompt);
 
-    expect(result).toEqual([{ role: 'assistant', content: 'Hello there!' }]);
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Hello there!',
+      },
+    ]);
   });
 
   it('converts assistant message with reasoning', () => {
@@ -68,8 +113,14 @@ describe('convertToOpenRouterMessages', () => {
       {
         role: 'assistant',
         content: [
-          { type: 'reasoning', text: 'Let me think about this...' },
-          { type: 'text', text: 'The answer is 42.' },
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+          },
+          {
+            type: 'text',
+            text: 'The answer is 42.',
+          },
         ],
       },
     ];
@@ -94,7 +145,9 @@ describe('convertToOpenRouterMessages', () => {
             type: 'tool-call',
             toolCallId: 'call_123',
             toolName: 'get_weather',
-            input: { city: 'London' },
+            input: {
+              city: 'London',
+            },
           },
         ],
       },
@@ -128,7 +181,13 @@ describe('convertToOpenRouterMessages', () => {
             type: 'tool-result',
             toolCallId: 'call_123',
             toolName: 'get_weather',
-            output: { type: 'json', value: { temp: 20, unit: 'C' } },
+            output: {
+              type: 'json',
+              value: {
+                temp: 20,
+                unit: 'C',
+              },
+            },
           },
         ],
       },
@@ -147,43 +206,103 @@ describe('convertToOpenRouterMessages', () => {
 
   it('converts multi-turn conversation', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'system', content: 'You are helpful.' },
-      { role: 'user', content: [{ type: 'text', text: 'Hi' }] },
-      { role: 'assistant', content: [{ type: 'text', text: 'Hello!' }] },
-      { role: 'user', content: [{ type: 'text', text: 'How are you?' }] },
+      {
+        role: 'system',
+        content: 'You are helpful.',
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hi',
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello!',
+          },
+        ],
+      },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'How are you?',
+          },
+        ],
+      },
     ];
 
     const result = convertToOpenRouterMessages(prompt);
 
     expect(result).toHaveLength(4);
-    expect(result[0]).toEqual({ role: 'system', content: 'You are helpful.' });
-    expect(result[1]).toEqual({ role: 'user', content: 'Hi' });
-    expect(result[2]).toEqual({ role: 'assistant', content: 'Hello!' });
-    expect(result[3]).toEqual({ role: 'user', content: 'How are you?' });
+    expect(result[0]).toEqual({
+      role: 'system',
+      content: 'You are helpful.',
+    });
+    expect(result[1]).toEqual({
+      role: 'user',
+      content: 'Hi',
+    });
+    expect(result[2]).toEqual({
+      role: 'assistant',
+      content: 'Hello!',
+    });
+    expect(result[3]).toEqual({
+      role: 'user',
+      content: 'How are you?',
+    });
   });
 });
 
 describe('convertToResponsesInput', () => {
   it('converts system message', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'system', content: 'You are a helpful assistant.' },
+      {
+        role: 'system',
+        content: 'You are a helpful assistant.',
+      },
     ];
 
     const result = convertToResponsesInput(prompt);
 
     expect(result).toEqual([
-      { type: 'message', role: 'system', content: 'You are a helpful assistant.' },
+      {
+        type: 'message',
+        role: 'system',
+        content: 'You are a helpful assistant.',
+      },
     ]);
   });
 
   it('converts simple user message', () => {
     const prompt: LanguageModelV2Prompt = [
-      { role: 'user', content: [{ type: 'text', text: 'Hello!' }] },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Hello!',
+          },
+        ],
+      },
     ];
 
     const result = convertToResponsesInput(prompt);
 
-    expect(result).toEqual([{ type: 'message', role: 'user', content: 'Hello!' }]);
+    expect(result).toEqual([
+      {
+        type: 'message',
+        role: 'user',
+        content: 'Hello!',
+      },
+    ]);
   });
 
   it('converts assistant message with function calls', () => {
@@ -191,12 +310,17 @@ describe('convertToResponsesInput', () => {
       {
         role: 'assistant',
         content: [
-          { type: 'text', text: 'Let me check the weather.' },
+          {
+            type: 'text',
+            text: 'Let me check the weather.',
+          },
           {
             type: 'tool-call',
             toolCallId: 'call_123',
             toolName: 'get_weather',
-            input: { city: 'London' },
+            input: {
+              city: 'London',
+            },
           },
         ],
       },
@@ -228,7 +352,10 @@ describe('convertToResponsesInput', () => {
             type: 'tool-result',
             toolCallId: 'call_123',
             toolName: 'get_weather',
-            output: { type: 'text', value: 'Sunny, 20°C' },
+            output: {
+              type: 'text',
+              value: 'Sunny, 20°C',
+            },
           },
         ],
       },
@@ -256,7 +383,10 @@ describe('convertToResponsesInput', () => {
             type: 'tool-result',
             toolCallId: 'call_456',
             toolName: 'get_data',
-            output: { type: 'error-text', value: 'Network error' },
+            output: {
+              type: 'error-text',
+              value: 'Network error',
+            },
           },
         ],
       },

@@ -18,13 +18,11 @@ import type {
   OpenResponsesReasoning,
   ResponseInputText,
 } from '@openrouter/sdk/esm/models';
+import type { ResponsesContentItem } from './file-parts';
+import type { ApiReasoningDetailItem } from './reasoning';
 
-import {
-  convertFilePartToChatItem,
-  convertFilePartToResponsesItem,
-  type ResponsesContentItem,
-} from './file-parts';
-import { transformReasoningToApiFormat, type ApiReasoningDetailItem } from './reasoning';
+import { convertFilePartToChatItem, convertFilePartToResponsesItem } from './file-parts';
+import { transformReasoningToApiFormat } from './reasoning';
 import { assertNever } from './types';
 
 // =============================================================================
@@ -45,15 +43,23 @@ export interface ConvertedUserPart {
 function convertUserTextPart(part: LanguageModelV2TextPart): ConvertedUserPart {
   // Extract cache_control from provider options for prompt caching
   const providerOpts = part.providerOptions as
-    | { openrouter?: { cache_control?: unknown } }
+    | {
+        openrouter?: {
+          cache_control?: unknown;
+        };
+      }
     | undefined;
   const cacheControl = providerOpts?.openrouter?.cache_control;
 
-  const chatItem: ChatMessageContentItem & { cache_control?: unknown } = {
+  const chatItem: ChatMessageContentItem & {
+    cache_control?: unknown;
+  } = {
     type: 'text',
     text: part.text,
   };
-  const responsesItem: ResponseInputText & { cache_control?: unknown } = {
+  const responsesItem: ResponseInputText & {
+    cache_control?: unknown;
+  } = {
     type: 'input_text',
     text: part.text,
   };
@@ -63,13 +69,19 @@ function convertUserTextPart(part: LanguageModelV2TextPart): ConvertedUserPart {
     responsesItem.cache_control = cacheControl;
   }
 
-  return { chatItem, responsesItem };
+  return {
+    chatItem,
+    responsesItem,
+  };
 }
 
 function convertUserFilePart(part: LanguageModelV2FilePart): ConvertedUserPart {
   const chatItem = convertFilePartToChatItem(part);
   const responsesItem = convertFilePartToResponsesItem(part);
-  return { chatItem, responsesItem };
+  return {
+    chatItem,
+    responsesItem,
+  };
 }
 
 /**
@@ -86,7 +98,13 @@ export function convertUserPart(part: UserContentPart): ConvertedUserPart {
     default:
       return assertNever(
         part,
-        `Unsupported user message part type: ${(part as { type: string }).type}`,
+        `Unsupported user message part type: ${
+          (
+            part as {
+              type: string;
+            }
+          ).type
+        }`,
       );
   }
 }
@@ -157,9 +175,21 @@ function processAssistantToolCallPart(
 
   // Extract reasoning details from tool call part for Responses API
   const partWithMeta = part as LanguageModelV2ToolCallPart & {
-    providerOptions?: { openrouter?: { reasoning_details?: OpenResponsesReasoning[] } };
-    providerMetadata?: { openrouter?: { reasoning_details?: OpenResponsesReasoning[] } };
-    experimental_providerMetadata?: { openrouter?: { reasoning_details?: OpenResponsesReasoning[] } };
+    providerOptions?: {
+      openrouter?: {
+        reasoning_details?: OpenResponsesReasoning[];
+      };
+    };
+    providerMetadata?: {
+      openrouter?: {
+        reasoning_details?: OpenResponsesReasoning[];
+      };
+    };
+    experimental_providerMetadata?: {
+      openrouter?: {
+        reasoning_details?: OpenResponsesReasoning[];
+      };
+    };
   };
 
   const sdkReasoningDetails =
@@ -271,7 +301,9 @@ export function buildResponsesContent(
 
   // Only collapse to string if single text item without extra properties
   if (items.length === 1 && items[0].type === 'input_text') {
-    const item = items[0] as ResponseInputText & { cache_control?: unknown };
+    const item = items[0] as ResponseInputText & {
+      cache_control?: unknown;
+    };
     if (!item.cache_control) {
       return item.text;
     }

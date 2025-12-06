@@ -10,10 +10,7 @@
  * and the API format (required for sending back to OpenRouter).
  */
 
-import type {
-  LanguageModelV2Message,
-  LanguageModelV2ReasoningPart,
-} from '@ai-sdk/provider';
+import type { LanguageModelV2Message, LanguageModelV2ReasoningPart } from '@ai-sdk/provider';
 import type { OpenResponsesReasoning } from '@openrouter/sdk/esm/models';
 
 // =============================================================================
@@ -128,7 +125,9 @@ export function transformReasoningToApiFormat(
  * We also check reasoning content parts for attached metadata.
  */
 export function extractReasoningDetails(
-  message: LanguageModelV2Message & { role: 'assistant' },
+  message: LanguageModelV2Message & {
+    role: 'assistant';
+  },
 ): ApiReasoningDetailItem[] {
   type OpenRouterMeta = {
     reasoning_details?: OpenResponsesReasoning[];
@@ -137,9 +136,15 @@ export function extractReasoningDetails(
   // Check multiple locations for reasoning_details
   const messageWithMeta = message as LanguageModelV2Message & {
     role: 'assistant';
-    providerOptions?: { openrouter?: OpenRouterMeta };
-    providerMetadata?: { openrouter?: OpenRouterMeta };
-    experimental_providerMetadata?: { openrouter?: OpenRouterMeta };
+    providerOptions?: {
+      openrouter?: OpenRouterMeta;
+    };
+    providerMetadata?: {
+      openrouter?: OpenRouterMeta;
+    };
+    experimental_providerMetadata?: {
+      openrouter?: OpenRouterMeta;
+    };
   };
 
   let sdkReasoningDetails: OpenResponsesReasoning[] | undefined =
@@ -152,8 +157,12 @@ export function extractReasoningDetails(
     for (const part of message.content) {
       if (part.type === 'reasoning') {
         const partWithMeta = part as LanguageModelV2ReasoningPart & {
-          providerOptions?: { openrouter?: OpenRouterMeta };
-          providerMetadata?: { openrouter?: OpenRouterMeta };
+          providerOptions?: {
+            openrouter?: OpenRouterMeta;
+          };
+          providerMetadata?: {
+            openrouter?: OpenRouterMeta;
+          };
         };
 
         sdkReasoningDetails =
@@ -177,7 +186,9 @@ export function extractReasoningDetails(
 export function extractReasoningFromResponse(message: {
   content?: string;
   reasoning_content?: string;
-  reasoning_details?: { content?: string };
+  reasoning_details?: {
+    content?: string;
+  };
 }): {
   content: string;
   reasoningContent?: string;
@@ -186,6 +197,8 @@ export function extractReasoningFromResponse(message: {
 
   return {
     content: message.content ?? '',
-    ...(reasoningContent && { reasoningContent }),
+    ...(reasoningContent && {
+      reasoningContent,
+    }),
   };
 }

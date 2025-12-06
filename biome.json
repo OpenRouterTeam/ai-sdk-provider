@@ -29,7 +29,11 @@
       "!**/.next",
       "!!**/biome.json",
       "!sdks/python",
-      "!sdks/typescript"
+      "!sdks/typescript",
+      "!!**/node_modules",
+      "!!**/.refs",
+      "!!**/dist",
+      "!!**/.pnpm-store"
     ]
   },
   "formatter": {

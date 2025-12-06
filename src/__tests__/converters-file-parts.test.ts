@@ -2,9 +2,13 @@
  * Unit tests for file part converters.
  */
 
-import { describe, expect, it } from 'vitest';
 import type { LanguageModelV2FilePart } from '@ai-sdk/provider';
-import { convertFilePartToChatItem, convertFilePartToResponsesItem } from '../converters/file-parts';
+
+import { describe, expect, it } from 'vitest';
+import {
+  convertFilePartToChatItem,
+  convertFilePartToResponsesItem,
+} from '../converters/file-parts';
 
 describe('convertFilePartToChatItem', () => {
   describe('image files', () => {
@@ -45,7 +49,12 @@ describe('convertFilePartToChatItem', () => {
     });
 
     it('converts Uint8Array image to data URL', () => {
-      const imageData = new Uint8Array([0x89, 0x50, 0x4e, 0x47]); // PNG magic bytes
+      const imageData = new Uint8Array([
+        0x89,
+        0x50,
+        0x4e,
+        0x47,
+      ]); // PNG magic bytes
       const part: LanguageModelV2FilePart = {
         type: 'file',
         mediaType: 'image/png',
@@ -85,7 +94,12 @@ describe('convertFilePartToChatItem', () => {
     });
 
     it('converts Uint8Array PDF to file content', () => {
-      const pdfData = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // %PDF
+      const pdfData = new Uint8Array([
+        0x25,
+        0x50,
+        0x44,
+        0x46,
+      ]); // %PDF
       const part: LanguageModelV2FilePart = {
         type: 'file',
         mediaType: 'application/pdf',
@@ -193,7 +207,13 @@ describe('convertFilePartToResponsesItem', () => {
     });
 
     it('converts Uint8Array file to input_file with fileData', () => {
-      const fileData = new Uint8Array([1, 2, 3, 4, 5]);
+      const fileData = new Uint8Array([
+        1,
+        2,
+        3,
+        4,
+        5,
+      ]);
       const part: LanguageModelV2FilePart = {
         type: 'file',
         mediaType: 'application/octet-stream',

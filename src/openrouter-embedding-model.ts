@@ -74,9 +74,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
     return {
       // SDK returns embedding as Array<number> | string, we need Array<number>
       embeddings: data.data.map((item) =>
-        typeof item.embedding === 'string'
-          ? JSON.parse(item.embedding)
-          : item.embedding,
+        typeof item.embedding === 'string' ? JSON.parse(item.embedding) : item.embedding,
       ),
       usage: data.usage
         ? {

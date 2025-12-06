@@ -9,7 +9,7 @@
 
 import { describe, it } from '@effect/vitest';
 import { Effect, Layer } from 'effect';
-import { describe as vitestDescribe, expect, it as vitestIt } from 'vitest';
+import { expect, describe as vitestDescribe, it as vitestIt } from 'vitest';
 import { ActionUI, toRelativePath } from './action-ui.js';
 import * as MockConsole from './mock-console.js';
 

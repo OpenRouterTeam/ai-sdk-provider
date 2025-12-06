@@ -25,7 +25,7 @@ import actions from '../actions/index.js';
 import pkg from '../package.json';
 
 // Root command with subcommands for each action
-const command = Command.make(`pnpm --filter @openrouter-monorepo/github-action-utils act:ci`).pipe(
+const command = Command.make('pnpm --filter @openrouter-monorepo/github-action-utils act:ci').pipe(
   Command.withSubcommands(actions),
 );
 

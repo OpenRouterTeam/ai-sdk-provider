@@ -11,32 +11,29 @@
  * @see ./converters/reasoning.ts for reasoning extraction
  */
 
+// Re-export types
+export type {
+  ApiReasoningDetailItem,
+  ClassifiedFileData,
+  ResponsesContentItem,
+  ToolOutputResult,
+  ToolOutputType,
+} from './converters';
+
 // Re-export all public APIs from converters module
 export {
-  // Main conversion functions
-  convertToOpenRouterMessages,
-  convertToResponsesInput,
-
   // Type utilities
   assertNever,
   classifyFileData,
-  toolOutputToString,
-
-  // Reasoning utilities
-  extractReasoningFromResponse,
-  extractReasoningDetails,
-  transformReasoningToApiFormat,
-
   // File part converters
   convertFilePartToChatItem,
   convertFilePartToResponsesItem,
-} from './converters';
-
-// Re-export types
-export type {
-  ClassifiedFileData,
-  ToolOutputResult,
-  ToolOutputType,
-  ApiReasoningDetailItem,
-  ResponsesContentItem,
+  // Main conversion functions
+  convertToOpenRouterMessages,
+  convertToResponsesInput,
+  extractReasoningDetails,
+  // Reasoning utilities
+  extractReasoningFromResponse,
+  toolOutputToString,
+  transformReasoningToApiFormat,
 } from './converters';
