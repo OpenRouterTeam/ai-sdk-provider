@@ -12,7 +12,7 @@ vi.setConfig({
 test('sending pdf base64 blob', async () => {
   const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    baseURL: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
   const model = openrouter('anthropic/claude-4.5-sonnet', {
@@ -66,7 +66,7 @@ test('sending pdf base64 blob', async () => {
 test('sending large pdf base64 blob with FileParserPlugin', async () => {
   const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    baseURL: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
   const model = openrouter('anthropic/claude-3.5-sonnet', {
