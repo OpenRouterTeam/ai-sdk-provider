@@ -79,6 +79,14 @@ monitor and detect abuse. Learn more.
      * Custom search prompt to guide the search query
      */
     search_prompt?: string;
+    /**
+     * Search engine to use for web search
+     * - "native": Use provider's built-in web search
+     * - "exa": Use Exa's search API
+     * - undefined: Native if supported, otherwise Exa
+     * @see https://openrouter.ai/docs/features/web-search
+     */
+    engine?: models.Engine;
   };
 
   /**
