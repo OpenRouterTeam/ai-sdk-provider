@@ -4,7 +4,10 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 import packageJson from './package.json';
 
-const envPath = new URL('./.env.e2e', import.meta.url);
+// Load .env.e2e if it exists (merges into process.env, doesn't override existing vars)
+config({
+  path: '.env.e2e',
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -20,12 +23,16 @@ export default defineConfig(() => ({
   test: {
     environment: 'node',
     globals: true,
-    env: config({
-      path: envPath.pathname,
-    }).parsed,
+    setupFiles: [
+      './vitest.setup.ts',
+    ],
     include: [
       './e2e/**/*.test.ts',
     ],
+    // Ensure environment variables are passed to test workers
+    env: {
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY ?? '',
+    },
   },
   define: {
     __PACKAGE_VERSION__: JSON.stringify(packageJson.version),
