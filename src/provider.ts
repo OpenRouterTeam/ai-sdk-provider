@@ -19,7 +19,7 @@ import { OpenRouterEmbeddingModel } from './embedding';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
 
-export type { OpenRouterCompletionSettings };
+export type { OpenRouterChatSettings, OpenRouterCompletionSettings };
 
 export interface OpenRouterProvider extends ProviderV2 {
   (
