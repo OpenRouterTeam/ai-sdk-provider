@@ -1,6 +1,6 @@
 import type { JSONValue, ModelMessage } from 'ai';
 
-import { generateText, stepCountIs, streamText, tool } from 'ai';
+import { convertToModelMessages, generateText, stepCountIs, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '../src';
@@ -602,7 +602,7 @@ describe('Multi-Turn Conversations', () => {
           role: 'user' as const,
           content: 'What is the weather in Boston?',
         },
-        ...response1.messages,
+        ...convertToModelMessages(response1.messages),
         {
           role: 'user' as const,
           content: 'Is that warm or cold?',
@@ -723,7 +723,7 @@ describe('Multi-Turn Conversations', () => {
           role: 'user' as const,
           content: 'What is the weather in Miami?',
         },
-        ...response1.messages,
+        ...convertToModelMessages(response1.messages),
         {
           role: 'user' as const,
           content: 'Based on that weather, is it good for a beach day?',
