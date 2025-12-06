@@ -7,7 +7,12 @@ vi.setConfig({
   testTimeout: 60_000,
 });
 
-describe('Web Search E2E Tests', () => {
+// Skip these tests until the date below - upstream provider issues with web search.
+// The skip logic: tests are skipped while current date is BEFORE SKIP_UNTIL.
+const SKIP_UNTIL = '2025-12-13';
+const shouldSkip = new Date() < new Date(SKIP_UNTIL);
+
+describe.skipIf(shouldSkip)('Web Search E2E Tests', () => {
   it('should handle web search citations in streaming response', async () => {
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,

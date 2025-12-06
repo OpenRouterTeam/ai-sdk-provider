@@ -1,6 +1,6 @@
 import type { JSONValue, ModelMessage } from 'ai';
 
-import { generateText, stepCountIs, streamText, tool } from 'ai';
+import { convertToModelMessages, generateText, stepCountIs, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '../src';
@@ -193,130 +193,139 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
       });
     });
 
-    it('streamText with tools: should emit provider metadata with reasoning and tool calls', async () => {
-      const openrouter = createProvider();
-      const model = openrouter(id, {
-        usage: {
-          include: true,
-        },
-      });
-
-      // Using streamText for tool calls is more reliable across models
-      const result = streamText({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: 'What is the weather in San Francisco? Think about what information you need.',
+    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
+    it.skipIf(id === 'google/gemini-3-pro-preview')(
+      'streamText with tools: should emit provider metadata with reasoning and tool calls',
+      async () => {
+        const openrouter = createProvider();
+        const model = openrouter(id, {
+          usage: {
+            include: true,
           },
-        ],
-        tools: {
-          getWeather: weatherTool,
-        },
-        providerOptions: {
-          openrouter: reasoningOptions as Record<string, JSONValue>,
-        },
-        stopWhen: stepCountIs(3),
-      });
+        });
 
-      // Collect all parts
-      const parts: string[] = [];
-      for await (const chunk of result.fullStream) {
-        parts.push(chunk.type);
-      }
-
-      // Verify we got content (text or tool calls)
-      const hasContent = parts.some((p) => p === 'text-delta' || p === 'tool-call');
-      expect(hasContent).toBe(true);
-
-      // Verify provider metadata is present
-      const providerMetadata = await result.providerMetadata;
-      expect(providerMetadata?.openrouter).toBeDefined();
-      expect(providerMetadata?.openrouter).toMatchObject({
-        provider: expect.any(String),
-      });
-
-      // Check if tool was called
-      const response = await result.response;
-      const _toolCalls = response.messages
-        .filter((m) => m.role === 'assistant')
-        .flatMap((m) =>
-          Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : [],
-        );
-
-      // Some models may use the tool, others may answer directly - both are valid
-      expect(parts.includes('finish')).toBe(true);
-    });
-
-    it('streamText with tools: should stream reasoning and tool interactions', async () => {
-      const openrouter = createProvider();
-      const model = openrouter(id, {
-        usage: {
-          include: true,
-        },
-      });
-
-      const parts: Array<{
-        type: string;
-        toolName?: string;
-      }> = [];
-      let finishProviderMetadata: Record<string, unknown> | undefined;
-
-      const result = streamText({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: 'Calculate 15 * 7 for me. Think through the steps.',
+        // Using streamText for tool calls is more reliable across models
+        const result = streamText({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content:
+                'What is the weather in San Francisco? Think about what information you need.',
+            },
+          ],
+          tools: {
+            getWeather: weatherTool,
           },
-        ],
-        tools: {
-          calculator: calculatorTool,
-        },
-        providerOptions: {
-          openrouter: reasoningOptions as Record<string, JSONValue>,
-        },
-        stopWhen: stepCountIs(3),
-        onFinish({ providerMetadata }) {
-          finishProviderMetadata = providerMetadata?.openrouter as Record<string, unknown>;
-        },
-      });
+          providerOptions: {
+            openrouter: reasoningOptions as Record<string, JSONValue>,
+          },
+          stopWhen: stepCountIs(3),
+        });
 
-      for await (const chunk of result.fullStream) {
-        if (chunk.type === 'reasoning-delta') {
-          parts.push({
-            type: 'reasoning-delta',
-          });
-        } else if (chunk.type === 'text-delta') {
-          parts.push({
-            type: 'text-delta',
-          });
-        } else if (chunk.type === 'tool-call') {
-          parts.push({
-            type: 'tool-call',
-            toolName: chunk.toolName,
-          });
-        } else if (chunk.type === 'tool-result') {
-          parts.push({
-            type: 'tool-result',
-            toolName: chunk.toolName,
-          });
-        } else if (chunk.type === 'finish') {
-          parts.push({
-            type: 'finish',
-          });
+        // Collect all parts
+        const parts: string[] = [];
+        for await (const chunk of result.fullStream) {
+          parts.push(chunk.type);
         }
-      }
 
-      // Verify we got some parts
-      expect(parts.length).toBeGreaterThan(0);
+        // Verify we got content (text or tool calls)
+        const hasContent = parts.some((p) => p === 'text-delta' || p === 'tool-call');
+        expect(hasContent).toBe(true);
 
-      // Verify provider metadata on finish
-      expect(finishProviderMetadata).toBeDefined();
-      expect(finishProviderMetadata).toMatchObject({
-        provider: expect.any(String),
-      });
-    });
+        // Verify provider metadata is present
+        const providerMetadata = await result.providerMetadata;
+        expect(providerMetadata?.openrouter).toBeDefined();
+        expect(providerMetadata?.openrouter).toMatchObject({
+          provider: expect.any(String),
+        });
+
+        // Check if tool was called
+        const response = await result.response;
+        const _toolCalls = response.messages
+          .filter((m) => m.role === 'assistant')
+          .flatMap((m) =>
+            Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : [],
+          );
+
+        // Some models may use the tool, others may answer directly - both are valid
+        expect(parts.includes('finish')).toBe(true);
+      },
+    );
+
+    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
+    it.skipIf(id === 'google/gemini-3-pro-preview')(
+      'streamText with tools: should stream reasoning and tool interactions',
+      async () => {
+        const openrouter = createProvider();
+        const model = openrouter(id, {
+          usage: {
+            include: true,
+          },
+        });
+
+        const parts: Array<{
+          type: string;
+          toolName?: string;
+        }> = [];
+        let finishProviderMetadata: Record<string, unknown> | undefined;
+
+        const result = streamText({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: 'Calculate 15 * 7 for me. Think through the steps.',
+            },
+          ],
+          tools: {
+            calculator: calculatorTool,
+          },
+          providerOptions: {
+            openrouter: reasoningOptions as Record<string, JSONValue>,
+          },
+          stopWhen: stepCountIs(3),
+          onFinish({ providerMetadata }) {
+            finishProviderMetadata = providerMetadata?.openrouter as Record<string, unknown>;
+          },
+        });
+
+        for await (const chunk of result.fullStream) {
+          if (chunk.type === 'reasoning-delta') {
+            parts.push({
+              type: 'reasoning-delta',
+            });
+          } else if (chunk.type === 'text-delta') {
+            parts.push({
+              type: 'text-delta',
+            });
+          } else if (chunk.type === 'tool-call') {
+            parts.push({
+              type: 'tool-call',
+              toolName: chunk.toolName,
+            });
+          } else if (chunk.type === 'tool-result') {
+            parts.push({
+              type: 'tool-result',
+              toolName: chunk.toolName,
+            });
+          } else if (chunk.type === 'finish') {
+            parts.push({
+              type: 'finish',
+            });
+          }
+        }
+
+        // Verify we got some parts
+        expect(parts.length).toBeGreaterThan(0);
+
+        // Verify provider metadata on finish
+        expect(finishProviderMetadata).toBeDefined();
+        expect(finishProviderMetadata).toMatchObject({
+          provider: expect.any(String),
+        });
+      },
+    );
   });
 });
 
@@ -374,42 +383,46 @@ describe('UI Message Stream Interop', () => {
       }
     });
 
-    it('should produce valid UIMessage with tools', async () => {
-      const openrouter = createProvider();
-      const model = openrouter(id, {
-        usage: {
-          include: true,
-        },
-      });
-
-      // Single turn with tool usage
-      const result = streamText({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: 'What is the weather in Tokyo?',
+    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
+    it.skipIf(id === 'google/gemini-3-pro-preview')(
+      'should produce valid UIMessage with tools',
+      async () => {
+        const openrouter = createProvider();
+        const model = openrouter(id, {
+          usage: {
+            include: true,
           },
-        ],
-        tools: {
-          getWeather: weatherTool,
-        },
-        providerOptions: {
-          openrouter: reasoningOptions as Record<string, JSONValue>,
-        },
-        stopWhen: stepCountIs(3),
-      });
+        });
 
-      const response = await result.response;
-      const messages = response.messages;
+        // Single turn with tool usage
+        const result = streamText({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: 'What is the weather in Tokyo?',
+            },
+          ],
+          tools: {
+            getWeather: weatherTool,
+          },
+          providerOptions: {
+            openrouter: reasoningOptions as Record<string, JSONValue>,
+          },
+          stopWhen: stepCountIs(3),
+        });
 
-      // Verify messages were produced
-      expect(messages.length).toBeGreaterThan(0);
+        const response = await result.response;
+        const messages = response.messages;
 
-      // Verify structure - should have assistant message
-      const assistantMessages = messages.filter((m) => m.role === 'assistant');
-      expect(assistantMessages.length).toBeGreaterThan(0);
-    });
+        // Verify messages were produced
+        expect(messages.length).toBeGreaterThan(0);
+
+        // Verify structure - should have assistant message
+        const assistantMessages = messages.filter((m) => m.role === 'assistant');
+        expect(assistantMessages.length).toBeGreaterThan(0);
+      },
+    );
 
     it('should accumulate reasoning in message content for multi-turn', async () => {
       const openrouter = createProvider();
@@ -597,13 +610,18 @@ describe('Multi-Turn Conversations', () => {
       }
 
       // Build messages for Turn 2, preserving reasoning_details for Gemini
+      // step.response.messages returns UIMessages which need to be converted to ModelMessages
       const steps1 = await result1.steps;
+      const uiMessagesFromSteps = steps1.flatMap((step) => step.response.messages);
+      const modelMessagesFromSteps = convertToModelMessages(
+        uiMessagesFromSteps as unknown as Parameters<typeof convertToModelMessages>[0],
+      );
       const messagesForTurn2: Array<ModelMessage> = [
         {
           role: 'user' as const,
           content: 'What is the weather in Boston?',
         },
-        ...steps1.flatMap((step) => step.response.messages),
+        ...modelMessagesFromSteps,
         {
           role: 'user' as const,
           content: 'Is that warm or cold?',
@@ -719,13 +737,18 @@ describe('Multi-Turn Conversations', () => {
 
       // Turn 2: Reference previous conversation - ask about the weather result
       // Preserve reasoning_details for Gemini multi-turn support
+      // step.response.messages returns UIMessages which need to be converted to ModelMessages
       const steps1 = await result1.steps;
+      const uiMessagesFromSteps = steps1.flatMap((step) => step.response.messages);
+      const modelMessagesFromSteps = convertToModelMessages(
+        uiMessagesFromSteps as unknown as Parameters<typeof convertToModelMessages>[0],
+      );
       const messagesForTurn2: Array<ModelMessage> = [
         {
           role: 'user' as const,
           content: 'What is the weather in Miami?',
         },
-        ...steps1.flatMap((step) => step.response.messages),
+        ...modelMessagesFromSteps,
         {
           role: 'user' as const,
           content: 'Based on that weather, is it good for a beach day?',
@@ -922,51 +945,55 @@ describe('Stream Part Ordering', () => {
 
 describe('UIMessageStream Protocol Compliance', () => {
   describe.each(reasoningModels)('$name ($id)', ({ id, reasoningOptions }) => {
-    it('should have start-step and finish-step events for multi-step flows', async () => {
-      const openrouter = createProvider();
-      const model = openrouter(id, {
-        usage: {
-          include: true,
-        },
-      });
-
-      const partTypes: string[] = [];
-
-      const result = streamText({
-        model,
-        messages: [
-          {
-            role: 'user',
-            content: 'Get the weather in Paris and tell me what to wear.',
+    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
+    it.skipIf(id === 'google/gemini-3-pro-preview')(
+      'should have start-step and finish-step events for multi-step flows',
+      async () => {
+        const openrouter = createProvider();
+        const model = openrouter(id, {
+          usage: {
+            include: true,
           },
-        ],
-        tools: {
-          getWeather: weatherTool,
-        },
-        providerOptions: {
-          openrouter: reasoningOptions as Record<string, JSONValue>,
-        },
-        stopWhen: stepCountIs(3),
-      });
+        });
 
-      for await (const chunk of result.fullStream) {
-        partTypes.push(chunk.type);
-      }
+        const partTypes: string[] = [];
 
-      // Multi-step flows should have step events
-      const hasStepStart = partTypes.includes('step-start');
-      const hasStepFinish = partTypes.includes('step-finish');
-      const hasFinish = partTypes.includes('finish');
+        const result = streamText({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: 'Get the weather in Paris and tell me what to wear.',
+            },
+          ],
+          tools: {
+            getWeather: weatherTool,
+          },
+          providerOptions: {
+            openrouter: reasoningOptions as Record<string, JSONValue>,
+          },
+          stopWhen: stepCountIs(3),
+        });
 
-      // At minimum we should have a finish event
-      expect(hasFinish).toBe(true);
+        for await (const chunk of result.fullStream) {
+          partTypes.push(chunk.type);
+        }
 
-      // If there are tool calls, we should see step events
-      if (partTypes.includes('tool-call')) {
-        // Multi-step flows with tools typically have step events
-        expect(hasStepStart || hasStepFinish || hasFinish).toBe(true);
-      }
-    });
+        // Multi-step flows should have step events
+        const hasStepStart = partTypes.includes('step-start');
+        const hasStepFinish = partTypes.includes('step-finish');
+        const hasFinish = partTypes.includes('finish');
+
+        // At minimum we should have a finish event
+        expect(hasFinish).toBe(true);
+
+        // If there are tool calls, we should see step events
+        if (partTypes.includes('tool-call')) {
+          // Multi-step flows with tools typically have step events
+          expect(hasStepStart || hasStepFinish || hasFinish).toBe(true);
+        }
+      },
+    );
 
     it('should emit reasoning-start and reasoning-end with matching IDs', async () => {
       const openrouter = createProvider();
