@@ -494,8 +494,7 @@ describe('GitHub Issue Schema Verification', () => {
         ],
       };
 
-      const result =
-        OpenRouterStreamChatCompletionChunkSchema.safeParse(chunk);
+      const result = OpenRouterStreamChatCompletionChunkSchema.safeParse(chunk);
       expect(result.success).toBe(true);
     });
 
@@ -525,8 +524,7 @@ describe('GitHub Issue Schema Verification', () => {
         ],
       };
 
-      const result =
-        OpenRouterStreamChatCompletionChunkSchema.safeParse(chunk);
+      const result = OpenRouterStreamChatCompletionChunkSchema.safeParse(chunk);
       expect(result.success).toBe(true);
     });
 
