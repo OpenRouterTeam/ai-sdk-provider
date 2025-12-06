@@ -102,5 +102,48 @@ describe('Exec', () => {
         assert.equal(result, 'line1\nline2\nline3');
       }),
     );
+
+    it.effect('should fail when command exits with non-zero code', () =>
+      Effect.gen(function* () {
+        // This command prints output but exits with code 1
+        const result = yield* $sh`echo "some output" && exit 1`.pipe(Effect.either);
+        assert.equal(result._tag, 'Left', 'Expected command to fail');
+      }),
+    );
+
+    it.effect('should fail when command exits with non-zero code (simple)', () =>
+      Effect.gen(function* () {
+        const result = yield* $sh`exit 42`.pipe(Effect.either);
+        assert.equal(result._tag, 'Left', 'Expected command to fail');
+      }),
+    );
+
+    it.effect('should capture stderr output', () =>
+      Effect.gen(function* () {
+        // This command writes to stderr
+        const result = yield* $sh`echo "stdout line" && echo "stderr line" >&2`;
+        // Both stdout and stderr should be captured
+        assert.ok(result.includes('stdout line'), 'Should capture stdout');
+        assert.ok(result.includes('stderr line'), 'Should capture stderr');
+      }),
+    );
+
+    it.effect('should show stderr even when command fails', () =>
+      Effect.gen(function* () {
+        // This test verifies stderr is visible in console output even when command fails
+        // (check the test output to see "error message" printed)
+        const result = yield* $sh`echo "error message" >&2 && exit 1`.pipe(Effect.either);
+        assert.equal(result._tag, 'Left', 'Expected command to fail');
+      }),
+    );
+  });
+
+  it.layer(TestLayer)('$ exit code handling', (it) => {
+    it.effect('should fail when command exits with non-zero code', () =>
+      Effect.gen(function* () {
+        const result = yield* $`false`.pipe(Effect.either);
+        assert.equal(result._tag, 'Left', 'Expected command to fail');
+      }),
+    );
   });
 });

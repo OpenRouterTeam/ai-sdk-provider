@@ -30,6 +30,7 @@
 import type { PlatformError } from '@effect/platform/Error';
 
 import { Command } from '@effect/platform';
+import { SystemError } from '@effect/platform/Error';
 import { Console, Effect, Option, Stream } from 'effect';
 import { ActionUI } from './action-ui.js';
 
@@ -42,17 +43,117 @@ import { ActionUI } from './action-ui.js';
 export interface ExecError {
   readonly _tag: 'ExecError';
   readonly command: string;
+  readonly exitCode?: number;
   readonly cause: PlatformError;
 }
 
 /**
  * Create an ExecError
  */
-const makeExecError = (command: string, cause: PlatformError) => ({
+const makeExecError = (command: string, cause: PlatformError, exitCode?: number): ExecError => ({
   _tag: 'ExecError',
   command,
+  exitCode,
   cause,
 });
+
+/**
+ * Run a command, streaming both stdout and stderr to console while collecting output.
+ * Properly checks exit code and fails if non-zero.
+ */
+const runCommandWithTee = (cmd: Command.Command, commandString: string) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const lines: string[] = [];
+      const process = yield* Command.start(cmd);
+
+      // Create text decoders for stdout and stderr
+      const stdoutDecoder = new TextDecoder();
+      const stderrDecoder = new TextDecoder();
+      let stdoutBuffer = '';
+      let stderrBuffer = '';
+
+      // Merge stdout and stderr streams and process them together
+      const mergedStream = Stream.merge(
+        process.stdout.pipe(
+          Stream.map((chunk) => ({
+            type: 'stdout' as const,
+            chunk,
+          })),
+        ),
+        process.stderr.pipe(
+          Stream.map((chunk) => ({
+            type: 'stderr' as const,
+            chunk,
+          })),
+        ),
+      );
+
+      yield* mergedStream.pipe(
+        Stream.tap(({ type, chunk }) =>
+          Effect.gen(function* () {
+            const decoder = type === 'stdout' ? stdoutDecoder : stderrDecoder;
+            const buffer = type === 'stdout' ? stdoutBuffer : stderrBuffer;
+            const newContent = decoder.decode(chunk, {
+              stream: true,
+            });
+            const fullContent = buffer + newContent;
+            const parts = fullContent.split('\n');
+
+            // Keep the last incomplete line in the buffer
+            const remaining = parts.pop() ?? '';
+            if (type === 'stdout') {
+              stdoutBuffer = remaining;
+            } else {
+              stderrBuffer = remaining;
+            }
+
+            // Process complete lines
+            for (const line of parts) {
+              lines.push(line);
+              yield* Console.log(line);
+            }
+          }),
+        ),
+        Stream.runDrain,
+      );
+
+      // Flush any remaining content in buffers
+      if (stdoutBuffer.length > 0) {
+        lines.push(stdoutBuffer);
+        yield* Console.log(stdoutBuffer);
+      }
+      if (stderrBuffer.length > 0) {
+        lines.push(stderrBuffer);
+        yield* Console.log(stderrBuffer);
+      }
+
+      // Wait for process to exit and check exit code
+      const exitCode = yield* process.exitCode;
+
+      if (exitCode !== 0) {
+        return yield* Effect.fail(
+          makeExecError(
+            commandString,
+            new SystemError({
+              reason: 'Unknown',
+              module: 'Command',
+              method: 'exec',
+              pathOrDescriptor: commandString,
+              description: `Command failed with exit code ${exitCode}`,
+            }),
+            exitCode,
+          ),
+        );
+      }
+
+      return lines.join('\n').trim();
+    }),
+  ).pipe(
+    Effect.mapError((cause) =>
+      cause._tag === 'ExecError' ? cause : makeExecError(commandString, cause),
+    ),
+  );
 
 /**
  * Build a command string from template literal parts
@@ -116,24 +217,7 @@ export const $ = (strings: TemplateStringsArray, ...values: ReadonlyArray<unknow
 
   return Effect.gen(function* () {
     const ui = yield* Effect.serviceOption(ActionUI);
-
-    // Stream lines to stdout while collecting them for the return value
-    const runCommand = Effect.gen(function* () {
-      const lines: string[] = [];
-
-      yield* Command.streamLines(cmd).pipe(
-        Stream.tap((line) =>
-          Effect.gen(function* () {
-            lines.push(line);
-            yield* Console.log(line);
-          }),
-        ),
-        Stream.runDrain,
-        Effect.mapError((cause) => makeExecError(commandString, cause)),
-      );
-
-      return lines.join('\n').trim();
-    });
+    const runCommand = runCommandWithTee(cmd, commandString);
 
     // Wrap in ActionUI group if available
     if (Option.isSome(ui)) {
@@ -216,24 +300,7 @@ export const $sh = (strings: TemplateStringsArray, ...values: ReadonlyArray<unkn
 
   return Effect.gen(function* () {
     const ui = yield* Effect.serviceOption(ActionUI);
-
-    // Stream lines to stdout while collecting them for the return value
-    const runCommand = Effect.gen(function* () {
-      const lines: string[] = [];
-
-      yield* Command.streamLines(cmd).pipe(
-        Stream.tap((line) =>
-          Effect.gen(function* () {
-            lines.push(line);
-            yield* Console.log(line);
-          }),
-        ),
-        Stream.runDrain,
-        Effect.mapError((cause) => makeExecError(commandString, cause)),
-      );
-
-      return lines.join('\n').trim();
-    });
+    const runCommand = runCommandWithTee(cmd, commandString);
 
     if (Option.isSome(ui)) {
       return yield* ui.value.group(groupLabel, runCommand);
