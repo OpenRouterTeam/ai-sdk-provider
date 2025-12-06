@@ -12,6 +12,7 @@ import { ActionUI } from '@openrouter-monorepo/github-action-utils/action-ui';
 import { $, $sh } from '@openrouter-monorepo/github-action-utils/exec';
 import { GitHub } from '@openrouter-monorepo/github-action-utils/github';
 import { Console, Effect } from 'effect';
+import pkg from '../../../package.json' with { type: 'json' };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Command
@@ -114,8 +115,8 @@ const logRegistryConfig = Effect.fn('logRegistryConfig')(function* () {
 });
 
 const logPackageAvailability = Effect.fn('logPackageAvailability')(function* (tag: string) {
-  const v = yield* $sh`npm view @openrouter/ai-sdk-provider@${tag} version 2>&1 || echo "?"`;
-  yield* Console.log(`@openrouter/ai-sdk-provider@${tag}`, v);
+  const v = yield* $sh`npm view ${pkg.name}@${tag} version 2>&1 || echo "?"`;
+  yield* Console.log(`${pkg.name}@${tag}`, v);
 });
 
 const logNpmrcStatus = Effect.fn('logNpmrcStatus')(function* () {
