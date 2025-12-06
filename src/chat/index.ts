@@ -130,7 +130,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       seed,
 
       stop: stopSequences,
-      response_format: responseFormat,
+      response_format:
+        responseFormat?.type === 'json'
+          ? responseFormat.schema != null
+            ? {
+                type: 'json_schema',
+                json_schema: {
+                  schema: responseFormat.schema,
+                  strict: true,
+                  name: responseFormat.name ?? 'response',
+                  ...(responseFormat.description && {
+                    description: responseFormat.description,
+                  }),
+                },
+              }
+            : { type: 'json_object' }
+          : undefined,
       top_k: topK,
 
       // messages:
@@ -153,23 +168,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       ...this.config.extraBody,
       ...this.settings.extraBody,
     };
-
-    if (responseFormat?.type === 'json' && responseFormat.schema != null) {
-      return {
-        ...baseArgs,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            schema: responseFormat.schema,
-            strict: true,
-            name: responseFormat.name ?? 'response',
-            ...(responseFormat.description && {
-              description: responseFormat.description,
-            }),
-          },
-        },
-      };
-    }
 
     if (tools && tools.length > 0) {
       // TODO: support built-in tools
