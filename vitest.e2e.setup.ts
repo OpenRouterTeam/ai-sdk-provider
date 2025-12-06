@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 // Load .env.e2e file
 config({
   path: '.env.e2e',
+  quiet: true,
 });
 
 // Fail fast if required environment variables are missing
