@@ -6,11 +6,11 @@ vi.setConfig({
   testTimeout: 42_000,
 });
 
-// FIXME(2025-12-13): The @openrouter/sdk (v0.1.27) does not support cache_control yet.
+// FIXME(2025-12-20): The @openrouter/sdk (v0.1.27) does not support cache_control yet.
 // The SDK's Zod schemas strip cache_control from content items during validation.
 // See: node_modules/@openrouter/sdk/esm/models/responseinputtext.js
 // Re-enable this test once the SDK adds cache_control support.
-const SKIP_UNTIL = new Date('2025-12-13');
+const SKIP_UNTIL = new Date('2025-12-20');
 const shouldSkip = new Date() < SKIP_UNTIL;
 
 it.skipIf(shouldSkip)('should trigger cache read', async () => {
