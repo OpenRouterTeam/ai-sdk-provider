@@ -1,13 +1,21 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type {
+  LanguageModelV2Prompt,
+  LanguageModelV2StreamPart,
+} from '@ai-sdk/provider';
+import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
+import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
-import type { ImageResponse } from '../schemas/image';
+
+vi.mock('@/src/version', () => ({
+  VERSION: '0.0.0-test',
+}));
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -118,6 +126,33 @@ const provider = createOpenRouter({
 });
 
 const model = provider.chat('anthropic/claude-3.5-sonnet');
+
+function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'reasoning-delta';
+  }
+> {
+  return part.type === 'reasoning-delta';
+}
+
+function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'reasoning-start';
+  }
+> {
+  return part.type === 'reasoning-start';
+}
+
+function isTextDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'text-delta';
+  }
+> {
+  return part.type === 'text-delta';
+}
 
 describe('doGenerate', () => {
   const server = createTestServer({
@@ -300,10 +335,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Let me analyze this request...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Let me analyze this request...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'The user wants a greeting response.',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'The user wants a greeting response.',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -331,6 +386,16 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: '[REDACTED]',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.encrypted',
+                data: 'encrypted_reasoning_data_here',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -363,10 +428,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Processing from reasoning_details...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Processing from reasoning_details...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'Summary from reasoning_details',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'Summary from reasoning_details',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -512,6 +597,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 
@@ -636,6 +722,16 @@ describe('doStream', () => {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      prompt_tokens_details?: {
+        cached_tokens: number;
+      };
+      completion_tokens_details?: {
+        reasoning_tokens: number;
+      };
+      cost?: number;
+      cost_details?: {
+        upstream_inference_cost: number;
+      };
     };
     logprobs?: {
       content:
@@ -767,6 +863,86 @@ describe('doStream', () => {
     ]);
   });
 
+  it('should include upstream inference cost in finish metadata when provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 17,
+        total_tokens: 244,
+        completion_tokens: 227,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+  });
+
+  it('should handle both normal cost and upstream inference cost in finish metadata when both are provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 17,
+        total_tokens: 244,
+        completion_tokens: 227,
+        cost: 0.0042,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+    expect(openrouterUsage?.cost).toBe(0.0042);
+  });
+
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
     // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
     // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
@@ -828,11 +1004,8 @@ describe('doStream', () => {
 
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
-      .filter((el) => el.type === 'reasoning-delta')
-      .map(
-        (el) =>
-          (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
-      );
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'Let me think about this...', // from reasoning_details text
@@ -844,6 +1017,145 @@ describe('doStream', () => {
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
+
+    // Verify that reasoning-delta chunks include providerMetadata with reasoning_details
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+
+    // First delta should have reasoning_details from first chunk
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
+        ],
+      },
+    });
+
+    // Second and third deltas should have reasoning_details from second chunk
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'User wants a greeting',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'secret',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'User wants a greeting',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'secret',
+          },
+        ],
+      },
+    });
+
+    // Fourth delta (from reasoning field only) should not have providerMetadata
+    expect(reasoningDeltaElements[3]?.providerMetadata).toBeUndefined();
+  });
+
+  it('should emit reasoning_details in providerMetadata for all reasoning delta chunks', async () => {
+    // This test verifies that reasoning_details are included in providerMetadata
+    // for all reasoning-delta chunks, enabling users to accumulate them for multi-turn conversations
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning_details with Text type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"First reasoning chunk"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: reasoning_details with Summary type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"Summary reasoning"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: reasoning_details with Encrypted type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"encrypted_data"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+
+    expect(reasoningDeltaElements).toHaveLength(3);
+
+    // Verify each delta has the correct reasoning_details in providerMetadata
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Summary reasoning',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'encrypted_data',
+          },
+        ],
+      },
+    });
+
+    // Verify reasoning-start also has providerMetadata when first delta includes it
+    const reasoningStart = elements.find(isReasoningStartPart);
+
+    expect(reasoningStart?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
   });
 
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
@@ -899,8 +1211,8 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type);
+
     // Find the positions of key events
     const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
     const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
@@ -912,8 +1224,8 @@ describe('doStream', () => {
 
     // Verify reasoning content
     const reasoningDeltas = elements
-      .filter((el) => el.type === 'reasoning-delta')
-      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta);
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'I need to think about this step by step...',
@@ -922,14 +1234,9 @@ describe('doStream', () => {
     ]);
 
     // Verify text content
-    const textDeltas = elements
-      .filter((el) => el.type === 'text-delta')
-      .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
+    const textDeltas = elements.filter(isTextDeltaPart).map((el) => el.delta);
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
   it('should stream tool deltas', async () => {
@@ -1096,6 +1403,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
@@ -1199,6 +1511,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
@@ -1422,6 +1739,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 
@@ -1491,5 +1809,97 @@ describe('doStream', () => {
         },
       },
     });
+  });
+
+  it('should pass debug settings', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+});
+
+describe('debug settings', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 4,
+          total_tokens: 34,
+          completion_tokens: 30,
+        },
+      },
+    };
+  }
+
+  it('should pass debug settings in doGenerate', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+
+  it('should not include debug when not set', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody).not.toHaveProperty('debug');
   });
 });

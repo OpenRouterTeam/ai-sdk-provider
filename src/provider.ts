@@ -1,4 +1,4 @@
-import type { LanguageModelV2 } from '@ai-sdk/provider';
+import type { ProviderV2 } from '@ai-sdk/provider';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -11,10 +11,12 @@ import type {
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
+import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
+import { VERSION } from './version';
 
 export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends LanguageModelV2 {
+export interface OpenRouterProvider extends ProviderV2 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
@@ -109,17 +111,22 @@ export function createOpenRouter(
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
-  const getHeaders = () => ({
-    Authorization: `Bearer ${loadApiKey({
-      apiKey: options.apiKey,
-      environmentVariableName: 'OPENROUTER_API_KEY',
-      description: 'OpenRouter',
-    })}`,
-    ...options.headers,
-    ...(options.api_keys && Object.keys(options.api_keys).length > 0 && {
-      'X-Provider-API-Keys': JSON.stringify(options.api_keys)
-    }),
-  });
+  const getHeaders = () =>
+    withUserAgentSuffix(
+      {
+        Authorization: `Bearer ${loadApiKey({
+          apiKey: options.apiKey,
+          environmentVariableName: 'OPENROUTER_API_KEY',
+          description: 'OpenRouter',
+        })}`,
+        ...options.headers,
+        ...(options.api_keys &&
+          Object.keys(options.api_keys).length > 0 && {
+            'X-Provider-API-Keys': JSON.stringify(options.api_keys),
+          }),
+      },
+      `ai-sdk/openrouter/${VERSION}`,
+    );
 
   const createChatModel = (
     modelId: OpenRouterChatModelId,

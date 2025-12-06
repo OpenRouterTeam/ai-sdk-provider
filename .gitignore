@@ -5,3 +5,6 @@ dist
 .env.e2e*
 
 .turbo/
+
+# Reference repositories (git submodules)
+reference/

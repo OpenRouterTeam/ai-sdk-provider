@@ -1,3 +1,4 @@
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 
 describe('user messages', () => {
@@ -97,6 +98,224 @@ describe('user messages', () => {
     ]);
 
     expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
+  });
+
+  it('should convert audio Uint8Array to input_audio with mp3 format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert audio Uint8Array to input_audio with wav format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/wav',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'wav',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should normalize audio/x-wav to wav format', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/x-wav',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'wav',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should support audio/mp3 MIME type (normalize to mp3)', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mp3',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert audio base64 data URL to input_audio', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'data:audio/mpeg;base64,AAECAw==',
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert raw audio base64 string to input_audio', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'AAECAw==',
+            mediaType: 'audio/mpeg',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should throw error for audio URLs', async () => {
+    expect(() =>
+      convertToOpenRouterChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: 'https://example.com/audio.mp3',
+              mediaType: 'audio/mpeg',
+            },
+          ],
+        },
+      ]),
+    ).toThrow(/Audio files cannot be provided as URLs/);
+  });
+
+  it('should throw error for unsupported audio formats', async () => {
+    expect(() =>
+      convertToOpenRouterChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: new Uint8Array([0, 1, 2, 3]),
+              mediaType: 'audio/ogg',
+            },
+          ],
+        },
+      ]),
+    ).toThrow(/Unsupported audio format: "audio\/ogg"/);
   });
 });
 
@@ -552,6 +771,262 @@ describe('cache control', () => {
             type: 'text',
             text: 'User prompt 2',
             cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control to audio input parts from user message provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Listen to this' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'audio/mpeg',
+          },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Listen to this',
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'input_audio',
+            input_audio: {
+              data: 'AAECAw==',
+              format: 'mp3',
+            },
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+});
+
+describe('reasoning_details accumulation', () => {
+  it('should accumulate reasoning_details from reasoning part providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First reasoning chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'First reasoning chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second reasoning chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Second reasoning chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'text',
+            text: 'Final response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'First reasoning chunk',
+              },
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Second reasoning chunk',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Final response',
+        reasoning: 'First reasoning chunkSecond reasoning chunk',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Second reasoning chunk',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should use preserved reasoning_details from message-level providerOptions when available', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Reasoning text',
+            // No providerOptions on part
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Preserved reasoning detail',
+              },
+              {
+                type: ReasoningDetailType.Summary,
+                summary: 'Preserved summary',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'Reasoning text',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Preserved reasoning detail',
+          },
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Preserved summary',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should not include reasoning_details when not present in providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Reasoning text',
+            // No providerOptions
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        // No providerOptions
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'Reasoning text',
+        // reasoning_details should be undefined when not preserved
+        reasoning_details: undefined,
+      },
+    ]);
+  });
+
+  it('should handle mixed reasoning parts with and without providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First chunk',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'First chunk',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second chunk',
+            // No providerOptions
+          },
+          {
+            type: 'text',
+            text: 'Response',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'First chunk',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response',
+        reasoning: 'First chunkSecond chunk',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First chunk',
           },
         ],
       },

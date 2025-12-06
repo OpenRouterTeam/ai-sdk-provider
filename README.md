@@ -167,8 +167,133 @@ await streamText({
   ],
 });
 ```
+## Anthropic Beta Features
+
+You can enable Anthropic beta features by passing custom headers through the OpenRouter SDK.
+
+### Fine-grained Tool Streaming
+
+[Fine-grained tool streaming](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming) allows streaming tool parameters without buffering, reducing latency for large schemas. This is particularly useful when working with large nested JSON structures.
+
+**Important:** This is a beta feature from Anthropic. Make sure to evaluate responses before using in production.
+
+#### Basic Usage
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamObject } from 'ai';
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+const result = await streamObject({
+  model,
+  schema: yourLargeSchema,
+  prompt: 'Generate a complex object...',
+});
+
+for await (const partialObject of result.partialObjectStream) {
+  console.log(partialObject);
+}
+```
+
+You can also pass the header at the request level:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+await generateText({
+  model,
+  prompt: 'Hello',
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+```
+
+**Note:** Fine-grained tool streaming is specific to Anthropic models. When using models from other providers, the header will be ignored.
+
+#### Use Case: Large Component Generation
+
+This feature is particularly beneficial when streaming large, nested JSON structures like UI component trees:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamObject } from 'ai';
+import { z } from 'zod';
+
+const componentSchema = z.object({
+  type: z.string(),
+  props: z.record(z.any()),
+  children: z.array(z.lazy(() => componentSchema)).optional(),
+});
+
+const provider = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+  headers: {
+    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  },
+});
+
+const model = provider.chat('anthropic/claude-sonnet-4');
+
+const result = await streamObject({
+  model,
+  schema: componentSchema,
+  prompt: 'Create a responsive dashboard layout',
+});
+
+for await (const partialComponent of result.partialObjectStream) {
+  console.log('Partial component:', partialComponent);
+}
+```
+
+
 
 ## Use Cases
+
+### Debugging API Requests
+
+The provider supports a debug mode that echoes back the request body sent to the upstream provider. This is useful for troubleshooting and understanding how your requests are being processed. Note that debug mode only works with streaming requests.
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('anthropic/claude-3.5-sonnet', {
+  debug: {
+    echo_upstream_body: true,
+  },
+});
+
+const result = await streamText({
+  model,
+  prompt: 'Hello, how are you?',
+});
+
+// The debug data is available in the stream's first chunk
+// and in the final response's providerMetadata
+for await (const chunk of result.fullStream) {
+  // Debug chunks have empty choices and contain debug.echo_upstream_body
+  console.log(chunk);
+}
+```
+
+The debug response will include the request body that was sent to the upstream provider, with sensitive data redacted (user IDs, base64 content, etc.). This helps you understand how OpenRouter transforms your request before sending it to the model provider.
 
 ### Usage Accounting
 
@@ -191,6 +316,38 @@ const result = await generateText({
 // Provider-specific usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
   console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
+  console.log(
+    'Total Tokens:',
+    result.providerMetadata.openrouter.usage.totalTokens,
+  );
+}
+```
+
+It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/docs/guides/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account.
+
+```typescript
+// Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
+
+// Enable usage accounting
+const model = openrouter('openai/gpt-3.5-turbo', {
+  usage: {
+    include: true,
+  },
+});
+
+// Access usage accounting data
+const result = await generateText({
+  model,
+  prompt: 'Hello, how are you today?',
+});
+
+// Provider-specific BYOK usage details (available in providerMetadata)
+if (result.providerMetadata?.openrouter?.usage) {
+  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  if (costDetails) {
+    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
+  }
+  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
   console.log(
     'Total Tokens:',
     result.providerMetadata.openrouter.usage.totalTokens,

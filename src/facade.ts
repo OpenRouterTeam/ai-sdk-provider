@@ -60,9 +60,10 @@ Custom headers to include in the requests.
           description: 'OpenRouter',
         })}`,
         ...this.headers,
-        ...(this.api_keys && Object.keys(this.api_keys).length > 0 && {
-          'X-Provider-API-Keys': JSON.stringify(this.api_keys)
-        }),
+        ...(this.api_keys &&
+          Object.keys(this.api_keys).length > 0 && {
+            'X-Provider-API-Keys': JSON.stringify(this.api_keys),
+          }),
       }),
     };
   }

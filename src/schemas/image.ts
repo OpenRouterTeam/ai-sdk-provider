@@ -1,11 +1,15 @@
 import { z } from 'zod/v4';
 
-const ImageResponseSchema = z.object({
-  type: z.literal('image_url'),
-  image_url: z.object({
-    url: z.string(),
-  }),
-});
+const ImageResponseSchema = z
+  .object({
+    type: z.literal('image_url'),
+    image_url: z
+      .object({
+        url: z.string(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
 
 export type ImageResponse = z.infer<typeof ImageResponseSchema>;
 

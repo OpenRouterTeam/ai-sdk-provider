@@ -1,3 +1,4 @@
+import type { FileAnnotation } from '@/src/schemas/provider-metadata';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -26,7 +27,8 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile;
+  | ChatCompletionContentPartFile
+  | ChatCompletionContentPartInputAudio;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -52,11 +54,21 @@ export interface ChatCompletionContentPartText {
   cache_control?: OpenRouterCacheControl;
 }
 
+export interface ChatCompletionContentPartInputAudio {
+  type: 'input_audio';
+  input_audio: {
+    data: string;
+    format: 'wav' | 'mp3';
+  };
+  cache_control?: OpenRouterCacheControl;
+}
+
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
+  annotations?: FileAnnotation[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
   cache_control?: OpenRouterCacheControl;
 }

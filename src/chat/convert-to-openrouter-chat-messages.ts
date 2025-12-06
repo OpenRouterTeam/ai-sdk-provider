@@ -5,14 +5,14 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
-import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
-import { getFileUrl } from './file-url-utils';
+import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
+import { getFileUrl, getInputAudioData } from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -99,6 +99,15 @@ export function convertToOpenRouterChatMessages(
                   };
                 }
 
+                // Handle audio files for input_audio format
+                if (part.mediaType?.startsWith('audio/')) {
+                  return {
+                    type: 'input_audio' as const,
+                    input_audio: getInputAudioData(part),
+                    cache_control: cacheControl,
+                  };
+                }
+
                 const fileName = String(
                   part.providerOptions?.openrouter?.filename ??
                     part.filename ??
@@ -113,7 +122,7 @@ export function convertToOpenRouterChatMessages(
                 if (
                   isUrl({
                     url: fileData,
-                    protocols: new Set(['http:', 'https:']),
+                    protocols: new Set(['http:', 'https:'] as const),
                   })
                 ) {
                   return {
@@ -157,20 +166,32 @@ export function convertToOpenRouterChatMessages(
       case 'assistant': {
         let text = '';
         let reasoning = '';
-        const reasoningDetails: ReasoningDetailUnion[] = [];
         const toolCalls: Array<{
           id: string;
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
+        const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
         for (const part of content) {
           switch (part.type) {
             case 'text': {
               text += part.text;
+
               break;
             }
             case 'tool-call': {
+              const partReasoningDetails = (
+                part.providerOptions as Record<string, unknown>
+              )?.openrouter as Record<string, unknown> | undefined;
+              if (
+                partReasoningDetails?.reasoning_details &&
+                Array.isArray(partReasoningDetails.reasoning_details)
+              ) {
+                accumulatedReasoningDetails.push(
+                  ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
+                );
+              }
               toolCalls.push({
                 id: part.toolCallId,
                 type: 'function',
@@ -183,11 +204,17 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              reasoningDetails.push({
-                type: ReasoningDetailType.Text,
-                text: part.text,
-              });
-
+              const parsedPartProviderOptions =
+                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
+              if (
+                parsedPartProviderOptions.success &&
+                parsedPartProviderOptions.data?.openrouter?.reasoning_details
+              ) {
+                accumulatedReasoningDetails.push(
+                  ...parsedPartProviderOptions.data.openrouter
+                    .reasoning_details,
+                );
+              }
               break;
             }
 
@@ -199,13 +226,33 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
+        // Check message-level providerOptions for preserved reasoning_details and annotations
+        const parsedProviderOptions =
+          OpenRouterProviderOptionsSchema.safeParse(providerOptions);
+        const messageReasoningDetails = parsedProviderOptions.success
+          ? parsedProviderOptions.data?.openrouter?.reasoning_details
+          : undefined;
+        const messageAnnotations = parsedProviderOptions.success
+          ? parsedProviderOptions.data?.openrouter?.annotations
+          : undefined;
+
+        // Use message-level reasoning_details if available, otherwise use accumulated from parts
+        const finalReasoningDetails =
+          messageReasoningDetails &&
+          Array.isArray(messageReasoningDetails) &&
+          messageReasoningDetails.length > 0
+            ? messageReasoningDetails
+            : accumulatedReasoningDetails.length > 0
+              ? accumulatedReasoningDetails
+              : undefined;
+
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
-          reasoning_details:
-            reasoningDetails.length > 0 ? reasoningDetails : undefined,
+          reasoning_details: finalReasoningDetails,
+          annotations: messageAnnotations,
           cache_control: getCacheControl(providerOptions),
         });
 
