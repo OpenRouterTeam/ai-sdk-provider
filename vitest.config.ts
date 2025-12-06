@@ -4,7 +4,10 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 import packageJson from './package.json';
 
-const envPath = new URL('./.env.e2e', import.meta.url);
+// Load .env.e2e into process.env immediately (before any test imports)
+config({
+  path: '.env.e2e',
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -20,9 +23,6 @@ export default defineConfig(() => ({
   test: {
     environment: 'node',
     globals: true,
-    env: config({
-      path: envPath.pathname,
-    }).parsed,
     include: [
       './src/**/*.test.ts',
       './e2e/**/*.test.ts',
