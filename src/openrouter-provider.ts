@@ -131,20 +131,22 @@ export function createOpenRouter(options: OpenRouterProviderSettings = {}): Open
   // are accessed through this single URL. OpenRouter handles routing to the appropriate backend.
   const baseURL = withoutTrailingSlash(options.baseURL) ?? 'https://openrouter.ai/api/v1';
 
-  // Use AI SDK's loadApiKey utility for consistent API key handling across providers.
-  // This supports both explicit apiKey option and OPENROUTER_API_KEY environment variable.
-  const apiKey = loadApiKey({
-    apiKey: options.apiKey,
-    environmentVariableName: 'OPENROUTER_API_KEY',
-    description: 'OpenRouter',
-  });
-
   // Factory function to create model config - called fresh for each model instance
-  // to ensure isolation and allow for future per-model customization
+  // to ensure isolation and allow for future per-model customization.
+  // API key loading is deferred to model creation time so environment variables
+  // set after provider creation are properly read.
   const createModelConfig = (): OpenRouterModelConfig => ({
     provider: 'openrouter',
     baseURL,
-    apiKey,
+    // Use AI SDK's loadApiKey utility for consistent API key handling across providers.
+    // This supports both explicit apiKey option and OPENROUTER_API_KEY environment variable.
+    // Loading at model creation time (not provider creation) ensures env vars set after
+    // module load are picked up, matching v1 behavior.
+    apiKey: loadApiKey({
+      apiKey: options.apiKey,
+      environmentVariableName: 'OPENROUTER_API_KEY',
+      description: 'OpenRouter',
+    }),
     // Use AI SDK's generateId for consistent ID generation across the SDK ecosystem
     generateId: options.generateId ?? generateId,
     fetch: options.fetch,
