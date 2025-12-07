@@ -193,139 +193,130 @@ describe('Reasoning with Provider Metadata - Matrix Tests', () => {
       });
     });
 
-    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
-    it.skipIf(id === 'google/gemini-3-pro-preview')(
-      'streamText with tools: should emit provider metadata with reasoning and tool calls',
-      async () => {
-        const openrouter = createProvider();
-        const model = openrouter(id, {
-          usage: {
-            include: true,
-          },
-        });
+    it('streamText with tools: should emit provider metadata with reasoning and tool calls', async () => {
+      const openrouter = createProvider();
+      const model = openrouter(id, {
+        usage: {
+          include: true,
+        },
+      });
 
-        // Using streamText for tool calls is more reliable across models
-        const result = streamText({
-          model,
-          messages: [
-            {
-              role: 'user',
-              content:
-                'What is the weather in San Francisco? Think about what information you need.',
-            },
-          ],
-          tools: {
-            getWeather: weatherTool,
+      // Using streamText for tool calls is more reliable across models
+      const result = streamText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: 'What is the weather in San Francisco? Think about what information you need.',
           },
-          providerOptions: {
-            openrouter: reasoningOptions as Record<string, JSONValue>,
-          },
-          stopWhen: stepCountIs(3),
-        });
+        ],
+        tools: {
+          getWeather: weatherTool,
+        },
+        providerOptions: {
+          openrouter: reasoningOptions as Record<string, JSONValue>,
+        },
+        stopWhen: stepCountIs(3),
+      });
 
-        // Collect all parts
-        const parts: string[] = [];
-        for await (const chunk of result.fullStream) {
-          parts.push(chunk.type);
+      // Collect all parts
+      const parts: string[] = [];
+      for await (const chunk of result.fullStream) {
+        parts.push(chunk.type);
+      }
+
+      // Verify we got content (text or tool calls)
+      const hasContent = parts.some((p) => p === 'text-delta' || p === 'tool-call');
+      expect(hasContent).toBe(true);
+
+      // Verify provider metadata is present
+      const providerMetadata = await result.providerMetadata;
+      expect(providerMetadata?.openrouter).toBeDefined();
+      expect(providerMetadata?.openrouter).toMatchObject({
+        provider: expect.any(String),
+      });
+
+      // Check if tool was called
+      const response = await result.response;
+      const _toolCalls = response.messages
+        .filter((m) => m.role === 'assistant')
+        .flatMap((m) =>
+          Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : [],
+        );
+
+      // Some models may use the tool, others may answer directly - both are valid
+      expect(parts.includes('finish')).toBe(true);
+    });
+
+    it('streamText with tools: should stream reasoning and tool interactions', async () => {
+      const openrouter = createProvider();
+      const model = openrouter(id, {
+        usage: {
+          include: true,
+        },
+      });
+
+      const parts: Array<{
+        type: string;
+        toolName?: string;
+      }> = [];
+      let finishProviderMetadata: Record<string, unknown> | undefined;
+
+      const result = streamText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: 'Calculate 15 * 7 for me. Think through the steps.',
+          },
+        ],
+        tools: {
+          calculator: calculatorTool,
+        },
+        providerOptions: {
+          openrouter: reasoningOptions as Record<string, JSONValue>,
+        },
+        stopWhen: stepCountIs(3),
+        onFinish({ providerMetadata }) {
+          finishProviderMetadata = providerMetadata?.openrouter as Record<string, unknown>;
+        },
+      });
+
+      for await (const chunk of result.fullStream) {
+        if (chunk.type === 'reasoning-delta') {
+          parts.push({
+            type: 'reasoning-delta',
+          });
+        } else if (chunk.type === 'text-delta') {
+          parts.push({
+            type: 'text-delta',
+          });
+        } else if (chunk.type === 'tool-call') {
+          parts.push({
+            type: 'tool-call',
+            toolName: chunk.toolName,
+          });
+        } else if (chunk.type === 'tool-result') {
+          parts.push({
+            type: 'tool-result',
+            toolName: chunk.toolName,
+          });
+        } else if (chunk.type === 'finish') {
+          parts.push({
+            type: 'finish',
+          });
         }
+      }
 
-        // Verify we got content (text or tool calls)
-        const hasContent = parts.some((p) => p === 'text-delta' || p === 'tool-call');
-        expect(hasContent).toBe(true);
+      // Verify we got some parts
+      expect(parts.length).toBeGreaterThan(0);
 
-        // Verify provider metadata is present
-        const providerMetadata = await result.providerMetadata;
-        expect(providerMetadata?.openrouter).toBeDefined();
-        expect(providerMetadata?.openrouter).toMatchObject({
-          provider: expect.any(String),
-        });
-
-        // Check if tool was called
-        const response = await result.response;
-        const _toolCalls = response.messages
-          .filter((m) => m.role === 'assistant')
-          .flatMap((m) =>
-            Array.isArray(m.content) ? m.content.filter((c) => c.type === 'tool-call') : [],
-          );
-
-        // Some models may use the tool, others may answer directly - both are valid
-        expect(parts.includes('finish')).toBe(true);
-      },
-    );
-
-    // Skipped for Gemini 3 Pro until 2025-12-13: upstream provider BadRequestResponseError with tool calls
-    it.skipIf(id === 'google/gemini-3-pro-preview')(
-      'streamText with tools: should stream reasoning and tool interactions',
-      async () => {
-        const openrouter = createProvider();
-        const model = openrouter(id, {
-          usage: {
-            include: true,
-          },
-        });
-
-        const parts: Array<{
-          type: string;
-          toolName?: string;
-        }> = [];
-        let finishProviderMetadata: Record<string, unknown> | undefined;
-
-        const result = streamText({
-          model,
-          messages: [
-            {
-              role: 'user',
-              content: 'Calculate 15 * 7 for me. Think through the steps.',
-            },
-          ],
-          tools: {
-            calculator: calculatorTool,
-          },
-          providerOptions: {
-            openrouter: reasoningOptions as Record<string, JSONValue>,
-          },
-          stopWhen: stepCountIs(3),
-          onFinish({ providerMetadata }) {
-            finishProviderMetadata = providerMetadata?.openrouter as Record<string, unknown>;
-          },
-        });
-
-        for await (const chunk of result.fullStream) {
-          if (chunk.type === 'reasoning-delta') {
-            parts.push({
-              type: 'reasoning-delta',
-            });
-          } else if (chunk.type === 'text-delta') {
-            parts.push({
-              type: 'text-delta',
-            });
-          } else if (chunk.type === 'tool-call') {
-            parts.push({
-              type: 'tool-call',
-              toolName: chunk.toolName,
-            });
-          } else if (chunk.type === 'tool-result') {
-            parts.push({
-              type: 'tool-result',
-              toolName: chunk.toolName,
-            });
-          } else if (chunk.type === 'finish') {
-            parts.push({
-              type: 'finish',
-            });
-          }
-        }
-
-        // Verify we got some parts
-        expect(parts.length).toBeGreaterThan(0);
-
-        // Verify provider metadata on finish
-        expect(finishProviderMetadata).toBeDefined();
-        expect(finishProviderMetadata).toMatchObject({
-          provider: expect.any(String),
-        });
-      },
-    );
+      // Verify provider metadata on finish
+      expect(finishProviderMetadata).toBeDefined();
+      expect(finishProviderMetadata).toMatchObject({
+        provider: expect.any(String),
+      });
+    });
   });
 });
 

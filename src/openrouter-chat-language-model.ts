@@ -367,12 +367,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     if (message.toolCalls) {
       for (const toolCall of message.toolCalls) {
-        content.push({
+        // Include reasoning_details on tool-call parts so they can be preserved
+        // for multi-turn conversations with reasoning models like Gemini 3
+        const toolCallPart: LanguageModelV2Content & {
+          providerMetadata?: SharedV2ProviderMetadata;
+        } = {
           type: 'tool-call',
           toolCallId: toolCall.id,
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
-        });
+        };
+        if (reasoningDetails && reasoningDetails.length > 0) {
+          toolCallPart.providerMetadata = {
+            openrouter: {
+              reasoning_details: reasoningDetails,
+            },
+          };
+        }
+        content.push(toolCallPart);
       }
     }
 
@@ -392,6 +404,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       finishReason = 'stop';
     } else if (fullResponse.status === 'incomplete') {
       finishReason = 'length';
+    }
+
+    // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
+    // reasoning (thoughtSignature - Gemini's encrypted reasoning continuation data that
+    // must be replayed on subsequent requests), the model returns 'completed' but expects
+    // continuation. Override to 'tool-calls' so the AI SDK knows to continue the conversation.
+    const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
+    const hasEncryptedReasoning = reasoningDetails?.some((d) => {
+      if (typeof d === 'object' && d !== null) {
+        const obj = d as Record<string, unknown>;
+        return obj.encryptedContent || obj.type === 'reasoning.encrypted';
+      }
+      return false;
+    });
+    if (hasToolCalls && hasEncryptedReasoning && finishReason === 'stop') {
+      finishReason = 'tool-calls';
     }
 
     return {
@@ -513,12 +541,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               type: 'tool-input-end',
               id: toolId,
             });
-            controller.enqueue({
+            // Include reasoning_details on tool-call parts for multi-turn support
+            const toolCallPart: LanguageModelV2StreamPart & {
+              providerMetadata?: SharedV2ProviderMetadata;
+            } = {
               type: 'tool-call',
               toolCallId: toolCall.id,
               toolName: toolCall.name,
               input: JSON.stringify(toolCall.arguments),
-            });
+            };
+            if (reasoningDetails.length > 0) {
+              toolCallPart.providerMetadata = {
+                openrouter: {
+                  reasoning_details: reasoningDetails,
+                },
+              };
+            }
+            controller.enqueue(toolCallPart);
           }
 
           if (currentTextId) {
