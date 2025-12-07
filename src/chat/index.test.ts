@@ -166,6 +166,7 @@ describe('doGenerate', () => {
     reasoning,
     reasoning_details,
     images,
+    tool_calls,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -178,6 +179,11 @@ describe('doGenerate', () => {
     reasoning?: string;
     reasoning_details?: Array<ReasoningDetailUnion>;
     images?: Array<ImageResponse>;
+    tool_calls?: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -210,6 +216,7 @@ describe('doGenerate', () => {
               reasoning,
               reasoning_details,
               images,
+              tool_calls,
             },
             logprobs,
             finish_reason,
@@ -464,6 +471,46 @@ describe('doGenerate', () => {
       type: 'reasoning',
       text: 'This should be ignored when reasoning_details is present',
     });
+  });
+
+  it('should override finishReason to tool-calls when tool calls and encrypted reasoning are present', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_123',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"location":"San Francisco"}',
+          },
+        },
+      ],
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted_reasoning_data_here',
+        },
+      ],
+      // Gemini 3 returns 'stop' instead of 'tool_calls' when using thoughtSignature
+      finish_reason: 'stop',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
+    expect(result.finishReason).toBe('tool-calls');
+
+    // Should still have the tool call in content
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call_123',
+        toolName: 'get_weather',
+      }),
+    );
   });
 
   it('should pass the model and the messages', async () => {
@@ -1555,6 +1602,66 @@ describe('doStream', () => {
         },
       },
     ]);
+  });
+
+  it('should override finishReason to tool-calls in streaming when tool calls and encrypted reasoning are present', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning_details with encrypted data
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"reasoning_details":[{"type":"reasoning.encrypted","data":"encrypted_thoughtsig_data"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: tool call
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"id":"call_gemini3_123","type":"function","function":{"name":"get_weather","arguments":"{\\"location\\":\\"SF\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Final chunk: finish_reason is "stop" (Gemini 3 bug) - should be overridden to "tool-calls"
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find the finish event
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV2StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
+    expect(finishEvent?.finishReason).toBe('tool-calls');
+
+    // Should have the tool call
+    const toolCallEvent = elements.find(
+      (el): el is LanguageModelV2StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+    expect(toolCallEvent?.toolName).toBe('get_weather');
+    expect(toolCallEvent?.toolCallId).toBe('call_gemini3_123');
   });
 
   it('should stream images', async () => {
