@@ -1,6 +1,8 @@
 import type { LanguageModelV2FilePart } from '@ai-sdk/provider';
+import type { OpenRouterAudioFormat } from '../types/openrouter-chat-completions-input';
 
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
+import { OPENROUTER_AUDIO_FORMATS } from '../types/openrouter-chat-completions-input';
 import { isUrl } from './is-url';
 
 export function getFileUrl({
@@ -44,6 +46,36 @@ export function getBase64FromDataUrl(dataUrl: string): string {
   return match ? match[1]! : dataUrl;
 }
 
+/** MIME type to format mapping for normalization */
+export const MIME_TO_FORMAT: Record<string, OpenRouterAudioFormat> = {
+  // MP3 variants
+  mpeg: 'mp3',
+  mp3: 'mp3',
+  // WAV variants
+  'x-wav': 'wav',
+  wave: 'wav',
+  wav: 'wav',
+  // OGG variants
+  ogg: 'ogg',
+  vorbis: 'ogg',
+  // AAC variants
+  aac: 'aac',
+  'x-aac': 'aac',
+  // M4A variants
+  m4a: 'm4a',
+  'x-m4a': 'm4a',
+  mp4: 'm4a',
+  // AIFF variants
+  aiff: 'aiff',
+  'x-aiff': 'aiff',
+  // FLAC
+  flac: 'flac',
+  'x-flac': 'flac',
+  // PCM variants
+  pcm16: 'pcm16',
+  pcm24: 'pcm24',
+};
+
 /**
  * Converts an audio file part to OpenRouter's input_audio data format.
  *
@@ -53,17 +85,14 @@ export function getBase64FromDataUrl(dataUrl: string): string {
  * @param part - The file part containing audio data. Must have a mediaType
  *   starting with "audio/" and contain either base64 data or a data URL.
  *
- * @returns An object with `data` (base64-encoded audio) and `format` ("mp3" or "wav")
+ * @returns An object with `data` (base64-encoded audio) and `format`
  *   suitable for use in OpenRouter's `input_audio` field.
  *
  * @throws {Error} When audio is provided as an HTTP/HTTPS URL. OpenRouter requires
  *   audio to be base64-encoded inline. The error message includes instructions for
  *   downloading and encoding the audio locally.
  *
- * @throws {Error} When the audio format is not supported. OpenRouter only accepts
- *   MP3 and WAV formats. Supported MIME types:
- *   - MP3: "audio/mpeg", "audio/mp3"
- *   - WAV: "audio/wav", "audio/x-wav", "audio/wave"
+ * @throws {Error} When the audio format is not supported.
  *
  * @example
  * ```ts
@@ -73,7 +102,7 @@ export function getBase64FromDataUrl(dataUrl: string): string {
  */
 export function getInputAudioData(part: LanguageModelV2FilePart): {
   data: string;
-  format: 'mp3' | 'wav';
+  format: OpenRouterAudioFormat;
 } {
   const fileData = getFileUrl({
     part,
@@ -103,24 +132,16 @@ export function getInputAudioData(part: LanguageModelV2FilePart): {
 
   // Map media type to format
   const mediaType = part.mediaType || 'audio/mpeg';
-  let format = mediaType.replace('audio/', '');
+  const rawFormat = mediaType.replace('audio/', '');
 
-  // Normalize format names for OpenRouter
-  // Common MIME types: audio/mpeg, audio/mp3 -> mp3
-  // audio/wav, audio/x-wav, audio/wave -> wav
-  if (format === 'mpeg' || format === 'mp3') {
-    format = 'mp3';
-  } else if (format === 'x-wav' || format === 'wave' || format === 'wav') {
-    format = 'wav';
-  }
+  // Normalize format names for OpenRouter using MIME type mapping
+  const format = MIME_TO_FORMAT[rawFormat];
 
-  // Validate format - OpenRouter only supports mp3 and wav
-  if (format !== 'mp3' && format !== 'wav') {
+  if (format === undefined) {
+    const supportedList = OPENROUTER_AUDIO_FORMATS.join(', ');
     throw new Error(
       `Unsupported audio format: "${mediaType}"\n\n` +
-        `OpenRouter only supports MP3 and WAV audio formats.\n` +
-        `• For MP3: use "audio/mpeg" or "audio/mp3"\n` +
-        `• For WAV: use "audio/wav" or "audio/x-wav"\n\n` +
+        `OpenRouter supports the following audio formats: ${supportedList}\n\n` +
         `Learn more: https://openrouter.ai/docs/features/multimodal/audio`,
     );
   }
