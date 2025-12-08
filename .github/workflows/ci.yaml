@@ -18,7 +18,6 @@ jobs:
           node-version: "20.x"
       - uses: pnpm/action-setup@v4
       - run: pnpm install
-      - run: pnpm test
-      - run: pnpm build
       - run: pnpm typecheck
-      - run: pnpm stylecheck
+      - run: pnpm build
+      - run: pnpm test

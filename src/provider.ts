@@ -1,4 +1,4 @@
-import type { ProviderV2 } from '@ai-sdk/provider';
+import type { LanguageModelV2 } from '@ai-sdk/provider';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -7,29 +7,21 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './types/openrouter-completion-settings';
-import type {
-  OpenRouterEmbeddingModelId,
-  OpenRouterEmbeddingSettings,
-} from './types/openrouter-embedding-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
-import { OpenRouterEmbeddingModel } from './embedding';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
 
-export type { OpenRouterChatSettings, OpenRouterCompletionSettings };
+export type { OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends ProviderV2 {
+export interface OpenRouterProvider extends LanguageModelV2 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
   ): OpenRouterCompletionLanguageModel;
-  (
-    modelId: OpenRouterChatModelId,
-    settings?: OpenRouterChatSettings,
-  ): OpenRouterChatLanguageModel;
+  (modelId: OpenRouterChatModelId, settings?: OpenRouterChatSettings): OpenRouterChatLanguageModel;
 
   languageModel(
     modelId: OpenRouterChatModelId,
@@ -55,23 +47,6 @@ Creates an OpenRouter completion model for text generation.
     modelId: OpenRouterCompletionModelId,
     settings?: OpenRouterCompletionSettings,
   ): OpenRouterCompletionLanguageModel;
-
-  /**
-Creates an OpenRouter text embedding model. (AI SDK v5)
-   */
-  textEmbeddingModel(
-    modelId: OpenRouterEmbeddingModelId,
-    settings?: OpenRouterEmbeddingSettings,
-  ): OpenRouterEmbeddingModel;
-
-  /**
-Creates an OpenRouter text embedding model. (AI SDK v4 - deprecated, use textEmbeddingModel instead)
-@deprecated Use textEmbeddingModel instead
-   */
-  embedding(
-    modelId: OpenRouterEmbeddingModelId,
-    settings?: OpenRouterEmbeddingSettings,
-  ): OpenRouterEmbeddingModel;
 }
 
 export interface OpenRouterProviderSettings {
@@ -112,23 +87,14 @@ or to provide a custom fetch implementation for e.g. testing.
 A JSON object to send as the request body to access OpenRouter features & upstream provider features.
   */
   extraBody?: Record<string, unknown>;
-
-  /**
-   * Record of provider slugs to API keys for injecting into provider routing.
-   * Maps provider slugs (e.g. "anthropic", "openai") to their respective API keys.
-   */
-  api_keys?: Record<string, string>;
 }
 
 /**
 Create an OpenRouter provider instance.
  */
-export function createOpenRouter(
-  options: OpenRouterProviderSettings = {},
-): OpenRouterProvider {
+export function createOpenRouter(options: OpenRouterProviderSettings = {}): OpenRouterProvider {
   const baseURL =
-    withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
-    'https://openrouter.ai/api/v1';
+    withoutTrailingSlash(options.baseURL ?? options.baseUrl) ?? 'https://openrouter.ai/api/v1';
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
@@ -142,18 +108,11 @@ export function createOpenRouter(
           description: 'OpenRouter',
         })}`,
         ...options.headers,
-        ...(options.api_keys &&
-          Object.keys(options.api_keys).length > 0 && {
-            'X-Provider-API-Keys': JSON.stringify(options.api_keys),
-          }),
       },
       `ai-sdk/openrouter/${VERSION}`,
     );
 
-  const createChatModel = (
-    modelId: OpenRouterChatModelId,
-    settings: OpenRouterChatSettings = {},
-  ) =>
+  const createChatModel = (modelId: OpenRouterChatModelId, settings: OpenRouterChatSettings = {}) =>
     new OpenRouterChatLanguageModel(modelId, settings, {
       provider: 'openrouter.chat',
       url: ({ path }) => `${baseURL}${path}`,
@@ -176,33 +135,16 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
-  const createEmbeddingModel = (
-    modelId: OpenRouterEmbeddingModelId,
-    settings: OpenRouterEmbeddingSettings = {},
-  ) =>
-    new OpenRouterEmbeddingModel(modelId, settings, {
-      provider: 'openrouter.embedding',
-      url: ({ path }) => `${baseURL}${path}`,
-      headers: getHeaders,
-      fetch: options.fetch,
-      extraBody: options.extraBody,
-    });
-
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
   ) => {
     if (new.target) {
-      throw new Error(
-        'The OpenRouter model function cannot be called with the new keyword.',
-      );
+      throw new Error('The OpenRouter model function cannot be called with the new keyword.');
     }
 
     if (modelId === 'openai/gpt-3.5-turbo-instruct') {
-      return createCompletionModel(
-        modelId,
-        settings as OpenRouterCompletionSettings,
-      );
+      return createCompletionModel(modelId, settings as OpenRouterCompletionSettings);
     }
 
     return createChatModel(modelId, settings as OpenRouterChatSettings);
@@ -216,8 +158,6 @@ export function createOpenRouter(
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
-  provider.textEmbeddingModel = createEmbeddingModel;
-  provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
 
   return provider as OpenRouterProvider;
 }

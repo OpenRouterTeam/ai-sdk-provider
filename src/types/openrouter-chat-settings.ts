@@ -1,4 +1,3 @@
-import type * as models from '@openrouter/sdk/models';
 import type { OpenRouterSharedSettings } from '..';
 
 // https://openrouter.ai/api/v1/models
@@ -46,26 +45,19 @@ monitor and detect abuse. Learn more.
   user?: string;
 
   /**
-   * Plugin configurations for enabling various capabilities
+   * Web search plugin configuration for enabling web search capabilities
    */
-  plugins?: Array<
-    | {
-        id: models.IdWeb;
-        max_results?: number;
-        search_prompt?: string;
-        engine?: models.Engine;
-      }
-    | {
-        id: models.IdFileParser;
-        max_files?: number;
-        pdf?: {
-          engine?: models.PdfEngine;
-        };
-      }
-    | {
-        id: models.IdModeration;
-      }
-  >;
+  plugins?: Array<{
+    id: 'web';
+    /**
+     * Maximum number of search results to include (default: 5)
+     */
+    max_results?: number;
+    /**
+     * Custom search prompt to guide the search query
+     */
+    search_prompt?: string;
+  }>;
 
   /**
    * Built-in web search options for models that support native web search
@@ -79,28 +71,6 @@ monitor and detect abuse. Learn more.
      * Custom search prompt to guide the search query
      */
     search_prompt?: string;
-    /**
-     * Search engine to use for web search
-     * - "native": Use provider's built-in web search
-     * - "exa": Use Exa's search API
-     * - undefined: Native if supported, otherwise Exa
-     * @see https://openrouter.ai/docs/features/web-search
-     */
-    engine?: models.Engine;
-  };
-
-  /**
-   * Debug options for troubleshooting API requests.
-   * Only works with streaming requests.
-   * @see https://openrouter.ai/docs/api-reference/debugging
-   */
-  debug?: {
-    /**
-     * When true, echoes back the request body that was sent to the upstream provider.
-     * The debug data will be returned as the first chunk in the stream with a `debug.echo_upstream_body` field.
-     * Sensitive data like user IDs and base64 content will be redacted.
-     */
-    echo_upstream_body?: boolean;
   };
 
   /**
@@ -122,7 +92,7 @@ monitor and detect abuse. Learn more.
     /**
      * Control whether to use providers that may store data
      */
-    data_collection?: models.DataCollection;
+    data_collection?: 'allow' | 'deny';
     /**
      * List of provider slugs to allow for this request
      */
@@ -134,11 +104,13 @@ monitor and detect abuse. Learn more.
     /**
      * List of quantization levels to filter by (e.g. ["int4", "int8"])
      */
-    quantizations?: Array<models.Quantization>;
+    quantizations?: Array<
+      'int4' | 'int8' | 'fp4' | 'fp6' | 'fp8' | 'fp16' | 'bf16' | 'fp32' | 'unknown'
+    >;
     /**
      * Sort providers by price, throughput, or latency
      */
-    sort?: models.ProviderSort;
+    sort?: 'price' | 'throughput' | 'latency';
     /**
      * Maximum pricing you want to pay for this request
      */
@@ -149,10 +121,5 @@ monitor and detect abuse. Learn more.
       audio?: number | string;
       request?: number | string;
     };
-    /**
-     * Whether to restrict routing to only ZDR (Zero Data Retention) endpoints.
-     * When true, only endpoints that do not retain prompts will be used.
-     */
-    zdr?: boolean;
   };
 } & OpenRouterSharedSettings;

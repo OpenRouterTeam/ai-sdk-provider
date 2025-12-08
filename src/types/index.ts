@@ -2,13 +2,11 @@ import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 export type { LanguageModelV2, LanguageModelV2Prompt };
 
-export * from './openrouter-embedding-settings';
-
 export type OpenRouterProviderOptions = {
   models?: string[];
 
   /**
-   * https://openrouter.ai/docs/use-cases/reasoning-tokens
+   * https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
@@ -41,7 +39,7 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
 
   /**
    * Enable usage accounting to get detailed token usage information.
-   * https://openrouter.ai/docs/use-cases/usage-accounting
+   * https://openrouter.ai/docs/guides/guides/usage-accounting
    */
   usage?: {
     /**
@@ -53,7 +51,7 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
 
 /**
  * Usage accounting response
- * @see https://openrouter.ai/docs/use-cases/usage-accounting
+ * @see https://openrouter.ai/docs/guides/guides/usage-accounting
  */
 export type OpenRouterUsageAccounting = {
   promptTokens: number;
@@ -66,7 +64,7 @@ export type OpenRouterUsageAccounting = {
   };
   totalTokens: number;
   cost?: number;
-  costDetails?: {
+  costDetails: {
     upstreamInferenceCost: number;
   };
 };

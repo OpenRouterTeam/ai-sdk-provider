@@ -5,18 +5,19 @@ import type {
   LanguageModelV2ToolResultPart,
   SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
-import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
-import { getFileUrl, getInputAudioData } from './file-url-utils';
+import { getFileUrl } from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+export type OpenRouterCacheControl = {
+  type: 'ephemeral';
+};
 
 function getCacheControl(
   providerMetadata: SharedV2ProviderMetadata | undefined,
@@ -49,18 +50,16 @@ export function convertToOpenRouterChatMessages(
       case 'user': {
         if (content.length === 1 && content[0]?.type === 'text') {
           const cacheControl =
-            getCacheControl(providerOptions) ??
-            getCacheControl(content[0].providerOptions);
-          const contentWithCacheControl: string | ChatCompletionContentPart[] =
-            cacheControl
-              ? [
-                  {
-                    type: 'text',
-                    text: content[0].text,
-                    cache_control: cacheControl,
-                  },
-                ]
-              : content[0].text;
+            getCacheControl(providerOptions) ?? getCacheControl(content[0].providerOptions);
+          const contentWithCacheControl: string | ChatCompletionContentPart[] = cacheControl
+            ? [
+                {
+                  type: 'text',
+                  text: content[0].text,
+                  cache_control: cacheControl,
+                },
+              ]
+            : content[0].text;
           messages.push({
             role: 'user',
             content: contentWithCacheControl,
@@ -72,8 +71,7 @@ export function convertToOpenRouterChatMessages(
         const messageCacheControl = getCacheControl(providerOptions);
         const contentParts: ChatCompletionContentPart[] = content.map(
           (part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
-            const cacheControl =
-              getCacheControl(part.providerOptions) ?? messageCacheControl;
+            const cacheControl = getCacheControl(part.providerOptions) ?? messageCacheControl;
 
             switch (part.type) {
               case 'text':
@@ -99,19 +97,8 @@ export function convertToOpenRouterChatMessages(
                   };
                 }
 
-                // Handle audio files for input_audio format
-                if (part.mediaType?.startsWith('audio/')) {
-                  return {
-                    type: 'input_audio' as const,
-                    input_audio: getInputAudioData(part),
-                    cache_control: cacheControl,
-                  };
-                }
-
                 const fileName = String(
-                  part.providerOptions?.openrouter?.filename ??
-                    part.filename ??
-                    '',
+                  part.providerOptions?.openrouter?.filename ?? part.filename ?? '',
                 );
 
                 const fileData = getFileUrl({
@@ -122,7 +109,10 @@ export function convertToOpenRouterChatMessages(
                 if (
                   isUrl({
                     url: fileData,
-                    protocols: new Set(['http:', 'https:'] as const),
+                    protocols: new Set([
+                      'http:',
+                      'https:',
+                    ]),
                   })
                 ) {
                   return {
@@ -169,29 +159,19 @@ export function convertToOpenRouterChatMessages(
         const toolCalls: Array<{
           id: string;
           type: 'function';
-          function: { name: string; arguments: string };
+          function: {
+            name: string;
+            arguments: string;
+          };
         }> = [];
-        const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
         for (const part of content) {
           switch (part.type) {
             case 'text': {
               text += part.text;
-
               break;
             }
             case 'tool-call': {
-              const partReasoningDetails = (
-                part.providerOptions as Record<string, unknown>
-              )?.openrouter as Record<string, unknown> | undefined;
-              if (
-                partReasoningDetails?.reasoning_details &&
-                Array.isArray(partReasoningDetails.reasoning_details)
-              ) {
-                accumulatedReasoningDetails.push(
-                  ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
-                );
-              }
               toolCalls.push({
                 id: part.toolCallId,
                 type: 'function',
@@ -204,17 +184,6 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              const parsedPartProviderOptions =
-                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
-              if (
-                parsedPartProviderOptions.success &&
-                parsedPartProviderOptions.data?.openrouter?.reasoning_details
-              ) {
-                accumulatedReasoningDetails.push(
-                  ...parsedPartProviderOptions.data.openrouter
-                    .reasoning_details,
-                );
-              }
               break;
             }
 
@@ -226,33 +195,28 @@ export function convertToOpenRouterChatMessages(
           }
         }
 
-        // Check message-level providerOptions for preserved reasoning_details and annotations
-        const parsedProviderOptions =
-          OpenRouterProviderOptionsSchema.safeParse(providerOptions);
-        const messageReasoningDetails = parsedProviderOptions.success
+        // Check if we have preserved reasoning_details from the original OpenRouter response
+        // OpenRouter requires reasoning_details to be passed back unmodified for multi-turn conversations
+        // If we don't have the preserved version (AI SDK doesn't pass providerOptions back),
+        // we should NOT send reconstructed reasoning_details as they won't match the original
+        // Instead, only use the legacy reasoning field
+        const parsedProviderOptions = OpenRouterProviderOptionsSchema.safeParse(providerOptions);
+        const preservedReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
           : undefined;
-        const messageAnnotations = parsedProviderOptions.success
-          ? parsedProviderOptions.data?.openrouter?.annotations
-          : undefined;
-
-        // Use message-level reasoning_details if available, otherwise use accumulated from parts
-        const finalReasoningDetails =
-          messageReasoningDetails &&
-          Array.isArray(messageReasoningDetails) &&
-          messageReasoningDetails.length > 0
-            ? messageReasoningDetails
-            : accumulatedReasoningDetails.length > 0
-              ? accumulatedReasoningDetails
-              : undefined;
 
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: reasoning || undefined,
-          reasoning_details: finalReasoningDetails,
-          annotations: messageAnnotations,
+          // Only include reasoning_details if we have the preserved original version
+          reasoning_details:
+            preservedReasoningDetails &&
+            Array.isArray(preservedReasoningDetails) &&
+            preservedReasoningDetails.length > 0
+              ? preservedReasoningDetails
+              : undefined,
           cache_control: getCacheControl(providerOptions),
         });
 
@@ -268,8 +232,7 @@ export function convertToOpenRouterChatMessages(
             tool_call_id: toolResponse.toolCallId,
             content,
             cache_control:
-              getCacheControl(providerOptions) ??
-              getCacheControl(toolResponse.providerOptions),
+              getCacheControl(providerOptions) ?? getCacheControl(toolResponse.providerOptions),
           });
         }
         break;
@@ -285,7 +248,5 @@ export function convertToOpenRouterChatMessages(
 }
 
 function getToolResultContent(input: LanguageModelV2ToolResultPart): string {
-  return input.output.type === 'text'
-    ? input.output.value
-    : JSON.stringify(input.output.value);
+  return input.output.type === 'text' ? input.output.value : JSON.stringify(input.output.value);
 }

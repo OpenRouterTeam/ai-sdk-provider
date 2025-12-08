@@ -13,11 +13,7 @@ import type {
   OpenRouterCompletionSettings,
 } from '../types/openrouter-completion-settings';
 
-import {
-  APICallError,
-  NoContentGeneratedError,
-  UnsupportedFunctionalityError,
-} from '@ai-sdk/provider';
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -43,14 +39,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
-  readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i,
     ],
-    'text/*': [/^data:text\//, /^https?:\/\/.+$/],
-    'application/*': [/^data:application\//, /^https?:\/\/.+$/],
+    'text/*': [
+      /^data:text\//,
+      /^https?:\/\/.+$/,
+    ],
+    'application/*': [
+      /^data:application\//,
+      /^https?:\/\/.+$/,
+    ],
   };
   readonly defaultObjectGenerationMode = undefined;
   readonly settings: OpenRouterCompletionSettings;
@@ -160,34 +161,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       headers: combineHeaders(this.config.headers(), options.headers),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
-      successfulResponseHandler: createJsonResponseHandler(
-        OpenRouterCompletionChunkSchema,
-      ),
+      successfulResponseHandler: createJsonResponseHandler(OpenRouterCompletionChunkSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     });
 
     if ('error' in response) {
-      const errorData = response.error as { message: string; code?: string };
-      throw new APICallError({
-        message: errorData.message,
-        url: this.config.url({
-          path: '/completions',
-          modelId: this.modelId,
-        }),
-        requestBodyValues: args,
-        statusCode: 200,
-        responseHeaders,
-        data: errorData,
-      });
+      throw new Error(`${response.error.message}`);
     }
 
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new NoContentGeneratedError({
-        message: 'No choice in OpenRouter completion response',
-      });
+      throw new Error('No choice in OpenRouter completion response');
     }
 
     return {
@@ -202,12 +188,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
         totalTokens:
-          (response.usage?.prompt_tokens ?? 0) +
-          (response.usage?.completion_tokens ?? 0),
-        reasoningTokens:
-          response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-        cachedInputTokens:
-          response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+          (response.usage?.prompt_tokens ?? 0) + (response.usage?.completion_tokens ?? 0),
+        reasoningTokens: response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+        cachedInputTokens: response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
       },
       warnings: [],
       response: {
@@ -240,13 +223,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         // only include stream_options when in strict compatibility mode:
         stream_options:
           this.config.compatibility === 'strict'
-            ? { include_usage: true }
+            ? {
+                include_usage: true,
+              }
             : undefined,
       },
       failedResponseHandler: openrouterFailedResponseHandler,
-      successfulResponseHandler: createEventSourceResponseHandler(
-        OpenRouterCompletionChunkSchema,
-      ),
+      successfulResponseHandler: createEventSourceResponseHandler(OpenRouterCompletionChunkSchema),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     });
@@ -271,7 +254,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
               finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
+              controller.enqueue({
+                type: 'error',
+                error: chunk.error,
+              });
               return;
             }
 
@@ -280,22 +266,23 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
             // handle error chunks:
             if ('error' in value) {
               finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error });
+              controller.enqueue({
+                type: 'error',
+                error: value.error,
+              });
               return;
             }
 
-            if (value.usage != null) {
+            if (value.usage) {
               usage.inputTokens = value.usage.prompt_tokens;
               usage.outputTokens = value.usage.completion_tokens;
-              usage.totalTokens =
-                value.usage.prompt_tokens + value.usage.completion_tokens;
+              usage.totalTokens = value.usage.prompt_tokens + value.usage.completion_tokens;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
 
               if (value.usage.prompt_tokens_details) {
-                const cachedInputTokens =
-                  value.usage.prompt_tokens_details.cached_tokens ?? 0;
+                const cachedInputTokens = value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
                 usage.cachedInputTokens = cachedInputTokens;
                 openrouterUsage.promptTokensDetails = {
@@ -305,8 +292,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.completionTokens = value.usage.completion_tokens;
               if (value.usage.completion_tokens_details) {
-                const reasoningTokens =
-                  value.usage.completion_tokens_details.reasoning_tokens ?? 0;
+                const reasoningTokens = value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
                 usage.reasoningTokens = reasoningTokens;
                 openrouterUsage.completionTokensDetails = {
@@ -316,22 +302,15 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
-              const upstreamInferenceCost =
-                value.usage.cost_details?.upstream_inference_cost;
-              if (upstreamInferenceCost != null) {
-                openrouterUsage.costDetails = {
-                  upstreamInferenceCost,
-                };
-              }
             }
 
             const choice = value.choices[0];
 
-            if (choice?.finish_reason != null) {
+            if (choice?.finish_reason) {
               finishReason = mapOpenRouterFinishReason(choice.finish_reason);
             }
 
-            if (choice?.text != null) {
+            if (choice?.text) {
               controller.enqueue({
                 type: 'text-delta',
                 delta: choice.text,

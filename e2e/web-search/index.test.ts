@@ -1,5 +1,5 @@
+import { writeFile } from 'node:fs/promises';
 import { streamText } from 'ai';
-import { writeFile } from 'fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 

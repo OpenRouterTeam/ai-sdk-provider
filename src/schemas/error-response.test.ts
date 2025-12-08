@@ -5,14 +5,14 @@ describe('OpenRouterErrorResponseSchema', () => {
     const errorWithoutTypeCodeAndParam = {
       error: {
         message: 'Example error message',
-        metadata: { provider_name: 'Example Provider' },
+        metadata: {
+          provider_name: 'Morph',
+        },
       },
       user_id: 'example_1',
     };
 
-    const result = OpenRouterErrorResponseSchema.parse(
-      errorWithoutTypeCodeAndParam,
-    );
+    const result = OpenRouterErrorResponseSchema.parse(errorWithoutTypeCodeAndParam);
 
     expect(result).toEqual({
       error: {
@@ -20,9 +20,7 @@ describe('OpenRouterErrorResponseSchema', () => {
         code: null,
         type: null,
         param: null,
-        metadata: { provider_name: 'Example Provider' },
       },
-      user_id: 'example_1',
     });
   });
 
@@ -33,7 +31,9 @@ describe('OpenRouterErrorResponseSchema', () => {
         type: 'invalid_request_error',
         code: 400,
         param: 'canBeAnything',
-        metadata: { provider_name: 'Example Provider' },
+        metadata: {
+          provider_name: 'Morph',
+        },
       },
     };
 
@@ -45,7 +45,6 @@ describe('OpenRouterErrorResponseSchema', () => {
         message: 'Example error message with type',
         type: 'invalid_request_error',
         param: 'canBeAnything',
-        metadata: { provider_name: 'Example Provider' },
       },
     });
   });

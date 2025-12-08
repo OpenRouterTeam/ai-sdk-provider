@@ -1,8 +1,9 @@
-import type { FileAnnotation } from '@/src/schemas/provider-metadata';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+export type OpenRouterCacheControl = {
+  type: 'ephemeral';
+};
 
 export type OpenRouterChatCompletionsInput = Array<ChatCompletionMessageParam>;
 
@@ -27,8 +28,7 @@ export interface ChatCompletionUserMessageParam {
 export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
-  | ChatCompletionContentPartFile
-  | ChatCompletionContentPartInputAudio;
+  | ChatCompletionContentPartFile;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -54,36 +54,11 @@ export interface ChatCompletionContentPartText {
   cache_control?: OpenRouterCacheControl;
 }
 
-/** https://openrouter.ai/docs/guides/overview/multimodal/audio */
-export const OPENROUTER_AUDIO_FORMATS = [
-  'wav',
-  'mp3',
-  'aiff',
-  'aac',
-  'ogg',
-  'flac',
-  'm4a',
-  'pcm16',
-  'pcm24',
-] as const;
-
-export type OpenRouterAudioFormat = (typeof OPENROUTER_AUDIO_FORMATS)[number];
-
-export interface ChatCompletionContentPartInputAudio {
-  type: 'input_audio';
-  input_audio: {
-    data: string;
-    format: OpenRouterAudioFormat;
-  };
-  cache_control?: OpenRouterCacheControl;
-}
-
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
-  annotations?: FileAnnotation[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
   cache_control?: OpenRouterCacheControl;
 }

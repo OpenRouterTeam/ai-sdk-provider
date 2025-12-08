@@ -1,6 +1,5 @@
 import type { LanguageModelV2ToolChoice } from '@ai-sdk/provider';
 
-import { InvalidArgumentError } from '@ai-sdk/provider';
 import { z } from 'zod/v4';
 
 const ChatCompletionToolChoiceSchema = z.union([
@@ -28,15 +27,14 @@ export function getChatCompletionToolChoice(
     case 'tool': {
       return {
         type: 'function',
-        function: { name: toolChoice.toolName },
+        function: {
+          name: toolChoice.toolName,
+        },
       };
     }
     default: {
       toolChoice satisfies never;
-      throw new InvalidArgumentError({
-        argument: 'toolChoice',
-        message: `Invalid tool choice type: ${JSON.stringify(toolChoice)}`,
-      });
+      throw new Error(`Invalid tool choice type: ${toolChoice}`);
     }
   }
 }

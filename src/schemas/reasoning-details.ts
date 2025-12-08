@@ -1,5 +1,4 @@
 import { z } from 'zod/v4';
-import { isDefinedOrNotNull } from '../utils/type-guards';
 import { ReasoningFormat } from './format';
 
 export enum ReasoningDetailType {
@@ -8,13 +7,11 @@ export enum ReasoningDetailType {
   Text = 'reasoning.text',
 }
 
-export const CommonReasoningDetailSchema = z
-  .object({
-    id: z.string().nullish(),
-    format: z.enum(ReasoningFormat).nullish(),
-    index: z.number().optional(),
-  })
-  .loose();
+export const CommonReasoningDetailSchema = z.object({
+  id: z.string().nullish(),
+  format: z.nativeEnum(ReasoningFormat).nullish(),
+  index: z.number().optional(),
+});
 
 export const ReasoningDetailSummarySchema = z
   .object({
@@ -22,9 +19,7 @@ export const ReasoningDetailSummarySchema = z
     summary: z.string(),
   })
   .extend(CommonReasoningDetailSchema.shape);
-export type ReasoningDetailSummary = z.infer<
-  typeof ReasoningDetailSummarySchema
->;
+export type ReasoningDetailSummary = z.infer<typeof ReasoningDetailSummarySchema>;
 
 export const ReasoningDetailEncryptedSchema = z
   .object({
@@ -33,9 +28,7 @@ export const ReasoningDetailEncryptedSchema = z
   })
   .extend(CommonReasoningDetailSchema.shape);
 
-export type ReasoningDetailEncrypted = z.infer<
-  typeof ReasoningDetailEncryptedSchema
->;
+export type ReasoningDetailEncrypted = z.infer<typeof ReasoningDetailEncryptedSchema>;
 
 export const ReasoningDetailTextSchema = z
   .object({
@@ -63,30 +56,3 @@ const ReasoningDetailsWithUnknownSchema = z.union([
 export const ReasoningDetailArraySchema = z
   .array(ReasoningDetailsWithUnknownSchema)
   .transform((d) => d.filter((d): d is ReasoningDetailUnion => !!d));
-
-export const OutputUnionToReasoningDetailsSchema = z.union([
-  z
-    .object({
-      delta: z.object({
-        reasoning_details: z.array(ReasoningDetailsWithUnknownSchema),
-      }),
-    })
-    .transform((data) =>
-      data.delta.reasoning_details.filter(isDefinedOrNotNull),
-    ),
-  z
-    .object({
-      message: z.object({
-        reasoning_details: z.array(ReasoningDetailsWithUnknownSchema),
-      }),
-    })
-    .transform((data) =>
-      data.message.reasoning_details.filter(isDefinedOrNotNull),
-    ),
-  z
-    .object({
-      text: z.string(),
-      reasoning_details: z.array(ReasoningDetailsWithUnknownSchema),
-    })
-    .transform((data) => data.reasoning_details.filter(isDefinedOrNotNull)),
-]);

@@ -1,7 +1,7 @@
 import type { ModelMessage } from 'ai';
 
+import { writeFile } from 'node:fs/promises';
 import { generateText } from 'ai';
-import { writeFile } from 'fs/promises';
 import { test, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 

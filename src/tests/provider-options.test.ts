@@ -7,7 +7,15 @@ import { createOpenRouter } from '../provider';
 
 // Add type assertions for the mocked classes
 const TEST_MESSAGES: ModelMessage[] = [
-  { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
+  {
+    role: 'user',
+    content: [
+      {
+        type: 'text',
+        text: 'Hello',
+      },
+    ],
+  },
 ];
 
 describe('providerOptions', () => {

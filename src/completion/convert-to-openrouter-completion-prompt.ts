@@ -7,10 +7,7 @@ import type {
   LanguageModelV2ToolResultPart,
 } from '@ai-sdk/provider';
 
-import {
-  InvalidPromptError,
-  UnsupportedFunctionalityError,
-} from '@ai-sdk/provider';
+import { InvalidPromptError, UnsupportedFunctionalityError } from '@ai-sdk/provider';
 
 export function convertToOpenRouterCompletionPrompt({
   prompt,
@@ -35,7 +32,9 @@ export function convertToOpenRouterCompletionPrompt({
     prompt[0].content[0] &&
     prompt[0].content[0].type === 'text'
   ) {
-    return { prompt: prompt[0].content[0].text };
+    return {
+      prompt: prompt[0].content[0].text,
+    };
   }
 
   // otherwise transform to a chat message format:

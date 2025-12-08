@@ -4,12 +4,10 @@ import type {
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
   LanguageModelV2FinishReason,
-  LanguageModelV2FunctionTool,
   LanguageModelV2ResponseMetadata,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
   SharedV2Headers,
-  SharedV2ProviderMetadata,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
@@ -21,11 +19,7 @@ import type {
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
 
-import {
-  APICallError,
-  InvalidResponseDataError,
-  NoContentGeneratedError,
-} from '@ai-sdk/provider';
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -61,14 +55,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   readonly defaultObjectGenerationMode = 'tool' as const;
 
   readonly modelId: OpenRouterChatModelId;
-  readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i,
     ],
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
-    'application/*': [/^data:application\//, /^https?:\/\/.+$/],
+    'application/*': [
+      /^data:application\//,
+      /^https?:\/\/.+$/,
+    ],
   };
   readonly settings: OpenRouterChatSettings;
 
@@ -106,8 +102,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       // model specific settings:
       logit_bias: this.settings.logitBias,
       logprobs:
-        this.settings.logprobs === true ||
-        typeof this.settings.logprobs === 'number'
+        this.settings.logprobs === true || typeof this.settings.logprobs === 'number'
           ? true
           : undefined,
       top_logprobs:
@@ -130,22 +125,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       seed,
 
       stop: stopSequences,
-      response_format:
-        responseFormat?.type === 'json'
-          ? responseFormat.schema != null
-            ? {
-                type: 'json_schema',
-                json_schema: {
-                  schema: responseFormat.schema,
-                  strict: true,
-                  name: responseFormat.name ?? 'response',
-                  ...(responseFormat.description && {
-                    description: responseFormat.description,
-                  }),
-                },
-              }
-            : { type: 'json_object' }
-          : undefined,
+      response_format: responseFormat,
       top_k: topK,
 
       // messages:
@@ -161,21 +141,33 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       web_search_options: this.settings.web_search_options,
       // Provider routing settings:
       provider: this.settings.provider,
-      // Debug settings:
-      debug: this.settings.debug,
 
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
     };
 
+    if (responseFormat?.type === 'json' && responseFormat.schema !== null) {
+      return {
+        ...baseArgs,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            schema: responseFormat.schema,
+            strict: true,
+            name: responseFormat.name ?? 'response',
+            ...(responseFormat.description && {
+              description: responseFormat.description,
+            }),
+          },
+        },
+      };
+    }
+
     if (tools && tools.length > 0) {
       // TODO: support built-in tools
       const mappedTools = tools
-        .filter(
-          (tool): tool is LanguageModelV2FunctionTool =>
-            tool.type === 'function',
-        )
+        .filter((tool) => tool.type === 'function')
         .map((tool) => ({
           type: 'function' as const,
           function: {
@@ -188,9 +180,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       return {
         ...baseArgs,
         tools: mappedTools,
-        tool_choice: toolChoice
-          ? getChatCompletionToolChoice(toolChoice)
-          : undefined,
+        tool_choice: toolChoice ? getChatCompletionToolChoice(toolChoice) : undefined,
       };
     }
 
@@ -209,7 +199,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         usage: OpenRouterUsageAccounting;
       };
     };
-    request?: { body?: unknown };
+    request?: {
+      body?: unknown;
+    };
     response?: LanguageModelV2ResponseMetadata & {
       headers?: SharedV2Headers;
       body?: unknown;
@@ -223,7 +215,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       ...openrouterOptions,
     };
 
-    const { value: responseValue, responseHeaders } = await postJsonToApi({
+    const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -238,34 +230,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    // Check if response is an error (HTTP 200 with error payload)
-    if ('error' in responseValue) {
-      const errorData = responseValue.error as {
-        message: string;
-        code?: string;
-      };
-      throw new APICallError({
-        message: errorData.message,
-        url: this.config.url({
-          path: '/chat/completions',
-          modelId: this.modelId,
-        }),
-        requestBodyValues: args,
-        statusCode: 200,
-        responseHeaders,
-        data: errorData,
-      });
-    }
-
-    // Now TypeScript knows this is the success response
-    const response = responseValue;
-
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new NoContentGeneratedError({
-        message: 'No choice in response',
-      });
+      throw new Error('No choice in response');
     }
 
     // Extract detailed usage information
@@ -274,12 +242,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           inputTokens: response.usage.prompt_tokens ?? 0,
           outputTokens: response.usage.completion_tokens ?? 0,
           totalTokens:
-            (response.usage.prompt_tokens ?? 0) +
-            (response.usage.completion_tokens ?? 0),
-          reasoningTokens:
-            response.usage.completion_tokens_details?.reasoning_tokens ?? 0,
-          cachedInputTokens:
-            response.usage.prompt_tokens_details?.cached_tokens ?? 0,
+            (response.usage.prompt_tokens ?? 0) + (response.usage.completion_tokens ?? 0),
+          reasoningTokens: response.usage.completion_tokens_details?.reasoning_tokens ?? 0,
+          cachedInputTokens: response.usage.prompt_tokens_details?.cached_tokens ?? 0,
         }
       : {
           inputTokens: 0,
@@ -293,7 +258,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     const reasoning: Array<LanguageModelV2Content> =
       reasoningDetails.length > 0
-        ? (reasoningDetails
+        ? reasoningDetails
             .map((detail) => {
               switch (detail.type) {
                 case ReasoningDetailType.Text: {
@@ -301,11 +266,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: detail.text,
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: [detail],
-                        },
-                      },
                     };
                   }
                   break;
@@ -315,11 +275,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: detail.summary,
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: [detail],
-                        },
-                      },
                     };
                   }
                   break;
@@ -330,11 +285,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     return {
                       type: 'reasoning' as const,
                       text: '[REDACTED]',
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: [detail],
-                        },
-                      },
                     };
                   }
                   break;
@@ -345,7 +295,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
               return null;
             })
-            .filter((p) => p !== null) as Array<LanguageModelV2Content>)
+            .filter((p) => p !== null)
         : choice.message.reasoning
           ? [
               {
@@ -374,11 +324,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
-          providerMetadata: {
-            openrouter: {
-              reasoning_details: reasoningDetails,
-            },
-          },
         });
       }
     }
@@ -412,20 +357,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       }
     }
 
-    // Extract file annotations to expose in providerMetadata
-    const fileAnnotations = choice.message.annotations?.filter(
-      (
-        a,
-      ): a is {
-        type: 'file';
-        file: {
-          hash: string;
-          name: string;
-          content?: Array<{ type: string; text?: string }>;
-        };
-      } => a.type === 'file',
-    );
-
     return {
       content,
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
@@ -435,44 +366,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: response.provider ?? '',
           reasoning_details: choice.message.reasoning_details ?? [],
-          annotations:
-            fileAnnotations && fileAnnotations.length > 0
-              ? fileAnnotations
-              : undefined,
           usage: {
             promptTokens: usageInfo.inputTokens ?? 0,
             completionTokens: usageInfo.outputTokens ?? 0,
             totalTokens: usageInfo.totalTokens ?? 0,
             cost: response.usage?.cost,
-            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
-              ? {
-                  promptTokensDetails: {
-                    cachedTokens:
-                      response.usage.prompt_tokens_details.cached_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
-            null
-              ? {
-                  completionTokensDetails: {
-                    reasoningTokens:
-                      response.usage.completion_tokens_details.reasoning_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.cost_details?.upstream_inference_cost != null
-              ? {
-                  costDetails: {
-                    upstreamInferenceCost:
-                      response.usage.cost_details.upstream_inference_cost,
-                  },
-                }
-              : {}),
+            promptTokensDetails: {
+              cachedTokens: response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+            },
+            completionTokensDetails: {
+              reasoningTokens: response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
+            },
+            costDetails: {
+              upstreamInferenceCost: response.usage?.cost_details?.upstream_inference_cost ?? 0,
+            },
           },
         }),
       },
-      request: { body: args },
+      request: {
+        body: args,
+      },
       response: {
         id: response.id,
         modelId: response.model,
@@ -484,7 +397,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
   async doStream(options: LanguageModelV2CallOptions): Promise<{
     stream: ReadableStream<LanguageModelV2StreamPart>;
     warnings: Array<LanguageModelV2CallWarning>;
-    request?: { body?: unknown };
+    request?: {
+      body?: unknown;
+    };
     response?: LanguageModelV2ResponseMetadata & {
       headers?: SharedV2Headers;
       body?: unknown;
@@ -515,7 +430,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 include_usage: true,
                 // If user has requested usage accounting, make sure we get it in the stream
                 ...(this.settings.usage?.include
-                  ? { include_usage: true }
+                  ? {
+                      include_usage: true,
+                    }
                   : {}),
               }
             : undefined,
@@ -564,16 +481,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     return {
       stream: response.pipeThrough(
         new TransformStream<
-          ParseResult<
-            z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
-          >,
+          ParseResult<z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>>,
           LanguageModelV2StreamPart
         >({
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
               finishReason = 'error';
-              controller.enqueue({ type: 'error', error: chunk.error });
+              controller.enqueue({
+                type: 'error',
+                error: chunk.error,
+              });
               return;
             }
 
@@ -582,7 +500,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             // handle error chunks:
             if ('error' in value) {
               finishReason = 'error';
-              controller.enqueue({ type: 'error', error: value.error });
+              controller.enqueue({
+                type: 'error',
+                error: value.error,
+              });
               return;
             }
 
@@ -605,18 +526,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             }
 
-            if (value.usage != null) {
+            if (value.usage) {
               usage.inputTokens = value.usage.prompt_tokens;
               usage.outputTokens = value.usage.completion_tokens;
-              usage.totalTokens =
-                value.usage.prompt_tokens + value.usage.completion_tokens;
+              usage.totalTokens = value.usage.prompt_tokens + value.usage.completion_tokens;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
 
               if (value.usage.prompt_tokens_details) {
-                const cachedInputTokens =
-                  value.usage.prompt_tokens_details.cached_tokens ?? 0;
+                const cachedInputTokens = value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
                 usage.cachedInputTokens = cachedInputTokens;
                 openrouterUsage.promptTokensDetails = {
@@ -626,8 +545,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.completionTokens = value.usage.completion_tokens;
               if (value.usage.completion_tokens_details) {
-                const reasoningTokens =
-                  value.usage.completion_tokens_details.reasoning_tokens ?? 0;
+                const reasoningTokens = value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
                 usage.reasoningTokens = reasoningTokens;
                 openrouterUsage.completionTokensDetails = {
@@ -637,42 +555,30 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
-              const upstreamInferenceCost =
-                value.usage.cost_details?.upstream_inference_cost;
-              if (upstreamInferenceCost != null) {
-                openrouterUsage.costDetails = {
-                  upstreamInferenceCost,
-                };
-              }
             }
 
             const choice = value.choices[0];
 
-            if (choice?.finish_reason != null) {
+            if (choice?.finish_reason) {
               finishReason = mapOpenRouterFinishReason(choice.finish_reason);
             }
 
-            if (choice?.delta == null) {
+            if (!choice?.delta) {
               return;
             }
 
             const delta = choice.delta;
 
-            const emitReasoningChunk = (
-              chunkText: string,
-              providerMetadata?: SharedV2ProviderMetadata,
-            ) => {
+            const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = openrouterResponseId || generateId();
                 controller.enqueue({
-                  providerMetadata,
                   type: 'reasoning-start',
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
-                providerMetadata,
                 type: 'reasoning-delta',
                 delta: chunkText,
                 id: reasoningId || generateId(),
@@ -681,57 +587,25 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
               // Accumulate reasoning_details to preserve for multi-turn conversations
-              // Merge consecutive reasoning.text items into a single entry
-              for (const detail of delta.reasoning_details) {
-                if (detail.type === ReasoningDetailType.Text) {
-                  const lastDetail =
-                    accumulatedReasoningDetails[
-                      accumulatedReasoningDetails.length - 1
-                    ];
-                  if (lastDetail?.type === ReasoningDetailType.Text) {
-                    // Merge with the previous text detail
-                    lastDetail.text =
-                      (lastDetail.text || '') + (detail.text || '');
-
-                    lastDetail.signature =
-                      lastDetail.signature || detail.signature;
-
-                    lastDetail.format = lastDetail.format || detail.format;
-                  } else {
-                    // Start a new text detail
-                    accumulatedReasoningDetails.push({ ...detail });
-                  }
-                } else {
-                  // Non-text details (encrypted, summary) are pushed as-is
-                  accumulatedReasoningDetails.push(detail);
-                }
-              }
-
-              // Emit reasoning_details in providerMetadata for each delta chunk
-              // so users can accumulate them on their end before sending back
-              const reasoningMetadata: SharedV2ProviderMetadata = {
-                openrouter: {
-                  reasoning_details: delta.reasoning_details,
-                },
-              };
+              accumulatedReasoningDetails.push(...delta.reasoning_details);
 
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
                     if (detail.text) {
-                      emitReasoningChunk(detail.text, reasoningMetadata);
+                      emitReasoningChunk(detail.text);
                     }
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
                     if (detail.data) {
-                      emitReasoningChunk('[REDACTED]', reasoningMetadata);
+                      emitReasoningChunk('[REDACTED]');
                     }
                     break;
                   }
                   case ReasoningDetailType.Summary: {
                     if (detail.summary) {
-                      emitReasoningChunk(detail.summary, reasoningMetadata);
+                      emitReasoningChunk(detail.summary);
                     }
                     break;
                   }
@@ -790,12 +664,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
             }
 
-            if (delta.tool_calls != null) {
+            if (delta.tool_calls) {
               for (const toolCallDelta of delta.tool_calls) {
                 const index = toolCallDelta.index ?? toolCalls.length - 1;
 
                 // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
-                if (toolCalls[index] == null) {
+                if (toolCalls[index] === null) {
                   if (toolCallDelta.type !== 'function') {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
@@ -803,14 +677,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     });
                   }
 
-                  if (toolCallDelta.id == null) {
+                  if (!toolCallDelta.id) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
                       message: `Expected 'id' to be a string.`,
                     });
                   }
 
-                  if (toolCallDelta.function?.name == null) {
+                  if (!toolCallDelta.function?.name) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
                       message: `Expected 'function.name' to be a string.`,
@@ -830,17 +704,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                   const toolCall = toolCalls[index];
 
-                  if (toolCall == null) {
-                    throw new InvalidResponseDataError({
-                      data: { index, toolCallsLength: toolCalls.length },
-                      message: `Tool call at index ${index} is missing after creation.`,
-                    });
+                  if (toolCall === null) {
+                    throw new Error('Tool call is missing');
                   }
 
                   // check if tool call is complete (some providers send the full tool call in one chunk)
                   if (
-                    toolCall.function?.name != null &&
-                    toolCall.function?.arguments != null &&
+                    toolCall.function?.name &&
+                    toolCall.function?.arguments &&
                     isParsableJson(toolCall.function.arguments)
                   ) {
                     toolCall.inputStarted = true;
@@ -869,11 +740,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                       toolCallId: toolCall.id,
                       toolName: toolCall.function.name,
                       input: toolCall.function.arguments,
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: accumulatedReasoningDetails,
-                        },
-                      },
                     });
 
                     toolCall.sent = true;
@@ -885,15 +751,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                 // existing tool call, merge
                 const toolCall = toolCalls[index];
 
-                if (toolCall == null) {
-                  throw new InvalidResponseDataError({
-                    data: {
-                      index,
-                      toolCallsLength: toolCalls.length,
-                      toolCallDelta,
-                    },
-                    message: `Tool call at index ${index} is missing during merge.`,
-                  });
+                if (!toolCall) {
+                  throw new Error('Tool call is missing');
                 }
 
                 if (!toolCall.inputStarted) {
@@ -905,9 +764,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                   });
                 }
 
-                if (toolCallDelta.function?.arguments != null) {
-                  toolCall.function.arguments +=
-                    toolCallDelta.function?.arguments ?? '';
+                if (toolCallDelta.function?.arguments) {
+                  toolCall.function.arguments += toolCallDelta.function.arguments;
                 }
 
                 // send delta
@@ -919,8 +777,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
                 // check if tool call is complete
                 if (
-                  toolCall.function?.name != null &&
-                  toolCall.function?.arguments != null &&
+                  toolCall.function?.name &&
+                  toolCall.function?.arguments &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
                   controller.enqueue({
@@ -928,11 +786,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
-                    providerMetadata: {
-                      openrouter: {
-                        reasoning_details: accumulatedReasoningDetails,
-                      },
-                    },
                   });
 
                   toolCall.sent = true;
@@ -940,7 +793,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               }
             }
 
-            if (delta.images != null) {
+            if (delta.images) {
               for (const image of delta.images) {
                 controller.enqueue({
                   type: 'file',
@@ -964,11 +817,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                     input: isParsableJson(toolCall.function.arguments)
                       ? toolCall.function.arguments
                       : '{}',
-                    providerMetadata: {
-                      openrouter: {
-                        reasoning_details: accumulatedReasoningDetails,
-                      },
-                    },
                   });
                   toolCall.sent = true;
                 }
@@ -1004,8 +852,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
             // Include accumulated reasoning_details if any were received
             if (accumulatedReasoningDetails.length > 0) {
-              openrouterMetadata.reasoning_details =
-                accumulatedReasoningDetails;
+              openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
             }
 
             controller.enqueue({
@@ -1020,8 +867,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         }),
       ),
       warnings: [],
-      request: { body: args },
-      response: { headers: responseHeaders },
+      request: {
+        body: args,
+      },
+      response: {
+        headers: responseHeaders,
+      },
     };
   }
 }

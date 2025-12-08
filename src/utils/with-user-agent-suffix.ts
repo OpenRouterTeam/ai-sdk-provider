@@ -19,7 +19,10 @@ export function withUserAgentSuffix(
   );
 
   const currentUserAgentHeader = cleanedHeaders['user-agent'] || '';
-  const newUserAgent = [currentUserAgentHeader, ...userAgentSuffixParts]
+  const newUserAgent = [
+    currentUserAgentHeader,
+    ...userAgentSuffixParts,
+  ]
     .filter(Boolean)
     .join(' ');
 
