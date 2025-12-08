@@ -1,5 +1,6 @@
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import { MIME_TO_FORMAT } from './file-url-utils';
 
 describe('user messages', () => {
   it('should convert image Uint8Array', async () => {
@@ -100,71 +101,12 @@ describe('user messages', () => {
     expect(result).toEqual([{ role: 'user', content: 'Hello' }]);
   });
 
-  it('should convert audio Uint8Array to input_audio with mp3 format', async () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Listen to this' },
-          {
-            type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
-            mediaType: 'audio/mpeg',
-          },
-        ],
-      },
-    ]);
-
-    expect(result).toEqual([
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Listen to this' },
-          {
-            type: 'input_audio',
-            input_audio: {
-              data: 'AAECAw==',
-              format: 'mp3',
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it('should convert audio Uint8Array to input_audio with wav format', async () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Listen to this' },
-          {
-            type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
-            mediaType: 'audio/wav',
-          },
-        ],
-      },
-    ]);
-
-    expect(result).toEqual([
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Listen to this' },
-          {
-            type: 'input_audio',
-            input_audio: {
-              data: 'AAECAw==',
-              format: 'wav',
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it('should normalize audio/x-wav to wav format', async () => {
+  it.each(
+    Object.entries(MIME_TO_FORMAT).map(([mimeSubtype, format]) => [
+      `audio/${mimeSubtype}`,
+      format,
+    ]),
+  )('should convert %s to input_audio with %s format', (mediaType, expectedFormat) => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -172,7 +114,7 @@ describe('user messages', () => {
           {
             type: 'file',
             data: new Uint8Array([0, 1, 2, 3]),
-            mediaType: 'audio/x-wav',
+            mediaType,
           },
         ],
       },
@@ -186,37 +128,7 @@ describe('user messages', () => {
             type: 'input_audio',
             input_audio: {
               data: 'AAECAw==',
-              format: 'wav',
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it('should support audio/mp3 MIME type (normalize to mp3)', async () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
-            mediaType: 'audio/mp3',
-          },
-        ],
-      },
-    ]);
-
-    expect(result).toEqual([
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'input_audio',
-            input_audio: {
-              data: 'AAECAw==',
-              format: 'mp3',
+              format: expectedFormat,
             },
           },
         ],
@@ -310,12 +222,12 @@ describe('user messages', () => {
             {
               type: 'file',
               data: new Uint8Array([0, 1, 2, 3]),
-              mediaType: 'audio/ogg',
+              mediaType: 'audio/webm',
             },
           ],
         },
       ]),
-    ).toThrow(/Unsupported audio format: "audio\/ogg"/);
+    ).toThrow(/Unsupported audio format: "audio\/webm"/);
   });
 });
 

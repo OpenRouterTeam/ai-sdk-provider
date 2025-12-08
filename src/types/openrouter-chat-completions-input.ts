@@ -54,11 +54,26 @@ export interface ChatCompletionContentPartText {
   cache_control?: OpenRouterCacheControl;
 }
 
+/** https://openrouter.ai/docs/guides/overview/multimodal/audio */
+export const OPENROUTER_AUDIO_FORMATS = [
+  'wav',
+  'mp3',
+  'aiff',
+  'aac',
+  'ogg',
+  'flac',
+  'm4a',
+  'pcm16',
+  'pcm24',
+] as const;
+
+export type OpenRouterAudioFormat = (typeof OPENROUTER_AUDIO_FORMATS)[number];
+
 export interface ChatCompletionContentPartInputAudio {
   type: 'input_audio';
   input_audio: {
     data: string;
-    format: 'wav' | 'mp3';
+    format: OpenRouterAudioFormat;
   };
   cache_control?: OpenRouterCacheControl;
 }
