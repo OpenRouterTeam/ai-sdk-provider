@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.5.2
+
+### Patch Changes
+
+- [#288](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/288) [`0caf9f1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/0caf9f174a280598aadce27835605e0b6108e2d3) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Fix Gemini 3 tool-call conversations stopping prematurely when thoughtSignature (encrypted reasoning) is present. Override finishReason from 'stop' to 'tool-calls' when tool calls and encrypted reasoning are detected.
+
 ## 1.5.1
 
 ### Patch Changes
