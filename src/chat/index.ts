@@ -426,9 +426,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       } => a.type === 'file',
     );
 
+    // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
+    // reasoning (thoughtSignature), the model returns 'stop' but expects continuation.
+    // Override to 'tool-calls' so the SDK knows to continue the conversation.
+    const hasToolCalls =
+      choice.message.tool_calls && choice.message.tool_calls.length > 0;
+    const hasEncryptedReasoning = reasoningDetails.some(
+      (d) => d.type === ReasoningDetailType.Encrypted && d.data,
+    );
+    const shouldOverrideFinishReason =
+      hasToolCalls && hasEncryptedReasoning && choice.finish_reason === 'stop';
+
+    const effectiveFinishReason = shouldOverrideFinishReason
+      ? 'tool-calls'
+      : mapOpenRouterFinishReason(choice.finish_reason);
+
     return {
       content,
-      finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      finishReason: effectiveFinishReason,
       usage: usageInfo,
       warnings: [],
       providerMetadata: {
@@ -952,6 +967,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
           },
 
           flush(controller) {
+            // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
+            // reasoning (thoughtSignature), the model returns 'stop' but expects continuation.
+            // Override to 'tool-calls' so the SDK knows to continue the conversation.
+            const hasToolCalls = toolCalls.length > 0;
+            const hasEncryptedReasoning = accumulatedReasoningDetails.some(
+              (d) => d.type === ReasoningDetailType.Encrypted && d.data,
+            );
+            if (
+              hasToolCalls &&
+              hasEncryptedReasoning &&
+              finishReason === 'stop'
+            ) {
+              finishReason = 'tool-calls';
+            }
+
             // Forward any unsent tool calls if finish reason is 'tool-calls'
             if (finishReason === 'tool-calls') {
               for (const toolCall of toolCalls) {
