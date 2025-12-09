@@ -435,16 +435,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       warnings: [],
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
-          // Raw sidecar: spread raw response to capture unknown server fields
-          ...response,
-          // Normalized SDK contract fields:
+          // Explicit response fields (stable API structure, no need for sidecar)
+          id: response.id,
+          model: response.model,
+          created: response.created,
           provider: response.provider ?? '',
+          // Usage WITH sidecar (high forward-compat value for new token/cost fields)
+          usage: normalizedUsage,
+          // Parsed choice-level data
           reasoning_details: choice.message.reasoning_details ?? [],
           annotations:
             fileAnnotations && fileAnnotations.length > 0
               ? fileAnnotations
               : undefined,
-          usage: normalizedUsage,
         }),
       },
       request: { body: args },

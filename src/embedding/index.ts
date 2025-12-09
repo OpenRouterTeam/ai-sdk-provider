@@ -98,8 +98,10 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       providerMetadata: normalizedUsage
         ? {
             openrouter: OpenRouterProviderMetadataSchema.parse({
-              ...responseValue,
+              // Explicit response fields (stable API structure, no need for sidecar)
+              model: responseValue.model,
               provider: responseValue.provider ?? '',
+              // Usage WITH sidecar (high forward-compat value for new token/cost fields)
               usage: normalizedUsage,
             }),
           }
