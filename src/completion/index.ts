@@ -7,7 +7,6 @@ import type {
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
-import type { OpenRouterUsageAccounting } from '../types';
 import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
@@ -26,7 +25,9 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import { normalizeOpenRouterUsage } from '../utils/normalize-usage';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -190,6 +191,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       });
     }
 
+    const normalizedUsage = normalizeOpenRouterUsage(response.usage);
+
     return {
       content: [
         {
@@ -198,6 +201,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
         },
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
+      // Token counts use 0 fallback (safe - undefined → 0 is acceptable)
       usage: {
         inputTokens: response.usage?.prompt_tokens ?? 0,
         outputTokens: response.usage?.completion_tokens ?? 0,
@@ -210,6 +214,15 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
           response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
       },
       warnings: [],
+      providerMetadata: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
+          // Raw sidecar: spread raw response to capture unknown server fields
+          ...response,
+          // Normalized SDK contract fields:
+          provider: response.provider ?? '',
+          usage: normalizedUsage,
+        }),
+      },
       response: {
         headers: responseHeaders,
       },
@@ -252,15 +265,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     });
 
     let finishReason: FinishReason = 'other';
+    // Token counts use 0 fallback (safe - undefined → 0 is acceptable)
     const usage: LanguageModelV2Usage = {
-      inputTokens: Number.NaN,
-      outputTokens: Number.NaN,
-      totalTokens: Number.NaN,
-      reasoningTokens: Number.NaN,
-      cachedInputTokens: Number.NaN,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      reasoningTokens: 0,
+      cachedInputTokens: 0,
     };
 
-    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    // Capture raw usage object for normalization
+    let rawUsage: Record<string, unknown> | undefined;
+
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -285,43 +301,23 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
             }
 
             if (value.usage != null) {
+              // Capture raw usage for normalization in flush
+              rawUsage = value.usage;
+
+              // Update SDK usage fields
               usage.inputTokens = value.usage.prompt_tokens;
               usage.outputTokens = value.usage.completion_tokens;
               usage.totalTokens =
                 value.usage.prompt_tokens + value.usage.completion_tokens;
 
-              // Collect OpenRouter specific usage information
-              openrouterUsage.promptTokens = value.usage.prompt_tokens;
-
+              // Only update detail fields if present (0 fallback is safe for token counts)
               if (value.usage.prompt_tokens_details) {
-                const cachedInputTokens =
+                usage.cachedInputTokens =
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
-
-                usage.cachedInputTokens = cachedInputTokens;
-                openrouterUsage.promptTokensDetails = {
-                  cachedTokens: cachedInputTokens,
-                };
               }
-
-              openrouterUsage.completionTokens = value.usage.completion_tokens;
               if (value.usage.completion_tokens_details) {
-                const reasoningTokens =
+                usage.reasoningTokens =
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
-
-                usage.reasoningTokens = reasoningTokens;
-                openrouterUsage.completionTokensDetails = {
-                  reasoningTokens,
-                };
-              }
-
-              openrouterUsage.cost = value.usage.cost;
-              openrouterUsage.totalTokens = value.usage.total_tokens;
-              const upstreamInferenceCost =
-                value.usage.cost_details?.upstream_inference_cost;
-              if (upstreamInferenceCost != null) {
-                openrouterUsage.costDetails = {
-                  upstreamInferenceCost,
-                };
               }
             }
 
@@ -341,14 +337,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
           },
 
           flush(controller) {
+            const normalizedUsage = normalizeOpenRouterUsage(rawUsage);
+
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  usage: openrouterUsage,
-                },
+                openrouter: OpenRouterProviderMetadataSchema.parse({
+                  provider: '',
+                  usage: normalizedUsage,
+                }),
               },
             });
           },

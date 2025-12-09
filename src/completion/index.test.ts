@@ -128,6 +128,7 @@ describe('doGenerate', () => {
       inputTokens: 20,
       outputTokens: 5,
       totalTokens: 25,
+      // 0 fallback for token counts when API doesn't provide them
       reasoningTokens: 0,
       cachedInputTokens: 0,
     });
@@ -319,21 +320,20 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'stop',
         providerMetadata: {
-          openrouter: {
-            usage: {
+          openrouter: expect.objectContaining({
+            usage: expect.objectContaining({
               promptTokens: 10,
               completionTokens: 362,
               totalTokens: 372,
-              cost: undefined,
-            },
-          },
+            }),
+          }),
         },
         usage: {
           inputTokens: 10,
           outputTokens: 362,
           totalTokens: 372,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -373,9 +373,11 @@ describe('doStream', () => {
         };
       }
     )?.usage;
-    expect(openrouterUsage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.0036,
-    });
+    expect(openrouterUsage?.costDetails).toEqual(
+      expect.objectContaining({
+        upstreamInferenceCost: 0.0036,
+      }),
+    );
   });
 
   it('should handle both normal cost and upstream inference cost in finish metadata when both are provided', async () => {
@@ -413,9 +415,11 @@ describe('doStream', () => {
         };
       }
     )?.usage;
-    expect(openrouterUsage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.0036,
-    });
+    expect(openrouterUsage?.costDetails).toEqual(
+      expect.objectContaining({
+        upstreamInferenceCost: 0.0036,
+      }),
+    );
     expect(openrouterUsage?.cost).toBe(0.0025);
   });
 
@@ -450,16 +454,22 @@ describe('doStream', () => {
         finishReason: 'error',
         providerMetadata: {
           openrouter: {
-            usage: {},
+            provider: '',
+            usage: {
+              // 0 fallback for token counts when API doesn't provide usage
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+            },
           },
         },
         type: 'finish',
         usage: {
-          inputTokens: Number.NaN,
-          outputTokens: Number.NaN,
-          totalTokens: Number.NaN,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -483,16 +493,22 @@ describe('doStream', () => {
       finishReason: 'error',
       providerMetadata: {
         openrouter: {
-          usage: {},
+          provider: '',
+          usage: {
+            // 0 fallback for token counts when API doesn't provide usage
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
         },
       },
       type: 'finish',
       usage: {
-        inputTokens: Number.NaN,
-        outputTokens: Number.NaN,
-        totalTokens: Number.NaN,
-        reasoningTokens: Number.NaN,
-        cachedInputTokens: Number.NaN,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        reasoningTokens: 0,
+        cachedInputTokens: 0,
       },
     });
   });

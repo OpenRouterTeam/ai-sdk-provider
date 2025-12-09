@@ -2,6 +2,17 @@ import { z } from 'zod/v4';
 import { ReasoningDetailUnionSchema } from './reasoning-details';
 
 /**
+ * A number schema that accepts NaN as a valid value.
+ *
+ * Used for cost/price fields where NaN acts as a "Poison Pill":
+ * - Miscalculating money is dangerous and must be explicit
+ * - NaN poisons arithmetic (100 + NaN = NaN), forcing explicit handling
+ *
+ * Token counts use regular z.number() with 0 fallback (safe).
+ */
+const numberOrNaN = z.union([z.number(), z.nan()]);
+
+/**
  * Schema for file annotations from FileParserPlugin
  */
 export const FileAnnotationSchema = z.object({
@@ -17,17 +28,20 @@ export const FileAnnotationSchema = z.object({
               type: z.string(),
               text: z.string().optional(),
             })
-            .passthrough(),
+            .catchall(z.any()),
         )
         .optional(),
     })
-    .passthrough(),
+    .catchall(z.any()),
 });
 
 export type FileAnnotation = z.infer<typeof FileAnnotationSchema>;
 
 /**
  * Schema for OpenRouter provider metadata attached to responses
+ *
+ * Uses .catchall(z.any()) instead of .passthrough() to generate types
+ * compatible with Record<string, JSONValue> without manual casting.
  */
 export const OpenRouterProviderMetadataSchema = z
   .object({
@@ -36,32 +50,34 @@ export const OpenRouterProviderMetadataSchema = z
     annotations: z.array(FileAnnotationSchema).optional(),
     usage: z
       .object({
+        // Token counts: 0 fallback is safe
         promptTokens: z.number(),
         promptTokensDetails: z
           .object({
             cachedTokens: z.number(),
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
         completionTokens: z.number(),
         completionTokensDetails: z
           .object({
             reasoningTokens: z.number(),
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
         totalTokens: z.number(),
+        // Cost fields: optional or NaN poison pill (money miscalculation is dangerous)
         cost: z.number().optional(),
         costDetails: z
           .object({
-            upstreamInferenceCost: z.number(),
+            upstreamInferenceCost: numberOrNaN,
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
       })
-      .passthrough(),
+      .catchall(z.any()),
   })
-  .passthrough();
+  .catchall(z.any());
 
 export type OpenRouterProviderMetadata = z.infer<
   typeof OpenRouterProviderMetadataSchema

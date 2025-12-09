@@ -166,9 +166,17 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
     expect(finishChunk).toBeDefined();
 
-    // Verify that provider metadata is not included
-    expect(finishChunk?.providerMetadata?.openrouter).toStrictEqual({
-      usage: {},
-    });
+    // Verify that provider metadata has default structure
+    // 0 fallback for token counts when API doesn't provide usage
+    expect(finishChunk?.providerMetadata?.openrouter).toEqual(
+      expect.objectContaining({
+        provider: '',
+        usage: expect.objectContaining({
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        }),
+      }),
+    );
   });
 });

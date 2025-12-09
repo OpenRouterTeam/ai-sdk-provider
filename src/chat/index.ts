@@ -3,7 +3,6 @@ import type {
   LanguageModelV2CallOptions,
   LanguageModelV2CallWarning,
   LanguageModelV2Content,
-  LanguageModelV2FinishReason,
   LanguageModelV2FunctionTool,
   LanguageModelV2ResponseMetadata,
   LanguageModelV2StreamPart,
@@ -15,7 +14,6 @@ import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
-import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -38,6 +36,7 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import { normalizeOpenRouterUsage } from '../utils/normalize-usage';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -197,24 +196,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     return baseArgs;
   }
 
-  async doGenerate(options: LanguageModelV2CallOptions): Promise<{
-    content: Array<LanguageModelV2Content>;
-    finishReason: LanguageModelV2FinishReason;
-    usage: LanguageModelV2Usage;
-    warnings: Array<LanguageModelV2CallWarning>;
-    providerMetadata?: {
-      openrouter: {
-        provider: string;
-        reasoning_details?: ReasoningDetailUnion[];
-        usage: OpenRouterUsageAccounting;
-      };
-    };
-    request?: { body?: unknown };
-    response?: LanguageModelV2ResponseMetadata & {
-      headers?: SharedV2Headers;
-      body?: unknown;
-    };
-  }> {
+  async doGenerate(
+    options: LanguageModelV2CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -269,6 +253,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     }
 
     // Extract detailed usage information
+    // Token counts use 0 fallback (safe - undefined → 0 is acceptable)
     const usageInfo: LanguageModelV2Usage = response.usage
       ? {
           inputTokens: response.usage.prompt_tokens ?? 0,
@@ -441,6 +426,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       ? 'tool-calls'
       : mapOpenRouterFinishReason(choice.finish_reason);
 
+    const normalizedUsage = normalizeOpenRouterUsage(response.usage);
+
     return {
       content,
       finishReason: effectiveFinishReason,
@@ -448,43 +435,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
       warnings: [],
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
+          // Raw sidecar: spread raw response to capture unknown server fields
+          ...response,
+          // Normalized SDK contract fields:
           provider: response.provider ?? '',
           reasoning_details: choice.message.reasoning_details ?? [],
           annotations:
             fileAnnotations && fileAnnotations.length > 0
               ? fileAnnotations
               : undefined,
-          usage: {
-            promptTokens: usageInfo.inputTokens ?? 0,
-            completionTokens: usageInfo.outputTokens ?? 0,
-            totalTokens: usageInfo.totalTokens ?? 0,
-            cost: response.usage?.cost,
-            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
-              ? {
-                  promptTokensDetails: {
-                    cachedTokens:
-                      response.usage.prompt_tokens_details.cached_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
-            null
-              ? {
-                  completionTokensDetails: {
-                    reasoningTokens:
-                      response.usage.completion_tokens_details.reasoning_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.cost_details?.upstream_inference_cost != null
-              ? {
-                  costDetails: {
-                    upstreamInferenceCost:
-                      response.usage.cost_details.upstream_inference_cost,
-                  },
-                }
-              : {}),
-          },
+          usage: normalizedUsage,
         }),
       },
       request: { body: args },
@@ -555,16 +515,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     }> = [];
 
     let finishReason: FinishReason = 'other';
+    // Token counts use 0 fallback (safe - undefined → 0 is acceptable)
     const usage: LanguageModelV2Usage = {
-      inputTokens: Number.NaN,
-      outputTokens: Number.NaN,
-      totalTokens: Number.NaN,
-      reasoningTokens: Number.NaN,
-      cachedInputTokens: Number.NaN,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+      reasoningTokens: 0,
+      cachedInputTokens: 0,
     };
 
-    // Track provider-specific usage information
-    const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    // Capture raw usage object for normalization
+    let rawUsage: Record<string, unknown> | undefined;
 
     // Track reasoning details to preserve for multi-turn conversations
     const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
@@ -621,43 +582,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             }
 
             if (value.usage != null) {
+              // Capture raw usage for normalization in flush
+              rawUsage = value.usage;
+
+              // Update SDK usage fields
               usage.inputTokens = value.usage.prompt_tokens;
               usage.outputTokens = value.usage.completion_tokens;
               usage.totalTokens =
                 value.usage.prompt_tokens + value.usage.completion_tokens;
 
-              // Collect OpenRouter specific usage information
-              openrouterUsage.promptTokens = value.usage.prompt_tokens;
-
+              // Only update detail fields if present (0 fallback is safe for token counts)
               if (value.usage.prompt_tokens_details) {
-                const cachedInputTokens =
+                usage.cachedInputTokens =
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
-
-                usage.cachedInputTokens = cachedInputTokens;
-                openrouterUsage.promptTokensDetails = {
-                  cachedTokens: cachedInputTokens,
-                };
               }
-
-              openrouterUsage.completionTokens = value.usage.completion_tokens;
               if (value.usage.completion_tokens_details) {
-                const reasoningTokens =
+                usage.reasoningTokens =
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
-
-                usage.reasoningTokens = reasoningTokens;
-                openrouterUsage.completionTokensDetails = {
-                  reasoningTokens,
-                };
-              }
-
-              openrouterUsage.cost = value.usage.cost;
-              openrouterUsage.totalTokens = value.usage.total_tokens;
-              const upstreamInferenceCost =
-                value.usage.cost_details?.upstream_inference_cost;
-              if (upstreamInferenceCost != null) {
-                openrouterUsage.costDetails = {
-                  upstreamInferenceCost,
-                };
               }
             }
 
@@ -1019,31 +960,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               });
             }
 
-            const openrouterMetadata: {
-              usage: Partial<OpenRouterUsageAccounting>;
-              provider?: string;
-              reasoning_details?: ReasoningDetailUnion[];
-            } = {
-              usage: openrouterUsage,
-            };
-
-            // Only include provider if it's actually set
-            if (provider !== undefined) {
-              openrouterMetadata.provider = provider;
-            }
-
-            // Include accumulated reasoning_details if any were received
-            if (accumulatedReasoningDetails.length > 0) {
-              openrouterMetadata.reasoning_details =
-                accumulatedReasoningDetails;
-            }
+            const normalizedUsage = normalizeOpenRouterUsage(rawUsage);
 
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: openrouterMetadata,
+                openrouter: OpenRouterProviderMetadataSchema.parse({
+                  provider: provider ?? '',
+                  reasoning_details:
+                    accumulatedReasoningDetails.length > 0
+                      ? accumulatedReasoningDetails
+                      : undefined,
+                  usage: normalizedUsage,
+                }),
               },
             });
           },
