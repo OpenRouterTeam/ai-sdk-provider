@@ -314,11 +314,11 @@ describe('OpenRouter Usage Accounting', () => {
     // Should include promptTokensDetails since cached_tokens is present
     // (includes raw fields due to pass-through pattern)
     expect(usage).toHaveProperty('promptTokensDetails');
-    expect((usage as Record<string, unknown>).promptTokensDetails).toMatchObject(
-      {
-        cachedTokens: 5,
-      },
-    );
+    expect(
+      (usage as Record<string, unknown>).promptTokensDetails,
+    ).toMatchObject({
+      cachedTokens: 5,
+    });
 
     // Should NOT include completionTokensDetails or costDetails
     expect(usage).not.toHaveProperty('completionTokensDetails');

@@ -85,7 +85,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       fetch: this.config.fetch,
     });
 
-    // Use shared normalization utility (handles missing completionTokens gracefully)
+    // Use shared normalization utility (handles missing usage fields gracefully)
     const normalizedUsage = responseValue.usage
       ? normalizeOpenRouterUsage(responseValue.usage)
       : undefined;
