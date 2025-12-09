@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 1.5.1
+
+### Patch Changes
+
+- [#295](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/295) [`2fbe4e5`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/2fbe4e58e3798790fda99dbde67bc9b3f5e222d0) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Patch transitive security vulnerabilities in glob and js-yaml dev dependencies
+
 ## 1.5.0
 
 ### Minor Changes
