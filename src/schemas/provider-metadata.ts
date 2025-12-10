@@ -4,25 +4,27 @@ import { ReasoningDetailUnionSchema } from './reasoning-details';
 /**
  * Schema for file annotations from FileParserPlugin
  */
-export const FileAnnotationSchema = z.object({
-  type: z.literal('file'),
-  file: z
-    .object({
-      hash: z.string(),
-      name: z.string(),
-      content: z
-        .array(
-          z
-            .object({
-              type: z.string(),
-              text: z.string().optional(),
-            })
-            .passthrough(),
-        )
-        .optional(),
-    })
-    .passthrough(),
-});
+export const FileAnnotationSchema = z
+  .object({
+    type: z.literal('file'),
+    file: z
+      .object({
+        hash: z.string(),
+        name: z.string(),
+        content: z
+          .array(
+            z
+              .object({
+                type: z.string(),
+                text: z.string().optional(),
+              })
+              .catchall(z.any()),
+          )
+          .optional(),
+      })
+      .catchall(z.any()),
+  })
+  .catchall(z.any());
 
 export type FileAnnotation = z.infer<typeof FileAnnotationSchema>;
 
@@ -41,14 +43,14 @@ export const OpenRouterProviderMetadataSchema = z
           .object({
             cachedTokens: z.number(),
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
         completionTokens: z.number(),
         completionTokensDetails: z
           .object({
             reasoningTokens: z.number(),
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
         totalTokens: z.number(),
         cost: z.number().optional(),
@@ -56,12 +58,12 @@ export const OpenRouterProviderMetadataSchema = z
           .object({
             upstreamInferenceCost: z.number(),
           })
-          .passthrough()
+          .catchall(z.any())
           .optional(),
       })
-      .passthrough(),
+      .catchall(z.any()),
   })
-  .passthrough();
+  .catchall(z.any());
 
 export type OpenRouterProviderMetadata = z.infer<
   typeof OpenRouterProviderMetadataSchema
