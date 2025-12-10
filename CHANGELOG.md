@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 1.5.3
+
+### Patch Changes
+
+- [#294](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/294) [`83c6b41`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/83c6b41a0bd9d965ad66117527f2dbf44c3130ec) Thanks [@subtleGradient](https://github.com/subtleGradient)! - File annotations from FileParserPlugin are now available in streaming responses.
+  If you use `streamText()` with PDFs or other files, you can now access parsed file content via `providerMetadata.openrouter.annotations` in the finish event.
+  This was already available for non-streaming responses.
+
 ## 1.5.2
 
 ### Patch Changes
