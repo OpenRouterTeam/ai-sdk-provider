@@ -14,6 +14,8 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
+import { normalizeOpenRouterUsage } from '../utils/normalize-usage';
 import { OpenRouterEmbeddingResponseSchema } from './schemas';
 
 type OpenRouterEmbeddingConfig = {
@@ -83,18 +85,25 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
       fetch: this.config.fetch,
     });
 
+    // Use shared normalization utility (handles missing usage fields gracefully)
+    const normalizedUsage = responseValue.usage
+      ? normalizeOpenRouterUsage(responseValue.usage)
+      : undefined;
+
     return {
       embeddings: responseValue.data.map((item) => item.embedding),
       usage: responseValue.usage
         ? { tokens: responseValue.usage.prompt_tokens }
         : undefined,
-      providerMetadata: responseValue.usage?.cost
+      providerMetadata: normalizedUsage
         ? {
-            openrouter: {
-              usage: {
-                cost: responseValue.usage.cost,
-              },
-            },
+            openrouter: OpenRouterProviderMetadataSchema.parse({
+              // Explicit response fields (stable API structure, no need for sidecar)
+              model: responseValue.model,
+              provider: responseValue.provider ?? '',
+              // Usage WITH sidecar (high forward-compat value for new token/cost fields)
+              usage: normalizedUsage,
+            }),
           }
         : undefined,
       response: {

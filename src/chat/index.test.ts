@@ -255,6 +255,7 @@ describe('doGenerate', () => {
       inputTokens: 20,
       outputTokens: 5,
       totalTokens: 25,
+      // 0 fallback for token counts when API doesn't provide them
       reasoningTokens: 0,
       cachedInputTokens: 0,
     });
@@ -890,21 +891,20 @@ describe('doStream', () => {
         finishReason: 'stop',
 
         providerMetadata: {
-          openrouter: {
-            usage: {
+          openrouter: expect.objectContaining({
+            usage: expect.objectContaining({
               completionTokens: 227,
               promptTokens: 17,
               totalTokens: 244,
-              cost: undefined,
-            },
-          },
+            }),
+          }),
         },
         usage: {
           inputTokens: 17,
           outputTokens: 227,
           totalTokens: 244,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -944,9 +944,11 @@ describe('doStream', () => {
         };
       }
     )?.usage;
-    expect(openrouterUsage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.0036,
-    });
+    expect(openrouterUsage?.costDetails).toEqual(
+      expect.objectContaining({
+        upstreamInferenceCost: 0.0036,
+      }),
+    );
   });
 
   it('should handle both normal cost and upstream inference cost in finish metadata when both are provided', async () => {
@@ -984,9 +986,11 @@ describe('doStream', () => {
         };
       }
     )?.usage;
-    expect(openrouterUsage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.0036,
-    });
+    expect(openrouterUsage?.costDetails).toEqual(
+      expect.objectContaining({
+        upstreamInferenceCost: 0.0036,
+      }),
+    );
     expect(openrouterUsage?.cost).toBe(0.0042);
   });
 
@@ -1476,21 +1480,20 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'tool-calls',
         providerMetadata: {
-          openrouter: {
-            usage: {
+          openrouter: expect.objectContaining({
+            usage: expect.objectContaining({
               completionTokens: 17,
               promptTokens: 53,
               totalTokens: 70,
-              cost: undefined,
-            },
-          },
+            }),
+          }),
         },
         usage: {
           inputTokens: 53,
           outputTokens: 17,
           totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -1584,21 +1587,20 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'tool-calls',
         providerMetadata: {
-          openrouter: {
-            usage: {
+          openrouter: expect.objectContaining({
+            usage: expect.objectContaining({
               completionTokens: 17,
               promptTokens: 53,
               totalTokens: 70,
-              cost: undefined,
-            },
-          },
+            }),
+          }),
         },
         usage: {
           inputTokens: 53,
           outputTokens: 17,
           totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -1708,21 +1710,20 @@ describe('doStream', () => {
         type: 'finish',
         finishReason: 'stop',
         providerMetadata: {
-          openrouter: {
-            usage: {
+          openrouter: expect.objectContaining({
+            usage: expect.objectContaining({
               completionTokens: 17,
               promptTokens: 53,
               totalTokens: 70,
-              cost: undefined,
-            },
-          },
+            }),
+          }),
         },
         usage: {
           inputTokens: 53,
           outputTokens: 17,
           totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -1758,17 +1759,23 @@ describe('doStream', () => {
       {
         finishReason: 'error',
         providerMetadata: {
-          openrouter: {
-            usage: {},
-          },
+          openrouter: expect.objectContaining({
+            provider: '',
+            usage: expect.objectContaining({
+              // 0 fallback for token counts when API doesn't provide usage
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+            }),
+          }),
         },
         type: 'finish',
         usage: {
-          inputTokens: Number.NaN,
-          outputTokens: Number.NaN,
-          totalTokens: Number.NaN,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          reasoningTokens: 0,
+          cachedInputTokens: 0,
         },
       },
     ]);
@@ -1788,21 +1795,27 @@ describe('doStream', () => {
 
     expect(elements.length).toBe(2);
     expect(elements[0]?.type).toBe('error');
-    expect(elements[1]).toStrictEqual({
+    expect(elements[1]).toEqual({
       finishReason: 'error',
 
       type: 'finish',
       providerMetadata: {
-        openrouter: {
-          usage: {},
-        },
+        openrouter: expect.objectContaining({
+          provider: '',
+          usage: expect.objectContaining({
+            // 0 fallback for token counts when API doesn't provide usage
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          }),
+        }),
       },
       usage: {
-        inputTokens: Number.NaN,
-        outputTokens: Number.NaN,
-        totalTokens: Number.NaN,
-        reasoningTokens: Number.NaN,
-        cachedInputTokens: Number.NaN,
+        inputTokens: 0,
+        outputTokens: 0,
+        totalTokens: 0,
+        reasoningTokens: 0,
+        cachedInputTokens: 0,
       },
     });
   });

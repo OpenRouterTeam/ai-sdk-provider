@@ -1,4 +1,8 @@
-import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type {
+  JSONValue,
+  LanguageModelV2,
+  LanguageModelV2Prompt,
+} from '@ai-sdk/provider';
 
 export type { LanguageModelV2, LanguageModelV2Prompt };
 
@@ -59,14 +63,14 @@ export type OpenRouterUsageAccounting = {
   promptTokens: number;
   promptTokensDetails?: {
     cachedTokens: number;
-  };
+  } & Record<string, JSONValue>;
   completionTokens: number;
   completionTokensDetails?: {
     reasoningTokens: number;
-  };
+  } & Record<string, JSONValue>;
   totalTokens: number;
   cost?: number;
   costDetails?: {
     upstreamInferenceCost: number;
-  };
-};
+  } & Record<string, JSONValue>;
+} & Record<string, JSONValue>;

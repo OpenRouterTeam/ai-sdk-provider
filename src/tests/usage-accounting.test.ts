@@ -165,8 +165,9 @@ describe('OpenRouter Usage Accounting', () => {
       maxOutputTokens: 100,
     });
 
-    // Verify that OpenRouter metadata is not included
-    expect(result.providerMetadata?.openrouter?.usage).toStrictEqual({
+    // Verify that OpenRouter metadata includes both raw and normalized fields
+    // (pass-through by default pattern)
+    expect(result.providerMetadata?.openrouter?.usage).toMatchObject({
       promptTokens: 10,
       completionTokens: 20,
       totalTokens: 30,
@@ -311,8 +312,11 @@ describe('OpenRouter Usage Accounting', () => {
     )?.usage;
 
     // Should include promptTokensDetails since cached_tokens is present
+    // (includes raw fields due to pass-through pattern)
     expect(usage).toHaveProperty('promptTokensDetails');
-    expect((usage as Record<string, unknown>).promptTokensDetails).toEqual({
+    expect(
+      (usage as Record<string, unknown>).promptTokensDetails,
+    ).toMatchObject({
       cachedTokens: 5,
     });
 
