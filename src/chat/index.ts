@@ -15,6 +15,7 @@ import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
+import type { FileAnnotation } from '../schemas/provider-metadata';
 import type { OpenRouterUsageAccounting } from '@/src/types/index';
 import type {
   OpenRouterChatModelId,
@@ -569,6 +570,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     // Track reasoning details to preserve for multi-turn conversations
     const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
+    // Track file annotations to expose in providerMetadata
+    const accumulatedFileAnnotations: FileAnnotation[] = [];
+
     let textStarted = false;
     let reasoningStarted = false;
     let textId: string | undefined;
@@ -801,6 +805,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
                       },
                     },
                   });
+                } else if (annotation.type === 'file') {
+                  // Accumulate file annotations to expose in providerMetadata
+                  // Type guard to validate structure matches expected shape
+                  const file = (annotation as { file?: unknown }).file;
+                  if (
+                    file &&
+                    typeof file === 'object' &&
+                    'hash' in file &&
+                    'name' in file
+                  ) {
+                    accumulatedFileAnnotations.push(
+                      annotation as FileAnnotation,
+                    );
+                  }
                 }
               }
             }
@@ -1023,6 +1041,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
               usage: Partial<OpenRouterUsageAccounting>;
               provider?: string;
               reasoning_details?: ReasoningDetailUnion[];
+              annotations?: FileAnnotation[];
             } = {
               usage: openrouterUsage,
             };
@@ -1036,6 +1055,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
             if (accumulatedReasoningDetails.length > 0) {
               openrouterMetadata.reasoning_details =
                 accumulatedReasoningDetails;
+            }
+
+            // Include accumulated file annotations if any were received
+            if (accumulatedFileAnnotations.length > 0) {
+              openrouterMetadata.annotations = accumulatedFileAnnotations;
             }
 
             controller.enqueue({

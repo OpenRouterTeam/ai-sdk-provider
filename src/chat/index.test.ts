@@ -2019,6 +2019,137 @@ describe('doStream', () => {
       },
     });
   });
+
+  it('should include file annotations in finish metadata when streamed', async () => {
+    // This test verifies that file annotations from FileParserPlugin are accumulated
+    // during streaming and included in the finish event's providerMetadata
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk with role and content
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"The title is Bitcoin."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk with file annotation
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"abc123def456","name":"bitcoin.pdf","content":[{"type":"text","text":"Page 1 content"},{"type":"text","text":"Page 2 content"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+
+    // Find the finish chunk
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+
+    expect(finishChunk).toBeDefined();
+
+    // Verify file annotations are included in providerMetadata
+    const openrouterMetadata = finishChunk?.providerMetadata?.openrouter as {
+      annotations?: Array<{
+        type: 'file';
+        file: {
+          hash: string;
+          name: string;
+          content?: Array<{ type: string; text?: string }>;
+        };
+      }>;
+    };
+
+    expect(openrouterMetadata?.annotations).toStrictEqual([
+      {
+        type: 'file',
+        file: {
+          hash: 'abc123def456',
+          name: 'bitcoin.pdf',
+          content: [
+            { type: 'text', text: 'Page 1 content' },
+            { type: 'text', text: 'Page 2 content' },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('should accumulate multiple file annotations from stream', async () => {
+    // This test verifies that multiple file annotations are accumulated correctly
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk with content
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"Comparing two documents."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // First file annotation
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"hash1","name":"doc1.pdf","content":[{"type":"text","text":"Doc 1"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second file annotation
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"hash2","name":"doc2.pdf","content":[{"type":"text","text":"Doc 2"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+
+    const openrouterMetadata = finishChunk?.providerMetadata?.openrouter as {
+      annotations?: Array<{
+        type: 'file';
+        file: {
+          hash: string;
+          name: string;
+          content?: Array<{ type: string; text?: string }>;
+        };
+      }>;
+    };
+
+    // Both file annotations should be accumulated
+    expect(openrouterMetadata?.annotations).toHaveLength(2);
+    expect(openrouterMetadata?.annotations?.[0]?.file.hash).toBe('hash1');
+    expect(openrouterMetadata?.annotations?.[1]?.file.hash).toBe('hash2');
+  });
 });
 
 describe('debug settings', () => {
