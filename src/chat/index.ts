@@ -15,8 +15,8 @@ import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
-import type { FileAnnotation } from '../schemas/provider-metadata';
 import type { OpenRouterUsageAccounting } from '@/src/types/index';
+import type { FileAnnotation } from '../schemas/provider-metadata';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
