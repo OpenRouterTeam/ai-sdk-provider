@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 1.5.4
+
+### Patch Changes
+
+- [#301](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/301) [`3c0ba4c`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/3c0ba4cfdd70aa3a449604e58f1241c88205974f) Thanks [@subtleGradient](https://github.com/subtleGradient)! - Remove TOON encoding/decoding helper functions
+
+  BREAKING CHANGE: Removes @toon-format/toon dependency and related exports (encodeToon, decodeToon, ToonEncodeOptions, ToonDecodeOptions, JsonValue). Users who were using these helpers should import directly from @toon-format/toon instead.
+
 ## 1.5.3
 
 ### Patch Changes
