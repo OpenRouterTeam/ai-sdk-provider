@@ -34,9 +34,6 @@ importers:
       '@edge-runtime/vm':
         specifier: 5.0.0
         version: 5.0.0
-      '@toon-format/toon':
-        specifier: 2.0.1
-        version: 2.0.1
       '@types/node':
         specifier: 24.2.0
         version: 24.2.0
@@ -525,9 +522,6 @@ packages:
 
   '@standard-schema/spec@1.0.0':
     resolution: {integrity: sha512-m2bOd0f2RT9k8QJx1JN85cZYyH1RqFBdlwtkSlf4tBDYLCiiZnv1fIIwacK6cqwXavOydf0NPToMQgpKq+dVlA==}
-
-  '@toon-format/toon@2.0.1':
-    resolution: {integrity: sha512-0oohzByDG/VTvsPT7iCfUdoB6yndopkPulh9Kk76fhV6YReVSGqr6ni5EMSxn3umNyfwylI0nOjLYtjJTIiT0w==}
 
   '@types/chai@5.2.2':
     resolution: {integrity: sha512-8kB30R7Hwqf40JPiKhVzodJs2Qc1ZJ5zuT3uzw5Hq/dhNCl3G3l83jfpdI1e20BP348+fV7VIL/+FxaXkqBmWg==}
@@ -1820,8 +1814,6 @@ snapshots:
     optional: true
 
   '@standard-schema/spec@1.0.0': {}
-
-  '@toon-format/toon@2.0.1': {}
 
   '@types/chai@5.2.2':
     dependencies:
