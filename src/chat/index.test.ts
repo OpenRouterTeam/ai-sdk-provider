@@ -1,12 +1,21 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type {
+  LanguageModelV2Prompt,
+  LanguageModelV2StreamPart,
+} from '@ai-sdk/provider';
+import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
+import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
+
+vi.mock('@/src/version', () => ({
+  VERSION: '0.0.0-test',
+}));
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -107,12 +116,43 @@ const TEST_LOGPROBS = {
   ],
 };
 
+const TEST_IMAGE_URL = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAAiXpUWHRSYXcgcHJvZmlsZSB0eXBlIGlwdGMAAAiZTYwxDgIxDAT7vOKekDjrtV1T0VHwgbtcIiEhgfh/QaDgmGlWW0w6X66n5fl6jNu9p+ULkapDENgzpj+Kl5aFfa6KnYWgSjZjGOiSYRxTY/v8KIijI==`;
+
+const TEST_IMAGE_BASE64 = TEST_IMAGE_URL.split(',')[1]!;
+
 const provider = createOpenRouter({
   apiKey: 'test-api-key',
   compatibility: 'strict',
 });
 
 const model = provider.chat('anthropic/claude-3.5-sonnet');
+
+function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'reasoning-delta';
+  }
+> {
+  return part.type === 'reasoning-delta';
+}
+
+function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'reasoning-start';
+  }
+> {
+  return part.type === 'reasoning-start';
+}
+
+function isTextDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
+  LanguageModelV2StreamPart,
+  {
+    type: 'text-delta';
+  }
+> {
+  return part.type === 'text-delta';
+}
 
 describe('doGenerate', () => {
   const server = createTestServer({
@@ -125,6 +165,8 @@ describe('doGenerate', () => {
     content = '',
     reasoning,
     reasoning_details,
+    images,
+    tool_calls,
     usage = {
       prompt_tokens: 4,
       total_tokens: 34,
@@ -136,6 +178,12 @@ describe('doGenerate', () => {
     content?: string;
     reasoning?: string;
     reasoning_details?: Array<ReasoningDetailUnion>;
+    images?: Array<ImageResponse>;
+    tool_calls?: Array<{
+      id: string;
+      type: 'function';
+      function: { name: string; arguments: string };
+    }>;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
@@ -167,6 +215,8 @@ describe('doGenerate', () => {
               content,
               reasoning,
               reasoning_details,
+              images,
+              tool_calls,
             },
             logprobs,
             finish_reason,
@@ -292,10 +342,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Let me analyze this request...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Let me analyze this request...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'The user wants a greeting response.',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'The user wants a greeting response.',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -323,6 +393,16 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: '[REDACTED]',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.encrypted',
+                data: 'encrypted_reasoning_data_here',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -355,10 +435,30 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Processing from reasoning_details...',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.text',
+                text: 'Processing from reasoning_details...',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'reasoning',
         text: 'Summary from reasoning_details',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.summary',
+                summary: 'Summary from reasoning_details',
+              },
+            ],
+          },
+        },
       },
       {
         type: 'text',
@@ -371,6 +471,46 @@ describe('doGenerate', () => {
       type: 'reasoning',
       text: 'This should be ignored when reasoning_details is present',
     });
+  });
+
+  it('should override finishReason to tool-calls when tool calls and encrypted reasoning are present', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_123',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"location":"San Francisco"}',
+          },
+        },
+      ],
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted_reasoning_data_here',
+        },
+      ],
+      // Gemini 3 returns 'stop' instead of 'tool_calls' when using thoughtSignature
+      finish_reason: 'stop',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
+    expect(result.finishReason).toBe('tool-calls');
+
+    // Should still have the tool call in content
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call_123',
+        toolName: 'get_weather',
+      }),
+    );
   });
 
   it('should pass the model and the messages', async () => {
@@ -438,6 +578,7 @@ describe('doGenerate', () => {
         {
           type: 'function',
           name: 'test-tool',
+          description: 'Test tool',
           inputSchema: {
             type: 'object',
             properties: { value: { type: 'string' } },
@@ -461,7 +602,7 @@ describe('doGenerate', () => {
           type: 'function',
           function: {
             name: 'test-tool',
-            description: 'function',
+            description: 'Test tool',
             parameters: {
               type: 'object',
               properties: { value: { type: 'string' } },
@@ -503,6 +644,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 
@@ -578,6 +720,31 @@ describe('doGenerate', () => {
       },
     });
   });
+
+  it('should pass images', async () => {
+    prepareJsonResponse({
+      content: '',
+      images: [
+        {
+          type: 'image_url',
+          image_url: { url: TEST_IMAGE_URL },
+        },
+      ],
+      usage: { prompt_tokens: 53, total_tokens: 70, completion_tokens: 17 },
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'file',
+        mediaType: 'image/png',
+        data: TEST_IMAGE_BASE64,
+      },
+    ]);
+  });
 });
 
 describe('doStream', () => {
@@ -602,6 +769,16 @@ describe('doStream', () => {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      prompt_tokens_details?: {
+        cached_tokens: number;
+      };
+      completion_tokens_details?: {
+        reasoning_tokens: number;
+      };
+      cost?: number;
+      cost_details?: {
+        upstream_inference_cost: number;
+      };
     };
     logprobs?: {
       content:
@@ -733,6 +910,86 @@ describe('doStream', () => {
     ]);
   });
 
+  it('should include upstream inference cost in finish metadata when provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 17,
+        total_tokens: 244,
+        completion_tokens: 227,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+  });
+
+  it('should handle both normal cost and upstream inference cost in finish metadata when both are provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 17,
+        total_tokens: 244,
+        completion_tokens: 227,
+        cost: 0.0042,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+    expect(openrouterUsage?.cost).toBe(0.0042);
+  });
+
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
     // This test verifies that when the API returns both 'reasoning' and 'reasoning_details' fields,
     // we prioritize reasoning_details and ignore the reasoning field to avoid duplicates.
@@ -794,11 +1051,8 @@ describe('doStream', () => {
 
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
-      .filter((el) => el.type === 'reasoning-delta')
-      .map(
-        (el) =>
-          (el as { type: 'reasoning-delta'; delta: string; id: string }).delta,
-      );
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'Let me think about this...', // from reasoning_details text
@@ -810,6 +1064,145 @@ describe('doStream', () => {
     // Verify that "This should be ignored..." and "Also ignored" are NOT in the output
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
+
+    // Verify that reasoning-delta chunks include providerMetadata with reasoning_details
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+
+    // First delta should have reasoning_details from first chunk
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
+        ],
+      },
+    });
+
+    // Second and third deltas should have reasoning_details from second chunk
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'User wants a greeting',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'secret',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'User wants a greeting',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'secret',
+          },
+        ],
+      },
+    });
+
+    // Fourth delta (from reasoning field only) should not have providerMetadata
+    expect(reasoningDeltaElements[3]?.providerMetadata).toBeUndefined();
+  });
+
+  it('should emit reasoning_details in providerMetadata for all reasoning delta chunks', async () => {
+    // This test verifies that reasoning_details are included in providerMetadata
+    // for all reasoning-delta chunks, enabling users to accumulate them for multi-turn conversations
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning_details with Text type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"First reasoning chunk"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: reasoning_details with Summary type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"Summary reasoning"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: reasoning_details with Encrypted type
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"encrypted_data"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-metadata-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":17,"completion_tokens":30,"total_tokens":47}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+
+    expect(reasoningDeltaElements).toHaveLength(3);
+
+    // Verify each delta has the correct reasoning_details in providerMetadata
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Summary reasoning',
+          },
+        ],
+      },
+    });
+
+    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'encrypted_data',
+          },
+        ],
+      },
+    });
+
+    // Verify reasoning-start also has providerMetadata when first delta includes it
+    const reasoningStart = elements.find(isReasoningStartPart);
+
+    expect(reasoningStart?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
   });
 
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
@@ -865,8 +1258,8 @@ describe('doStream', () => {
     // 5. text-delta (2 times)
     // 6. text-end (when stream finishes)
 
-    const streamOrder = elements.map(el => el.type);
-    
+    const streamOrder = elements.map((el) => el.type);
+
     // Find the positions of key events
     const reasoningStartIndex = streamOrder.indexOf('reasoning-start');
     const reasoningEndIndex = streamOrder.indexOf('reasoning-end');
@@ -878,8 +1271,8 @@ describe('doStream', () => {
 
     // Verify reasoning content
     const reasoningDeltas = elements
-      .filter((el) => el.type === 'reasoning-delta')
-      .map((el) => (el as { type: 'reasoning-delta'; delta: string }).delta);
+      .filter(isReasoningDeltaPart)
+      .map((el) => el.delta);
 
     expect(reasoningDeltas).toEqual([
       'I need to think about this step by step...',
@@ -888,14 +1281,9 @@ describe('doStream', () => {
     ]);
 
     // Verify text content
-    const textDeltas = elements
-      .filter((el) => el.type === 'text-delta')
-      .map((el) => (el as { type: 'text-delta'; delta: string }).delta);
+    const textDeltas = elements.filter(isTextDeltaPart).map((el) => el.delta);
 
-    expect(textDeltas).toEqual([
-      'Hello! ',
-      'How can I help you today?',
-    ]);
+    expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
   it('should stream tool deltas', async () => {
@@ -1062,6 +1450,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
@@ -1165,6 +1558,11 @@ describe('doStream', () => {
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
         input: '{"value":"Sparkle Day"}',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
       },
       {
         type: 'response-metadata',
@@ -1185,6 +1583,130 @@ describe('doStream', () => {
       {
         type: 'finish',
         finishReason: 'tool-calls',
+        providerMetadata: {
+          openrouter: {
+            usage: {
+              completionTokens: 17,
+              promptTokens: 53,
+              totalTokens: 70,
+              cost: undefined,
+            },
+          },
+        },
+        usage: {
+          inputTokens: 53,
+          outputTokens: 17,
+          totalTokens: 70,
+          reasoningTokens: Number.NaN,
+          cachedInputTokens: Number.NaN,
+        },
+      },
+    ]);
+  });
+
+  it('should override finishReason to tool-calls in streaming when tool calls and encrypted reasoning are present', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning_details with encrypted data
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"reasoning_details":[{"type":"reasoning.encrypted","data":"encrypted_thoughtsig_data"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: tool call
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"id":"call_gemini3_123","type":"function","function":{"name":"get_weather","arguments":"{\\"location\\":\\"SF\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Final chunk: finish_reason is "stop" (Gemini 3 bug) - should be overridden to "tool-calls"
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-gemini3","object":"chat.completion.chunk","created":1711357598,"model":"google/gemini-3-pro",` +
+          `"system_fingerprint":"fp_gemini3","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find the finish event
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV2StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
+    expect(finishEvent?.finishReason).toBe('tool-calls');
+
+    // Should have the tool call
+    const toolCallEvent = elements.find(
+      (el): el is LanguageModelV2StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+    expect(toolCallEvent?.toolName).toBe('get_weather');
+    expect(toolCallEvent?.toolCallId).toBe('call_gemini3_123');
+  });
+
+  it('should stream images', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"images":[{"type":"image_url","image_url":{"url":"${TEST_IMAGE_URL}"},"index":0}]},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'file',
+        mediaType: 'image/png',
+        data: TEST_IMAGE_BASE64,
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'finish',
+        finishReason: 'stop',
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1324,6 +1846,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 
@@ -1393,5 +1916,306 @@ describe('doStream', () => {
         },
       },
     });
+  });
+
+  it('should pass responseFormat AND tools together', async () => {
+    prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
+
+    const testSchema = {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: ['name', 'age'],
+      additionalProperties: false,
+    };
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: testSchema,
+        name: 'PersonResponse',
+        description: 'A person object',
+      },
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          description: 'Test tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'tool',
+        toolName: 'test-tool',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'test-tool',
+            description: 'Test tool',
+            parameters: {
+              type: 'object',
+              properties: { value: { type: 'string' } },
+              required: ['value'],
+              additionalProperties: false,
+              $schema: 'http://json-schema.org/draft-07/schema#',
+            },
+          },
+        },
+      ],
+      tool_choice: {
+        type: 'function',
+        function: { name: 'test-tool' },
+      },
+    });
+  });
+
+  it('should pass debug settings', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      stream: true,
+      stream_options: { include_usage: true },
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+
+  it('should include file annotations in finish metadata when streamed', async () => {
+    // This test verifies that file annotations from FileParserPlugin are accumulated
+    // during streaming and included in the finish event's providerMetadata
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk with role and content
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"The title is Bitcoin."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk with file annotation
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"abc123def456","name":"bitcoin.pdf","content":[{"type":"text","text":"Page 1 content"},{"type":"text","text":"Page 2 content"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-file-annotations","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+
+    // Find the finish chunk
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+
+    expect(finishChunk).toBeDefined();
+
+    // Verify file annotations are included in providerMetadata
+    const openrouterMetadata = finishChunk?.providerMetadata?.openrouter as {
+      annotations?: Array<{
+        type: 'file';
+        file: {
+          hash: string;
+          name: string;
+          content?: Array<{ type: string; text?: string }>;
+        };
+      }>;
+    };
+
+    expect(openrouterMetadata?.annotations).toStrictEqual([
+      {
+        type: 'file',
+        file: {
+          hash: 'abc123def456',
+          name: 'bitcoin.pdf',
+          content: [
+            { type: 'text', text: 'Page 1 content' },
+            { type: 'text', text: 'Page 2 content' },
+          ],
+        },
+      },
+    ]);
+  });
+
+  it('should accumulate multiple file annotations from stream', async () => {
+    // This test verifies that multiple file annotations are accumulated correctly
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk with content
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"Comparing two documents."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // First file annotation
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"hash1","name":"doc1.pdf","content":[{"type":"text","text":"Doc 1"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second file annotation
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"annotations":[{"type":"file","file":{"hash":"hash2","name":"doc2.pdf","content":[{"type":"text","text":"Doc 2"}]}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-multi-files","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4o-mini",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":20,"total_tokens":120}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+
+    const openrouterMetadata = finishChunk?.providerMetadata?.openrouter as {
+      annotations?: Array<{
+        type: 'file';
+        file: {
+          hash: string;
+          name: string;
+          content?: Array<{ type: string; text?: string }>;
+        };
+      }>;
+    };
+
+    // Both file annotations should be accumulated
+    expect(openrouterMetadata?.annotations).toHaveLength(2);
+    expect(openrouterMetadata?.annotations?.[0]?.file.hash).toBe('hash1');
+    expect(openrouterMetadata?.annotations?.[1]?.file.hash).toBe('hash2');
+  });
+});
+
+describe('debug settings', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 4,
+          total_tokens: 34,
+          completion_tokens: 30,
+        },
+      },
+    };
+  }
+
+  it('should pass debug settings in doGenerate', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    const debugModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+
+    await debugModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      debug: {
+        echo_upstream_body: true,
+      },
+    });
+  });
+
+  it('should not include debug when not set', async () => {
+    prepareJsonResponse({ content: 'Hello!' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody).not.toHaveProperty('debug');
   });
 });

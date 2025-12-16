@@ -7,10 +7,15 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from './types/openrouter-completion-settings';
+import type {
+  OpenRouterEmbeddingModelId,
+  OpenRouterEmbeddingSettings,
+} from './types/openrouter-embedding-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
+import { OpenRouterEmbeddingModel } from './embedding';
 
 /**
 @deprecated Use `createOpenRouter` instead.
@@ -34,6 +39,11 @@ Custom headers to include in the requests.
   readonly headers?: Record<string, string>;
 
   /**
+   * Record of provider slugs to API keys for injecting into provider routing.
+   */
+  readonly api_keys?: Record<string, string>;
+
+  /**
    * Creates a new OpenRouter provider instance.
    */
   constructor(options: OpenRouterProviderSettings = {}) {
@@ -42,6 +52,7 @@ Custom headers to include in the requests.
       'https://openrouter.ai/api/v1';
     this.apiKey = options.apiKey;
     this.headers = options.headers;
+    this.api_keys = options.api_keys;
   }
 
   private get baseConfig() {
@@ -54,6 +65,10 @@ Custom headers to include in the requests.
           description: 'OpenRouter',
         })}`,
         ...this.headers,
+        ...(this.api_keys &&
+          Object.keys(this.api_keys).length > 0 && {
+            'X-Provider-API-Keys': JSON.stringify(this.api_keys),
+          }),
       }),
     };
   }
@@ -77,5 +92,26 @@ Custom headers to include in the requests.
       compatibility: 'strict',
       url: ({ path }) => `${this.baseURL}${path}`,
     });
+  }
+
+  textEmbeddingModel(
+    modelId: OpenRouterEmbeddingModelId,
+    settings: OpenRouterEmbeddingSettings = {},
+  ) {
+    return new OpenRouterEmbeddingModel(modelId, settings, {
+      provider: 'openrouter.embedding',
+      ...this.baseConfig,
+      url: ({ path }) => `${this.baseURL}${path}`,
+    });
+  }
+
+  /**
+   * @deprecated Use textEmbeddingModel instead
+   */
+  embedding(
+    modelId: OpenRouterEmbeddingModelId,
+    settings: OpenRouterEmbeddingSettings = {},
+  ) {
+    return this.textEmbeddingModel(modelId, settings);
   }
 }

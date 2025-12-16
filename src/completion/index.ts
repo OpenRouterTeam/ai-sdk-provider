@@ -13,7 +13,11 @@ import type {
   OpenRouterCompletionSettings,
 } from '../types/openrouter-completion-settings';
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import {
+  APICallError,
+  NoContentGeneratedError,
+  UnsupportedFunctionalityError,
+} from '@ai-sdk/provider';
 import {
   combineHeaders,
   createEventSourceResponseHandler,
@@ -39,6 +43,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   readonly specificationVersion = 'v2' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
+  readonly supportsImageUrls = true;
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [
       /^data:image\/[a-zA-Z]+;base64,/,
@@ -163,13 +168,26 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     });
 
     if ('error' in response) {
-      throw new Error(`${response.error.message}`);
+      const errorData = response.error as { message: string; code?: string };
+      throw new APICallError({
+        message: errorData.message,
+        url: this.config.url({
+          path: '/completions',
+          modelId: this.modelId,
+        }),
+        requestBodyValues: args,
+        statusCode: 200,
+        responseHeaders,
+        data: errorData,
+      });
     }
 
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new Error('No choice in OpenRouter completion response');
+      throw new NoContentGeneratedError({
+        message: 'No choice in OpenRouter completion response',
+      });
     }
 
     return {
@@ -298,6 +316,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
               openrouterUsage.cost = value.usage.cost;
               openrouterUsage.totalTokens = value.usage.total_tokens;
+              const upstreamInferenceCost =
+                value.usage.cost_details?.upstream_inference_cost;
+              if (upstreamInferenceCost != null) {
+                openrouterUsage.costDetails = {
+                  upstreamInferenceCost,
+                };
+              }
             }
 
             const choice = value.choices[0];
