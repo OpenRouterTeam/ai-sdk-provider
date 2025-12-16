@@ -2,6 +2,23 @@
 
 The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
 
+## Using OpenRouter Types
+
+This package exports TypeScript types for OpenRouter's chat completion messages and related structures. If your application needs to work with OpenRouter message types directly (for example, when building chat interfaces or message handling logic), you can import these types from the package:
+
+```ts
+import type {
+  ChatCompletionMessageParam,
+  ChatCompletionUserMessageParam,
+  ChatCompletionAssistantMessageParam,
+  ChatCompletionSystemMessageParam,
+  ChatCompletionToolMessageParam,
+  OpenRouterProviderOptions,
+} from '@openrouter/ai-sdk-provider';
+```
+
+The package is tree-shakeable and marked as side-effect free, so importing only types will not impact your bundle size.
+
 ## Setup
 
 ```bash
