@@ -479,6 +479,179 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should pass tools with strict: true when strictToolUse is enabled', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const strictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: true,
+    });
+
+    await strictModel.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              location: { type: 'string' },
+              unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
+            },
+            required: ['location'],
+            additionalProperties: false,
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'auto',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      tools: [
+        {
+          type: 'function',
+          strict: true,
+          function: {
+            name: 'get_weather',
+            description: 'function',
+            parameters: {
+              type: 'object',
+              properties: {
+                location: { type: 'string' },
+                unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
+              },
+              required: ['location'],
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      tool_choice: 'auto',
+    });
+  });
+
+  it('should not include strict property when strictToolUse is not enabled', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const nonStrictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: false,
+    });
+
+    await nonStrictModel.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody.tools[0]).not.toHaveProperty('strict');
+  });
+
+  it('should include anthropic-beta header when strictToolUse is enabled', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const strictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: true,
+    });
+
+    await strictModel.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestHeaders = server.calls[0]!.requestHeaders;
+    expect(requestHeaders['anthropic-beta']).toBe(
+      'structured-outputs-2025-11-13',
+    );
+  });
+
+  it('should not include anthropic-beta header when strictToolUse is not enabled', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestHeaders = server.calls[0]!.requestHeaders;
+    expect(requestHeaders['anthropic-beta']).toBeUndefined();
+  });
+
+  it('should pass multiple tools with strict: true when strictToolUse is enabled', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const strictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: true,
+    });
+
+    await strictModel.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+          },
+        },
+        {
+          type: 'function',
+          name: 'get_time',
+          inputSchema: {
+            type: 'object',
+            properties: { timezone: { type: 'string' } },
+            required: ['timezone'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody.tools).toHaveLength(2);
+    expect(requestBody.tools[0].strict).toBe(true);
+    expect(requestBody.tools[1].strict).toBe(true);
+  });
+
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -1393,5 +1566,119 @@ describe('doStream', () => {
         },
       },
     });
+  });
+
+  it('should include anthropic-beta header in stream when strictToolUse is enabled', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const strictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: true,
+    });
+
+    await strictModel.doStream({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestHeaders = server.calls[0]!.requestHeaders;
+    expect(requestHeaders['anthropic-beta']).toBe(
+      'structured-outputs-2025-11-13',
+    );
+  });
+
+  it('should not include anthropic-beta header in stream when strictToolUse is not enabled', async () => {
+    prepareStreamResponse({ content: [] });
+
+    await model.doStream({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestHeaders = server.calls[0]!.requestHeaders;
+    expect(requestHeaders['anthropic-beta']).toBeUndefined();
+  });
+
+  it('should pass tools with strict: true in stream when strictToolUse is enabled', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const strictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: true,
+    });
+
+    await strictModel.doStream({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              location: { type: 'string' },
+              unit: { type: 'string', enum: ['celsius', 'fahrenheit'] },
+            },
+            required: ['location'],
+            additionalProperties: false,
+          },
+        },
+      ],
+      toolChoice: {
+        type: 'auto',
+      },
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody.tools[0].strict).toBe(true);
+    expect(requestBody.tools[0].type).toBe('function');
+    expect(requestBody.tools[0].function.name).toBe('get_weather');
+  });
+
+  it('should not include strict property in stream when strictToolUse is not enabled', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const nonStrictModel = provider.chat('anthropic/claude-3.5-sonnet', {
+      strictToolUse: false,
+    });
+
+    await nonStrictModel.doStream({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+        },
+      ],
+    });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+    expect(requestBody.tools[0]).not.toHaveProperty('strict');
   });
 });

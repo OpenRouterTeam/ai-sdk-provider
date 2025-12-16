@@ -39,6 +39,18 @@ Whether to enable parallel function calling during tool use. Default to true.
   parallelToolCalls?: boolean;
 
   /**
+   * Enable strict tool use for Anthropic models.
+   * When enabled, tool parameters are validated to ensure Claude calls your
+   * functions with correctly-typed arguments.
+   *
+   * This adds `strict: true` to each tool definition and includes the
+   * required beta header `anthropic-beta: structured-outputs-2025-11-13`.
+   *
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/tool-use/strict-tool-use
+   */
+  strictToolUse?: boolean;
+
+  /**
 A unique identifier representing your end-user, which can help OpenRouter to
 monitor and detect abuse. Learn more.
 */
