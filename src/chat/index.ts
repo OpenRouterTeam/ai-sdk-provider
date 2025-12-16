@@ -75,6 +75,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
   private readonly config: OpenRouterChatConfig;
 
+  /**
+   * Beta header required for Anthropic's strict tool use feature.
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/tool-use/strict-tool-use
+   */
+  private static readonly ANTHROPIC_STRICT_TOOL_USE_BETA_HEADER =
+    'structured-outputs-2025-11-13';
+
   constructor(
     modelId: OpenRouterChatModelId,
     settings: OpenRouterChatSettings,
@@ -83,6 +90,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
     this.modelId = modelId;
     this.settings = settings;
     this.config = config;
+  }
+
+  /**
+   * Returns headers for strict tool use if enabled.
+   */
+  private getStrictToolUseHeaders(): Record<string, string> {
+    if (this.settings.strictToolUse) {
+      return {
+        'anthropic-beta':
+          OpenRouterChatLanguageModel.ANTHROPIC_STRICT_TOOL_USE_BETA_HEADER,
+      };
+    }
+    return {};
   }
 
   private getArgs({
@@ -172,6 +192,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
 
     if (tools && tools.length > 0) {
       // TODO: support built-in tools
+      const strictToolUse = this.settings.strictToolUse ?? false;
       const mappedTools = tools
         .filter(
           (tool): tool is LanguageModelV2FunctionTool =>
@@ -179,6 +200,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         )
         .map((tool) => ({
           type: 'function' as const,
+          ...(strictToolUse && { strict: true as const }),
           function: {
             name: tool.name,
             description: tool.description,
@@ -229,7 +251,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         path: '/chat/completions',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), options.headers),
+      headers: combineHeaders(
+        this.config.headers(),
+        this.getStrictToolUseHeaders(),
+        options.headers,
+      ),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
@@ -519,7 +545,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV2 {
         path: '/chat/completions',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), options.headers),
+      headers: combineHeaders(
+        this.config.headers(),
+        this.getStrictToolUseHeaders(),
+        options.headers,
+      ),
       body: {
         ...args,
         stream: true,
