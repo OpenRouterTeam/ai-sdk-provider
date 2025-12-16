@@ -1,10 +1,18 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type {
+  LanguageModelV2Prompt,
+  LanguageModelV2StreamPart,
+} from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '@ai-sdk/provider-utils/test';
+import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
+
+vi.mock('@/src/version', () => ({
+  VERSION: '0.0.0-test',
+}));
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -222,6 +230,7 @@ describe('doGenerate', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 });
@@ -248,6 +257,16 @@ describe('doStream', () => {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      prompt_tokens_details?: {
+        cached_tokens: number;
+      };
+      completion_tokens_details?: {
+        reasoning_tokens: number;
+      };
+      cost?: number;
+      cost_details?: {
+        upstream_inference_cost: number;
+      };
     };
     logprobs?: {
       tokens: string[];
@@ -318,6 +337,86 @@ describe('doStream', () => {
         },
       },
     ]);
+  });
+
+  it('should include upstream inference cost when provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 5,
+        total_tokens: 15,
+        completion_tokens: 10,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        element,
+      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        element.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+  });
+
+  it('should handle both normal cost and upstream inference cost in finish metadata when both are provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 5,
+        total_tokens: 15,
+        completion_tokens: 10,
+        cost: 0.0025,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV2StreamPart[];
+    const finishChunk = elements.find(
+      (
+        element,
+      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+        element.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
+    expect(openrouterUsage?.cost).toBe(0.0025);
   });
 
   it('should handle error stream parts', async () => {
@@ -437,6 +536,7 @@ describe('doStream', () => {
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
+      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
   });
 

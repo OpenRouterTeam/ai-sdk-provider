@@ -2,6 +2,8 @@ import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
 
 export type { LanguageModelV2, LanguageModelV2Prompt };
 
+export * from './openrouter-embedding-settings';
+
 export type OpenRouterProviderOptions = {
   models?: string[];
 
@@ -64,7 +66,7 @@ export type OpenRouterUsageAccounting = {
   };
   totalTokens: number;
   cost?: number;
-  costDetails: {
+  costDetails?: {
     upstreamInferenceCost: number;
   };
 };

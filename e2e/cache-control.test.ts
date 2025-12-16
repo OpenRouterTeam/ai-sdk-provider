@@ -26,7 +26,7 @@ it('should trigger cache read', async () => {
   });
 
   const cachedTokens = Number(
-    // @ts-ignore
+    // @ts-expect-error
     providerMetadata?.openrouter?.usage?.promptTokensDetails?.cachedTokens,
   );
 
