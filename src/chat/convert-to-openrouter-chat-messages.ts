@@ -1,9 +1,9 @@
 import type {
-  LanguageModelV2FilePart,
-  LanguageModelV2Prompt,
-  LanguageModelV2TextPart,
-  LanguageModelV2ToolResultPart,
-  SharedV2ProviderMetadata,
+  LanguageModelV3FilePart,
+  LanguageModelV3Prompt,
+  LanguageModelV3TextPart,
+  LanguageModelV3ToolResultPart,
+  SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
@@ -19,7 +19,7 @@ import { isUrl } from './is-url';
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: SharedV2ProviderMetadata | undefined,
+  providerMetadata: SharedV3ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
@@ -32,7 +32,7 @@ function getCacheControl(
 }
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV2Prompt,
+  prompt: LanguageModelV3Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
   for (const { role, content, providerOptions } of prompt) {
@@ -71,7 +71,7 @@ export function convertToOpenRouterChatMessages(
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerOptions);
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
+          (part: LanguageModelV3TextPart | LanguageModelV3FilePart) => {
             const cacheControl =
               getCacheControl(part.providerOptions) ?? messageCacheControl;
 
@@ -284,7 +284,7 @@ export function convertToOpenRouterChatMessages(
   return messages;
 }
 
-function getToolResultContent(input: LanguageModelV2ToolResultPart): string {
+function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
   return input.output.type === 'text'
     ? input.output.value
     : JSON.stringify(input.output.value);

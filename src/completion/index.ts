@@ -199,15 +199,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: {
-        inputTokens: response.usage?.prompt_tokens ?? 0,
-        outputTokens: response.usage?.completion_tokens ?? 0,
-        totalTokens:
-          (response.usage?.prompt_tokens ?? 0) +
-          (response.usage?.completion_tokens ?? 0),
-        reasoningTokens:
-          response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-        cachedInputTokens:
-          response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+        inputTokens: {
+          total: response.usage?.prompt_tokens ?? 0,
+          noCache: undefined,
+          cacheRead: response.usage?.prompt_tokens_details?.cached_tokens ?? undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: {
+          total: response.usage?.completion_tokens ?? 0,
+          text: undefined,
+          reasoning: response.usage?.completion_tokens_details?.reasoning_tokens ?? undefined,
+        },
       },
       warnings: [],
       response: {
@@ -253,11 +255,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
 
     let finishReason: FinishReason = 'other';
     const usage: LanguageModelV3Usage = {
-      inputTokens: Number.NaN,
-      outputTokens: Number.NaN,
-      totalTokens: Number.NaN,
-      reasoningTokens: Number.NaN,
-      cachedInputTokens: Number.NaN,
+      inputTokens: {
+        total: undefined,
+        noCache: undefined,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: {
+        total: undefined,
+        text: undefined,
+        reasoning: undefined,
+      },
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
@@ -285,10 +293,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
             }
 
             if (value.usage != null) {
-              usage.inputTokens = value.usage.prompt_tokens;
-              usage.outputTokens = value.usage.completion_tokens;
-              usage.totalTokens =
-                value.usage.prompt_tokens + value.usage.completion_tokens;
+              usage.inputTokens.total = value.usage.prompt_tokens;
+              usage.outputTokens.total = value.usage.completion_tokens;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
@@ -297,7 +303,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
                 const cachedInputTokens =
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
-                usage.cachedInputTokens = cachedInputTokens;
+                usage.inputTokens.cacheRead = cachedInputTokens;
                 openrouterUsage.promptTokensDetails = {
                   cachedTokens: cachedInputTokens,
                 };
@@ -308,7 +314,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
                 const reasoningTokens =
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
-                usage.reasoningTokens = reasoningTokens;
+                usage.outputTokens.reasoning = reasoningTokens;
                 openrouterUsage.completionTokensDetails = {
                   reasoningTokens,
                 };
