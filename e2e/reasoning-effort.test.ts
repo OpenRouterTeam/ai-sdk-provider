@@ -7,6 +7,92 @@ vi.setConfig({
 });
 
 describe('Reasoning effort parameter', () => {
+  it('should work with reasoning.effort set to none', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    });
+
+    const model = openrouter('anthropic/claude-sonnet-4', {
+      usage: {
+        include: true,
+      },
+    });
+
+    const response = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: 'Hello, how are you?',
+        },
+      ],
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'none',
+          },
+        },
+      },
+    });
+
+    expect(response.text).toBeTruthy();
+    expect(response.text.length).toBeGreaterThan(0);
+
+    expect(response.usage.totalTokens).toBeGreaterThan(0);
+
+    expect(response.providerMetadata?.openrouter).toMatchObject({
+      usage: expect.objectContaining({
+        promptTokens: expect.any(Number),
+        completionTokens: expect.any(Number),
+        totalTokens: expect.any(Number),
+      }),
+    });
+  });
+
+  it('should work with reasoning.effort set to minimal', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    });
+
+    const model = openrouter('anthropic/claude-sonnet-4', {
+      usage: {
+        include: true,
+      },
+    });
+
+    const response = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: 'What is the weather like today?',
+        },
+      ],
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'minimal',
+          },
+        },
+      },
+    });
+
+    expect(response.text).toBeTruthy();
+    expect(response.text.length).toBeGreaterThan(0);
+
+    expect(response.usage.totalTokens).toBeGreaterThan(0);
+
+    expect(response.providerMetadata?.openrouter).toMatchObject({
+      usage: expect.objectContaining({
+        promptTokens: expect.any(Number),
+        completionTokens: expect.any(Number),
+        totalTokens: expect.any(Number),
+      }),
+    });
+  });
+
   it('should work with reasoning.effort set to low', async () => {
     const openrouter = createOpenRouter({
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -118,6 +204,49 @@ describe('Reasoning effort parameter', () => {
         openrouter: {
           reasoning: {
             effort: 'high',
+          },
+        },
+      },
+    });
+
+    expect(response.text).toBeTruthy();
+    expect(response.text.length).toBeGreaterThan(0);
+
+    expect(response.usage.totalTokens).toBeGreaterThan(0);
+
+    expect(response.providerMetadata?.openrouter).toMatchObject({
+      usage: expect.objectContaining({
+        promptTokens: expect.any(Number),
+        completionTokens: expect.any(Number),
+        totalTokens: expect.any(Number),
+      }),
+    });
+  });
+
+  it('should work with reasoning.effort set to xhigh', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+    });
+
+    const model = openrouter('anthropic/claude-sonnet-4', {
+      usage: {
+        include: true,
+      },
+    });
+
+    const response = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: 'Explain quantum physics in simple terms.',
+        },
+      ],
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'xhigh',
           },
         },
       },
