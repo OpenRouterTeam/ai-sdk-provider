@@ -20,7 +20,7 @@ export type OpenRouterProviderOptions = {
         max_tokens: number;
       }
     | {
-        effort: 'high' | 'medium' | 'low';
+        effort: 'xhigh' | 'high' | 'medium' | 'low' | 'minimal' | 'none';
       }
   );
 
