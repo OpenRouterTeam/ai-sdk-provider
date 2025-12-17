@@ -1,8 +1,8 @@
 import type {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2StreamPart,
-  LanguageModelV2Usage,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3StreamPart,
+  LanguageModelV3Usage,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { FinishReason } from 'ai';
@@ -39,8 +39,8 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
+export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
+  readonly specificationVersion = 'v3' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
   readonly supportsImageUrls = true;
@@ -80,7 +80,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     stopSequences,
     tools,
     toolChoice,
-  }: LanguageModelV2CallOptions) {
+  }: LanguageModelV3CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
       inputFormat: 'prompt',
@@ -142,8 +142,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   }
 
   async doGenerate(
-    options: LanguageModelV2CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
+    options: LanguageModelV3CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV3['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -217,8 +217,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   }
 
   async doStream(
-    options: LanguageModelV2CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
+    options: LanguageModelV3CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV3['doStream']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -252,7 +252,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     });
 
     let finishReason: FinishReason = 'other';
-    const usage: LanguageModelV2Usage = {
+    const usage: LanguageModelV3Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
       totalTokens: Number.NaN,
@@ -265,7 +265,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
-          LanguageModelV2StreamPart
+          LanguageModelV3StreamPart
         >({
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
