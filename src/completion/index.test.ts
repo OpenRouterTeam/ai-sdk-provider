@@ -1,12 +1,12 @@
 import type {
-  LanguageModelV2Prompt,
-  LanguageModelV2StreamPart,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
+} from '../test-utils/test-server';
 import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 
@@ -14,7 +14,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -82,7 +82,7 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
       type: 'json-value',
       body: {
         id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
@@ -275,7 +275,7 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
       type: 'stream-chunks',
       chunks: [
         ...content.map((text) => {
@@ -358,11 +358,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -398,11 +398,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -420,7 +420,7 @@ describe('doStream', () => {
   });
 
   it('should handle error stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
@@ -466,7 +466,7 @@ describe('doStream', () => {
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
       type: 'stream-chunks',
       chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
     };

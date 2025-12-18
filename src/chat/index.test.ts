@@ -1,14 +1,15 @@
 import type {
-  LanguageModelV2Prompt,
-  LanguageModelV2StreamPart,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
+import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
+} from '../test-utils/test-server';
 import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
@@ -17,7 +18,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -127,8 +128,8 @@ const provider = createOpenRouter({
 
 const model = provider.chat('anthropic/claude-3.5-sonnet');
 
-function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isReasoningDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'reasoning-delta';
   }
@@ -136,8 +137,8 @@ function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
   return part.type === 'reasoning-delta';
 }
 
-function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isReasoningStartPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'reasoning-start';
   }
@@ -145,8 +146,8 @@ function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
   return part.type === 'reasoning-start';
 }
 
-function isTextDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isTextDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'text-delta';
   }
@@ -651,7 +652,7 @@ describe('doGenerate', () => {
   it('should pass responseFormat for JSON schema structured outputs', async () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -689,7 +690,7 @@ describe('doGenerate', () => {
   it('should use default name when name is not provided in responseFormat', async () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -929,11 +930,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -969,11 +970,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -1648,7 +1649,7 @@ describe('doStream', () => {
 
     // Find the finish event
     const finishEvent = elements.find(
-      (el): el is LanguageModelV2StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -1657,7 +1658,7 @@ describe('doStream', () => {
 
     // Should have the tool call
     const toolCallEvent = elements.find(
-      (el): el is LanguageModelV2StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
@@ -1881,7 +1882,7 @@ describe('doStream', () => {
   it('should pass responseFormat for JSON schema structured outputs', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -1921,7 +1922,7 @@ describe('doStream', () => {
   it('should pass responseFormat AND tools together', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -2051,13 +2052,13 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
 
     // Find the finish chunk
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 
@@ -2125,12 +2126,12 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
 
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 

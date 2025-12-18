@@ -285,7 +285,15 @@ export function convertToOpenRouterChatMessages(
 }
 
 function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
-  return input.output.type === 'text'
-    ? input.output.value
-    : JSON.stringify(input.output.value);
+  switch (input.output.type) {
+    case 'text':
+    case 'error-text':
+      return input.output.value;
+    case 'json':
+    case 'error-json':
+    case 'content':
+      return JSON.stringify(input.output.value);
+    case 'execution-denied':
+      return input.output.reason ?? 'Tool execution denied';
+  }
 }
