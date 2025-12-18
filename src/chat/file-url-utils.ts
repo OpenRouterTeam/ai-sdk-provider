@@ -1,4 +1,4 @@
-import type { LanguageModelV2FilePart } from '@ai-sdk/provider';
+import type { LanguageModelV3FilePart } from '@ai-sdk/provider';
 import type { OpenRouterAudioFormat } from '../types/openrouter-chat-completions-input';
 
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
@@ -9,7 +9,7 @@ export function getFileUrl({
   part,
   defaultMediaType,
 }: {
-  part: LanguageModelV2FilePart;
+  part: LanguageModelV3FilePart;
   defaultMediaType: string;
 }) {
   if (part.data instanceof Uint8Array) {
@@ -100,7 +100,7 @@ export const MIME_TO_FORMAT: Record<string, OpenRouterAudioFormat> = {
  * // Returns: { data: "base64string...", format: "mp3" }
  * ```
  */
-export function getInputAudioData(part: LanguageModelV2FilePart): {
+export function getInputAudioData(part: LanguageModelV3FilePart): {
   data: string;
   format: OpenRouterAudioFormat;
 } {

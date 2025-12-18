@@ -1,6 +1,6 @@
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '../test-utils/test-server';
 import { describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat';
 
@@ -44,7 +44,7 @@ describe('OpenRouter Usage Accounting', () => {
         : undefined,
     };
 
-    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+    server.urls['https://api.openrouter.ai/chat/completions']!!.response = {
       type: 'json-value',
       body: response,
     };
@@ -78,7 +78,7 @@ describe('OpenRouter Usage Accounting', () => {
     });
 
     // Check request contains usage parameter
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = await server.calls[0]!.requestBodyJson as Record<string, unknown>;
     expect(requestBody).toBeDefined();
     expect(requestBody).toHaveProperty('usage');
     expect(requestBody.usage).toEqual({ include: true });
@@ -207,7 +207,7 @@ describe('OpenRouter Usage Accounting', () => {
       },
     };
 
-    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+    server.urls['https://api.openrouter.ai/chat/completions']!!.response = {
       type: 'json-value',
       body: response,
     };
@@ -279,7 +279,7 @@ describe('OpenRouter Usage Accounting', () => {
       },
     };
 
-    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+    server.urls['https://api.openrouter.ai/chat/completions']!!.response = {
       type: 'json-value',
       body: response,
     };

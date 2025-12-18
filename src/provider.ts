@@ -1,4 +1,4 @@
-import type { ProviderV2 } from '@ai-sdk/provider';
+import type { ProviderV3 } from '@ai-sdk/provider';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -21,7 +21,7 @@ import { VERSION } from './version';
 
 export type { OpenRouterChatSettings, OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends ProviderV2 {
+export interface OpenRouterProvider extends ProviderV3 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,

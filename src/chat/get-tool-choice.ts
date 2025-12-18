@@ -1,4 +1,4 @@
-import type { LanguageModelV2ToolChoice } from '@ai-sdk/provider';
+import type { LanguageModelV3ToolChoice } from '@ai-sdk/provider';
 
 import { InvalidArgumentError } from '@ai-sdk/provider';
 import { z } from 'zod/v4';
@@ -18,7 +18,7 @@ const ChatCompletionToolChoiceSchema = z.union([
 type ChatCompletionToolChoice = z.infer<typeof ChatCompletionToolChoiceSchema>;
 
 export function getChatCompletionToolChoice(
-  toolChoice: LanguageModelV2ToolChoice,
+  toolChoice: LanguageModelV3ToolChoice,
 ): ChatCompletionToolChoice {
   switch (toolChoice.type) {
     case 'auto':

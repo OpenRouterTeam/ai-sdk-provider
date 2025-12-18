@@ -1,6 +1,6 @@
-import type { LanguageModelV2, LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV3, LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-export type { LanguageModelV2, LanguageModelV2Prompt };
+export type { LanguageModelV3, LanguageModelV3Prompt };
 
 export * from './openrouter-embedding-settings';
 

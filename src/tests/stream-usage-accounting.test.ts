@@ -3,7 +3,7 @@ import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
+} from '../test-utils/test-server';
 import { describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat';
 
@@ -39,7 +39,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
 
     chunks.push('data: [DONE]\n\n');
 
-    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+    server.urls['https://api.openrouter.ai/chat/completions']!!.response = {
       type: 'stream-chunks',
       chunks,
     };
@@ -73,7 +73,7 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     });
 
     // Verify stream options
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = await server.calls[0]!.requestBodyJson as Record<string, unknown>;
     expect(requestBody).toBeDefined();
     expect(requestBody.stream).toBe(true);
     expect(requestBody.stream_options).toEqual({
