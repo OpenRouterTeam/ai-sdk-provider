@@ -182,7 +182,7 @@ describe('doGenerate', () => {
     tool_calls?: Array<{
       id: string;
       type: 'function';
-      function: { name: string; arguments: string };
+      function: { name: string; arguments?: string };
     }>;
     usage?: {
       prompt_tokens: number;
