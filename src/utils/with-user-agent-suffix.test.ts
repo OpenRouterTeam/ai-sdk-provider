@@ -69,10 +69,10 @@ describe('withUserAgentSuffix', () => {
   describe('edge cases', () => {
     it('should remove null header values', () => {
       const result = withUserAgentSuffix(
-        { Authorization: 'Bearer token', 'X-Optional': null } as unknown as Record<
-          string,
-          string | undefined
-        >,
+        {
+          Authorization: 'Bearer token',
+          'X-Optional': null,
+        } as unknown as Record<string, string | undefined>,
         sdkVersion,
       );
 
