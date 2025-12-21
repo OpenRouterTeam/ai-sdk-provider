@@ -526,6 +526,37 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should handle tool calls without arguments field (issue #287)', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'toolu_bdrk_123',
+          type: 'function',
+          function: {
+            name: 'list_available_components',
+            // Note: no 'arguments' field - this happens with some providers
+          },
+        },
+      ],
+      finish_reason: 'tool_calls',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.finishReason).toBe('tool-calls');
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'toolu_bdrk_123',
+        toolName: 'list_available_components',
+        input: '{}', // Should default to empty object
+      }),
+    );
+  });
+
   it('should pass the models array when provided', async () => {
     prepareJsonResponse({ content: '' });
 
