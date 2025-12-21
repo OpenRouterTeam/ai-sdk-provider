@@ -1,30 +1,40 @@
 import { removeUndefinedEntries } from '@/src/utils/remove-undefined';
 
 /**
- * Appends suffix parts to the `user-agent` header.
- * If a `user-agent` header already exists, the suffix parts are appended to it.
- * If no `user-agent` header exists, a new one is created with the suffix parts.
- * Automatically removes undefined entries from the headers.
+ * Adds SDK version information to headers.
+ *
+ * If a `user-agent` header is NOT provided by the user, the SDK version is set as the user-agent.
+ * If a `user-agent` header IS provided by the user, it is preserved unchanged, and the SDK
+ * version is added via the `X-OpenRouter-SDK-Version` header instead.
+ *
+ * This ensures user-specified headers are never silently modified.
  *
  * @param headers - The original headers.
- * @param userAgentSuffixParts - The parts to append to the `user-agent` header.
- * @returns The new headers with the `user-agent` header set or updated.
+ * @param sdkVersion - The SDK version string (e.g., "ai-sdk/openrouter/1.5.4").
+ * @returns The new headers with SDK version information added.
  */
 export function withUserAgentSuffix(
   headers: HeadersInit | Record<string, string | undefined> | undefined,
-  ...userAgentSuffixParts: string[]
+  sdkVersion: string,
 ): Record<string, string> {
   const cleanedHeaders = removeUndefinedEntries(
     (headers as Record<string, string | undefined>) ?? {},
   );
 
-  const currentUserAgentHeader = cleanedHeaders['user-agent'] || '';
-  const newUserAgent = [currentUserAgentHeader, ...userAgentSuffixParts]
-    .filter(Boolean)
-    .join(' ');
+  const userProvidedUserAgent = cleanedHeaders['user-agent'];
 
+  if (userProvidedUserAgent) {
+    // User provided their own user-agent, don't modify it
+    // Add SDK version as a separate header instead
+    return {
+      ...cleanedHeaders,
+      'X-OpenRouter-SDK-Version': sdkVersion,
+    };
+  }
+
+  // No user-agent provided, use SDK version as the user-agent
   return {
     ...cleanedHeaders,
-    'user-agent': newUserAgent,
+    'user-agent': sdkVersion,
   };
 }
