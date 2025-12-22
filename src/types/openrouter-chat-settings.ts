@@ -46,17 +46,25 @@ monitor and detect abuse. Learn more.
   user?: string;
 
   /**
-   * Plugin configurations for enabling various capabilities
+   * Plugin configurations for enabling various OpenRouter plugins
    */
   plugins?: Array<
     | {
         id: models.IdWeb;
+        /**
+         * Set to false to disable the web-search plugin for this request. Defaults to true.
+         */
+        enabled?: boolean;
         max_results?: number;
         search_prompt?: string;
         engine?: models.Engine;
       }
     | {
         id: models.IdFileParser;
+        /**
+         * Set to false to disable the file-parser plugin for this request. Defaults to true.
+         */
+        enabled?: boolean;
         max_files?: number;
         pdf?: {
           engine?: models.PdfEngine;
@@ -64,6 +72,13 @@ monitor and detect abuse. Learn more.
       }
     | {
         id: models.IdModeration;
+      }
+    | {
+        id: 'response-healing';
+        /**
+         * Set to false to disable the response-healing plugin for this request. Defaults to true.
+         */
+        enabled?: boolean;
       }
   >;
 
