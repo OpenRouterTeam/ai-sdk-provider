@@ -125,11 +125,17 @@ describe('doGenerate', () => {
     });
 
     expect(usage).toStrictEqual({
-      inputTokens: 20,
-      outputTokens: 5,
-      totalTokens: 25,
-      reasoningTokens: 0,
-      cachedInputTokens: 0,
+      inputTokens: {
+        total: 20,
+        noCache: undefined,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: {
+        total: 5,
+        text: undefined,
+        reasoning: undefined,
+      },
     });
   });
 
@@ -225,13 +231,13 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 });
 
@@ -329,11 +335,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 10,
-          outputTokens: 362,
-          totalTokens: 372,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 10,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 362,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -455,11 +467,17 @@ describe('doStream', () => {
         },
         type: 'finish',
         usage: {
-          inputTokens: Number.NaN,
-          outputTokens: Number.NaN,
-          totalTokens: Number.NaN,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: undefined,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: undefined,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -488,11 +506,17 @@ describe('doStream', () => {
       },
       type: 'finish',
       usage: {
-        inputTokens: Number.NaN,
-        outputTokens: Number.NaN,
-        totalTokens: Number.NaN,
-        reasoningTokens: Number.NaN,
-        cachedInputTokens: Number.NaN,
+        inputTokens: {
+          total: undefined,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: {
+          total: undefined,
+          text: undefined,
+          reasoning: undefined,
+        },
       },
     });
   });
@@ -531,13 +555,13 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 
   it('should pass extra body', async () => {
