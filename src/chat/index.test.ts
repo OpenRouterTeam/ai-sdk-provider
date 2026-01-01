@@ -287,7 +287,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual('stop');
+    expect(response.finishReason).toStrictEqual({ unified: 'stop', raw: 'stop' });
   });
 
   it('should support unknown finish reason', async () => {
@@ -300,7 +300,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual('unknown');
+    expect(response.finishReason).toStrictEqual({ unified: 'other', raw: 'eos' });
   });
 
   it('should extract reasoning content from reasoning field', async () => {
@@ -508,7 +508,7 @@ describe('doGenerate', () => {
     });
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(result.finishReason).toBe('tool-calls');
+    expect(result.finishReason).toStrictEqual({ unified: 'tool-calls', raw: 'stop' });
 
     // Should still have the tool call in content
     expect(result.content).toContainEqual(
@@ -894,7 +894,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
 
         providerMetadata: {
           openrouter: {
@@ -1487,7 +1487,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'tool-calls',
+        finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1601,7 +1601,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'tool-calls',
+        finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1678,7 +1678,7 @@ describe('doStream', () => {
     );
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(finishEvent?.finishReason).toBe('tool-calls');
+    expect(finishEvent?.finishReason).toStrictEqual({ unified: 'tool-calls', raw: 'stop' });
 
     // Should have the tool call
     const toolCallEvent = elements.find(
@@ -1731,7 +1731,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1787,7 +1787,7 @@ describe('doStream', () => {
         },
       },
       {
-        finishReason: 'error',
+        finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
             usage: {},
@@ -1826,7 +1826,7 @@ describe('doStream', () => {
     expect(elements.length).toBe(2);
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
-      finishReason: 'error',
+      finishReason: { unified: 'error', raw: undefined },
 
       type: 'finish',
       providerMetadata: {

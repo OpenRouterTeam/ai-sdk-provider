@@ -1,11 +1,11 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3FinishReason,
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { OpenRouterUsageAccounting } from '../types';
 import type {
@@ -26,7 +26,10 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import {
+  mapOpenRouterFinishReason,
+  createFinishReason,
+} from '../utils/map-finish-reason';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -253,7 +256,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       fetch: this.config.fetch,
     });
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
     const usage: LanguageModelV3Usage = {
       inputTokens: {
         total: undefined,
@@ -278,7 +281,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
@@ -287,7 +290,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
 
             // handle error chunks:
             if ('error' in value) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: value.error });
               return;
             }

@@ -12,7 +12,6 @@ import type {
   SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type { OpenRouterUsageAccounting } from '@/src/types/index';
@@ -38,7 +37,10 @@ import {
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import {
+  mapOpenRouterFinishReason,
+  createFinishReason,
+} from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -447,7 +449,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       hasToolCalls && hasEncryptedReasoning && choice.finish_reason === 'stop';
 
     const effectiveFinishReason = shouldOverrideFinishReason
-      ? 'tool-calls'
+      ? createFinishReason('tool-calls', choice.finish_reason ?? undefined)
       : mapOpenRouterFinishReason(choice.finish_reason);
 
     return {
@@ -565,7 +567,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       sent: boolean;
     }> = [];
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
     const usage: LanguageModelV3Usage = {
       inputTokens: {
         total: undefined,
@@ -607,7 +609,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
@@ -616,7 +618,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
             // handle error chunks:
             if ('error' in value) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: value.error });
               return;
             }
@@ -1009,13 +1011,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             if (
               hasToolCalls &&
               hasEncryptedReasoning &&
-              finishReason === 'stop'
+              finishReason.unified === 'stop'
             ) {
-              finishReason = 'tool-calls';
+              finishReason = createFinishReason('tool-calls', finishReason.raw);
             }
 
             // Forward any unsent tool calls if finish reason is 'tool-calls'
-            if (finishReason === 'tool-calls') {
+            if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {
                 if (toolCall && !toolCall.sent) {
                   controller.enqueue({

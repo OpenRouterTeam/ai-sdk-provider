@@ -163,7 +163,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
 
-    expect(finishReason).toStrictEqual('stop');
+    expect(finishReason).toStrictEqual({ unified: 'stop', raw: 'stop' });
   });
 
   it('should support unknown finish reason', async () => {
@@ -178,7 +178,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
 
-    expect(finishReason).toStrictEqual('unknown');
+    expect(finishReason).toStrictEqual({ unified: 'other', raw: 'eos' });
   });
 
   it('should pass the model and the prompt', async () => {
@@ -323,7 +323,7 @@ describe('doStream', () => {
       { type: 'text-delta', delta: '', id: expect.any(String) },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -459,7 +459,7 @@ describe('doStream', () => {
         },
       },
       {
-        finishReason: 'error',
+        finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
             usage: {},
@@ -498,7 +498,7 @@ describe('doStream', () => {
     expect(elements.length).toBe(2);
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
-      finishReason: 'error',
+      finishReason: { unified: 'error', raw: undefined },
       providerMetadata: {
         openrouter: {
           usage: {},
