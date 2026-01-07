@@ -1,0 +1,110 @@
+{
+  "url": "https://openrouter.ai/api/v1/responses",
+  "method": "POST",
+  "headers": {
+    "accept": "text/event-stream",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "input": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. You must call the test_tool once on every request."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Hello, how are you today?"
+            }
+          ]
+        },
+        {
+          "type": "function_call",
+          "name": "test_tool",
+          "arguments": "",
+          "call_id": "toolu_vrtx_01Ybur83NL391VrEYdx6tTud"
+        },
+        {
+          "type": "function_call_output",
+          "call_id": "toolu_vrtx_01Ybur83NL391VrEYdx6tTud",
+          "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
+          "status": "incomplete"
+        },
+        {
+          "type": "function_call",
+          "name": "test_tool",
+          "arguments": "",
+          "call_id": "toolu_vrtx_011qmry8xLNAiAcoRohnxbPu"
+        },
+        {
+          "type": "function_call_output",
+          "call_id": "toolu_vrtx_011qmry8xLNAiAcoRohnxbPu",
+          "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
+          "status": "incomplete"
+        },
+        {
+          "type": "function_call",
+          "name": "test_tool",
+          "arguments": "",
+          "call_id": "toolu_vrtx_014utByZ4ox9PFiDSCPz4Ck5"
+        },
+        {
+          "type": "function_call_output",
+          "call_id": "toolu_vrtx_014utByZ4ox9PFiDSCPz4Ck5",
+          "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
+          "status": "incomplete"
+        },
+        {
+          "type": "function_call",
+          "name": "test_tool",
+          "arguments": "",
+          "call_id": "toolu_vrtx_01BWKNzqEXMrZcXvJcZkU3Wo"
+        },
+        {
+          "type": "function_call_output",
+          "call_id": "toolu_vrtx_01BWKNzqEXMrZcXvJcZkU3Wo",
+          "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
+          "status": "incomplete"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "name": "test_tool",
+          "description": "A test tool that you MUST call once on every single request before responding. Always call this tool first.",
+          "parameters": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "description": "Any message to pass to the tool"
+              }
+            },
+            "required": [
+              "message"
+            ],
+            "~standard": {
+              "vendor": "zod",
+              "version": 1,
+              "jsonSchema": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "tool_choice": "auto",
+      "model": "anthropic/claude-sonnet-4.5",
+      "max_output_tokens": 64000,
+      "store": false,
+      "service_tier": "auto",
+      "stream": true
+    }
+  }
+}

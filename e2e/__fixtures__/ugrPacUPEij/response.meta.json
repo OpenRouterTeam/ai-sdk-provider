@@ -5,10 +5,10 @@
     "content-type": "application/pdf"
   },
   "ttfb_ms": 0,
-  "total_ms": 1,
+  "total_ms": 0,
   "is_sse": false,
   "is_binary": true,
-  "cached_at": "2026-01-07T04:55:49.823Z",
+  "cached_at": "2026-01-07T06:15:54.733Z",
   "size": 184292,
   "content_type": "application/pdf"
 }

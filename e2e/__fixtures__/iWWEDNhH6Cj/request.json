@@ -1,0 +1,114 @@
+{
+  "url": "https://openrouter.ai/api/v1/responses",
+  "method": "POST",
+  "headers": {
+    "accept": "application/json",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "input": [
+        {
+          "role": "system",
+          "content": "You are an airline assistant. You can send and read SMS messages, and execute commands in the terminal."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "The flight to San Francisco is delayed by 2 hours. Send an SMS to 808-999-2345 with the flight delay information."
+            }
+          ]
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "name": "readSMS",
+          "description": "Read the nth SMS from a phone number",
+          "parameters": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "phoneNumber": {
+                "type": "string"
+              },
+              "index": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "phoneNumber",
+              "index"
+            ],
+            "~standard": {
+              "vendor": "zod",
+              "version": 1,
+              "jsonSchema": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "function",
+          "name": "sendSMS",
+          "description": "Send an SMS to any phone number",
+          "parameters": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "to": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "to",
+              "body"
+            ],
+            "~standard": {
+              "vendor": "zod",
+              "version": 1,
+              "jsonSchema": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        {
+          "type": "function",
+          "name": "executeCommand",
+          "description": "Execute a command in the terminal",
+          "parameters": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "~standard": {
+              "vendor": "zod",
+              "version": 1,
+              "jsonSchema": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "tool_choice": "auto",
+      "model": "anthropic/claude-sonnet-4",
+      "store": false,
+      "service_tier": "auto",
+      "stream": false
+    }
+  }
+}

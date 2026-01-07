@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "statusText": "OK",
+  "headers": {
+    "access-control-allow-origin": "*",
+    "cache-control": "no-cache",
+    "cf-ray": "9ba152d66c0e650a-MIA",
+    "connection": "keep-alive",
+    "content-type": "text/event-stream",
+    "date": "Wed, 07 Jan 2026 06:15:58 GMT",
+    "permissions-policy": "payment=(self \"https://checkout.stripe.com\" \"https://connect-js.stripe.com\" \"https://js.stripe.com\" \"https://*.js.stripe.com\" \"https://hooks.stripe.com\")",
+    "referrer-policy": "no-referrer, strict-origin-when-cross-origin",
+    "server": "cloudflare",
+    "transfer-encoding": "chunked",
+    "vary": "Accept-Encoding",
+    "x-content-type-options": "nosniff"
+  },
+  "ttfb_ms": 0,
+  "total_ms": 300,
+  "is_sse": true,
+  "is_binary": false,
+  "cached_at": "2026-01-07T06:15:58.117Z"
+}
