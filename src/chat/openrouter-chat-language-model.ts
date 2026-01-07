@@ -9,11 +9,52 @@ import type {
 } from '@ai-sdk/provider';
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
-import type {
-  ChatGenerationParams,
-  ChatResponse,
-  ChatStreamingResponseChunkData,
-} from '@openrouter/sdk/models';
+import type { ChatGenerationParams, ChatResponse } from '@openrouter/sdk/models';
+
+/**
+ * Raw streaming chunk from OpenRouter API (snake_case fields).
+ */
+interface RawStreamingChunk {
+  id: string;
+  provider?: string;
+  model: string;
+  object: 'chat.completion.chunk';
+  created: number;
+  choices: Array<{
+    index: number;
+    delta: {
+      role?: string;
+      content?: string | null;
+      reasoning?: string | null;
+      annotations?: Array<{
+        type: string;
+        url_citation?: {
+          url: string;
+          title: string;
+          start_index?: number;
+          end_index?: number;
+          content?: string;
+        };
+      }>;
+    };
+    finish_reason: string | null;
+  }>;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    cost?: number;
+    prompt_tokens_details?: {
+      cached_tokens?: number;
+      audio_tokens?: number;
+      video_tokens?: number;
+    };
+    completion_tokens_details?: {
+      reasoning_tokens?: number;
+      image_tokens?: number;
+    };
+  };
+}
 
 import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
@@ -269,7 +310,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
-    async function* parseSSEStream(): AsyncGenerator<ChatStreamingResponseChunkData> {
+    async function* parseSSEStream(): AsyncGenerator<RawStreamingChunk> {
       let buffer = '';
 
       while (true) {
@@ -295,7 +336,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             const jsonStr = trimmed.slice(6);
             try {
               const parsed = JSON.parse(jsonStr);
-              yield parsed as ChatStreamingResponseChunkData;
+              yield parsed as RawStreamingChunk;
             } catch {
               // Skip malformed JSON chunks (e.g., SSE comment lines)
               continue;
@@ -414,15 +455,12 @@ interface StreamState {
  * Transform a streaming chunk from OpenRouter to AI SDK V3 stream parts.
  */
 function transformChunk(
-  chunk: ChatStreamingResponseChunkData,
+  chunk: RawStreamingChunk,
   state: StreamState
 ): LanguageModelV3StreamPart[] {
   const parts: LanguageModelV3StreamPart[] = [];
 
   // Capture response metadata
-  // Note: The SDK types don't include 'provider' but the API returns it on each chunk
-  const chunkWithProvider = chunk as typeof chunk & { provider?: string };
-
   if (chunk.id && !state.getResponseId()) {
     state.setResponseId(chunk.id);
   }
@@ -432,8 +470,8 @@ function transformChunk(
   if (chunk.created && !state.getResponseCreated()) {
     state.setResponseCreated(chunk.created);
   }
-  if (chunkWithProvider.provider && !state.getResponseProvider()) {
-    state.setResponseProvider(chunkWithProvider.provider);
+  if (chunk.provider && !state.getResponseProvider()) {
+    state.setResponseProvider(chunk.provider);
   }
 
   // Process choices
@@ -483,22 +521,8 @@ function transformChunk(
     }
 
     // Handle annotations (web search sources)
-    // The SDK types don't include annotations but the API returns them for web search
-    const deltaWithAnnotations = delta as typeof delta & {
-      annotations?: Array<{
-        type: string;
-        url_citation?: {
-          url: string;
-          title: string;
-          start_index?: number;
-          end_index?: number;
-          content?: string;
-        };
-      }>;
-    };
-
-    if (deltaWithAnnotations.annotations) {
-      for (const annotation of deltaWithAnnotations.annotations) {
+    if (delta.annotations) {
+      for (const annotation of delta.annotations) {
         if (annotation.type === 'url_citation' && annotation.url_citation) {
           const sourceId = state.getNextSourceId();
           parts.push({
@@ -513,8 +537,8 @@ function transformChunk(
     }
 
     // Handle finish reason - record it but don't emit finish yet (usage comes in separate chunk)
-    if (choice.finishReason !== null && !state.getFinishReason()) {
-      state.setFinishReason(choice.finishReason);
+    if (choice.finish_reason !== null && !state.getFinishReason()) {
+      state.setFinishReason(choice.finish_reason);
 
       // End text if started and not ended
       if (state.getTextStarted() && !state.getTextEnded()) {
@@ -552,17 +576,34 @@ function transformChunk(
     const storedFinishReason = state.getFinishReason();
     const finishReason = mapOpenRouterFinishReason(storedFinishReason ?? 'stop');
 
-    // Build usage
+    // Build usage (raw API uses snake_case)
     const usage = buildUsage({
-      inputTokens: chunk.usage.promptTokens,
-      outputTokens: chunk.usage.completionTokens,
+      inputTokens: chunk.usage.prompt_tokens,
+      outputTokens: chunk.usage.completion_tokens,
     });
 
-    // Build provider metadata with full usage data
+    // Build provider metadata with full usage data (convert to SDK camelCase format)
     const providerMetadata = buildProviderMetadata({
       id: state.getResponseId(),
       provider: state.getResponseProvider(),
-      usage: chunk.usage,
+      usage: {
+        promptTokens: chunk.usage.prompt_tokens,
+        completionTokens: chunk.usage.completion_tokens,
+        totalTokens: chunk.usage.total_tokens,
+        cost: chunk.usage.cost,
+        promptTokensDetails: chunk.usage.prompt_tokens_details
+          ? {
+              cachedTokens: chunk.usage.prompt_tokens_details.cached_tokens,
+              audioTokens: chunk.usage.prompt_tokens_details.audio_tokens,
+              videoTokens: chunk.usage.prompt_tokens_details.video_tokens,
+            }
+          : undefined,
+        completionTokensDetails: chunk.usage.completion_tokens_details
+          ? {
+              reasoningTokens: chunk.usage.completion_tokens_details.reasoning_tokens,
+            }
+          : undefined,
+      },
     });
 
     parts.push({
