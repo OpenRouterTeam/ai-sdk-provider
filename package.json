@@ -50,7 +50,7 @@
     "@changesets/changelog-github": "^0.5.1",
     "@changesets/cli": "^2",
     "@edge-runtime/vm": "^5.0.0",
-    "@effect-native/fetch-hooks": "^0.0.2",
+    "@effect-native/fetch-hooks": "^0.1.0",
     "@types/node": "^24",
     "ai": "^6.0.0",
     "dotenv": "^17",

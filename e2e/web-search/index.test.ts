@@ -50,7 +50,9 @@ describe('Web Search E2E Tests', () => {
       expect(source).toHaveProperty('sourceType', 'url');
       expect(source).toHaveProperty('url');
       expect(source).toHaveProperty('id');
-      expect(typeof source.url).toBe('string');
+      if (source.sourceType === 'url') {
+        expect(typeof source.url).toBe('string');
+      }
     }
 
     await writeFile(
