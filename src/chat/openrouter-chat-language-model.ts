@@ -82,6 +82,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert responseFormat to Responses API text.format
     const text = convertResponseFormatToText(options.responseFormat);
 
+    // Extract model options from settings
+    const modelOptions = this.settings.modelOptions;
+
     // Build request parameters for Responses API (non-streaming)
     const requestParams: OpenResponsesRequest & { stream: false } = {
       model: this.modelId,
@@ -97,6 +100,25 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
       ...(text !== undefined && { text }),
+      // Forward model options from settings
+      ...(modelOptions?.reasoning !== undefined && {
+        reasoning: modelOptions.reasoning as OpenResponsesRequest['reasoning'],
+      }),
+      ...(modelOptions?.provider !== undefined && {
+        provider: modelOptions.provider as OpenResponsesRequest['provider'],
+      }),
+      ...(modelOptions?.models !== undefined && {
+        models: modelOptions.models,
+      }),
+      ...(modelOptions?.transforms !== undefined && {
+        transforms: modelOptions.transforms,
+      }),
+      ...(modelOptions?.plugins !== undefined && {
+        plugins: modelOptions.plugins as OpenResponsesRequest['plugins'],
+      }),
+      ...(modelOptions?.route !== undefined && {
+        route: modelOptions.route,
+      }),
     };
 
     // Make the non-streaming request using Responses API
@@ -284,6 +306,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert responseFormat to Responses API text.format
     const text = convertResponseFormatToText(options.responseFormat);
 
+    // Extract model options from settings
+    const modelOptions = this.settings.modelOptions;
+
     // Build request parameters for Responses API (streaming)
     const requestParams: OpenResponsesRequest & { stream: true } = {
       model: this.modelId,
@@ -299,6 +324,25 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
       ...(text !== undefined && { text }),
+      // Forward model options from settings
+      ...(modelOptions?.reasoning !== undefined && {
+        reasoning: modelOptions.reasoning as OpenResponsesRequest['reasoning'],
+      }),
+      ...(modelOptions?.provider !== undefined && {
+        provider: modelOptions.provider as OpenResponsesRequest['provider'],
+      }),
+      ...(modelOptions?.models !== undefined && {
+        models: modelOptions.models,
+      }),
+      ...(modelOptions?.transforms !== undefined && {
+        transforms: modelOptions.transforms,
+      }),
+      ...(modelOptions?.plugins !== undefined && {
+        plugins: modelOptions.plugins as OpenResponsesRequest['plugins'],
+      }),
+      ...(modelOptions?.route !== undefined && {
+        route: modelOptions.route,
+      }),
     };
 
     // Make the streaming request using Responses API

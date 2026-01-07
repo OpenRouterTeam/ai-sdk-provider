@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+import { describe, expect, it, vi } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../../chat/openrouter-chat-language-model.js';
 
 const createTestSettings = () => ({
@@ -6,6 +7,44 @@ const createTestSettings = () => ({
   baseURL: 'https://openrouter.ai/api/v1',
   userAgent: 'test-user-agent/0.0.0',
 });
+
+// Mock the OpenRouter SDK
+vi.mock('@openrouter/sdk', () => {
+  return {
+    OpenRouter: vi.fn().mockImplementation(() => ({
+      beta: {
+        responses: {
+          send: vi.fn().mockResolvedValue({
+            id: 'resp-test',
+            model: 'test-model',
+            status: 'completed',
+            createdAt: 1704067200,
+            output: [
+              {
+                type: 'message',
+                content: [{ type: 'output_text', text: 'Hello' }],
+              },
+            ],
+            outputText: 'Hello',
+            usage: {
+              inputTokens: 10,
+              outputTokens: 5,
+              totalTokens: 15,
+            },
+          }),
+        },
+      },
+    })),
+    SDK_METADATA: { userAgent: 'test-sdk/1.0.0' },
+  };
+});
+
+const createTestPrompt = (): LanguageModelV3Prompt => [
+  {
+    role: 'user',
+    content: [{ type: 'text', text: 'Hello' }],
+  },
+];
 
 describe('OpenRouterChatLanguageModel', () => {
   describe('constructor', () => {
@@ -127,6 +166,145 @@ describe('OpenRouterChatLanguageModel', () => {
       // Check required methods exist
       expect(typeof model.doGenerate).toBe('function');
       expect(typeof model.doStream).toBe('function');
+    });
+  });
+
+  describe('model options forwarding', () => {
+    it('should forward reasoning options from model settings to doGenerate request', async () => {
+      const model = new OpenRouterChatLanguageModel('google/gemini-3-flash', {
+        ...createTestSettings(),
+        modelOptions: {
+          reasoning: {
+            enabled: true,
+            effort: 'medium',
+          },
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes reasoning config
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('reasoning');
+      expect(body.reasoning).toEqual({
+        enabled: true,
+        effort: 'medium',
+      });
+    });
+
+    it('should forward reasoning options from model settings to doStream request', async () => {
+      const model = new OpenRouterChatLanguageModel('google/gemini-3-flash', {
+        ...createTestSettings(),
+        modelOptions: {
+          reasoning: {
+            enabled: true,
+            effort: 'high',
+            maxTokens: 10000,
+          },
+        },
+      });
+
+      const result = await model.doStream({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes reasoning config
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('reasoning');
+      expect(body.reasoning).toEqual({
+        enabled: true,
+        effort: 'high',
+        maxTokens: 10000,
+      });
+    });
+
+    it('should forward provider routing options from model settings to request', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        modelOptions: {
+          provider: {
+            order: ['Azure', 'OpenAI'],
+            allowFallbacks: false,
+          },
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes provider config
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('provider');
+      expect(body.provider).toEqual({
+        order: ['Azure', 'OpenAI'],
+        allowFallbacks: false,
+      });
+    });
+
+    it('should forward fallback models from model settings to request', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        modelOptions: {
+          models: ['anthropic/claude-3.5-sonnet', 'google/gemini-2.0-flash'],
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes fallback models
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('models');
+      expect(body.models).toEqual([
+        'anthropic/claude-3.5-sonnet',
+        'google/gemini-2.0-flash',
+      ]);
+    });
+
+    it('should forward transforms from model settings to request', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        modelOptions: {
+          transforms: ['middle-out'],
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes transforms
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('transforms');
+      expect(body.transforms).toEqual(['middle-out']);
+    });
+
+    it('should not include model options when not provided', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        // No modelOptions
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body does not include model options fields
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).not.toHaveProperty('reasoning');
+      expect(body).not.toHaveProperty('provider');
+      expect(body).not.toHaveProperty('models');
+      expect(body).not.toHaveProperty('transforms');
     });
   });
 });
