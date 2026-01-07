@@ -1,0 +1,1 @@
+{"error":{"message":"Provider returned error","code":400,"metadata":{"raw":"{\"message\":\"messages.0.content.1.image.source.base64.media_type: Input should be 'image/jpeg', 'image/png', 'image/gif' or 'image/webp'\"}","provider_name":"Amazon Bedrock"}},"user_id":"org_2uMVNwONqhSdZXQy1QtyWuCjTxZ"}

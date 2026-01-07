@@ -1,1 +1,15 @@
-"\n         \n\n         \n\n         \n\n         \n\n         \n\n         \n\n         \n\n         \n{\"id\":\"gen-1767760885-w57mqOwa0uF7ipyHZ9Jg\",\"provider\":\"Google\",\"model\":\"anthropic/claude-sonnet-4\",\"object\":\"chat.completion\",\"created\":1767760885,\"choices\":[{\"logprobs\":null,\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"The capital of France is Paris.\\n\\nMy reasoning is straightforward: this is a well-established geographical fact. Paris has been the capital and largest city of France for centuries. It serves as the country's political, economic, and cultural center, housing the French government institutions including the Élysée Palace (presidential residence), the National Assembly, and the Senate. This is basic geographical knowledge that is universally recognized and doesn't require complex reasoning - it's simply a factual answer about world geography.\",\"refusal\":null,\"reasoning\":null}}],\"usage\":{\"prompt_tokens\":19,\"completion_tokens\":105,\"total_tokens\":124,\"cost\":0.001632,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"cache_write_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0.000057,\"upstream_inference_completions_cost\":0.001575},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0}}}"
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+{"id":"gen-1767761752-mOO5Oa2Avc5rlfTYdo84","provider":"Google","model":"anthropic/claude-sonnet-4","object":"chat.completion","created":1767761752,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","index":0,"message":{"role":"assistant","content":"The capital of France is Paris.\n\nMy reasoning is straightforward: this is a well-established geographical fact. Paris has been the capital and largest city of France for centuries. It serves as the country's political, economic, and cultural center, housing the French government, including the President's residence (Élysée Palace), the National Assembly, and other key institutions. This is basic geographical knowledge that is widely documented and universally recognized.","refusal":null,"reasoning":null}}],"usage":{"prompt_tokens":19,"completion_tokens":93,"total_tokens":112,"cost":0.001452,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":null,"upstream_inference_prompt_cost":0.000057,"upstream_inference_completions_cost":0.001395},"completion_tokens_details":{"reasoning_tokens":0,"image_tokens":0}}}

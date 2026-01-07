@@ -1,0 +1,32 @@
+{
+  "url": "https://openrouter.ai/api/v1/chat/completions",
+  "method": "POST",
+  "headers": {
+    "accept": "application/json",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an airline assistant. You can send and read SMS messages, and execute commands in the terminal."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "The flight to San Francisco is delayed by 2 hours. Send an SMS to 808-999-2345 with the flight delay information."
+            }
+          ]
+        }
+      ],
+      "model": "anthropic/claude-sonnet-4",
+      "stream": false
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"error":{"message":"Provider returned error","code":400,"metadata":{"raw":"{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.0.content.1.image.source.base64.data: The file format is invalid or unsupported\"},\"request_id\":\"req_011CWsRUF5xWkZViUGtcjjsV\"}","provider_name":"Anthropic"}},"user_id":"org_2uMVNwONqhSdZXQy1QtyWuCjTxZ"}
