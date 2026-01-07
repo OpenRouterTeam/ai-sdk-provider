@@ -1,0 +1,35 @@
+{
+  "url": "https://openrouter.ai/api/v1/responses",
+  "method": "POST",
+  "headers": {
+    "accept": "application/json",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "input": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "What's in this image? Reply with just a few words."
+            },
+            {
+              "type": "input_image",
+              "detail": "auto",
+              "image_url": "https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png"
+            }
+          ]
+        }
+      ],
+      "model": "anthropic/claude-sonnet-4",
+      "store": false,
+      "service_tier": "auto",
+      "stream": false
+    }
+  }
+}

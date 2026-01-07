@@ -1,0 +1,34 @@
+{
+  "url": "https://openrouter.ai/api/v1/chat/completions",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "[REDACTED]"
+  },
+  "body": {
+    "json": {
+      "model": "anthropic/claude-3.5-sonnet",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Tell me about the latest SpaceX launch with sources."
+            }
+          ]
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "plugins": [
+        {
+          "id": "web",
+          "max_results": 2
+        }
+      ]
+    }
+  }
+}

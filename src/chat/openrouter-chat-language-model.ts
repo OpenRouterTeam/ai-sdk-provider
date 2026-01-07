@@ -63,6 +63,7 @@ interface RawStreamingChunk {
 import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
+import { convertToChatCompletionsMessages } from './convert-to-chat-completions-messages.js';
 import { convertToOpenRouterMessages } from './convert-to-openrouter-messages.js';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason.js';
 
@@ -255,8 +256,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const warnings: SharedV3Warning[] = [];
 
-    // Convert messages to OpenRouter format
-    const openRouterMessages = convertToOpenRouterMessages(options.prompt);
+    // Convert messages to Chat Completions format (streaming still uses this API)
+    const openRouterMessages = convertToChatCompletionsMessages(options.prompt);
 
     // Build request parameters
     const modelOptions = this.settings.modelOptions;

@@ -1,0 +1,34 @@
+{
+  "url": "https://openrouter.ai/api/v1/responses",
+  "method": "POST",
+  "headers": {
+    "accept": "application/json",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "input": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "input_text",
+              "text": "Extract the verification code shown in this PDF. Reply with ONLY the code."
+            },
+            {
+              "type": "input_file",
+              "file_url": "data:application/pdf;base64,__sidecar:0001.pdf__"
+            }
+          ]
+        }
+      ],
+      "model": "google/gemini-2.0-flash-001",
+      "store": false,
+      "service_tier": "auto",
+      "stream": false
+    }
+  }
+}
