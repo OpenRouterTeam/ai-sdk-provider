@@ -24,6 +24,12 @@ import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
 import { convertToOpenRouterMessages } from './convert-to-openrouter-messages.js';
+import {
+  extractReasoningDetails,
+  hasEncryptedReasoning,
+  buildReasoningProviderMetadata,
+  type ReasoningOutputItem,
+} from './extract-reasoning-details.js';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason.js';
 
 /**
@@ -103,15 +109,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Build content array from Responses API output
     const content: LanguageModelV3Content[] = [];
 
+    // Extract reasoning details for multi-turn conversation support
+    // These must be preserved and sent back in subsequent turns for reasoning models
+    const reasoningDetails = extractReasoningDetails(response);
+    const reasoningMetadata = buildReasoningProviderMetadata(reasoningDetails);
+
     // Process output items
     for (const outputItem of response.output) {
       if (outputItem.type === 'reasoning') {
         // Extract reasoning text from content array or summary
-        const reasoningItem = outputItem as {
-          type: 'reasoning';
-          content?: Array<{ type: string; text: string }>;
-          summary?: Array<{ type: string; text: string }>;
-        };
+        const reasoningItem = outputItem as ReasoningOutputItem;
         const reasoningText =
           reasoningItem.content
             ?.filter((c) => c.type === 'reasoning_text')
@@ -124,9 +131,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           '';
 
         if (reasoningText) {
+          // Attach reasoning_details to the reasoning part for multi-turn support
           content.push({
             type: 'reasoning',
             text: reasoningText,
+            ...(reasoningMetadata && { providerMetadata: reasoningMetadata }),
           });
         }
       } else if (outputItem.type === 'message') {
@@ -151,11 +160,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           name: string;
           arguments: string;
         };
+        // Attach reasoning_details to tool-call parts for multi-turn support
+        // This is critical for Gemini 3 with thoughtSignature
         content.push({
           type: 'tool-call',
           toolCallId: functionCallItem.callId,
           toolName: functionCallItem.name,
           input: functionCallItem.arguments,
+          ...(reasoningMetadata && { providerMetadata: reasoningMetadata }),
         });
       }
     }
@@ -169,9 +181,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     }
 
     // Build finish reason based on response status
-    const finishReason = mapOpenRouterFinishReason(
+    let finishReason = mapOpenRouterFinishReason(
       response.status === 'completed' ? 'stop' : response.status ?? 'stop'
     );
+
+    // Gemini 3 thoughtSignature fix: when there are tool calls with encrypted
+    // reasoning, the model returns 'completed' but expects continuation.
+    // Override to 'tool-calls' so the AI SDK knows to continue the conversation.
+    const hasToolCalls = content.some((c) => c.type === 'tool-call');
+    if (
+      hasToolCalls &&
+      hasEncryptedReasoning(reasoningDetails) &&
+      finishReason.unified === 'stop'
+    ) {
+      finishReason = { unified: 'tool-calls', raw: finishReason.raw };
+    }
 
     // Build usage from Responses API format
     const usage = buildUsage(
@@ -480,6 +504,14 @@ function transformResponsesEvent(
       parts.push({
         type: 'tool-input-end',
         id: toolCallId,
+      });
+
+      // Emit tool-call with complete tool call data
+      parts.push({
+        type: 'tool-call',
+        toolCallId,
+        toolName: event.name,
+        input: event.arguments,
       });
       break;
     }
