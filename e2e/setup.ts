@@ -10,18 +10,24 @@
  * Fixtures stored in: e2e/__fixtures__/
  */
 
+import type { HashableRequest } from '@effect-native/fetch-hooks';
+
 import {
   createCachedFetch,
   createFilesystemStorage,
-  type HashableRequest,
 } from '@effect-native/fetch-hooks';
 import { SDK_METADATA } from '@openrouter/sdk';
-import { beforeAll, afterAll } from 'vitest';
+import { afterAll, beforeAll } from 'vitest';
 
 const FIXTURES_DIR = new URL('./__fixtures__', import.meta.url).pathname;
 
 /** Headers to redact from stored fixtures (security) */
-const SENSITIVE_HEADERS = ['authorization', 'x-api-key', 'cookie', 'set-cookie'];
+const SENSITIVE_HEADERS = [
+  'authorization',
+  'x-api-key',
+  'cookie',
+  'set-cookie',
+];
 
 /** Redact sensitive header values before storing */
 function redactSensitiveHeaders(request: HashableRequest): HashableRequest {
@@ -75,10 +81,14 @@ beforeAll(() => {
 
   if (isRecordMode) {
     // biome-ignore lint/suspicious/noConsole: E2E setup banner is intentional
-    console.info('[e2e/setup] Recording mode: real API calls will be made and cached');
+    console.info(
+      '[e2e/setup] Recording mode: real API calls will be made and cached',
+    );
   } else {
     // biome-ignore lint/suspicious/noConsole: E2E setup banner is intentional
-    console.info('[e2e/setup] Replay mode: using cached fixtures (no network calls)');
+    console.info(
+      '[e2e/setup] Replay mode: using cached fixtures (no network calls)',
+    );
   }
 });
 

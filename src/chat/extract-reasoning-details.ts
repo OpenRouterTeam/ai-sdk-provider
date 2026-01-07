@@ -54,7 +54,7 @@ export type ReasoningDetails = JSONValue[];
  * @returns Reasoning details array, or undefined if none found
  */
 export function extractReasoningDetails(
-  response: OpenResponsesNonStreamingResponse
+  response: OpenResponsesNonStreamingResponse,
 ): ReasoningDetails | undefined {
   const extractedDetails: JSONValue[] = [];
 
@@ -89,7 +89,7 @@ export function extractReasoningDetails(
  * @returns Reasoning details array, or undefined if none found
  */
 export function extractReasoningDetailsFromOutput(
-  outputItems: Array<{ type: string; [key: string]: unknown }>
+  outputItems: Array<{ type: string; [key: string]: unknown }>,
 ): ReasoningDetails | undefined {
   const extractedDetails: JSONValue[] = [];
 
@@ -126,7 +126,7 @@ export function extractReasoningDetailsFromOutput(
  * @returns True if encrypted content is present
  */
 export function hasEncryptedReasoning(
-  reasoningDetails: ReasoningDetails | undefined
+  reasoningDetails: ReasoningDetails | undefined,
 ): boolean {
   if (!reasoningDetails) {
     return false;
@@ -148,7 +148,7 @@ export function hasEncryptedReasoning(
  * @returns Provider metadata object for attachment to content parts (SharedV3ProviderMetadata compatible)
  */
 export function buildReasoningProviderMetadata(
-  reasoningDetails: ReasoningDetails | undefined
+  reasoningDetails: ReasoningDetails | undefined,
 ): Record<string, JSONObject> | undefined {
   if (!reasoningDetails || reasoningDetails.length === 0) {
     return undefined;

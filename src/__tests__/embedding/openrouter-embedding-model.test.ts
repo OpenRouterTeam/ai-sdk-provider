@@ -10,31 +10,46 @@ describe('OpenRouterEmbeddingModel', () => {
 
   describe('constructor', () => {
     it('sets specificationVersion to v3', () => {
-      const model = new OpenRouterEmbeddingModel('text-embedding-3-small', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'text-embedding-3-small',
+        defaultSettings,
+      );
 
       expect(model.specificationVersion).toBe('v3');
     });
 
     it('sets provider to openrouter', () => {
-      const model = new OpenRouterEmbeddingModel('text-embedding-3-small', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'text-embedding-3-small',
+        defaultSettings,
+      );
 
       expect(model.provider).toBe('openrouter');
     });
 
     it('sets modelId correctly', () => {
-      const model = new OpenRouterEmbeddingModel('openai/text-embedding-3-large', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'openai/text-embedding-3-large',
+        defaultSettings,
+      );
 
       expect(model.modelId).toBe('openai/text-embedding-3-large');
     });
 
     it('sets maxEmbeddingsPerCall to 2048', () => {
-      const model = new OpenRouterEmbeddingModel('text-embedding-3-small', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'text-embedding-3-small',
+        defaultSettings,
+      );
 
       expect(model.maxEmbeddingsPerCall).toBe(2048);
     });
 
     it('sets supportsParallelCalls to true', () => {
-      const model = new OpenRouterEmbeddingModel('text-embedding-3-small', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'text-embedding-3-small',
+        defaultSettings,
+      );
 
       expect(model.supportsParallelCalls).toBe(true);
     });
@@ -42,7 +57,10 @@ describe('OpenRouterEmbeddingModel', () => {
 
   describe('interface compliance', () => {
     it('implements EmbeddingModelV3 interface', () => {
-      const model = new OpenRouterEmbeddingModel('text-embedding-3-small', defaultSettings);
+      const model = new OpenRouterEmbeddingModel(
+        'text-embedding-3-small',
+        defaultSettings,
+      );
 
       // Verify required properties exist
       expect(model).toHaveProperty('specificationVersion');

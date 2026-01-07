@@ -41,12 +41,16 @@ describe('cache-control', () => {
     });
 
     // Verify promptTokensDetails structure exists (values may be 0 or undefined)
-    const openrouterMeta = providerMetadata?.openrouter as Record<string, unknown> | undefined;
+    const openrouterMeta = providerMetadata?.openrouter as
+      | Record<string, unknown>
+      | undefined;
     const usage = openrouterMeta?.usage as Record<string, unknown> | undefined;
     expect(usage).toHaveProperty('promptTokensDetails');
 
     // Log cache info for debugging (visible in test output)
-    const details = usage?.promptTokensDetails as Record<string, unknown> | undefined;
+    const details = usage?.promptTokensDetails as
+      | Record<string, unknown>
+      | undefined;
     console.log('Cache details:', {
       cachedTokens: details?.cachedTokens,
       cacheWriteTokens: details?.cacheWriteTokens,
@@ -66,14 +70,24 @@ describe('cache-control', () => {
       const response = await callLLM();
       const providerMetadata = await response.providerMetadata;
 
-      // @ts-expect-error - accessing nested provider metadata
-      const cachedTokens = providerMetadata?.openrouter?.usage?.promptTokensDetails?.cachedTokens ?? 0;
+      const openrouterMeta = providerMetadata?.openrouter as
+        | Record<string, unknown>
+        | undefined;
+      const usageMeta = openrouterMeta?.usage as
+        | Record<string, unknown>
+        | undefined;
+      const promptDetails = usageMeta?.promptTokensDetails as
+        | Record<string, unknown>
+        | undefined;
+      const cachedTokens = (promptDetails?.cachedTokens as number) ?? 0;
 
       // With live API and Anthropic routing, we expect cache hits
       // But this can fail due to cache eviction, so it's informational
       console.log('Cached tokens:', cachedTokens);
       if (cachedTokens === 0) {
-        console.warn('Warning: No cache hit detected. This may be due to cache eviction or model limitations.');
+        console.warn(
+          'Warning: No cache hit detected. This may be due to cache eviction or model limitations.',
+        );
       }
     },
   );

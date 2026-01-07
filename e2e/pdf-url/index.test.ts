@@ -31,7 +31,9 @@ test('send image urls', async () => {
       {
         type: 'file',
         // Use a reliable test image URL (httpbin.org echo service with a simple base64-encoded 1x1 red pixel)
-        data: new URL('https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png'),
+        data: new URL(
+          'https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png',
+        ),
         mediaType: 'image/png',
       },
     ],

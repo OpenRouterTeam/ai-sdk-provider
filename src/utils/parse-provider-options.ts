@@ -31,7 +31,7 @@ export interface ParsedProviderOptions {
  */
 export function parseOpenRouterOptions(
   modelOptions: OpenRouterModelOptions | undefined,
-  callOptions: Record<string, unknown> | undefined
+  callOptions: Record<string, unknown> | undefined,
 ): ParsedProviderOptions {
   // Start with model options as base, shallow merge call options on top
   // Call-time values override model-level for same keys

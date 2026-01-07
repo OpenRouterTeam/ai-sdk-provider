@@ -15,7 +15,7 @@ import type { LanguageModelV3FinishReason } from '@ai-sdk/provider';
  * @returns Object containing the unified finish reason and raw original value
  */
 export function mapOpenRouterFinishReason(
-  finishReason: string | null | undefined
+  finishReason: string | null | undefined,
 ): LanguageModelV3FinishReason {
   // Handle null/undefined
   if (finishReason == null) {

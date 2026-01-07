@@ -46,7 +46,10 @@ describe('mapOpenRouterFinishReason', () => {
   describe('content-filter reason', () => {
     it('maps "content_filter" to "content-filter"', () => {
       const result = mapOpenRouterFinishReason('content_filter');
-      expect(result).toEqual({ unified: 'content-filter', raw: 'content_filter' });
+      expect(result).toEqual({
+        unified: 'content-filter',
+        raw: 'content_filter',
+      });
     });
   });
 

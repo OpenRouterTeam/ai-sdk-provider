@@ -35,7 +35,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
   }> {
     throw new Error(
       'Image generation not yet supported. ' +
-        'See: https://github.com/OpenRouterTeam/ai-sdk-provider/issues/new?title=Image+generation+support'
+        'See: https://github.com/OpenRouterTeam/ai-sdk-provider/issues/new?title=Image+generation+support',
     );
   }
 }

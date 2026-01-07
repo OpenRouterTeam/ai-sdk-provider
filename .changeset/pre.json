@@ -4,7 +4,5 @@
   "initialVersions": {
     "@openrouter/ai-sdk-provider": "6.0.0-alpha.0"
   },
-  "changesets": [
-    "v6-alpha-initial"
-  ]
+  "changesets": ["v6-alpha-initial"]
 }

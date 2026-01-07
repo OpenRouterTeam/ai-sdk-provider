@@ -1,13 +1,13 @@
 import type {
-  LanguageModelV3Prompt,
-  LanguageModelV3Message,
-  LanguageModelV3TextPart,
-  LanguageModelV3FilePart,
-  LanguageModelV3ReasoningPart,
-  LanguageModelV3ToolCallPart,
-  LanguageModelV3ToolResultPart,
-  LanguageModelV3ToolResultOutput,
   JSONValue,
+  LanguageModelV3FilePart,
+  LanguageModelV3Message,
+  LanguageModelV3Prompt,
+  LanguageModelV3ReasoningPart,
+  LanguageModelV3TextPart,
+  LanguageModelV3ToolCallPart,
+  LanguageModelV3ToolResultOutput,
+  LanguageModelV3ToolResultPart,
 } from '@ai-sdk/provider';
 
 /**
@@ -94,7 +94,7 @@ export type OpenRouterInputContent =
  * @returns Array of input items in OpenRouter Responses API format
  */
 export function convertToOpenRouterMessages(
-  prompt: LanguageModelV3Prompt
+  prompt: LanguageModelV3Prompt,
 ): OpenRouterInputItem[] {
   const result: OpenRouterInputItem[] = [];
 
@@ -110,7 +110,9 @@ export function convertToOpenRouterMessages(
  * Convert a single V3 message to OpenRouter Responses API format.
  * May return multiple items (e.g., when assistant has text + tool calls).
  */
-function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] {
+function convertMessage(
+  message: LanguageModelV3Message,
+): OpenRouterInputItem[] {
   // Extract providerOptions from the message for reasoning_details
   const messageWithOptions = message as LanguageModelV3Message & {
     providerOptions?: Record<string, Record<string, unknown>>;
@@ -127,7 +129,11 @@ function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] 
       return [convertUserMessage(message.content)];
 
     case 'assistant':
-      return convertAssistantMessage(message.content, providerMetadata, providerOptions);
+      return convertAssistantMessage(
+        message.content,
+        providerMetadata,
+        providerOptions,
+      );
 
     case 'tool':
       return convertToolMessage(message.content);
@@ -135,7 +141,9 @@ function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] 
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = message;
-      throw new Error(`Unknown message role: ${(_exhaustive as { role: string }).role}`);
+      throw new Error(
+        `Unknown message role: ${(_exhaustive as { role: string }).role}`,
+      );
     }
   }
 }
@@ -144,7 +152,7 @@ function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] 
  * Convert user message content parts to OpenRouter Responses API format.
  */
 function convertUserMessage(
-  content: Array<LanguageModelV3TextPart | LanguageModelV3FilePart>
+  content: Array<LanguageModelV3TextPart | LanguageModelV3FilePart>,
 ): OpenRouterEasyInputMessage {
   const convertedContent: OpenRouterInputContent[] = [];
 
@@ -162,7 +170,9 @@ function convertUserMessage(
       default: {
         // TypeScript exhaustiveness check
         const _exhaustive: never = part;
-        throw new Error(`Unknown user content type: ${(_exhaustive as { type: string }).type}`);
+        throw new Error(
+          `Unknown user content type: ${(_exhaustive as { type: string }).type}`,
+        );
       }
     }
   }
@@ -175,9 +185,11 @@ function convertUserMessage(
  *
  * OpenRouter's Responses API uses 'input_image' for images and 'input_file' for other files.
  */
-function convertFilePart(part: LanguageModelV3FilePart): OpenRouterInputContent {
+function convertFilePart(
+  part: LanguageModelV3FilePart,
+): OpenRouterInputContent {
   const url = convertDataContent(part.data, part.mediaType);
-  
+
   // Check if it's an image based on media type
   if (part.mediaType.startsWith('image/')) {
     return {
@@ -186,7 +198,7 @@ function convertFilePart(part: LanguageModelV3FilePart): OpenRouterInputContent 
       detail: 'auto',
     };
   }
-  
+
   // For other file types (PDF, etc.), use input_file
   return {
     type: 'input_file',
@@ -199,7 +211,7 @@ function convertFilePart(part: LanguageModelV3FilePart): OpenRouterInputContent 
  */
 function convertDataContent(
   data: URL | string | Uint8Array,
-  mediaType: string
+  mediaType: string,
 ): string {
   if (data instanceof URL) {
     return data.toString();
@@ -213,7 +225,11 @@ function convertDataContent(
 
   // String - could be URL or base64 data
   // If it starts with http(s) or data:, treat as URL/data URI
-  if (data.startsWith('http://') || data.startsWith('https://') || data.startsWith('data:')) {
+  if (
+    data.startsWith('http://') ||
+    data.startsWith('https://') ||
+    data.startsWith('data:')
+  ) {
     return data;
   }
 
@@ -349,7 +365,12 @@ function transformReasoningToApiFormat(
     }
 
     // Handle SDK format (type: 'reasoning' with content/summary/encryptedContent)
-    if (item.type === 'reasoning' || item.content || item.summary || item.encryptedContent) {
+    if (
+      item.type === 'reasoning' ||
+      item.content ||
+      item.summary ||
+      item.encryptedContent
+    ) {
       // Transform content items to reasoning.text
       if (item.content && Array.isArray(item.content)) {
         for (const contentItem of item.content) {
@@ -504,7 +525,7 @@ function convertAssistantMessage(
         // TypeScript exhaustiveness check
         const _exhaustive: never = part;
         throw new Error(
-          `Unknown assistant content type: ${(_exhaustive as { type: string }).type}`
+          `Unknown assistant content type: ${(_exhaustive as { type: string }).type}`,
         );
       }
     }
@@ -539,7 +560,15 @@ function convertAssistantMessage(
  * Convert tool message content parts to OpenRouter Responses API format.
  */
 function convertToolMessage(
-  content: Array<LanguageModelV3ToolResultPart | { type: 'tool-approval-response'; approvalId: string; approved: boolean; reason?: string }>
+  content: Array<
+    | LanguageModelV3ToolResultPart
+    | {
+        type: 'tool-approval-response';
+        approvalId: string;
+        approved: boolean;
+        reason?: string;
+      }
+  >,
 ): OpenRouterInputItem[] {
   const result: OpenRouterInputItem[] = [];
 
@@ -556,7 +585,9 @@ function convertToolMessage(
 /**
  * Convert a tool result part to OpenRouter function_call_output format.
  */
-function convertToolResult(part: LanguageModelV3ToolResultPart): OpenRouterFunctionCallOutput {
+function convertToolResult(
+  part: LanguageModelV3ToolResultPart,
+): OpenRouterFunctionCallOutput {
   const output = convertToolResultOutput(part.output);
 
   return {
@@ -596,7 +627,10 @@ function convertToolResultOutput(output: LanguageModelV3ToolResultOutput): {
     case 'content': {
       // For content array, convert to string representation
       const textParts = output.value
-        .filter((item): item is { type: 'text'; text: string } => item.type === 'text')
+        .filter(
+          (item): item is { type: 'text'; text: string } =>
+            item.type === 'text',
+        )
         .map((item) => item.text);
       return { value: textParts.join('\n'), isError: false };
     }
@@ -604,7 +638,9 @@ function convertToolResultOutput(output: LanguageModelV3ToolResultOutput): {
     default: {
       // TypeScript exhaustiveness check
       const _exhaustive: never = output;
-      throw new Error(`Unknown tool result output type: ${(_exhaustive as { type: string }).type}`);
+      throw new Error(
+        `Unknown tool result output type: ${(_exhaustive as { type: string }).type}`,
+      );
     }
   }
 }

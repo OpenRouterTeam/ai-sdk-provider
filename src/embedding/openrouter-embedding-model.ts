@@ -4,11 +4,11 @@ import type {
   EmbeddingModelV3Result,
   SharedV3Warning,
 } from '@ai-sdk/provider';
+import type { CreateEmbeddingsResponseBody } from '@openrouter/sdk/models/operations';
+import type { OpenRouterModelSettings } from '../openrouter-provider.js';
+
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
-import type { CreateEmbeddingsResponseBody } from '@openrouter/sdk/models/operations';
-
-import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 
 /**
  * OpenRouter embedding model implementing AI SDK V3 EmbeddingModelV3 interface.
@@ -36,7 +36,9 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
     this.settings = settings;
   }
 
-  async doEmbed(options: EmbeddingModelV3CallOptions): Promise<EmbeddingModelV3Result> {
+  async doEmbed(
+    options: EmbeddingModelV3CallOptions,
+  ): Promise<EmbeddingModelV3Result> {
     const warnings: SharedV3Warning[] = [];
 
     // Create OpenRouter client
@@ -51,7 +53,11 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
       model: string;
       input: string[];
       user?: string;
-      provider?: { order?: string[]; allowFallbacks?: boolean; requireParameters?: boolean };
+      provider?: {
+        order?: string[];
+        allowFallbacks?: boolean;
+        requireParameters?: boolean;
+      };
     } = {
       model: this.modelId,
       input: options.values,
@@ -68,7 +74,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
 
     // Make the embeddings request
     const combinedHeaders = normalizeHeaders(
-      combineHeaders(this.settings.headers, options.headers)
+      combineHeaders(this.settings.headers, options.headers),
     );
 
     const response = await client.embeddings.generate(requestParams, {
@@ -80,14 +86,18 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
 
     // Handle string response (shouldn't happen in practice but type allows it)
     if (typeof response === 'string') {
-      throw new Error(`Unexpected string response from embeddings API: ${response}`);
+      throw new Error(
+        `Unexpected string response from embeddings API: ${response}`,
+      );
     }
 
     const responseBody = response as CreateEmbeddingsResponseBody;
 
     // Extract embeddings from response data
     // Sort by index to ensure correct order, then extract embedding vectors
-    const sortedData = [...responseBody.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    const sortedData = [...responseBody.data].sort(
+      (a, b) => (a.index ?? 0) - (b.index ?? 0),
+    );
     const embeddings = sortedData.map((item) => {
       // Embedding can be number[] or base64 string - we only support number[]
       if (typeof item.embedding === 'string') {

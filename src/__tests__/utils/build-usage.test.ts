@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { buildUsage, type OpenRouterRawUsage } from '../../utils/build-usage.js';
+import type { OpenRouterRawUsage } from '../../utils/build-usage.js';
+
+import { describe, expect, it } from 'vitest';
+import { buildUsage } from '../../utils/build-usage.js';
 
 describe('buildUsage', () => {
   it('should map inputTokens.total from response', () => {

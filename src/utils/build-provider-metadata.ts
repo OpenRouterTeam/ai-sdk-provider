@@ -69,7 +69,11 @@ export interface ExtendedCompletionTokensDetails {
  * Extended usage type with additional fields from raw OpenRouter API response.
  * The SDK types don't include cost/is_byok but the API returns them.
  */
-export interface OpenRouterUsageExtended extends Omit<ChatGenerationTokenUsage, 'promptTokensDetails' | 'completionTokensDetails'> {
+export interface OpenRouterUsageExtended
+  extends Omit<
+    ChatGenerationTokenUsage,
+    'promptTokensDetails' | 'completionTokensDetails'
+  > {
   cost?: number;
   isByok?: boolean;
   costDetails?: JSONObject;
@@ -99,9 +103,11 @@ export interface OpenRouterResponseData {
  * Filters out undefined values from an object, returning only defined properties.
  * This ensures providerMetadata is valid JSON (undefined is not a valid JSON value).
  */
-function filterUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+function filterUndefined<T extends Record<string, unknown>>(
+  obj: T,
+): Partial<T> {
   return Object.fromEntries(
-    Object.entries(obj).filter(([_, v]) => v !== undefined)
+    Object.entries(obj).filter(([_, v]) => v !== undefined),
   ) as Partial<T>;
 }
 
@@ -112,7 +118,7 @@ function filterUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> 
  * @returns Provider metadata in the format expected by AI SDK.
  */
 export function buildProviderMetadata(
-  response: OpenRouterResponseData | undefined
+  response: OpenRouterResponseData | undefined,
 ): Record<string, JSONObject> | undefined {
   if (!response) {
     return undefined;
@@ -127,14 +133,16 @@ export function buildProviderMetadata(
         ...(usage.promptTokensDetails && {
           promptTokensDetails: filterUndefined({
             cachedTokens: usage.promptTokensDetails.cachedTokens ?? undefined,
-            cacheWriteTokens: usage.promptTokensDetails.cacheWriteTokens ?? undefined,
+            cacheWriteTokens:
+              usage.promptTokensDetails.cacheWriteTokens ?? undefined,
             audioTokens: usage.promptTokensDetails.audioTokens ?? undefined,
             videoTokens: usage.promptTokensDetails.videoTokens ?? undefined,
           }),
         }),
         ...(usage.completionTokensDetails && {
           completionTokensDetails: filterUndefined({
-            reasoningTokens: usage.completionTokensDetails.reasoningTokens ?? undefined,
+            reasoningTokens:
+              usage.completionTokensDetails.reasoningTokens ?? undefined,
             imageTokens: usage.completionTokensDetails.imageTokens ?? undefined,
           }),
         }),

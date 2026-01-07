@@ -1,11 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import { createOpenRouter, type OpenRouterModelSettings } from '../openrouter-provider.js';
+import type { OpenRouterModelSettings } from '../openrouter-provider.js';
+
+import { describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat/openrouter-chat-language-model.js';
 import { OpenRouterEmbeddingModel } from '../embedding/openrouter-embedding-model.js';
 import { OpenRouterImageModel } from '../image/openrouter-image-model.js';
+import { createOpenRouter } from '../openrouter-provider.js';
 
 // Access private settings for testing - this is a test-only utility
-function getModelSettings(model: OpenRouterChatLanguageModel): OpenRouterModelSettings {
+function getModelSettings(
+  model: OpenRouterChatLanguageModel,
+): OpenRouterModelSettings {
   return (model as unknown as { settings: OpenRouterModelSettings }).settings;
 }
 
@@ -97,9 +101,11 @@ describe('createOpenRouter', () => {
     it('is alias for embeddingModel', () => {
       const provider = createOpenRouter({ apiKey: TEST_API_KEY });
       const textEmbeddingModel = provider.textEmbeddingModel(
-        'openai/text-embedding-3-small'
+        'openai/text-embedding-3-small',
       );
-      const embeddingModel = provider.embeddingModel('openai/text-embedding-3-small');
+      const embeddingModel = provider.embeddingModel(
+        'openai/text-embedding-3-small',
+      );
 
       expect(textEmbeddingModel).toBeInstanceOf(OpenRouterEmbeddingModel);
       expect(embeddingModel).toBeInstanceOf(OpenRouterEmbeddingModel);
@@ -134,7 +140,9 @@ describe('createOpenRouter', () => {
   describe('embedding method (deprecated)', () => {
     it('is alias for embeddingModel', () => {
       const provider = createOpenRouter({ apiKey: TEST_API_KEY });
-      const embeddingModel = provider.embedding('openai/text-embedding-3-small');
+      const embeddingModel = provider.embedding(
+        'openai/text-embedding-3-small',
+      );
 
       expect(embeddingModel).toBeInstanceOf(OpenRouterEmbeddingModel);
       expect(embeddingModel.modelId).toBe('openai/text-embedding-3-small');

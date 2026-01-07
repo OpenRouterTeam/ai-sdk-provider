@@ -9,26 +9,26 @@ import type {
   LanguageModelV3ToolChoice,
   SharedV3Warning,
 } from '@ai-sdk/provider';
+import type { EventStream } from '@openrouter/sdk/lib/event-streams';
+import type {
+  OpenAIResponsesToolChoiceUnion,
+  OpenResponsesNonStreamingResponse,
+  OpenResponsesRequest,
+  OpenResponsesRequestToolFunction,
+  OpenResponsesStreamEvent,
+} from '@openrouter/sdk/models';
+import type { OpenRouterModelSettings } from '../openrouter-provider.js';
+import type { ReasoningOutputItem } from './extract-reasoning-details.js';
+
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
-import type {
-  OpenResponsesRequest,
-  OpenResponsesNonStreamingResponse,
-  OpenResponsesStreamEvent,
-  OpenResponsesRequestToolFunction,
-  OpenAIResponsesToolChoiceUnion,
-} from '@openrouter/sdk/models';
-import type { EventStream } from '@openrouter/sdk/lib/event-streams';
-
-import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
 import { convertToOpenRouterMessages } from './convert-to-openrouter-messages.js';
 import {
+  buildReasoningProviderMetadata,
   extractReasoningDetails,
   hasEncryptedReasoning,
-  buildReasoningProviderMetadata,
-  type ReasoningOutputItem,
 } from './extract-reasoning-details.js';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason.js';
 
@@ -59,7 +59,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(
-    options: LanguageModelV3CallOptions
+    options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3GenerateResult> {
     const warnings: SharedV3Warning[] = [];
 
@@ -101,7 +101,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
     // Make the non-streaming request using Responses API
     const combinedHeaders = normalizeHeaders(
-      combineHeaders(this.settings.headers, options.headers)
+      combineHeaders(this.settings.headers, options.headers),
     );
 
     const response = (await client.beta.responses.send(requestParams, {
@@ -189,7 +189,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
     // Build finish reason based on response status
     let finishReason = mapOpenRouterFinishReason(
-      response.status === 'completed' ? 'stop' : response.status ?? 'stop'
+      response.status === 'completed' ? 'stop' : (response.status ?? 'stop'),
     );
 
     // Gemini 3 thoughtSignature fix: when there are tool calls with encrypted
@@ -211,7 +211,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             inputTokens: response.usage.inputTokens,
             outputTokens: response.usage.outputTokens,
           }
-        : undefined
+        : undefined,
     );
 
     // Build provider metadata
@@ -261,7 +261,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   }
 
   async doStream(
-    options: LanguageModelV3CallOptions
+    options: LanguageModelV3CallOptions,
   ): Promise<LanguageModelV3StreamResult> {
     const warnings: SharedV3Warning[] = [];
 
@@ -303,7 +303,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
     // Make the streaming request using Responses API
     const combinedHeaders = normalizeHeaders(
-      combineHeaders(this.settings.headers, options.headers)
+      combineHeaders(this.settings.headers, options.headers),
     );
 
     const eventStream = (await client.beta.responses.send(requestParams, {
@@ -390,7 +390,7 @@ function createStreamState(): StreamState {
  */
 function transformResponsesEvent(
   event: OpenResponsesStreamEvent,
-  state: StreamState
+  state: StreamState,
 ): LanguageModelV3StreamPart[] {
   const parts: LanguageModelV3StreamPart[] = [];
 
@@ -605,7 +605,7 @@ function transformResponsesEvent(
 
       // Build finish reason based on response status
       const finishReason = mapOpenRouterFinishReason(
-        response.status === 'completed' ? 'stop' : response.status ?? 'stop'
+        response.status === 'completed' ? 'stop' : (response.status ?? 'stop'),
       );
 
       // Build usage
@@ -615,7 +615,7 @@ function transformResponsesEvent(
               inputTokens: response.usage.inputTokens,
               outputTokens: response.usage.outputTokens,
             }
-          : undefined
+          : undefined,
       );
 
       // Build provider metadata
@@ -697,7 +697,7 @@ function transformResponsesEvent(
               inputTokens: response.usage.inputTokens,
               outputTokens: response.usage.outputTokens,
             }
-          : undefined
+          : undefined,
       );
 
       const providerMetadata = buildProviderMetadata({
@@ -745,7 +745,7 @@ function transformResponsesEvent(
       parts.push({
         type: 'error',
         error: new Error(
-          errorEvent.error?.message ?? 'Unknown streaming error'
+          errorEvent.error?.message ?? 'Unknown streaming error',
         ),
       });
       break;
@@ -779,7 +779,7 @@ function transformResponsesEvent(
  */
 function convertToolsToResponsesFormat(
   tools: LanguageModelV3CallOptions['tools'],
-  warnings: SharedV3Warning[]
+  warnings: SharedV3Warning[],
 ): OpenResponsesRequestToolFunction[] {
   if (!tools || tools.length === 0) {
     return [];
@@ -817,7 +817,7 @@ function convertToolsToResponsesFormat(
  * - { type: 'tool', toolName } -> { type: 'function', name: toolName }
  */
 function convertToolChoiceToResponsesFormat(
-  toolChoice: LanguageModelV3ToolChoice | undefined
+  toolChoice: LanguageModelV3ToolChoice | undefined,
 ): OpenAIResponsesToolChoiceUnion | undefined {
   if (!toolChoice) {
     return undefined;
@@ -849,7 +849,7 @@ function convertToolChoiceToResponsesFormat(
  * - { type: 'json', schema, name } -> { type: 'json_schema', name, schema } (with schema)
  */
 function convertResponseFormatToText(
-  responseFormat: LanguageModelV3CallOptions['responseFormat']
+  responseFormat: LanguageModelV3CallOptions['responseFormat'],
 ): OpenResponsesRequest['text'] | undefined {
   if (!responseFormat) {
     return undefined;

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { parseOpenRouterOptions } from '../../utils/parse-provider-options.js';
 import type { OpenRouterModelOptions } from '../../openrouter-config.js';
+
+import { describe, expect, it } from 'vitest';
+import { parseOpenRouterOptions } from '../../utils/parse-provider-options.js';
 
 describe('parseOpenRouterOptions', () => {
   it('should return model options when no call options provided', () => {

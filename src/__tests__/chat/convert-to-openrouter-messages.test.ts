@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+
+import { describe, expect, it } from 'vitest';
 import { convertToOpenRouterMessages } from '../../chat/convert-to-openrouter-messages.js';
 
 describe('convertToOpenRouterMessages', () => {
@@ -615,7 +616,9 @@ describe('convertToOpenRouterMessages', () => {
         { role: 'system', content: 'You are a helpful assistant.' },
         {
           role: 'user',
-          content: [{ type: 'input_text', text: 'What is the weather in NYC?' }],
+          content: [
+            { type: 'input_text', text: 'What is the weather in NYC?' },
+          ],
         },
         {
           type: 'function_call',
@@ -718,9 +721,13 @@ describe('convertToOpenRouterMessages', () => {
 
       // Uint8Array should be converted to base64
       expect(result).toHaveLength(1);
-      const userMessage = result[0] as { content: { type: string; imageUrl: string }[] };
+      const userMessage = result[0] as {
+        content: { type: string; imageUrl: string }[];
+      };
       expect(userMessage.content[0]!.type).toBe('input_image');
-      expect(userMessage.content[0]!.imageUrl).toMatch(/^data:image\/png;base64,/);
+      expect(userMessage.content[0]!.imageUrl).toMatch(
+        /^data:image\/png;base64,/,
+      );
     });
 
     it('handles tool-result with execution-denied output', () => {

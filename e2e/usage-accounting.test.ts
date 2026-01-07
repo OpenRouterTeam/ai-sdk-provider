@@ -1,5 +1,5 @@
 import { streamText } from 'ai';
-import { it, vi, expect } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({

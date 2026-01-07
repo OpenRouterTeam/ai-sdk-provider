@@ -43,7 +43,7 @@ describe('Web Search E2E Tests', () => {
     // Web search annotations are extracted from streaming response
     // The API may not always return sources depending on query and model state
     expect(Array.isArray(sources)).toBe(true);
-    
+
     // Verify source structure if any are returned
     for (const source of sources) {
       expect(source).toHaveProperty('type', 'source');

@@ -1,13 +1,14 @@
 import type { ProviderV3 } from '@ai-sdk/provider';
+import type {
+  OpenRouterModelOptions,
+  OpenRouterProviderSettings,
+} from './openrouter-config.js';
+
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { SDK_METADATA } from '@openrouter/sdk';
 import { OpenRouterChatLanguageModel } from './chat/openrouter-chat-language-model.js';
 import { OpenRouterEmbeddingModel } from './embedding/openrouter-embedding-model.js';
 import { OpenRouterImageModel } from './image/openrouter-image-model.js';
-import type {
-  OpenRouterProviderSettings,
-  OpenRouterModelOptions,
-} from './openrouter-config.js';
 
 declare const __PACKAGE_VERSION__: string;
 
@@ -20,44 +21,68 @@ export interface OpenRouterProvider extends ProviderV3 {
   /**
    * Create a language model by calling the provider directly.
    */
-  (modelId: string, settings?: OpenRouterModelOptions): OpenRouterChatLanguageModel;
+  (
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterChatLanguageModel;
 
   /**
    * Create a language model.
    */
-  languageModel(modelId: string, settings?: OpenRouterModelOptions): OpenRouterChatLanguageModel;
+  languageModel(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterChatLanguageModel;
 
   /**
    * Create a chat model (alias for languageModel).
    */
-  chat(modelId: string, settings?: OpenRouterModelOptions): OpenRouterChatLanguageModel;
+  chat(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterChatLanguageModel;
 
   /**
    * Create an embedding model.
    */
-  embeddingModel(modelId: string, settings?: OpenRouterModelOptions): OpenRouterEmbeddingModel;
+  embeddingModel(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterEmbeddingModel;
 
   /**
    * Create a text embedding model.
    * @deprecated Use embeddingModel instead.
    */
-  textEmbeddingModel(modelId: string, settings?: OpenRouterModelOptions): OpenRouterEmbeddingModel;
+  textEmbeddingModel(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterEmbeddingModel;
 
   /**
    * Create an image model.
    */
-  imageModel(modelId: string, settings?: OpenRouterModelOptions): OpenRouterImageModel;
+  imageModel(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterImageModel;
 
   /**
    * Create an image model (alias for imageModel).
    */
-  image(modelId: string, settings?: OpenRouterModelOptions): OpenRouterImageModel;
+  image(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterImageModel;
 
   /**
    * Create an embedding model (alias for embeddingModel).
    * @deprecated Use embeddingModel instead.
    */
-  embedding(modelId: string, settings?: OpenRouterModelOptions): OpenRouterEmbeddingModel;
+  embedding(
+    modelId: string,
+    settings?: OpenRouterModelOptions,
+  ): OpenRouterEmbeddingModel;
 }
 
 /**
@@ -148,19 +173,21 @@ export interface OpenRouterModelSettings {
  * ```
  */
 export function createOpenRouter(
-  options: OpenRouterProviderSettings = {}
+  options: OpenRouterProviderSettings = {},
 ): OpenRouterProvider {
   // Normalize base URL: accept baseURL or baseUrl, strip trailing slash
   // The fallback ensures we always have a value, so the non-null assertion is safe
   const baseURL = withoutTrailingSlash(
-    options.baseURL ?? options.baseUrl ?? 'https://openrouter.ai/api/v1'
+    options.baseURL ?? options.baseUrl ?? 'https://openrouter.ai/api/v1',
   )!;
 
   /**
    * Resolves model settings at model creation time.
    * API key is loaded here (not at provider creation or request time) per Decision 1 - Fail Fast.
    */
-  const getModelSettings = (modelOptions?: OpenRouterModelOptions): OpenRouterModelSettings => {
+  const getModelSettings = (
+    modelOptions?: OpenRouterModelOptions,
+  ): OpenRouterModelSettings => {
     // Load API key at model creation time
     const apiKey = loadApiKey({
       apiKey: options.apiKey,
@@ -172,7 +199,9 @@ export function createOpenRouter(
 
     // Allow overriding the base UA via headers, but always append our provider token.
     const baseUserAgent =
-      options.headers?.['user-agent'] ?? options.headers?.['User-Agent'] ?? SDK_METADATA.userAgent;
+      options.headers?.['user-agent'] ??
+      options.headers?.['User-Agent'] ??
+      SDK_METADATA.userAgent;
 
     const userAgent = baseUserAgent.includes('ai-sdk-provider/')
       ? baseUserAgent
@@ -188,7 +217,8 @@ export function createOpenRouter(
       apiKey,
       baseURL,
       userAgent,
-      headers: Object.keys(forwardHeaders).length > 0 ? forwardHeaders : undefined,
+      headers:
+        Object.keys(forwardHeaders).length > 0 ? forwardHeaders : undefined,
       fetch: options.fetch,
       extraBody: options.extraBody,
       modelOptions,
@@ -200,9 +230,12 @@ export function createOpenRouter(
    */
   const languageModel = (
     modelId: string,
-    modelOptions?: OpenRouterModelOptions
+    modelOptions?: OpenRouterModelOptions,
   ): OpenRouterChatLanguageModel => {
-    return new OpenRouterChatLanguageModel(modelId, getModelSettings(modelOptions));
+    return new OpenRouterChatLanguageModel(
+      modelId,
+      getModelSettings(modelOptions),
+    );
   };
 
   /**
@@ -210,9 +243,12 @@ export function createOpenRouter(
    */
   const embeddingModel = (
     modelId: string,
-    modelOptions?: OpenRouterModelOptions
+    modelOptions?: OpenRouterModelOptions,
   ): OpenRouterEmbeddingModel => {
-    return new OpenRouterEmbeddingModel(modelId, getModelSettings(modelOptions));
+    return new OpenRouterEmbeddingModel(
+      modelId,
+      getModelSettings(modelOptions),
+    );
   };
 
   /**
@@ -220,7 +256,7 @@ export function createOpenRouter(
    */
   const imageModel = (
     modelId: string,
-    modelOptions?: OpenRouterModelOptions
+    modelOptions?: OpenRouterModelOptions,
   ): OpenRouterImageModel => {
     return new OpenRouterImageModel(modelId, getModelSettings(modelOptions));
   };
@@ -228,7 +264,8 @@ export function createOpenRouter(
   // Create the callable provider object
   const provider = Object.assign(
     // Make provider callable - calling it directly creates a language model
-    (modelId: string, modelOptions?: OpenRouterModelOptions) => languageModel(modelId, modelOptions),
+    (modelId: string, modelOptions?: OpenRouterModelOptions) =>
+      languageModel(modelId, modelOptions),
     {
       specificationVersion: 'v3' as const,
       languageModel,
@@ -238,7 +275,7 @@ export function createOpenRouter(
       imageModel,
       image: imageModel,
       embedding: embeddingModel,
-    }
+    },
   );
 
   return provider;

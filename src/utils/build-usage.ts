@@ -1,4 +1,4 @@
-import type { LanguageModelV3Usage, JSONObject } from '@ai-sdk/provider';
+import type { JSONObject, LanguageModelV3Usage } from '@ai-sdk/provider';
 
 /**
  * Raw usage data from OpenRouter API response.
@@ -20,7 +20,9 @@ export interface OpenRouterRawUsage {
  * @param usage - The raw usage data from the OpenRouter API response.
  * @returns A LanguageModelV3Usage object with standardized token counts.
  */
-export function buildUsage(usage: OpenRouterRawUsage | undefined): LanguageModelV3Usage {
+export function buildUsage(
+  usage: OpenRouterRawUsage | undefined,
+): LanguageModelV3Usage {
   if (!usage) {
     return {
       inputTokens: {

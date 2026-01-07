@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
 import type { OpenResponsesNonStreamingResponse } from '@openrouter/sdk/models';
+
+import { describe, expect, it } from 'vitest';
 import {
+  buildReasoningProviderMetadata,
   extractReasoningDetails,
   extractReasoningDetailsFromOutput,
   hasEncryptedReasoning,
-  buildReasoningProviderMetadata,
 } from '../../chat/extract-reasoning-details.js';
 
 describe('extractReasoningDetails', () => {

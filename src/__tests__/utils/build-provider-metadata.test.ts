@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest';
-import {
-  buildProviderMetadata,
-  type OpenRouterResponseData,
-  type OpenRouterProviderMetadata,
+import type {
+  OpenRouterProviderMetadata,
+  OpenRouterResponseData,
 } from '../../utils/build-provider-metadata.js';
+
+import { describe, expect, it } from 'vitest';
+import { buildProviderMetadata } from '../../utils/build-provider-metadata.js';
 
 describe('buildProviderMetadata', () => {
   // Helper to extract typed metadata
   const getOpenRouterMetadata = (
-    result: Record<string, unknown> | undefined
+    result: Record<string, unknown> | undefined,
   ): OpenRouterProviderMetadata | undefined => {
     return result?.openrouter as OpenRouterProviderMetadata | undefined;
   };

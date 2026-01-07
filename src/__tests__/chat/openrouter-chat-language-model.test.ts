@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../../chat/openrouter-chat-language-model.js';
 
 const createTestSettings = () => ({
@@ -12,7 +12,7 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should set specificationVersion to v3', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       expect(model.specificationVersion).toBe('v3');
@@ -21,7 +21,7 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should set provider to openrouter', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       expect(model.provider).toBe('openrouter');
@@ -30,7 +30,7 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should set modelId correctly', () => {
       const model = new OpenRouterChatLanguageModel(
         'anthropic/claude-3.5-sonnet',
-        createTestSettings()
+        createTestSettings(),
       );
 
       expect(model.modelId).toBe('anthropic/claude-3.5-sonnet');
@@ -48,7 +48,7 @@ describe('OpenRouterChatLanguageModel', () => {
       for (const modelId of testCases) {
         const model = new OpenRouterChatLanguageModel(
           modelId,
-          createTestSettings()
+          createTestSettings(),
         );
         expect(model.modelId).toBe(modelId);
       }
@@ -59,7 +59,7 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should contain image patterns', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       expect(model.supportedUrls).toBeDefined();
@@ -70,22 +70,22 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should match http image URLs', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       const imagePatterns = model.supportedUrls['image/*'];
       expect(imagePatterns).toBeDefined();
       const imagePattern = imagePatterns![0]!;
       expect(imagePattern.test('http://example.com/image.png')).toBe(true);
-      expect(imagePattern.test('http://cdn.example.com/path/to/image.jpg')).toBe(
-        true
-      );
+      expect(
+        imagePattern.test('http://cdn.example.com/path/to/image.jpg'),
+      ).toBe(true);
     });
 
     it('should match https image URLs', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       const imagePatterns = model.supportedUrls['image/*'];
@@ -93,14 +93,14 @@ describe('OpenRouterChatLanguageModel', () => {
       const imagePattern = imagePatterns![0]!;
       expect(imagePattern.test('https://example.com/image.png')).toBe(true);
       expect(
-        imagePattern.test('https://cdn.example.com/path/to/image.jpg')
+        imagePattern.test('https://cdn.example.com/path/to/image.jpg'),
       ).toBe(true);
     });
 
     it('should not match non-http URLs', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       const imagePatterns = model.supportedUrls['image/*'];
@@ -116,7 +116,7 @@ describe('OpenRouterChatLanguageModel', () => {
     it('should implement LanguageModelV3 interface', () => {
       const model = new OpenRouterChatLanguageModel(
         'openai/gpt-4o',
-        createTestSettings()
+        createTestSettings(),
       );
 
       // Check required properties
