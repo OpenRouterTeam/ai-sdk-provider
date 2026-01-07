@@ -104,6 +104,8 @@ describe('convertToOpenRouterMessages', () => {
     });
 
     it('converts user file message (non-image)', () => {
+      // Non-image files (PDFs, etc.) are sent as image_url type
+      // OpenRouter's file-parser plugin handles the actual parsing
       const prompt: LanguageModelV3Prompt = [
         {
           role: 'user',
@@ -124,8 +126,11 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'file',
-              fileUrl: 'https://example.com/doc.pdf',
+              type: 'image_url',
+              imageUrl: {
+                url: 'https://example.com/doc.pdf',
+                detail: 'auto',
+              },
             },
           ],
         },

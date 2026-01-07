@@ -50,8 +50,7 @@ export interface OpenRouterFunctionCallOutput {
 
 export type OpenRouterInputContent =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; imageUrl: { url: string; detail?: 'auto' | 'low' | 'high' } }
-  | { type: 'file'; fileUrl: string };
+  | { type: 'image_url'; imageUrl: { url: string; detail?: 'auto' | 'low' | 'high' } };
 
 export type OpenRouterOutputContent = { type: 'text'; text: string };
 
@@ -138,25 +137,21 @@ function convertUserMessage(
 
 /**
  * Convert a file part to the appropriate OpenRouter format.
+ *
+ * OpenRouter's Chat API uses `image_url` type for all URL-based content.
+ * The file-parser plugin handles non-image files (PDFs, etc.) automatically
+ * when URLs are provided in the message content.
  */
 function convertFilePart(part: LanguageModelV3FilePart): OpenRouterInputContent {
-  const isImage = part.mediaType.startsWith('image/');
-
-  if (isImage) {
-    return {
-      type: 'image_url',
-      imageUrl: {
-        url: convertDataContent(part.data, part.mediaType),
-        detail: 'auto',
-      },
-    };
-  } else {
-    // Non-image files
-    return {
-      type: 'file',
-      fileUrl: convertDataContent(part.data, part.mediaType),
-    };
-  }
+  // OpenRouter Chat API uses image_url type for all file URLs
+  // The file-parser plugin handles non-image files (PDFs, etc.)
+  return {
+    type: 'image_url',
+    imageUrl: {
+      url: convertDataContent(part.data, part.mediaType),
+      detail: 'auto',
+    },
+  };
 }
 
 /**
