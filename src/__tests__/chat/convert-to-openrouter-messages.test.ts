@@ -637,6 +637,62 @@ describe('convertToOpenRouterMessages', () => {
     });
   });
 
+  describe('assistant prefill', () => {
+    it('allows messages array ending with assistant message for prefill', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'I think' }], // prefill
+        },
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: 'Hello' }],
+        },
+        {
+          role: 'assistant',
+          content: 'I think', // preserved as trailing assistant message
+        },
+      ]);
+    });
+
+    it('preserves partial assistant content for prefill', () => {
+      const prompt: LanguageModelV3Prompt = [
+        { role: 'system', content: 'You are a helpful assistant.' },
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Write a poem about cats.' }],
+        },
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Here is a poem:\n\n' }], // partial prefill
+        },
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        { role: 'system', content: 'You are a helpful assistant.' },
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: 'Write a poem about cats.' }],
+        },
+        {
+          role: 'assistant',
+          content: 'Here is a poem:\n\n', // partial content preserved
+        },
+      ]);
+    });
+  });
+
   describe('edge cases', () => {
     it('handles empty prompt', () => {
       const result = convertToOpenRouterMessages([]);
