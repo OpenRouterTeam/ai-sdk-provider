@@ -1,414 +1,183 @@
-# OpenRouter Provider for Vercel AI SDK
+# @openrouter/ai-sdk-provider
 
-The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
+> Access 500+ AI models through the [Vercel AI SDK](https://sdk.vercel.ai). One API. No vendor lock-in.
 
-## Setup for AI SDK v5
+[![npm](https://img.shields.io/npm/v/@openrouter/ai-sdk-provider)](https://www.npmjs.com/package/@openrouter/ai-sdk-provider)
+[![npm alpha](https://img.shields.io/npm/v/@openrouter/ai-sdk-provider/alpha?label=alpha)](https://www.npmjs.com/package/@openrouter/ai-sdk-provider?activeTab=versions)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+## Why OpenRouter?
+
+- **500+ models** — GPT-5.2, Claude Opus 4.5, Gemini 3, Llama 4, and more
+- **One integration** — Switch models by changing a string
+- **Automatic fallbacks** — Route between providers for reliability
+- **Pay-as-you-go** — No commitments, unified billing
+
+## Install
+
+**For AI SDK v6 (alpha):**
 ```bash
-# For pnpm
-pnpm add @openrouter/ai-sdk-provider
-
-# For npm
-npm install @openrouter/ai-sdk-provider
-
-# For yarn
-yarn add @openrouter/ai-sdk-provider
+npm install @openrouter/ai-sdk-provider@alpha ai@^6.0.0
 ```
 
-## (LEGACY) Setup for AI SDK v4
-
+**For AI SDK v5 (stable):**
 ```bash
-# For pnpm
-pnpm add @openrouter/ai-sdk-provider@ai-sdk-v4
-
-# For npm
-npm install @openrouter/ai-sdk-provider@ai-sdk-v4
-
-# For yarn
-yarn add @openrouter/ai-sdk-provider@ai-sdk-v4
-
+npm install @openrouter/ai-sdk-provider ai@^5.0.0
 ```
 
-## Provider Instance
+## Quick Start
 
-You can import the default provider instance `openrouter` from `@openrouter/ai-sdk-provider`:
-
-```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
-```
-
-## Example
-
-```ts
-import { openrouter } from '@openrouter/ai-sdk-provider';
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { generateText } from 'ai';
 
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
+
 const { text } = await generateText({
-  model: openrouter('openai/gpt-4o'),
-  prompt: 'Write a vegetarian lasagna recipe for 4 people.',
+  model: openrouter('anthropic/claude-opus-4.5'),
+  prompt: 'Write a haiku about distributed systems.',
+});
+
+console.log(text);
+```
+
+## Streaming
+
+```typescript
+import { streamText } from 'ai';
+
+const stream = streamText({
+  model: openrouter('google/gemini-3-pro-preview'),
+  prompt: 'Explain monads without using the word "monad".',
+});
+
+for await (const chunk of stream.textStream) {
+  process.stdout.write(chunk);
+}
+```
+
+## Tool Calling
+
+```typescript
+import { generateText, tool } from 'ai';
+import { z } from 'zod';
+
+const { toolCalls } = await generateText({
+  model: openrouter('openai/gpt-5.2'),
+  tools: {
+    weather: tool({
+      description: 'Get current weather',
+      parameters: z.object({ city: z.string() }),
+      execute: async ({ city }) => fetchWeather(city),
+    }),
+  },
+  prompt: 'What's the weather in Tokyo?',
 });
 ```
 
-## Supported models
+## Reasoning Models
 
-This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).
+Models with extended thinking (Claude, Gemini 3, DeepSeek R1) expose their reasoning:
 
-You can find the latest list of tool-supported models supported by OpenRouter [here](https://openrouter.ai/models?order=newest&supported_parameters=tools). (Note: This list may contain models that are not compatible with the AI SDK.)
+```typescript
+const { text, reasoning } = await generateText({
+  model: openrouter('deepseek/deepseek-r1-0528'),
+  prompt: 'Prove that √2 is irrational.',
+});
+
+console.log('Thinking:', reasoning);
+console.log('Answer:', text);
+```
 
 ## Embeddings
 
-OpenRouter supports embedding models for semantic search, RAG pipelines, and vector-native features. The provider exposes embeddings compatible with both AI SDK v5 and v4.
-
-### AI SDK v5 (Recommended)
-
-```ts
+```typescript
 import { embed } from 'ai';
-import { openrouter } from '@openrouter/ai-sdk-provider';
 
 const { embedding } = await embed({
-  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
-  value: 'sunny day at the beach',
-});
-
-console.log(embedding); // Array of numbers representing the embedding
-```
-
-### Batch Embeddings
-
-```ts
-import { embedMany } from 'ai';
-import { openrouter } from '@openrouter/ai-sdk-provider';
-
-const { embeddings } = await embedMany({
-  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small'),
-  values: [
-    'sunny day at the beach',
-    'rainy day in the city',
-    'snowy mountain peak',
-  ],
-});
-
-console.log(embeddings); // Array of embedding arrays
-```
-
-### AI SDK v4 (Deprecated)
-
-For backwards compatibility, the `embedding` method is also available:
-
-```ts
-import { embed } from 'ai';
-import { openrouter } from '@openrouter/ai-sdk-provider';
-
-const { embedding } = await embed({
-  model: openrouter.embedding('openai/text-embedding-3-small'),
-  value: 'sunny day at the beach',
+  model: openrouter.embeddingModel('openai/text-embedding-3-small'),
+  value: 'The quick brown fox...',
 });
 ```
 
-### Supported Embedding Models
-
-OpenRouter supports various embedding models including:
-- `openai/text-embedding-3-small`
-- `openai/text-embedding-3-large`
-- `openai/text-embedding-ada-002`
-- And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
-
-## Passing Extra Body to OpenRouter
-
-There are 3 ways to pass extra body to OpenRouter:
-
-1. Via the `providerOptions.openrouter` property:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-     providerOptions: {
-       openrouter: {
-         reasoning: {
-           max_tokens: 10,
-         },
-       },
-     },
-   });
-   ```
-
-2. Via the `extraBody` property in the model settings:
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-3. Via the `extraBody` property in the model factory.
-
-   ```typescript
-   import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-   import { streamText } from 'ai';
-
-   const openrouter = createOpenRouter({
-     apiKey: 'your-api-key',
-     extraBody: {
-       reasoning: {
-         max_tokens: 10,
-       },
-     },
-   });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
-   await streamText({
-     model,
-     messages: [{ role: 'user', content: 'Hello' }],
-   });
-   ```
-
-## Anthropic Prompt Caching
-
-You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
-
-### Basic Usage
+## Configuration
 
 ```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
-
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/<supported-caching-model>');
-
-await streamText({
-  model,
-  messages: [
-    {
-      role: 'system',
-      content:
-        'You are a podcast summary assistant. You are detail-oriented and critical about the content.',
-    },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: 'Given the text body below:',
-        },
-        {
-          type: 'text',
-          text: `<LARGE BODY OF TEXT>`,
-          providerOptions: {
-            openrouter: {
-              cacheControl: { type: 'ephemeral' },
-            },
-          },
-        },
-        {
-          type: 'text',
-          text: 'List the speakers?',
-        },
-      ],
-    },
-  ],
-});
-```
-## Anthropic Beta Features
-
-You can enable Anthropic beta features by passing custom headers through the OpenRouter SDK.
-
-### Fine-grained Tool Streaming
-
-[Fine-grained tool streaming](https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/fine-grained-tool-streaming) allows streaming tool parameters without buffering, reducing latency for large schemas. This is particularly useful when working with large nested JSON structures.
-
-**Important:** This is a beta feature from Anthropic. Make sure to evaluate responses before using in production.
-
-#### Basic Usage
-
-```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamObject } from 'ai';
-
-const provider = createOpenRouter({
+const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
-  headers: {
-    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+  
+  // Optional: Set defaults for all requests
+  defaultHeaders: {
+    'HTTP-Referer': 'https://myapp.com',
+    'X-Title': 'My App',
   },
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
-
-const result = await streamObject({
-  model,
-  schema: yourLargeSchema,
-  prompt: 'Generate a complex object...',
-});
-
-for await (const partialObject of result.partialObjectStream) {
-  console.log(partialObject);
-}
-```
-
-You can also pass the header at the request level:
-
-```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { generateText } from 'ai';
-
-const provider = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-});
-
-const model = provider.chat('anthropic/claude-sonnet-4');
-
-await generateText({
-  model,
-  prompt: 'Hello',
-  headers: {
-    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
-  },
+// Per-request options
+const model = openrouter('anthropic/claude-sonnet-4.5', {
+  // OpenRouter-specific
+  transforms: ['middle-out'],
+  route: 'fallback',
+  models: ['anthropic/claude-sonnet-4.5', 'openai/gpt-5.2'],
 });
 ```
 
-**Note:** Fine-grained tool streaming is specific to Anthropic models. When using models from other providers, the header will be ignored.
+## Popular Models
 
-#### Use Case: Large Component Generation
+| Model | Best for |
+|-------|----------|
+| `anthropic/claude-opus-4.5` | Complex reasoning, agentic workflows |
+| `anthropic/claude-sonnet-4.5` | Balanced performance, 1M context |
+| `google/gemini-3-pro-preview` | Multimodal, long context |
+| `openai/gpt-5.2` | General purpose, adaptive thinking |
+| `deepseek/deepseek-r1-0528` | Open reasoning, math proofs |
+| `meta-llama/llama-4-maverick` | Open weights, 17B active |
 
-This feature is particularly beneficial when streaming large, nested JSON structures like UI component trees:
+→ [Browse all models](https://openrouter.ai/models)
 
-```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamObject } from 'ai';
-import { z } from 'zod';
+## Coming Soon
 
-const componentSchema = z.object({
-  type: z.string(),
-  props: z.record(z.any()),
-  children: z.array(z.lazy(() => componentSchema)).optional(),
-});
+These features are planned for upcoming releases:
 
-const provider = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
-  headers: {
-    'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
-  },
-});
+| Feature | Status |
+|---------|--------|
+| **Prompt caching** | Planned — Anthropic-style `cache_control` for cost savings |
+| **Image generation** | Planned — `ImageModelV3` support |
+| **Audio inputs** | Planned — For multimodal models like GPT-4o |
+| **Rate limit headers** | Planned — Expose `X-RateLimit-*` in provider metadata |
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+### Known Limitations
 
-const result = await streamObject({
-  model,
-  schema: componentSchema,
-  prompt: 'Create a responsive dashboard layout',
-});
+Some model + feature combinations have upstream issues:
 
-for await (const partialComponent of result.partialObjectStream) {
-  console.log('Partial component:', partialComponent);
-}
-```
+- **Gemini 3 + tools + reasoning**: May return 400 errors ([tracking](https://github.com/OpenRouterTeam/ai-sdk-provider/issues/239))
+- **Claude thinking + tools**: Edge cases in multi-turn conversations ([tracking](https://github.com/OpenRouterTeam/ai-sdk-provider/issues/245))
 
+These are being tracked upstream and will be resolved in future releases.
 
+## Requirements
 
-## Use Cases
+- Node.js 18+ / Bun / Deno
+- AI SDK 6.x (`ai@^6.0.0`)
+- OpenRouter API key ([get one free](https://openrouter.ai/keys))
 
-### Debugging API Requests
+## Compatibility
 
-The provider supports a debug mode that echoes back the request body sent to the upstream provider. This is useful for troubleshooting and understanding how your requests are being processed. Note that debug mode only works with streaming requests.
+Works everywhere the AI SDK works:
 
-```typescript
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
+- ✅ Node.js
+- ✅ Edge runtimes (Vercel, Cloudflare)
+- ✅ Serverless functions
+- ✅ React Server Components
 
-const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/claude-3.5-sonnet', {
-  debug: {
-    echo_upstream_body: true,
-  },
-});
+## Documentation
 
-const result = await streamText({
-  model,
-  prompt: 'Hello, how are you?',
-});
+- [OpenRouter API Docs](https://openrouter.ai/docs)
+- [AI SDK Documentation](https://sdk.vercel.ai/docs)
+- [Model Pricing](https://openrouter.ai/models)
 
-// The debug data is available in the stream's first chunk
-// and in the final response's providerMetadata
-for await (const chunk of result.fullStream) {
-  // Debug chunks have empty choices and contain debug.echo_upstream_body
-  console.log(chunk);
-}
-```
+## License
 
-The debug response will include the request body that was sent to the upstream provider, with sensitive data redacted (user IDs, base64 content, etc.). This helps you understand how OpenRouter transforms your request before sending it to the model provider.
-
-### Usage Accounting
-
-The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/use-cases/usage-accounting), which allows you to track token usage details directly in your API responses, without making additional API calls.
-
-```typescript
-// Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
-  usage: {
-    include: true,
-  },
-});
-
-// Access usage accounting data
-const result = await generateText({
-  model,
-  prompt: 'Hello, how are you today?',
-});
-
-// Provider-specific usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
-}
-```
-
-It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/docs/guides/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account.
-
-```typescript
-// Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
-
-// Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
-  usage: {
-    include: true,
-  },
-});
-
-// Access usage accounting data
-const result = await generateText({
-  model,
-  prompt: 'Hello, how are you today?',
-});
-
-// Provider-specific BYOK usage details (available in providerMetadata)
-if (result.providerMetadata?.openrouter?.usage) {
-  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
-  if (costDetails) {
-    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
-  }
-  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
-}
-```
+MIT
