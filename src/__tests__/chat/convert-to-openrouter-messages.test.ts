@@ -34,41 +34,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           role: 'user',
-          content: [{ type: 'text', text: 'Hello, world!' }],
-        },
-      ]);
-    });
-
-    it('converts user text message with cache_control', () => {
-      const prompt: LanguageModelV3Prompt = [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Hello, world!',
-              providerOptions: {
-                openrouter: {
-                  cache_control: { type: 'ephemeral' },
-                },
-              },
-            },
-          ],
-        },
-      ];
-
-      const result = convertToOpenRouterMessages(prompt);
-
-      expect(result).toEqual([
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Hello, world!',
-              cache_control: { type: 'ephemeral' },
-            },
-          ],
+          content: [{ type: 'input_text', text: 'Hello, world!' }],
         },
       ]);
     });
@@ -94,11 +60,9 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'image_url',
-              imageUrl: {
-                url: 'https://example.com/image.png',
-                detail: 'auto',
-              },
+              type: 'input_image',
+              imageUrl: 'https://example.com/image.png',
+              detail: 'auto',
             },
           ],
         },
@@ -126,11 +90,9 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'image_url',
-              imageUrl: {
-                url: 'data:image/jpeg;base64,base64encodeddata',
-                detail: 'auto',
-              },
+              type: 'input_image',
+              imageUrl: 'data:image/jpeg;base64,base64encodeddata',
+              detail: 'auto',
             },
           ],
         },
@@ -138,8 +100,7 @@ describe('convertToOpenRouterMessages', () => {
     });
 
     it('converts user file message (non-image)', () => {
-      // Non-image files (PDFs, etc.) are sent as image_url type
-      // OpenRouter's file-parser plugin handles the actual parsing
+      // Non-image files (PDFs, etc.) are sent as input_file type
       const prompt: LanguageModelV3Prompt = [
         {
           role: 'user',
@@ -160,11 +121,8 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'image_url',
-              imageUrl: {
-                url: 'https://example.com/doc.pdf',
-                detail: 'auto',
-              },
+              type: 'input_file',
+              fileUrl: 'https://example.com/doc.pdf',
             },
           ],
         },
@@ -192,13 +150,11 @@ describe('convertToOpenRouterMessages', () => {
         {
           role: 'user',
           content: [
-            { type: 'text', text: 'What is in this image?' },
+            { type: 'input_text', text: 'What is in this image?' },
             {
-              type: 'image_url',
-              imageUrl: {
-                url: 'https://example.com/image.png',
-                detail: 'auto',
-              },
+              type: 'input_image',
+              imageUrl: 'https://example.com/image.png',
+              detail: 'auto',
             },
           ],
         },
@@ -217,10 +173,11 @@ describe('convertToOpenRouterMessages', () => {
 
       const result = convertToOpenRouterMessages(prompt);
 
+      // Responses API uses simple string content for assistant messages
       expect(result).toEqual([
         {
           role: 'assistant',
-          content: [{ type: 'text', text: 'I can help you with that.' }],
+          content: 'I can help you with that.',
         },
       ]);
     });
@@ -245,7 +202,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call',
-          call_id: 'call_123',
+          callId: 'call_123',
           name: 'get_weather',
           arguments: JSON.stringify({ location: 'San Francisco' }),
         },
@@ -274,11 +231,11 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           role: 'assistant',
-          content: [{ type: 'text', text: 'Let me check the weather.' }],
+          content: 'Let me check the weather.',
         },
         {
           type: 'function_call',
-          call_id: 'call_123',
+          callId: 'call_123',
           name: 'get_weather',
           arguments: JSON.stringify({ location: 'NYC' }),
         },
@@ -298,14 +255,11 @@ describe('convertToOpenRouterMessages', () => {
 
       const result = convertToOpenRouterMessages(prompt);
 
-      // Reasoning is included as text (provider may handle specially)
+      // Reasoning and text are concatenated in Responses API format
       expect(result).toEqual([
         {
           role: 'assistant',
-          content: [
-            { type: 'text', text: 'Let me think about this...' },
-            { type: 'text', text: 'The answer is 42.' },
-          ],
+          content: 'Let me think about this...The answer is 42.',
         },
       ]);
     });
@@ -332,7 +286,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call_output',
-          call_id: 'call_123',
+          callId: 'call_123',
           output: JSON.stringify({ temperature: 72, unit: 'F' }),
         },
       ]);
@@ -358,7 +312,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call_output',
-          call_id: 'call_456',
+          callId: 'call_456',
           output: 'Search results: ...',
         },
       ]);
@@ -384,9 +338,8 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call_output',
-          call_id: 'call_789',
+          callId: 'call_789',
           output: 'Connection timeout',
-          status: 'incomplete',
         },
       ]);
     });
@@ -417,12 +370,12 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call_output',
-          call_id: 'call_1',
+          callId: 'call_1',
           output: 'result1',
         },
         {
           type: 'function_call_output',
-          call_id: 'call_2',
+          callId: 'call_2',
           output: 'result2',
         },
       ]);
@@ -473,24 +426,22 @@ describe('convertToOpenRouterMessages', () => {
         { role: 'system', content: 'You are a helpful assistant.' },
         {
           role: 'user',
-          content: [{ type: 'text', text: 'What is the weather in NYC?' }],
+          content: [{ type: 'input_text', text: 'What is the weather in NYC?' }],
         },
         {
           type: 'function_call',
-          call_id: 'call_123',
+          callId: 'call_123',
           name: 'get_weather',
           arguments: JSON.stringify({ location: 'NYC' }),
         },
         {
           type: 'function_call_output',
-          call_id: 'call_123',
+          callId: 'call_123',
           output: JSON.stringify({ temperature: 72 }),
         },
         {
           role: 'assistant',
-          content: [
-            { type: 'text', text: 'The temperature in NYC is 72 degrees.' },
-          ],
+          content: 'The temperature in NYC is 72 degrees.',
         },
       ]);
     });
@@ -521,9 +472,9 @@ describe('convertToOpenRouterMessages', () => {
 
       // Uint8Array should be converted to base64
       expect(result).toHaveLength(1);
-      const userMessage = result[0] as { content: { type: string; imageUrl: { url: string } }[] };
-      expect(userMessage.content[0]!.type).toBe('image_url');
-      expect(userMessage.content[0]!.imageUrl.url).toMatch(/^data:image\/png;base64,/);
+      const userMessage = result[0] as { content: { type: string; imageUrl: string }[] };
+      expect(userMessage.content[0]!.type).toBe('input_image');
+      expect(userMessage.content[0]!.imageUrl).toMatch(/^data:image\/png;base64,/);
     });
 
     it('handles tool-result with execution-denied output', () => {
@@ -549,9 +500,8 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           type: 'function_call_output',
-          call_id: 'call_denied',
+          callId: 'call_denied',
           output: 'Execution denied: User denied execution',
-          status: 'incomplete',
         },
       ]);
     });

@@ -1,0 +1,23 @@
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+{"object":"response","id":"gen-1767765388-hU2jCr96nea8InKf2UWP","created_at":1767765388,"model":"anthropic/claude-sonnet-4","error":null,"output_text":"","output":[{"role":"assistant","type":"message","status":"completed","content":[{"type":"output_text","text":"I'll work through this addition step by step.\n\n**Step 1:** Identify the problem\n- I need to add 2 + 2\n\n**Step 2:** Understand what addition means\n- Addition means combining quantities together\n- I'm combining a group of 2 with another group of 2\n\n**Step 3:** Calculate the result\n- Starting with 2\n- Adding 2 more: 2 + 2 = 4\n\n**Step 4:** Verify the answer\n- I can check this by counting: 1, 2 (first group) + 3, 4 (second group) = 4 total\n- Or by thinking of it as 2 × 2 = 4\n\n**Answer:** 2 + 2 = 4","annotations":[]}],"id":"msg_tmp_h3wmh4kbfpt"}],"incomplete_details":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null,"usage":{"input_tokens":21,"input_tokens_details":{"cached_tokens":0},"output_tokens":180,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":201,"cost":0.002763,"is_byok":false,"cost_details":{"upstream_inference_cost":null,"upstream_inference_input_cost":0.000063,"upstream_inference_output_cost":0.0027}}}

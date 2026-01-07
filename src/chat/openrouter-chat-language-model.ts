@@ -9,7 +9,10 @@ import type {
 } from '@ai-sdk/provider';
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
-import type { ChatGenerationParams, ChatResponse } from '@openrouter/sdk/models';
+import type {
+  OpenResponsesRequest,
+  OpenResponsesNonStreamingResponse,
+} from '@openrouter/sdk/models';
 
 /**
  * Raw streaming chunk from OpenRouter API (snake_case fields).
@@ -100,110 +103,134 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       serverURL: this.settings.baseURL,
     });
 
-    // Convert messages to OpenRouter format
-    const openRouterMessages = convertToOpenRouterMessages(options.prompt);
+    // Convert messages to OpenRouter Responses API format
+    const openRouterInput = convertToOpenRouterMessages(options.prompt);
 
-    // Build request parameters (non-streaming)
-    const requestParams: ChatGenerationParams & { stream: false } = {
+    // Build request parameters for Responses API (non-streaming)
+    const requestParams: OpenResponsesRequest & { stream: false } = {
       model: this.modelId,
-      messages: openRouterMessages as ChatGenerationParams['messages'],
+      input: openRouterInput as OpenResponsesRequest['input'],
       stream: false,
       ...(options.maxOutputTokens !== undefined && {
-        maxTokens: options.maxOutputTokens,
+        maxOutputTokens: options.maxOutputTokens,
       }),
       ...(options.temperature !== undefined && {
         temperature: options.temperature,
       }),
       ...(options.topP !== undefined && { topP: options.topP }),
-      ...(options.frequencyPenalty !== undefined && {
-        frequencyPenalty: options.frequencyPenalty,
-      }),
-      ...(options.presencePenalty !== undefined && {
-        presencePenalty: options.presencePenalty,
-      }),
-      ...(options.seed !== undefined && { seed: options.seed }),
-      ...(options.stopSequences !== undefined &&
-        options.stopSequences.length > 0 && {
-          stop: options.stopSequences,
-        }),
     };
 
-    // Make the non-streaming request
+    // Make the non-streaming request using Responses API
     const combinedHeaders = normalizeHeaders(
       combineHeaders(this.settings.headers, options.headers)
     );
 
-    const response = (await client.chat.send(requestParams, {
+    const response = (await client.beta.responses.send(requestParams, {
       fetchOptions: {
         signal: options.abortSignal,
         headers: combinedHeaders,
       },
-    })) as ChatResponse;
+    })) as OpenResponsesNonStreamingResponse;
 
-    // Extract choice data
-    const choice = response.choices[0];
-    const message = choice?.message;
-
-    // Build content array
+    // Build content array from Responses API output
     const content: LanguageModelV3Content[] = [];
 
-    // Add reasoning if present
-    if (message?.reasoning) {
+    // Process output items
+    for (const outputItem of response.output) {
+      if (outputItem.type === 'reasoning') {
+        // Extract reasoning text from content array or summary
+        const reasoningItem = outputItem as {
+          type: 'reasoning';
+          content?: Array<{ type: string; text: string }>;
+          summary?: Array<{ type: string; text: string }>;
+        };
+        const reasoningText =
+          reasoningItem.content
+            ?.filter((c) => c.type === 'reasoning_text')
+            .map((c) => c.text)
+            .join('') ||
+          reasoningItem.summary
+            ?.filter((c) => c.type === 'summary_text')
+            .map((c) => c.text)
+            .join('') ||
+          '';
+
+        if (reasoningText) {
+          content.push({
+            type: 'reasoning',
+            text: reasoningText,
+          });
+        }
+      } else if (outputItem.type === 'message') {
+        // Extract text content from message
+        const messageItem = outputItem as {
+          type: 'message';
+          content: Array<{ type: string; text?: string }>;
+        };
+        for (const contentItem of messageItem.content) {
+          if (contentItem.type === 'output_text' && contentItem.text) {
+            content.push({
+              type: 'text',
+              text: contentItem.text,
+            });
+          }
+        }
+      } else if (outputItem.type === 'function_call') {
+        // Handle tool/function calls
+        const functionCallItem = outputItem as {
+          type: 'function_call';
+          callId: string;
+          name: string;
+          arguments: string;
+        };
+        content.push({
+          type: 'tool-call',
+          toolCallId: functionCallItem.callId,
+          toolName: functionCallItem.name,
+          input: functionCallItem.arguments,
+        });
+      }
+    }
+
+    // Use outputText as fallback if no text content was extracted
+    if (
+      response.outputText &&
+      !content.some((c) => c.type === 'text')
+    ) {
       content.push({
-        type: 'reasoning',
-        text: message.reasoning,
+        type: 'text',
+        text: response.outputText,
       });
     }
 
-    // Add text content if present
-    if (message?.content) {
-      const textContent =
-        typeof message.content === 'string'
-          ? message.content
-          : message.content
-              .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
-              .map((c) => c.text)
-              .join('');
+    // Build finish reason based on response status
+    const finishReason = mapOpenRouterFinishReason(
+      response.status === 'completed' ? 'stop' : response.status ?? 'stop'
+    );
 
-      if (textContent) {
-        content.push({
-          type: 'text',
-          text: textContent,
-        });
-      }
-    }
-
-    // Add tool calls if present
-    if (message?.toolCalls) {
-      for (const toolCall of message.toolCalls) {
-        content.push({
-          type: 'tool-call',
-          toolCallId: toolCall.id,
-          toolName: toolCall.function.name,
-          input: toolCall.function.arguments,
-        });
-      }
-    }
-
-    // Build finish reason
-    const finishReason = mapOpenRouterFinishReason(choice?.finishReason);
-
-    // Build usage
+    // Build usage from Responses API format
     const usage = buildUsage(
       response.usage
         ? {
-            inputTokens: response.usage.promptTokens,
-            outputTokens: response.usage.completionTokens,
+            inputTokens: response.usage.inputTokens,
+            outputTokens: response.usage.outputTokens,
           }
         : undefined
     );
 
     // Build provider metadata
-    // Note: The SDK types don't include 'provider' but the API returns it
+    // Note: The Responses API doesn't include 'provider' field directly
     const providerMetadata = buildProviderMetadata({
       id: response.id,
-      provider: (response as typeof response & { provider?: string }).provider,
-      usage: response.usage,
+      provider: undefined, // Responses API doesn't expose provider in response
+      usage: response.usage
+        ? {
+            promptTokens: response.usage.inputTokens,
+            completionTokens: response.usage.outputTokens,
+            totalTokens: response.usage.totalTokens,
+            cost: response.usage.cost ?? undefined,
+          }
+        : undefined,
     });
 
     return {
@@ -217,7 +244,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       },
       response: {
         id: response.id,
-        timestamp: new Date(response.created * 1000),
+        timestamp: new Date(response.createdAt * 1000),
         modelId: response.model,
       },
     };
