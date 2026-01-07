@@ -39,6 +39,7 @@ export interface OpenRouterFunctionCallOutput {
   type: 'function_call_output';
   callId: string;
   output: string;
+  status: 'completed' | 'incomplete';
 }
 
 /**
@@ -293,6 +294,7 @@ function convertToolResult(part: LanguageModelV3ToolResultPart): OpenRouterFunct
     type: 'function_call_output',
     callId: part.toolCallId,
     output: output.value,
+    status: output.isError ? 'incomplete' : 'completed',
   };
 }
 

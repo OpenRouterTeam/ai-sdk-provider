@@ -288,6 +288,7 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_123',
           output: JSON.stringify({ temperature: 72, unit: 'F' }),
+          status: 'completed',
         },
       ]);
     });
@@ -314,6 +315,7 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_456',
           output: 'Search results: ...',
+          status: 'completed',
         },
       ]);
     });
@@ -340,6 +342,7 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_789',
           output: 'Connection timeout',
+          status: 'incomplete',
         },
       ]);
     });
@@ -372,11 +375,13 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_1',
           output: 'result1',
+          status: 'completed',
         },
         {
           type: 'function_call_output',
           callId: 'call_2',
           output: 'result2',
+          status: 'completed',
         },
       ]);
     });
@@ -438,6 +443,7 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_123',
           output: JSON.stringify({ temperature: 72 }),
+          status: 'completed',
         },
         {
           role: 'assistant',
@@ -502,6 +508,7 @@ describe('convertToOpenRouterMessages', () => {
           type: 'function_call_output',
           callId: 'call_denied',
           output: 'Execution denied: User denied execution',
+          status: 'incomplete',
         },
       ]);
     });
