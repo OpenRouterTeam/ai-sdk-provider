@@ -263,6 +263,190 @@ describe('convertToOpenRouterMessages', () => {
         },
       ]);
     });
+
+    it('extracts reasoning_details from providerOptions and includes reasoning', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'assistant',
+          content: [
+            { type: 'reasoning', text: 'Let me think...' },
+            { type: 'text', text: 'The answer is 42.' },
+          ],
+          providerOptions: {
+            openrouter: {
+              reasoning_details: [
+                {
+                  type: 'reasoning.text',
+                  text: 'Let me think...',
+                  signature: 'abc123',
+                  format: 'anthropic-claude-v1',
+                  index: 0,
+                },
+              ],
+            },
+          },
+        } as LanguageModelV3Prompt[0],
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: 'Let me think...The answer is 42.',
+          reasoning: {
+            text: 'Let me think...',
+          },
+        },
+      ]);
+    });
+
+    it('extracts reasoning_details from providerMetadata', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Response' }],
+          providerMetadata: {
+            openrouter: {
+              reasoning_details: [
+                {
+                  type: 'reasoning.encrypted',
+                  data: 'encrypted-blob',
+                  format: 'gemini-v1',
+                  index: 0,
+                },
+              ],
+            },
+          },
+        } as LanguageModelV3Prompt[0],
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: 'Response',
+          reasoning: {
+            encrypted: 'encrypted-blob',
+          },
+        },
+      ]);
+    });
+
+    it('handles reasoning_details with summary items', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Response' }],
+          providerOptions: {
+            openrouter: {
+              reasoning_details: [
+                {
+                  type: 'reasoning.summary',
+                  summary: 'Summary of thinking',
+                  index: 0,
+                },
+              ],
+            },
+          },
+        } as LanguageModelV3Prompt[0],
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: 'Response',
+          reasoning: {
+            summary: 'Summary of thinking',
+          },
+        },
+      ]);
+    });
+
+    it('handles SDK format reasoning_details with content array', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Response' }],
+          providerOptions: {
+            openrouter: {
+              reasoning_details: [
+                {
+                  type: 'reasoning',
+                  id: 'reasoning_123',
+                  format: 'anthropic-claude-v1',
+                  signature: 'sig123',
+                  content: [
+                    { type: 'reasoning_text', text: 'First thought. ' },
+                    { type: 'reasoning_text', text: 'Second thought.' },
+                  ],
+                },
+              ],
+            },
+          },
+        } as LanguageModelV3Prompt[0],
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: 'Response',
+          reasoning: {
+            text: 'First thought. Second thought.',
+          },
+        },
+      ]);
+    });
+
+    it('includes reasoning for tool-call only messages', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'assistant',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call_123',
+              toolName: 'get_weather',
+              input: { location: 'NYC' },
+            },
+          ],
+          providerOptions: {
+            openrouter: {
+              reasoning_details: [
+                {
+                  type: 'reasoning.encrypted',
+                  data: 'encrypted-data',
+                  index: 0,
+                },
+              ],
+            },
+          },
+        } as LanguageModelV3Prompt[0],
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'assistant',
+          content: '',
+          reasoning: {
+            encrypted: 'encrypted-data',
+          },
+        },
+        {
+          type: 'function_call',
+          callId: 'call_123',
+          name: 'get_weather',
+          arguments: JSON.stringify({ location: 'NYC' }),
+        },
+      ]);
+    });
   });
 
   describe('tool messages', () => {

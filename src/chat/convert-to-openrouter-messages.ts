@@ -7,6 +7,7 @@ import type {
   LanguageModelV3ToolCallPart,
   LanguageModelV3ToolResultPart,
   LanguageModelV3ToolResultOutput,
+  JSONValue,
 } from '@ai-sdk/provider';
 
 /**
@@ -19,6 +20,31 @@ export type OpenRouterInputItem =
   | OpenRouterFunctionCallOutput;
 
 /**
+ * Reasoning details item format for API requests.
+ * Used to preserve reasoning context across multi-turn conversations.
+ */
+export interface OpenRouterReasoningDetailItem {
+  type: 'reasoning.text' | 'reasoning.summary' | 'reasoning.encrypted';
+  id?: string;
+  format?: string | null;
+  index: number;
+  text?: string; // For reasoning.text
+  signature?: string | null; // For reasoning.text (Claude)
+  summary?: string; // For reasoning.summary
+  data?: string; // For reasoning.encrypted (Gemini)
+}
+
+/**
+ * Reasoning object for assistant messages.
+ * Contains the reasoning details to send back to the API.
+ */
+export interface OpenRouterReasoning {
+  text?: string;
+  summary?: string;
+  encrypted?: string;
+}
+
+/**
  * Easy input message format for Responses API.
  * Supports user, system, assistant, and developer roles.
  */
@@ -26,6 +52,7 @@ export interface OpenRouterEasyInputMessage {
   type?: 'message';
   role: 'user' | 'system' | 'assistant' | 'developer';
   content: string | OpenRouterInputContent[];
+  reasoning?: OpenRouterReasoning;
 }
 
 export interface OpenRouterFunctionCall {
@@ -84,6 +111,14 @@ export function convertToOpenRouterMessages(
  * May return multiple items (e.g., when assistant has text + tool calls).
  */
 function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] {
+  // Extract providerOptions from the message for reasoning_details
+  const messageWithOptions = message as LanguageModelV3Message & {
+    providerOptions?: Record<string, Record<string, unknown>>;
+    providerMetadata?: Record<string, Record<string, unknown>>;
+  };
+  const providerOptions = messageWithOptions.providerOptions;
+  const providerMetadata = messageWithOptions.providerMetadata;
+
   switch (message.role) {
     case 'system':
       return [{ role: 'system', content: message.content }];
@@ -92,7 +127,7 @@ function convertMessage(message: LanguageModelV3Message): OpenRouterInputItem[] 
       return [convertUserMessage(message.content)];
 
     case 'assistant':
-      return convertAssistantMessage(message.content);
+      return convertAssistantMessage(message.content, providerMetadata, providerOptions);
 
     case 'tool':
       return convertToolMessage(message.content);
@@ -199,8 +234,213 @@ function uint8ArrayToBase64(bytes: Uint8Array): string {
 }
 
 /**
+ * SDK format for reasoning items returned from OpenRouter.
+ * Used when extracting reasoning_details from providerMetadata.
+ */
+interface SdkReasoningItem {
+  type?: string;
+  id?: string;
+  format?: string | null;
+  signature?: string | null;
+  content?: Array<{ type: string; text: string }>;
+  summary?: Array<{ type: string; text: string }>;
+  encryptedContent?: string;
+  // Also support flattened API format
+  text?: string;
+  data?: string;
+  index?: number;
+}
+
+/**
+ * Extract reasoning_details from providerMetadata or providerOptions.
+ * Checks multiple locations for backwards compatibility.
+ */
+function extractReasoningDetails(
+  content: Array<
+    | LanguageModelV3TextPart
+    | LanguageModelV3FilePart
+    | LanguageModelV3ReasoningPart
+    | LanguageModelV3ToolCallPart
+    | LanguageModelV3ToolResultPart
+  >,
+  providerMetadata?: Record<string, Record<string, unknown>>,
+  providerOptions?: Record<string, Record<string, unknown>>,
+): JSONValue[] | undefined {
+  // Check message-level metadata first
+  const messageLevel =
+    providerOptions?.openrouter?.reasoning_details ??
+    providerMetadata?.openrouter?.reasoning_details;
+
+  if (messageLevel && Array.isArray(messageLevel) && messageLevel.length > 0) {
+    return messageLevel as JSONValue[];
+  }
+
+  // Check reasoning content parts for part-level metadata
+  for (const part of content) {
+    if (part.type === 'reasoning') {
+      const partWithMeta = part as LanguageModelV3ReasoningPart & {
+        providerMetadata?: Record<string, { reasoning_details?: JSONValue[] }>;
+        providerOptions?: Record<string, { reasoning_details?: JSONValue[] }>;
+      };
+      const partLevel =
+        partWithMeta.providerOptions?.openrouter?.reasoning_details ??
+        partWithMeta.providerMetadata?.openrouter?.reasoning_details;
+      if (partLevel && Array.isArray(partLevel) && partLevel.length > 0) {
+        return partLevel as JSONValue[];
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Transform SDK reasoning format to API request format.
+ * Flattens the structure for sending back to OpenRouter.
+ */
+function transformReasoningToApiFormat(
+  sdkItems: JSONValue[],
+): OpenRouterReasoningDetailItem[] {
+  const apiItems: OpenRouterReasoningDetailItem[] = [];
+
+  for (const rawItem of sdkItems) {
+    if (typeof rawItem !== 'object' || rawItem === null) {
+      continue;
+    }
+    const item = rawItem as SdkReasoningItem;
+
+    const baseProps = {
+      id: item.id,
+      format: item.format ?? null,
+    };
+
+    let index = item.index ?? 0;
+
+    // Handle already-flattened API format (reasoning.text, reasoning.summary, reasoning.encrypted)
+    if (item.type === 'reasoning.text' && item.text !== undefined) {
+      apiItems.push({
+        type: 'reasoning.text',
+        text: item.text,
+        signature: item.signature ?? null,
+        index: index,
+        ...baseProps,
+      });
+      continue;
+    }
+
+    if (item.type === 'reasoning.summary' && item.summary !== undefined) {
+      apiItems.push({
+        type: 'reasoning.summary',
+        summary: typeof item.summary === 'string' ? item.summary : '',
+        index: index,
+        ...baseProps,
+      });
+      continue;
+    }
+
+    if (item.type === 'reasoning.encrypted' && item.data !== undefined) {
+      apiItems.push({
+        type: 'reasoning.encrypted',
+        data: item.data,
+        index: index,
+        ...baseProps,
+      });
+      continue;
+    }
+
+    // Handle SDK format (type: 'reasoning' with content/summary/encryptedContent)
+    if (item.type === 'reasoning' || item.content || item.summary || item.encryptedContent) {
+      // Transform content items to reasoning.text
+      if (item.content && Array.isArray(item.content)) {
+        for (const contentItem of item.content) {
+          if (contentItem.type === 'reasoning_text' && contentItem.text) {
+            apiItems.push({
+              type: 'reasoning.text',
+              text: contentItem.text,
+              signature: item.signature ?? null,
+              index: index++,
+              ...baseProps,
+            });
+          }
+        }
+      }
+
+      // Transform summary items to reasoning.summary
+      if (item.summary && Array.isArray(item.summary)) {
+        for (const summaryItem of item.summary) {
+          if (summaryItem.type === 'summary_text' && summaryItem.text) {
+            apiItems.push({
+              type: 'reasoning.summary',
+              summary: summaryItem.text,
+              index: index++,
+              ...baseProps,
+            });
+          }
+        }
+      }
+
+      // Transform encryptedContent to reasoning.encrypted (Gemini)
+      if (item.encryptedContent) {
+        apiItems.push({
+          type: 'reasoning.encrypted',
+          data: item.encryptedContent,
+          index: index++,
+          ...baseProps,
+        });
+      }
+    }
+  }
+
+  return apiItems;
+}
+
+/**
+ * Build OpenRouterReasoning object from reasoning detail items.
+ * Combines all items into a single reasoning object for the API.
+ */
+function buildReasoningFromDetails(
+  items: OpenRouterReasoningDetailItem[],
+): OpenRouterReasoning | undefined {
+  if (items.length === 0) {
+    return undefined;
+  }
+
+  const reasoning: OpenRouterReasoning = {};
+
+  // Collect all text items
+  const textItems = items.filter((i) => i.type === 'reasoning.text' && i.text);
+  if (textItems.length > 0) {
+    reasoning.text = textItems.map((i) => i.text).join('');
+  }
+
+  // Collect all summary items
+  const summaryItems = items.filter(
+    (i) => i.type === 'reasoning.summary' && i.summary,
+  );
+  if (summaryItems.length > 0) {
+    reasoning.summary = summaryItems.map((i) => i.summary).join('');
+  }
+
+  // Collect encrypted content (should be only one)
+  const encryptedItem = items.find(
+    (i) => i.type === 'reasoning.encrypted' && i.data,
+  );
+  if (encryptedItem?.data) {
+    reasoning.encrypted = encryptedItem.data;
+  }
+
+  // Return undefined if no content
+  if (!reasoning.text && !reasoning.summary && !reasoning.encrypted) {
+    return undefined;
+  }
+
+  return reasoning;
+}
+
+/**
  * Convert assistant message content parts to OpenRouter Responses API format.
  * Tool calls become separate items in the output array.
+ * Extracts reasoning_details from providerMetadata for multi-turn continuation.
  */
 function convertAssistantMessage(
   content: Array<
@@ -209,10 +449,23 @@ function convertAssistantMessage(
     | LanguageModelV3ReasoningPart
     | LanguageModelV3ToolCallPart
     | LanguageModelV3ToolResultPart
-  >
+  >,
+  providerMetadata?: Record<string, Record<string, unknown>>,
+  providerOptions?: Record<string, Record<string, unknown>>,
 ): OpenRouterInputItem[] {
   const result: OpenRouterInputItem[] = [];
   let textContent = '';
+
+  // Extract reasoning details for multi-turn continuation
+  const sdkReasoningDetails = extractReasoningDetails(
+    content,
+    providerMetadata,
+    providerOptions,
+  );
+  const reasoningItems = sdkReasoningDetails
+    ? transformReasoningToApiFormat(sdkReasoningDetails)
+    : [];
+  const reasoning = buildReasoningFromDetails(reasoningItems);
 
   for (const part of content) {
     switch (part.type) {
@@ -260,7 +513,23 @@ function convertAssistantMessage(
   // If there's text content, add it as an assistant message first
   // Responses API uses simple string content for assistant messages
   if (textContent) {
-    result.unshift({ role: 'assistant', content: textContent });
+    const assistantMessage: OpenRouterEasyInputMessage = {
+      role: 'assistant',
+      content: textContent,
+    };
+    // Attach reasoning for multi-turn continuation
+    if (reasoning) {
+      assistantMessage.reasoning = reasoning;
+    }
+    result.unshift(assistantMessage);
+  } else if (reasoning) {
+    // Even without text, include reasoning if present (for tool-call only messages)
+    const assistantMessage: OpenRouterEasyInputMessage = {
+      role: 'assistant',
+      content: '',
+    };
+    assistantMessage.reasoning = reasoning;
+    result.unshift(assistantMessage);
   }
 
   return result;
