@@ -26,12 +26,12 @@ export interface OpenRouterSystemMessage {
 
 export interface OpenRouterUserMessage {
   role: 'user';
-  content: OpenRouterInputContent[];
+  content: string | OpenRouterInputContent[];
 }
 
 export interface OpenRouterAssistantMessage {
   role: 'assistant';
-  content: OpenRouterOutputContent[];
+  content: string | OpenRouterOutputContent[];
 }
 
 export interface OpenRouterFunctionCall {
@@ -49,11 +49,11 @@ export interface OpenRouterFunctionCallOutput {
 }
 
 export type OpenRouterInputContent =
-  | { type: 'input_text'; text: string }
-  | { type: 'input_image'; detail: string; image_url: string }
-  | { type: 'input_file'; file_url: string };
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; imageUrl: { url: string; detail?: 'auto' | 'low' | 'high' } }
+  | { type: 'file'; fileUrl: string };
 
-export type OpenRouterOutputContent = { type: 'output_text'; text: string };
+export type OpenRouterOutputContent = { type: 'text'; text: string };
 
 /**
  * Converts AI SDK V3 prompt format to OpenRouter Responses API message format.
@@ -119,7 +119,7 @@ function convertUserMessage(
   for (const part of content) {
     switch (part.type) {
       case 'text':
-        convertedContent.push({ type: 'input_text', text: part.text });
+        convertedContent.push({ type: 'text', text: part.text });
         break;
 
       case 'file':
@@ -144,15 +144,17 @@ function convertFilePart(part: LanguageModelV3FilePart): OpenRouterInputContent 
 
   if (isImage) {
     return {
-      type: 'input_image',
-      detail: 'auto',
-      image_url: convertDataContent(part.data, part.mediaType),
+      type: 'image_url',
+      imageUrl: {
+        url: convertDataContent(part.data, part.mediaType),
+        detail: 'auto',
+      },
     };
   } else {
     // Non-image files
     return {
-      type: 'input_file',
-      file_url: convertDataContent(part.data, part.mediaType),
+      type: 'file',
+      fileUrl: convertDataContent(part.data, part.mediaType),
     };
   }
 }
@@ -215,12 +217,12 @@ function convertAssistantMessage(
   for (const part of content) {
     switch (part.type) {
       case 'text':
-        textContent.push({ type: 'output_text', text: part.text });
+        textContent.push({ type: 'text', text: part.text });
         break;
 
       case 'reasoning':
-        // Include reasoning as output_text
-        textContent.push({ type: 'output_text', text: part.text });
+        // Include reasoning as text
+        textContent.push({ type: 'text', text: part.text });
         break;
 
       case 'tool-call':

@@ -34,7 +34,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           role: 'user',
-          content: [{ type: 'input_text', text: 'Hello, world!' }],
+          content: [{ type: 'text', text: 'Hello, world!' }],
         },
       ]);
     });
@@ -60,9 +60,11 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'input_image',
-              detail: 'auto',
-              image_url: 'https://example.com/image.png',
+              type: 'image_url',
+              imageUrl: {
+                url: 'https://example.com/image.png',
+                detail: 'auto',
+              },
             },
           ],
         },
@@ -90,9 +92,11 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'input_image',
-              detail: 'auto',
-              image_url: 'data:image/jpeg;base64,base64encodeddata',
+              type: 'image_url',
+              imageUrl: {
+                url: 'data:image/jpeg;base64,base64encodeddata',
+                detail: 'auto',
+              },
             },
           ],
         },
@@ -120,8 +124,8 @@ describe('convertToOpenRouterMessages', () => {
           role: 'user',
           content: [
             {
-              type: 'input_file',
-              file_url: 'https://example.com/doc.pdf',
+              type: 'file',
+              fileUrl: 'https://example.com/doc.pdf',
             },
           ],
         },
@@ -149,11 +153,13 @@ describe('convertToOpenRouterMessages', () => {
         {
           role: 'user',
           content: [
-            { type: 'input_text', text: 'What is in this image?' },
+            { type: 'text', text: 'What is in this image?' },
             {
-              type: 'input_image',
-              detail: 'auto',
-              image_url: 'https://example.com/image.png',
+              type: 'image_url',
+              imageUrl: {
+                url: 'https://example.com/image.png',
+                detail: 'auto',
+              },
             },
           ],
         },
@@ -175,7 +181,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           role: 'assistant',
-          content: [{ type: 'output_text', text: 'I can help you with that.' }],
+          content: [{ type: 'text', text: 'I can help you with that.' }],
         },
       ]);
     });
@@ -229,7 +235,7 @@ describe('convertToOpenRouterMessages', () => {
       expect(result).toEqual([
         {
           role: 'assistant',
-          content: [{ type: 'output_text', text: 'Let me check the weather.' }],
+          content: [{ type: 'text', text: 'Let me check the weather.' }],
         },
         {
           type: 'function_call',
@@ -253,13 +259,13 @@ describe('convertToOpenRouterMessages', () => {
 
       const result = convertToOpenRouterMessages(prompt);
 
-      // Reasoning is included as output_text (provider may handle specially)
+      // Reasoning is included as text (provider may handle specially)
       expect(result).toEqual([
         {
           role: 'assistant',
           content: [
-            { type: 'output_text', text: 'Let me think about this...' },
-            { type: 'output_text', text: 'The answer is 42.' },
+            { type: 'text', text: 'Let me think about this...' },
+            { type: 'text', text: 'The answer is 42.' },
           ],
         },
       ]);
@@ -428,7 +434,7 @@ describe('convertToOpenRouterMessages', () => {
         { role: 'system', content: 'You are a helpful assistant.' },
         {
           role: 'user',
-          content: [{ type: 'input_text', text: 'What is the weather in NYC?' }],
+          content: [{ type: 'text', text: 'What is the weather in NYC?' }],
         },
         {
           type: 'function_call',
@@ -444,7 +450,7 @@ describe('convertToOpenRouterMessages', () => {
         {
           role: 'assistant',
           content: [
-            { type: 'output_text', text: 'The temperature in NYC is 72 degrees.' },
+            { type: 'text', text: 'The temperature in NYC is 72 degrees.' },
           ],
         },
       ]);
@@ -476,8 +482,9 @@ describe('convertToOpenRouterMessages', () => {
 
       // Uint8Array should be converted to base64
       expect(result).toHaveLength(1);
-      expect((result[0] as any).content[0].type).toBe('input_image');
-      expect((result[0] as any).content[0].image_url).toMatch(/^data:image\/png;base64,/);
+      const userMessage = result[0] as { content: { type: string; imageUrl: { url: string } }[] };
+      expect(userMessage.content[0]!.type).toBe('image_url');
+      expect(userMessage.content[0]!.imageUrl.url).toMatch(/^data:image\/png;base64,/);
     });
 
     it('handles tool-result with execution-denied output', () => {
