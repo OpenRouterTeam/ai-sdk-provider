@@ -43,7 +43,7 @@
   "dependencies": {
     "@ai-sdk/provider": "^3.0.0",
     "@ai-sdk/provider-utils": "^4.0.0",
-    "@openrouter/sdk": "^0.1.27"
+    "@openrouter/sdk": "^0.3.11"
   },
   "devDependencies": {
     "@biomejs/biome": "^2",
