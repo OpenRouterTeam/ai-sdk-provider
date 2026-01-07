@@ -14,6 +14,7 @@
         "@changesets/changelog-github": "^0.5.1",
         "@changesets/cli": "^2",
         "@edge-runtime/vm": "^5.0.0",
+        "@effect-native/fetch-hooks": "^0.0.2",
         "@types/node": "^24",
         "ai": "^6.0.0",
         "dotenv": "^17",
@@ -99,6 +100,8 @@
     "@edge-runtime/primitives": ["@edge-runtime/primitives@6.0.0", "", {}, "sha512-FqoxaBT+prPBHBwE1WXS1ocnu/VLTQyZ6NMUBAdbP7N2hsFTTxMC/jMu2D/8GAlMQfxeuppcPuCUk/HO3fpIvA=="],
 
     "@edge-runtime/vm": ["@edge-runtime/vm@5.0.0", "", { "dependencies": { "@edge-runtime/primitives": "6.0.0" } }, "sha512-NKBGBSIKUG584qrS1tyxVpX/AKJKQw5HgjYEnPLC0QsTw79JrGn+qUr8CXFb955Iy7GUdiiUv1rJ6JBGvaKb6w=="],
+
+    "@effect-native/fetch-hooks": ["@effect-native/fetch-hooks@0.0.2", "", { "peerDependencies": { "bun": ">=1.0.0" }, "optionalPeers": ["bun"] }, "sha512-R7FmTYKH6Lqf04Krr/de8SAkbdNpHVHKL/oJva1bef4+NK/C3m5L+SzKFijh8rnDlebScKunSV6Mj1OLbLJiAQ=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.8", "", { "os": "aix", "cpu": "ppc64" }, "sha512-urAvrUedIqEiFR3FYSLTWQgLu5tb+m0qZw0NBEasUeo6wuqatkMDaRT+1uABiGXEu5vqgPd7FGE1BhsAIy9QVA=="],
 
