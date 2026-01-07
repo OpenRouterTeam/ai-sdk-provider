@@ -119,6 +119,23 @@ export interface OpenRouterModelSettings {
  * // Image model
  * const image = openrouter.imageModel('openai/dall-e-3');
  * ```
+ *
+ * @example Model variants
+ * ```ts
+ * const openrouter = createOpenRouter();
+ *
+ * // Online search variant - model has web search capabilities
+ * const online = openrouter('anthropic/claude-3.5-sonnet:online');
+ *
+ * // Nitro variant - faster inference
+ * const nitro = openrouter('anthropic/claude-3.5-sonnet:nitro');
+ *
+ * // Floor pricing variant - routes to cheapest provider
+ * const floor = openrouter('anthropic/claude-3.5-sonnet:floor');
+ *
+ * // Free tier variant
+ * const free = openrouter('meta-llama/llama-3-8b-instruct:free');
+ * ```
  */
 export function createOpenRouter(
   options: OpenRouterProviderSettings = {}
