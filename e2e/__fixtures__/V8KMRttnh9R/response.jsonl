@@ -1,0 +1,39 @@
+{"comment":": OPENROUTER PROCESSING\n\n"}
+{"delay_ms":1}
+{"json":{"type":"response.created","response":{"object":"response","id":"gen-1767766553-qwdDLp949XpYdxGzLnxu","created_at":1767766553,"status":"in_progress","error":null,"output_text":"","output":[],"model":"anthropic/claude-sonnet-4","incomplete_details":null,"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":0}}
+{"delay_ms":0}
+{"json":{"type":"response.in_progress","response":{"object":"response","id":"gen-1767766553-qwdDLp949XpYdxGzLnxu","created_at":1767766553,"status":"in_progress","error":null,"output_text":"","output":[],"model":"anthropic/claude-sonnet-4","incomplete_details":null,"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":1}}
+{"delay_ms":3}
+{"json":{"type":"response.output_item.added","output_index":0,"item":{"type":"message","status":"in_progress","content":[],"id":"msg_tmp_weq0lfe673a","role":"assistant"},"sequence_number":2}}
+{"delay_ms":0}
+{"json":{"type":"response.content_part.added","item_id":"msg_tmp_weq0lfe673a","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""},"sequence_number":3}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":"I","sequence_number":4}}
+{"delay_ms":107}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":" counte","sequence_number":5}}
+{"delay_ms":60}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":"d the","sequence_number":6}}
+{"delay_ms":58}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":" \"","sequence_number":7}}
+{"delay_ms":207}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":"a\" characters","sequence_number":8}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":" in your","sequence_number":9}}
+{"delay_ms":16}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":" message an","sequence_number":10}}
+{"delay_ms":97}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":"d found 10","sequence_number":11}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":",","sequence_number":12}}
+{"delay_ms":268}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_weq0lfe673a","content_index":0,"delta":"000 of them.","sequence_number":13}}
+{"delay_ms":39}
+{"json":{"type":"response.output_text.done","item_id":"msg_tmp_weq0lfe673a","output_index":0,"content_index":0,"text":"I counted the \"a\" characters in your message and found 10,000 of them.","logprobs":[],"sequence_number":14}}
+{"delay_ms":0}
+{"json":{"type":"response.content_part.done","item_id":"msg_tmp_weq0lfe673a","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":"I counted the \"a\" characters in your message and found 10,000 of them."},"sequence_number":15}}
+{"delay_ms":0}
+{"json":{"type":"response.output_item.done","output_index":0,"item":{"type":"message","status":"completed","content":[{"type":"output_text","text":"I counted the \"a\" characters in your message and found 10,000 of them.","annotations":[]}],"id":"msg_tmp_weq0lfe673a","role":"assistant"},"sequence_number":16}}
+{"delay_ms":0}
+{"json":{"type":"response.completed","response":{"object":"response","id":"gen-1767766553-qwdDLp949XpYdxGzLnxu","created_at":1767766553,"model":"anthropic/claude-sonnet-4","status":"completed","output":[{"type":"message","status":"completed","content":[{"type":"output_text","text":"I counted the \"a\" characters in your message and found 10,000 of them.","annotations":[]}],"id":"msg_tmp_weq0lfe673a","role":"assistant"}],"output_text":"","error":null,"incomplete_details":null,"usage":{"input_tokens":1421,"input_tokens_details":{"cached_tokens":0},"output_tokens":23,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":1444,"cost":0.004608,"is_byok":false,"cost_details":{"upstream_inference_cost":null,"upstream_inference_input_cost":0.004263,"upstream_inference_output_cost":0.000345}},"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":17}}
+{"delay_ms":0}
+{"text":"[DONE]"}

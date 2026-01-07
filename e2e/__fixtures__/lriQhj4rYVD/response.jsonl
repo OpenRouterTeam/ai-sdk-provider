@@ -1,0 +1,178 @@
+{"comment":": OPENROUTER PROCESSING\n\n"}
+{"comment":": OPENROUTER PROCESSING\n\n"}
+{"comment":": OPENROUTER PROCESSING\n\n"}
+{"delay_ms":8}
+{"json":{"type":"response.created","response":{"object":"response","id":"gen-1767766553-h66zgu8MRS9giSIUi4Gc","created_at":1767766554,"status":"in_progress","error":null,"output_text":"","output":[],"model":"anthropic/claude-3.5-sonnet","incomplete_details":null,"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":0}}
+{"json":{"type":"response.in_progress","response":{"object":"response","id":"gen-1767766553-h66zgu8MRS9giSIUi4Gc","created_at":1767766554,"status":"in_progress","error":null,"output_text":"","output":[],"model":"anthropic/claude-3.5-sonnet","incomplete_details":null,"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":1}}
+{"delay_ms":4}
+{"json":{"type":"response.output_item.added","output_index":0,"item":{"type":"message","status":"in_progress","content":[],"id":"msg_tmp_4eleqkhrsjr","role":"assistant"},"sequence_number":2}}
+{"delay_ms":0}
+{"json":{"type":"response.content_part.added","item_id":"msg_tmp_4eleqkhrsjr","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":""},"sequence_number":3}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"The","sequence_number":4}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" most","sequence_number":5}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" recent SpaceX","sequence_number":6}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" launch I","sequence_number":7}}
+{"delay_ms":1}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" can confidently discuss","sequence_number":8}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" occurre","sequence_number":9}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"d on March","sequence_number":10}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" 3","sequence_number":11}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":", 2024","sequence_number":12}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":",","sequence_number":13}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" when a","sequence_number":14}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Falcon 9","sequence_number":15}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" rocket launche","sequence_number":16}}
+{"delay_ms":37}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"d ","sequence_number":17}}
+{"delay_ms":55}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"24","sequence_number":18}}
+{"delay_ms":67}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Starlink","sequence_number":19}}
+{"delay_ms":71}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" satellites from Space","sequence_number":20}}
+{"delay_ms":49}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Launch Complex 40","sequence_number":21}}
+{"delay_ms":70}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" at Cape","sequence_number":22}}
+{"delay_ms":56}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Canaveral Space","sequence_number":23}}
+{"delay_ms":103}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Force Station in Florida","sequence_number":24}}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":". The mission","sequence_number":25}}
+{"delay_ms":69}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" was called Star","sequence_number":26}}
+{"delay_ms":183}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"link Group","sequence_number":27}}
+{"delay_ms":6}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" 7","sequence_number":28}}
+{"delay_ms":6}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"-","sequence_number":29}}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"16","sequence_number":30}}
+{"delay_ms":213}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".","sequence_number":31}}
+{"delay_ms":9}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n\nHowever","sequence_number":32}}
+{"delay_ms":1}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":", since","sequence_number":33}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" I have","sequence_number":34}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" a","sequence_number":35}}
+{"delay_ms":128}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" knowledge","sequence_number":36}}
+{"delay_ms":3}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" cut","sequence_number":37}}
+{"delay_ms":1}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"off date","sequence_number":38}}
+{"delay_ms":36}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" an","sequence_number":39}}
+{"delay_ms":89}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"d Sp","sequence_number":40}}
+{"delay_ms":3}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"aceX condu","sequence_number":41}}
+{"delay_ms":40}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"cts frequent","sequence_number":42}}
+{"delay_ms":136}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" launches, there may","sequence_number":43}}
+{"delay_ms":3}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" have","sequence_number":44}}
+{"delay_ms":1}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" been more","sequence_number":45}}
+{"delay_ms":38}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" recent launches that","sequence_number":46}}
+{"delay_ms":135}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" I'm not aware","sequence_number":47}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" of. I","sequence_number":48}}
+{"delay_ms":86}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" recommen","sequence_number":49}}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"d checking:","sequence_number":50}}
+{"delay_ms":144}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n\n1","sequence_number":51}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".","sequence_number":52}}
+{"delay_ms":1}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" SpaceX's","sequence_number":53}}
+{"delay_ms":91}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" official","sequence_number":54}}
+{"delay_ms":5}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" website (","sequence_number":55}}
+{"delay_ms":98}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"www.spacex","sequence_number":56}}
+{"delay_ms":2}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".com)","sequence_number":57}}
+{"delay_ms":96}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n2. NASA","sequence_number":58}}
+{"delay_ms":13}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"'s launch","sequence_number":59}}
+{"delay_ms":92}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" schedule","sequence_number":60}}
+{"delay_ms":74}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" (www.nasa","sequence_number":61}}
+{"delay_ms":45}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".gov/la","sequence_number":62}}
+{"delay_ms":127}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"unchschedule","sequence_number":63}}
+{"delay_ms":6}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":")\n3.","sequence_number":64}}
+{"delay_ms":98}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" SpaceX's official","sequence_number":65}}
+{"delay_ms":92}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" Twitter/","sequence_number":66}}
+{"delay_ms":3}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"X","sequence_number":67}}
+{"delay_ms":107}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" account (@","sequence_number":68}}
+{"delay_ms":59}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"SpaceX)","sequence_number":69}}
+{"delay_ms":128}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n\nFor the most","sequence_number":70}}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" up-to-","sequence_number":71}}
+{"delay_ms":64}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"date information","sequence_number":72}}
+{"delay_ms":92}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" about","sequence_number":73}}
+{"delay_ms":43}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" their latest","sequence_number":74}}
+{"delay_ms":224}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":" launch","sequence_number":75}}
+{"delay_ms":12}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".","sequence_number":76}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n\nSources","sequence_number":77}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":":","sequence_number":78}}
+{"delay_ms":149}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"\n- SpaceX","sequence_number":79}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":".","sequence_number":80}}
+{"delay_ms":0}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"com\n- Sp","sequence_number":81}}
+{"delay_ms":33}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"acefl","sequence_number":82}}
+{"delay_ms":40}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"ightNow.","sequence_number":83}}
+{"delay_ms":92}
+{"json":{"type":"response.output_text.delta","logprobs":[],"output_index":0,"item_id":"msg_tmp_4eleqkhrsjr","content_index":0,"delta":"com","sequence_number":84}}
+{"delay_ms":13}
+{"json":{"type":"response.output_text.done","item_id":"msg_tmp_4eleqkhrsjr","output_index":0,"content_index":0,"text":"The most recent SpaceX launch I can confidently discuss occurred on March 3, 2024, when a Falcon 9 rocket launched 24 Starlink satellites from Space Launch Complex 40 at Cape Canaveral Space Force Station in Florida. The mission was called Starlink Group 7-16.\n\nHowever, since I have a knowledge cutoff date and SpaceX conducts frequent launches, there may have been more recent launches that I'm not aware of. I recommend checking:\n\n1. SpaceX's official website (www.spacex.com)\n2. NASA's launch schedule (www.nasa.gov/launchschedule)\n3. SpaceX's official Twitter/X account (@SpaceX)\n\nFor the most up-to-date information about their latest launch.\n\nSources:\n- SpaceX.com\n- SpaceflightNow.com","logprobs":[],"sequence_number":85}}
+{"delay_ms":0}
+{"json":{"type":"response.content_part.done","item_id":"msg_tmp_4eleqkhrsjr","output_index":0,"content_index":0,"part":{"type":"output_text","annotations":[],"text":"The most recent SpaceX launch I can confidently discuss occurred on March 3, 2024, when a Falcon 9 rocket launched 24 Starlink satellites from Space Launch Complex 40 at Cape Canaveral Space Force Station in Florida. The mission was called Starlink Group 7-16.\n\nHowever, since I have a knowledge cutoff date and SpaceX conducts frequent launches, there may have been more recent launches that I'm not aware of. I recommend checking:\n\n1. SpaceX's official website (www.spacex.com)\n2. NASA's launch schedule (www.nasa.gov/launchschedule)\n3. SpaceX's official Twitter/X account (@SpaceX)\n\nFor the most up-to-date information about their latest launch.\n\nSources:\n- SpaceX.com\n- SpaceflightNow.com"},"sequence_number":86}}
+{"delay_ms":0}
+{"json":{"type":"response.output_item.done","output_index":0,"item":{"type":"message","status":"completed","content":[{"type":"output_text","text":"The most recent SpaceX launch I can confidently discuss occurred on March 3, 2024, when a Falcon 9 rocket launched 24 Starlink satellites from Space Launch Complex 40 at Cape Canaveral Space Force Station in Florida. The mission was called Starlink Group 7-16.\n\nHowever, since I have a knowledge cutoff date and SpaceX conducts frequent launches, there may have been more recent launches that I'm not aware of. I recommend checking:\n\n1. SpaceX's official website (www.spacex.com)\n2. NASA's launch schedule (www.nasa.gov/launchschedule)\n3. SpaceX's official Twitter/X account (@SpaceX)\n\nFor the most up-to-date information about their latest launch.\n\nSources:\n- SpaceX.com\n- SpaceflightNow.com","annotations":[]}],"id":"msg_tmp_4eleqkhrsjr","role":"assistant"},"sequence_number":87}}
+{"delay_ms":0}
+{"json":{"type":"response.completed","response":{"object":"response","id":"gen-1767766553-h66zgu8MRS9giSIUi4Gc","created_at":1767766554,"model":"anthropic/claude-3.5-sonnet","status":"completed","output":[{"type":"message","status":"completed","content":[{"type":"output_text","text":"The most recent SpaceX launch I can confidently discuss occurred on March 3, 2024, when a Falcon 9 rocket launched 24 Starlink satellites from Space Launch Complex 40 at Cape Canaveral Space Force Station in Florida. The mission was called Starlink Group 7-16.\n\nHowever, since I have a knowledge cutoff date and SpaceX conducts frequent launches, there may have been more recent launches that I'm not aware of. I recommend checking:\n\n1. SpaceX's official website (www.spacex.com)\n2. NASA's launch schedule (www.nasa.gov/launchschedule)\n3. SpaceX's official Twitter/X account (@SpaceX)\n\nFor the most up-to-date information about their latest launch.\n\nSources:\n- SpaceX.com\n- SpaceflightNow.com","annotations":[]}],"id":"msg_tmp_4eleqkhrsjr","role":"assistant"}],"output_text":"","error":null,"incomplete_details":null,"usage":{"input_tokens":19,"input_tokens_details":{"cached_tokens":0},"output_tokens":200,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":219,"cost":0.006114,"is_byok":false,"cost_details":{"upstream_inference_cost":null,"upstream_inference_input_cost":0.000114,"upstream_inference_output_cost":0.006}},"max_tool_calls":null,"tools":[],"tool_choice":"auto","parallel_tool_calls":true,"max_output_tokens":null,"temperature":null,"top_p":null,"metadata":{},"background":false,"previous_response_id":null,"service_tier":"auto","truncation":null,"store":false,"instructions":null,"reasoning":null,"safety_identifier":null,"prompt_cache_key":null,"user":null},"sequence_number":88}}
+{"delay_ms":2}
+{"text":"[DONE]"}

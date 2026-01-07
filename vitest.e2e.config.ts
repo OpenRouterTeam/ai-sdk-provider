@@ -13,6 +13,7 @@ export default defineConfig(() => ({
     globals: true,
     env: config({ path: envPath.pathname }).parsed,
     include: ['./e2e/**/*.test.ts'],
+    setupFiles: ['./e2e/setup.ts'],
   },
   define: {
     __PACKAGE_VERSION__: JSON.stringify(packageJson.version),

@@ -1,5 +1,5 @@
 import { stepCountIs, streamText, tool } from 'ai';
-import { describe, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { writeOutputJsonFile } from '@/e2e/utils';
 import { createOpenRouter } from '@/src';

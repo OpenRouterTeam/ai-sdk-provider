@@ -1,0 +1,28 @@
+{
+  "status": 200,
+  "statusText": "OK",
+  "headers": {
+    "accept-ranges": "bytes",
+    "alt-svc": "h3=\":443\"; ma=86400",
+    "cf-cache-status": "DYNAMIC",
+    "cf-ray": "9ba152c16f3742fa-MIA",
+    "connection": "keep-alive",
+    "content-length": "184292",
+    "content-security-policy": "script-src 'self' www.google-analytics.com blockchain.info static.moonpay.com 'unsafe-eval' 'unsafe-inline'",
+    "content-type": "application/pdf",
+    "date": "Wed, 07 Jan 2026 06:15:53 GMT",
+    "etag": "\"68f00115-2cfe4\"",
+    "last-modified": "Wed, 15 Oct 2025 20:16:21 GMT",
+    "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+    "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=vrq6pJ6Y6HmHNeQNu9QqUjnyssLn1JKyno89%2BwtIPf13CO%2FqTPDJU54cQOlUKRDjaJQPjVGIiLzBF%2Fmm0iXDP5hc%2F25S3esoMEVK\"}]}",
+    "server": "cloudflare",
+    "strict-transport-security": "max-age=31536000; includeSubDomains; preload"
+  },
+  "ttfb_ms": 0,
+  "total_ms": 802,
+  "is_sse": false,
+  "is_binary": true,
+  "cached_at": "2026-01-07T06:15:53.917Z",
+  "size": 184292,
+  "content_type": "application/pdf"
+}

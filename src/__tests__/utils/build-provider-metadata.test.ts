@@ -1,0 +1,200 @@
+import type {
+  OpenRouterProviderMetadata,
+  OpenRouterResponseData,
+} from '../../utils/build-provider-metadata.js';
+
+import { describe, expect, it } from 'vitest';
+import { buildProviderMetadata } from '../../utils/build-provider-metadata.js';
+
+describe('buildProviderMetadata', () => {
+  // Helper to extract typed metadata
+  const getOpenRouterMetadata = (
+    result: Record<string, unknown> | undefined,
+  ): OpenRouterProviderMetadata | undefined => {
+    return result?.openrouter as OpenRouterProviderMetadata | undefined;
+  };
+
+  it('should extract responseId from response id', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123abc',
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.responseId).toBe('resp_123abc');
+  });
+
+  it('should extract provider from response', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      provider: 'anthropic',
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.provider).toBe('anthropic');
+  });
+
+  it('should map usage.promptTokens from promptTokens', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.promptTokens).toBe(100);
+  });
+
+  it('should map usage.completionTokens from completionTokens', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.completionTokens).toBe(50);
+  });
+
+  it('should map usage.totalTokens from totalTokens', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.totalTokens).toBe(150);
+  });
+
+  it('should map promptTokensDetails.cachedTokens from promptTokensDetails', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        promptTokensDetails: {
+          cachedTokens: 25,
+        },
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.promptTokensDetails?.cachedTokens).toBe(25);
+  });
+
+  it('should map completionTokensDetails.reasoningTokens from completionTokensDetails', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        completionTokensDetails: {
+          reasoningTokens: 30,
+        },
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.completionTokensDetails?.reasoningTokens).toBe(30);
+  });
+
+  it('should include cost when available', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        cost: 0.0015,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.cost).toBe(0.0015);
+  });
+
+  it('should omit cost when not available', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.cost).toBeUndefined();
+  });
+
+  it('should include isByok flag', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        isByok: true,
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.isByok).toBe(true);
+  });
+
+  it('should include costDetails when available', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+      usage: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        costDetails: {
+          input_cost: 0.001,
+          output_cost: 0.0005,
+        },
+      },
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.usage?.costDetails).toEqual({
+      input_cost: 0.001,
+      output_cost: 0.0005,
+    });
+  });
+
+  it('should return undefined for undefined response', () => {
+    const result = buildProviderMetadata(undefined);
+    expect(result).toBeUndefined();
+  });
+
+  it('should handle response with only id', () => {
+    const response: OpenRouterResponseData = {
+      id: 'resp_123',
+    };
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    expect(metadata?.responseId).toBe('resp_123');
+    expect(metadata?.usage).toBeUndefined();
+  });
+
+  it('should handle empty response object', () => {
+    const response: OpenRouterResponseData = {};
+    const result = buildProviderMetadata(response);
+    const metadata = getOpenRouterMetadata(result);
+    // Should return metadata but with undefined fields
+    expect(metadata).toBeDefined();
+    expect(metadata?.responseId).toBeUndefined();
+  });
+});

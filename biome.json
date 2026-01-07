@@ -2,7 +2,7 @@
   "$schema": "https://biomejs.dev/schemas/2.3.7/schema.json",
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!!**/reference"]
+    "includes": ["**", "!!**/reference", "!!**/*.jsonl", "!!e2e/__fixtures__"]
   },
   "vcs": {
     "enabled": true,
@@ -101,6 +101,16 @@
           "suspicious": {
             "noConsole": "off",
             "noExplicitAny": "warn"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["scripts/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
           }
         }
       }

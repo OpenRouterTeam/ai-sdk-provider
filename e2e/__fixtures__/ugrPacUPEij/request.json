@@ -1,0 +1,7 @@
+{
+  "url": "data:application/pdf;base64,__sidecar:0001.pdf__",
+  "method": "GET",
+  "headers": {
+    "user-agent": "ai-sdk/6.0.14 runtime/node.js/24"
+  }
+}
