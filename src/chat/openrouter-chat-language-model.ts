@@ -2,9 +2,11 @@ import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3Content,
+  LanguageModelV3FunctionTool,
   LanguageModelV3GenerateResult,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
+  LanguageModelV3ToolChoice,
   SharedV3Warning,
 } from '@ai-sdk/provider';
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
@@ -12,6 +14,8 @@ import { OpenRouter } from '@openrouter/sdk';
 import type {
   OpenResponsesRequest,
   OpenResponsesNonStreamingResponse,
+  OpenResponsesRequestToolFunction,
+  OpenAIResponsesToolChoiceUnion,
 } from '@openrouter/sdk/models';
 
 /**
@@ -107,6 +111,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert messages to OpenRouter Responses API format
     const openRouterInput = convertToOpenRouterMessages(options.prompt);
 
+    // Convert tools to Responses API format
+    const tools = convertToolsToResponsesFormat(options.tools, warnings);
+
+    // Convert toolChoice to Responses API format
+    const toolChoice = convertToolChoiceToResponsesFormat(options.toolChoice);
+
     // Build request parameters for Responses API (non-streaming)
     const requestParams: OpenResponsesRequest & { stream: false } = {
       model: this.modelId,
@@ -119,6 +129,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         temperature: options.temperature,
       }),
       ...(options.topP !== undefined && { topP: options.topP }),
+      ...(tools.length > 0 && { tools }),
+      ...(toolChoice !== undefined && { toolChoice }),
     };
 
     // Make the non-streaming request using Responses API
@@ -646,4 +658,71 @@ function transformChunk(
   }
 
   return parts;
+}
+
+/**
+ * Convert AI SDK tools to OpenRouter Responses API format.
+ * Only 'function' type tools are supported.
+ */
+function convertToolsToResponsesFormat(
+  tools: LanguageModelV3CallOptions['tools'],
+  warnings: SharedV3Warning[]
+): OpenResponsesRequestToolFunction[] {
+  if (!tools || tools.length === 0) {
+    return [];
+  }
+
+  return tools
+    .map((tool): OpenResponsesRequestToolFunction | null => {
+      if (tool.type !== 'function') {
+        warnings.push({
+          type: 'unsupported',
+          feature: `tool type '${tool.type}'`,
+          details: `Only 'function' type tools are supported. Tool '${(tool as { name?: string }).name ?? 'unknown'}' has type '${tool.type}'.`,
+        });
+        return null;
+      }
+
+      const functionTool = tool as LanguageModelV3FunctionTool;
+      return {
+        type: 'function',
+        name: functionTool.name,
+        description: functionTool.description ?? null,
+        parameters: functionTool.inputSchema as { [k: string]: unknown } | null,
+      };
+    })
+    .filter((tool): tool is OpenResponsesRequestToolFunction => tool !== null);
+}
+
+/**
+ * Convert AI SDK toolChoice to OpenRouter Responses API format.
+ *
+ * Mapping:
+ * - 'auto' -> 'auto'
+ * - 'none' -> 'none'
+ * - 'required' -> 'required'
+ * - { type: 'tool', toolName } -> { type: 'function', name: toolName }
+ */
+function convertToolChoiceToResponsesFormat(
+  toolChoice: LanguageModelV3ToolChoice | undefined
+): OpenAIResponsesToolChoiceUnion | undefined {
+  if (!toolChoice) {
+    return undefined;
+  }
+
+  switch (toolChoice.type) {
+    case 'auto':
+      return 'auto';
+    case 'none':
+      return 'none';
+    case 'required':
+      return 'required';
+    case 'tool':
+      return {
+        type: 'function',
+        name: toolChoice.toolName,
+      };
+    default:
+      return undefined;
+  }
 }
