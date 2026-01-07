@@ -78,6 +78,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert toolChoice to Responses API format
     const toolChoice = convertToolChoiceToResponsesFormat(options.toolChoice);
 
+    // Convert responseFormat to Responses API text.format
+    const text = convertResponseFormatToText(options.responseFormat);
+
     // Build request parameters for Responses API (non-streaming)
     const requestParams: OpenResponsesRequest & { stream: false } = {
       model: this.modelId,
@@ -92,6 +95,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(options.topP !== undefined && { topP: options.topP }),
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
+      ...(text !== undefined && { text }),
     };
 
     // Make the non-streaming request using Responses API
@@ -275,6 +279,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert toolChoice to Responses API format
     const toolChoice = convertToolChoiceToResponsesFormat(options.toolChoice);
 
+    // Convert responseFormat to Responses API text.format
+    const text = convertResponseFormatToText(options.responseFormat);
+
     // Build request parameters for Responses API (streaming)
     const requestParams: OpenResponsesRequest & { stream: true } = {
       model: this.modelId,
@@ -289,6 +296,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(options.topP !== undefined && { topP: options.topP }),
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
+      ...(text !== undefined && { text }),
     };
 
     // Make the streaming request using Responses API
@@ -828,4 +836,46 @@ function convertToolChoiceToResponsesFormat(
     default:
       return undefined;
   }
+}
+
+/**
+ * Convert AI SDK responseFormat to OpenRouter Responses API text.format.
+ *
+ * Mapping:
+ * - { type: 'text' } -> { type: 'text' }
+ * - { type: 'json' } -> { type: 'json_object' } (no schema)
+ * - { type: 'json', schema, name } -> { type: 'json_schema', name, schema } (with schema)
+ */
+function convertResponseFormatToText(
+  responseFormat: LanguageModelV3CallOptions['responseFormat']
+): OpenResponsesRequest['text'] | undefined {
+  if (!responseFormat) {
+    return undefined;
+  }
+
+  if (responseFormat.type === 'text') {
+    return {
+      format: { type: 'text' },
+    };
+  }
+
+  if (responseFormat.type === 'json') {
+    // If a schema is provided, use json_schema format
+    if (responseFormat.schema) {
+      return {
+        format: {
+          type: 'json_schema',
+          name: responseFormat.name ?? 'response',
+          description: responseFormat.description,
+          schema: responseFormat.schema as { [k: string]: unknown },
+        },
+      };
+    }
+    // No schema - use simple json_object format
+    return {
+      format: { type: 'json_object' },
+    };
+  }
+
+  return undefined;
 }
