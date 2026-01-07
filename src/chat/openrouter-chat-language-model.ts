@@ -17,6 +17,7 @@ import type {
   OpenResponsesRequestToolFunction,
   OpenResponsesStreamEvent,
 } from '@openrouter/sdk/models';
+import type { OpenRouterModelOptions } from '../openrouter-config.js';
 import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import type { ReasoningOutputItem } from './extract-reasoning-details.js';
 
@@ -24,6 +25,7 @@ import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
+import { parseOpenRouterOptions } from '../utils/parse-provider-options.js';
 import { convertToOpenRouterMessages } from './convert-to-openrouter-messages.js';
 import {
   buildReasoningProviderMetadata,
@@ -31,6 +33,42 @@ import {
   hasEncryptedReasoning,
 } from './extract-reasoning-details.js';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason.js';
+
+/**
+ * Build model options parameters for the API request.
+ * Merges model-level options with call-time providerOptions.
+ * Call-time options override model-level options.
+ */
+function buildModelOptionsParams(
+  modelOptions: OpenRouterModelOptions | undefined,
+  providerOptions: Record<string, unknown> | undefined,
+): Omit<Partial<OpenResponsesRequest>, 'model' | 'input' | 'stream'> {
+  const { options: mergedOptions } = parseOpenRouterOptions(
+    modelOptions,
+    providerOptions?.openrouter as Record<string, unknown> | undefined,
+  );
+
+  return {
+    ...(mergedOptions.reasoning !== undefined && {
+      reasoning: mergedOptions.reasoning as OpenResponsesRequest['reasoning'],
+    }),
+    ...(mergedOptions.provider !== undefined && {
+      provider: mergedOptions.provider as OpenResponsesRequest['provider'],
+    }),
+    ...(mergedOptions.models !== undefined && {
+      models: mergedOptions.models,
+    }),
+    ...(mergedOptions.transforms !== undefined && {
+      transforms: mergedOptions.transforms,
+    }),
+    ...(mergedOptions.plugins !== undefined && {
+      plugins: mergedOptions.plugins as OpenResponsesRequest['plugins'],
+    }),
+    ...(mergedOptions.route !== undefined && {
+      route: mergedOptions.route,
+    }),
+  };
+}
 
 /**
  * OpenRouter chat language model implementing AI SDK V3 LanguageModelV3 interface.
@@ -82,8 +120,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert responseFormat to Responses API text.format
     const text = convertResponseFormatToText(options.responseFormat);
 
-    // Extract model options from settings
-    const modelOptions = this.settings.modelOptions;
+    // Build model options params (merges model-level and call-time options)
+    const modelOptionsParams = buildModelOptionsParams(
+      this.settings.modelOptions,
+      options.providerOptions,
+    );
 
     // Build request parameters for Responses API (non-streaming)
     const requestParams: OpenResponsesRequest & { stream: false } = {
@@ -100,25 +141,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
       ...(text !== undefined && { text }),
-      // Forward model options from settings
-      ...(modelOptions?.reasoning !== undefined && {
-        reasoning: modelOptions.reasoning as OpenResponsesRequest['reasoning'],
-      }),
-      ...(modelOptions?.provider !== undefined && {
-        provider: modelOptions.provider as OpenResponsesRequest['provider'],
-      }),
-      ...(modelOptions?.models !== undefined && {
-        models: modelOptions.models,
-      }),
-      ...(modelOptions?.transforms !== undefined && {
-        transforms: modelOptions.transforms,
-      }),
-      ...(modelOptions?.plugins !== undefined && {
-        plugins: modelOptions.plugins as OpenResponsesRequest['plugins'],
-      }),
-      ...(modelOptions?.route !== undefined && {
-        route: modelOptions.route,
-      }),
+      ...modelOptionsParams,
     };
 
     // Make the non-streaming request using Responses API
@@ -306,8 +329,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // Convert responseFormat to Responses API text.format
     const text = convertResponseFormatToText(options.responseFormat);
 
-    // Extract model options from settings
-    const modelOptions = this.settings.modelOptions;
+    // Build model options params (merges model-level and call-time options)
+    const modelOptionsParams = buildModelOptionsParams(
+      this.settings.modelOptions,
+      options.providerOptions,
+    );
 
     // Build request parameters for Responses API (streaming)
     const requestParams: OpenResponsesRequest & { stream: true } = {
@@ -324,25 +350,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ...(tools.length > 0 && { tools }),
       ...(toolChoice !== undefined && { toolChoice }),
       ...(text !== undefined && { text }),
-      // Forward model options from settings
-      ...(modelOptions?.reasoning !== undefined && {
-        reasoning: modelOptions.reasoning as OpenResponsesRequest['reasoning'],
-      }),
-      ...(modelOptions?.provider !== undefined && {
-        provider: modelOptions.provider as OpenResponsesRequest['provider'],
-      }),
-      ...(modelOptions?.models !== undefined && {
-        models: modelOptions.models,
-      }),
-      ...(modelOptions?.transforms !== undefined && {
-        transforms: modelOptions.transforms,
-      }),
-      ...(modelOptions?.plugins !== undefined && {
-        plugins: modelOptions.plugins as OpenResponsesRequest['plugins'],
-      }),
-      ...(modelOptions?.route !== undefined && {
-        route: modelOptions.route,
-      }),
+      ...modelOptionsParams,
     };
 
     // Make the streaming request using Responses API

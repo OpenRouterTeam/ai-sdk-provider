@@ -307,5 +307,96 @@ describe('OpenRouterChatLanguageModel', () => {
       expect(body).not.toHaveProperty('models');
       expect(body).not.toHaveProperty('transforms');
     });
+
+    it('should forward plugins option from model settings to request', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        modelOptions: {
+          plugins: [{ id: 'web-search' }],
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes plugins config
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('plugins');
+      expect(body.plugins).toEqual([{ id: 'web-search' }]);
+    });
+
+    it('should forward route option from model settings to request', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        modelOptions: {
+          route: 'fallback',
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes route config
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('route');
+      expect(body.route).toEqual('fallback');
+    });
+
+    it('should merge call-time providerOptions with model options (call-time wins)', async () => {
+      const model = new OpenRouterChatLanguageModel('google/gemini-3-flash', {
+        ...createTestSettings(),
+        modelOptions: {
+          reasoning: { effort: 'low' },
+          route: 'fallback',
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+        providerOptions: {
+          openrouter: {
+            reasoning: { effort: 'high' },
+          },
+        },
+      });
+
+      // Call-time 'high' should override model-time 'low'
+      // Model-time 'route' should be preserved
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('reasoning');
+      expect(body.reasoning).toEqual({ effort: 'high' });
+      expect(body).toHaveProperty('route');
+      expect(body.route).toEqual('fallback');
+    });
+
+    it('should apply call-time providerOptions when no model options set', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        // No modelOptions
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+        providerOptions: {
+          openrouter: {
+            plugins: [{ id: 'code-interpreter' }],
+            route: 'fallback',
+          },
+        },
+      });
+
+      // Call-time options should be applied
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('plugins');
+      expect(body.plugins).toEqual([{ id: 'code-interpreter' }]);
+      expect(body).toHaveProperty('route');
+      expect(body.route).toEqual('fallback');
+    });
   });
 });
