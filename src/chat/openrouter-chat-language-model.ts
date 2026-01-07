@@ -157,15 +157,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     );
 
     // Build provider metadata
+    // Note: The SDK types don't include 'provider' but the API returns it
     const providerMetadata = buildProviderMetadata({
       id: response.id,
-      usage: response.usage
-        ? {
-            prompt_tokens: response.usage.promptTokens,
-            completion_tokens: response.usage.completionTokens,
-            total_tokens: response.usage.totalTokens,
-          }
-        : undefined,
+      provider: (response as typeof response & { provider?: string }).provider,
+      usage: response.usage,
     });
 
     return {
@@ -241,10 +237,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     let responseId: string | undefined;
     let responseModel: string | undefined;
     let responseCreated: number | undefined;
+    let responseProvider: string | undefined;
     let textStarted = false;
-    let textId = 'text-0';
+    const textId = 'text-0';
     let reasoningStarted = false;
-    let reasoningId = 'reasoning-0';
+    const reasoningId = 'reasoning-0';
+    let finishReason: string | null | undefined;
+    let textEnded = false;
+    let reasoningEnded = false;
 
     // Transform the EventStream to AI SDK V3 stream parts
     const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
@@ -270,6 +270,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               setResponseCreated: (created: number) => {
                 responseCreated = created;
               },
+              getResponseProvider: () => responseProvider,
+              setResponseProvider: (provider: string) => {
+                responseProvider = provider;
+              },
+              getFinishReason: () => finishReason,
+              setFinishReason: (reason: string | null) => {
+                finishReason = reason;
+              },
               getTextStarted: () => textStarted,
               setTextStarted: (started: boolean) => {
                 textStarted = started;
@@ -280,6 +288,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 reasoningStarted = started;
               },
               getReasoningId: () => reasoningId,
+              getTextEnded: () => textEnded,
+              setTextEnded: (ended: boolean) => {
+                textEnded = ended;
+              },
+              getReasoningEnded: () => reasoningEnded,
+              setReasoningEnded: (ended: boolean) => {
+                reasoningEnded = ended;
+              },
             });
 
             for (const part of parts) {
@@ -313,12 +329,20 @@ interface StreamState {
   setResponseModel: (model: string) => void;
   getResponseCreated: () => number | undefined;
   setResponseCreated: (created: number) => void;
+  getResponseProvider: () => string | undefined;
+  setResponseProvider: (provider: string) => void;
   getTextStarted: () => boolean;
   setTextStarted: (started: boolean) => void;
   getTextId: () => string;
   getReasoningStarted: () => boolean;
   setReasoningStarted: (started: boolean) => void;
   getReasoningId: () => string;
+  getFinishReason: () => string | null | undefined;
+  setFinishReason: (reason: string | null) => void;
+  getTextEnded: () => boolean;
+  setTextEnded: (ended: boolean) => void;
+  getReasoningEnded: () => boolean;
+  setReasoningEnded: (ended: boolean) => void;
 }
 
 /**
@@ -331,6 +355,9 @@ function transformChunk(
   const parts: LanguageModelV3StreamPart[] = [];
 
   // Capture response metadata
+  // Note: The SDK types don't include 'provider' but the API returns it on each chunk
+  const chunkWithProvider = chunk as typeof chunk & { provider?: string };
+
   if (chunk.id && !state.getResponseId()) {
     state.setResponseId(chunk.id);
   }
@@ -339,6 +366,9 @@ function transformChunk(
   }
   if (chunk.created && !state.getResponseCreated()) {
     state.setResponseCreated(chunk.created);
+  }
+  if (chunkWithProvider.provider && !state.getResponseProvider()) {
+    state.setResponseProvider(chunkWithProvider.provider);
   }
 
   // Process choices
@@ -387,67 +417,65 @@ function transformChunk(
       }
     }
 
-    // Handle finish reason
-    if (choice.finishReason !== null) {
-      // End text if started
-      if (state.getTextStarted()) {
+    // Handle finish reason - record it but don't emit finish yet (usage comes in separate chunk)
+    if (choice.finishReason !== null && !state.getFinishReason()) {
+      state.setFinishReason(choice.finishReason);
+
+      // End text if started and not ended
+      if (state.getTextStarted() && !state.getTextEnded()) {
+        state.setTextEnded(true);
         parts.push({
           type: 'text-end',
           id: state.getTextId(),
         });
       }
 
-      // End reasoning if started
-      if (state.getReasoningStarted()) {
+      // End reasoning if started and not ended
+      if (state.getReasoningStarted() && !state.getReasoningEnded()) {
+        state.setReasoningEnded(true);
         parts.push({
           type: 'reasoning-end',
           id: state.getReasoningId(),
         });
       }
-
-      // Emit response-metadata
-      const responseCreated = state.getResponseCreated();
-      parts.push({
-        type: 'response-metadata',
-        id: state.getResponseId(),
-        timestamp: responseCreated
-          ? new Date(responseCreated * 1000)
-          : undefined,
-        modelId: state.getResponseModel(),
-      });
-
-      // Emit finish
-      const finishReason = mapOpenRouterFinishReason(choice.finishReason);
-
-      // Build usage from chunk.usage if available
-      const usage = buildUsage(
-        chunk.usage
-          ? {
-              inputTokens: chunk.usage.promptTokens,
-              outputTokens: chunk.usage.completionTokens,
-            }
-          : undefined
-      );
-
-      // Build provider metadata
-      const providerMetadata = buildProviderMetadata({
-        id: state.getResponseId(),
-        usage: chunk.usage
-          ? {
-              prompt_tokens: chunk.usage.promptTokens,
-              completion_tokens: chunk.usage.completionTokens,
-              total_tokens: chunk.usage.totalTokens,
-            }
-          : undefined,
-      });
-
-      parts.push({
-        type: 'finish',
-        finishReason,
-        usage,
-        providerMetadata,
-      });
     }
+  }
+
+  // Handle usage data - this typically comes in a final chunk AFTER finishReason
+  // Only emit finish when we have usage data
+  if (chunk.usage) {
+    // Emit response-metadata first
+    const responseCreated = state.getResponseCreated();
+    parts.push({
+      type: 'response-metadata',
+      id: state.getResponseId(),
+      timestamp: responseCreated ? new Date(responseCreated * 1000) : undefined,
+      modelId: state.getResponseModel(),
+    });
+
+    // Emit finish with usage data
+    const storedFinishReason = state.getFinishReason();
+    const finishReason = mapOpenRouterFinishReason(storedFinishReason ?? 'stop');
+
+    // Build usage
+    const usage = buildUsage({
+      inputTokens: chunk.usage.promptTokens,
+      outputTokens: chunk.usage.completionTokens,
+    });
+
+    // Build provider metadata with full usage data
+    const providerMetadata = buildProviderMetadata({
+      id: state.getResponseId(),
+      provider: state.getResponseProvider(),
+      usage: chunk.usage,
+    });
+
+    parts.push({
+      type: 'finish',
+      finishReason,
+      usage,
+      providerMetadata,
+    });
   }
 
   return parts;

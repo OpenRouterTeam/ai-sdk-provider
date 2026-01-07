@@ -1,4 +1,5 @@
 import type { JSONObject } from '@ai-sdk/provider';
+import type { ChatGenerationTokenUsage } from '@openrouter/sdk/models';
 
 /**
  * OpenRouter-specific provider metadata structure.
@@ -43,31 +44,37 @@ export interface OpenRouterProviderMetadata {
 }
 
 /**
+ * Extended usage type with additional fields from raw OpenRouter API response.
+ * The SDK types don't include cost/is_byok but the API returns them.
+ */
+export interface OpenRouterUsageExtended extends ChatGenerationTokenUsage {
+  cost?: number;
+  isByok?: boolean;
+  costDetails?: JSONObject;
+}
+
+/**
  * Response data from OpenRouter API used to build provider metadata.
+ * Note: The SDK transforms snake_case to camelCase for all fields.
+ * The `provider` field exists in raw API responses but isn't in SDK types.
  */
 export interface OpenRouterResponseData {
   id?: string;
+  /**
+   * The upstream provider that served the request (e.g. "Google", "Anthropic").
+   * This field exists in the raw API response but isn't in SDK TypeScript types.
+   */
   provider?: string;
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-    prompt_tokens_details?: {
-      cached_tokens?: number;
-    };
-    completion_tokens_details?: {
-      reasoning_tokens?: number;
-    };
-    cost?: number;
-    is_byok?: boolean;
-    cost_details?: JSONObject;
-  };
+  /**
+   * Usage data in camelCase (as transformed by SDK).
+   */
+  usage?: OpenRouterUsageExtended;
 }
 
 /**
  * Builds provider metadata from OpenRouter API response data.
  *
- * @param response - The response data from OpenRouter API.
+ * @param response - The response data from OpenRouter API (with camelCase fields from SDK).
  * @returns Provider metadata in the format expected by AI SDK.
  */
 export function buildProviderMetadata(
@@ -80,22 +87,23 @@ export function buildProviderMetadata(
   const usage = response.usage;
   const usageMetadata: OpenRouterProviderMetadata['usage'] | undefined = usage
     ? {
-        promptTokens: usage.prompt_tokens,
-        completionTokens: usage.completion_tokens,
-        totalTokens: usage.total_tokens,
-        ...(usage.prompt_tokens_details && {
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+        ...(usage.promptTokensDetails && {
           promptTokensDetails: {
-            cachedTokens: usage.prompt_tokens_details.cached_tokens,
+            cachedTokens: usage.promptTokensDetails.cachedTokens,
           },
         }),
-        ...(usage.completion_tokens_details && {
+        ...(usage.completionTokensDetails && {
           completionTokensDetails: {
-            reasoningTokens: usage.completion_tokens_details.reasoning_tokens,
+            reasoningTokens:
+              usage.completionTokensDetails.reasoningTokens ?? undefined,
           },
         }),
         ...(usage.cost !== undefined && { cost: usage.cost }),
-        ...(usage.is_byok !== undefined && { isByok: usage.is_byok }),
-        ...(usage.cost_details && { costDetails: usage.cost_details }),
+        ...(usage.isByok !== undefined && { isByok: usage.isByok }),
+        ...(usage.costDetails && { costDetails: usage.costDetails }),
       }
     : undefined;
 

@@ -32,13 +32,13 @@ describe('buildProviderMetadata', () => {
     expect(metadata?.provider).toBe('anthropic');
   });
 
-  it('should map usage.promptTokens from prompt_tokens', () => {
+  it('should map usage.promptTokens from promptTokens', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
       },
     };
     const result = buildProviderMetadata(response);
@@ -46,13 +46,13 @@ describe('buildProviderMetadata', () => {
     expect(metadata?.usage?.promptTokens).toBe(100);
   });
 
-  it('should map usage.completionTokens from completion_tokens', () => {
+  it('should map usage.completionTokens from completionTokens', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
       },
     };
     const result = buildProviderMetadata(response);
@@ -60,13 +60,13 @@ describe('buildProviderMetadata', () => {
     expect(metadata?.usage?.completionTokens).toBe(50);
   });
 
-  it('should map usage.totalTokens from total_tokens', () => {
+  it('should map usage.totalTokens from totalTokens', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
       },
     };
     const result = buildProviderMetadata(response);
@@ -74,15 +74,15 @@ describe('buildProviderMetadata', () => {
     expect(metadata?.usage?.totalTokens).toBe(150);
   });
 
-  it('should map promptTokensDetails.cachedTokens from prompt_tokens_details', () => {
+  it('should map promptTokensDetails.cachedTokens from promptTokensDetails', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-        prompt_tokens_details: {
-          cached_tokens: 25,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        promptTokensDetails: {
+          cachedTokens: 25,
         },
       },
     };
@@ -91,15 +91,15 @@ describe('buildProviderMetadata', () => {
     expect(metadata?.usage?.promptTokensDetails?.cachedTokens).toBe(25);
   });
 
-  it('should map completionTokensDetails.reasoningTokens from completion_tokens_details', () => {
+  it('should map completionTokensDetails.reasoningTokens from completionTokensDetails', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-        completion_tokens_details: {
-          reasoning_tokens: 30,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        completionTokensDetails: {
+          reasoningTokens: 30,
         },
       },
     };
@@ -112,9 +112,9 @@ describe('buildProviderMetadata', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
         cost: 0.0015,
       },
     };
@@ -127,9 +127,9 @@ describe('buildProviderMetadata', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
       },
     };
     const result = buildProviderMetadata(response);
@@ -141,10 +141,10 @@ describe('buildProviderMetadata', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-        is_byok: true,
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        isByok: true,
       },
     };
     const result = buildProviderMetadata(response);
@@ -156,10 +156,10 @@ describe('buildProviderMetadata', () => {
     const response: OpenRouterResponseData = {
       id: 'resp_123',
       usage: {
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-        cost_details: {
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+        costDetails: {
           input_cost: 0.001,
           output_cost: 0.0005,
         },
