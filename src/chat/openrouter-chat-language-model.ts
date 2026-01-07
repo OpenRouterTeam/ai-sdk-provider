@@ -14,67 +14,22 @@ import { OpenRouter } from '@openrouter/sdk';
 import type {
   OpenResponsesRequest,
   OpenResponsesNonStreamingResponse,
+  OpenResponsesStreamEvent,
   OpenResponsesRequestToolFunction,
   OpenAIResponsesToolChoiceUnion,
 } from '@openrouter/sdk/models';
-
-/**
- * Raw streaming chunk from OpenRouter API (snake_case fields).
- */
-interface RawStreamingChunk {
-  id: string;
-  provider?: string;
-  model: string;
-  object: 'chat.completion.chunk';
-  created: number;
-  choices: Array<{
-    index: number;
-    delta: {
-      role?: string;
-      content?: string | null;
-      reasoning?: string | null;
-      annotations?: Array<{
-        type: string;
-        url_citation?: {
-          url: string;
-          title: string;
-          start_index?: number;
-          end_index?: number;
-          content?: string;
-        };
-      }>;
-    };
-    finish_reason: string | null;
-  }>;
-  usage?: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-    cost?: number;
-    prompt_tokens_details?: {
-      cached_tokens?: number;
-      cache_write_tokens?: number;
-      audio_tokens?: number;
-      video_tokens?: number;
-    };
-    completion_tokens_details?: {
-      reasoning_tokens?: number;
-      image_tokens?: number;
-    };
-  };
-}
+import type { EventStream } from '@openrouter/sdk/lib/event-streams';
 
 import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
-import { convertToChatCompletionsMessages } from './convert-to-chat-completions-messages.js';
 import { convertToOpenRouterMessages } from './convert-to-openrouter-messages.js';
 import { mapOpenRouterFinishReason } from './map-openrouter-finish-reason.js';
 
 /**
  * OpenRouter chat language model implementing AI SDK V3 LanguageModelV3 interface.
  *
- * Uses the OpenRouter Chat Completions API for chat completions.
+ * Uses the OpenRouter Responses API for both streaming and non-streaming requests.
  */
 export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   readonly specificationVersion = 'v3' as const;
@@ -206,10 +161,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     }
 
     // Use outputText as fallback if no text content was extracted
-    if (
-      response.outputText &&
-      !content.some((c) => c.type === 'text')
-    ) {
+    if (response.outputText && !content.some((c) => c.type === 'text')) {
       content.push({
         type: 'text',
         text: response.outputText,
@@ -233,6 +185,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
     // Build provider metadata
     // Note: The Responses API doesn't include 'provider' field directly
+    // Map Responses API field names to Chat Completions API names
     const providerMetadata = buildProviderMetadata({
       id: response.id,
       provider: undefined, // Responses API doesn't expose provider in response
@@ -242,6 +195,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             completionTokens: response.usage.outputTokens,
             totalTokens: response.usage.totalTokens,
             cost: response.usage.cost ?? undefined,
+            // Map inputTokensDetails -> promptTokensDetails
+            promptTokensDetails: response.usage.inputTokensDetails
+              ? {
+                  cachedTokens: response.usage.inputTokensDetails.cachedTokens,
+                }
+              : undefined,
+            // Map outputTokensDetails -> completionTokensDetails
+            completionTokensDetails: response.usage.outputTokensDetails
+              ? {
+                  reasoningTokens:
+                    response.usage.outputTokensDetails.reasoningTokens,
+                }
+              : undefined,
           }
         : undefined,
     });
@@ -268,124 +234,51 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const warnings: SharedV3Warning[] = [];
 
-    // Convert messages to Chat Completions format (streaming still uses this API)
-    const openRouterMessages = convertToChatCompletionsMessages(options.prompt);
+    // Create OpenRouter client
+    const client = new OpenRouter({
+      apiKey: this.settings.apiKey,
+      serverURL: this.settings.baseURL,
+    });
 
-    // Build request parameters
-    const modelOptions = this.settings.modelOptions;
-    const requestParams: Record<string, unknown> = {
+    // Convert messages to OpenRouter Responses API format
+    const openRouterInput = convertToOpenRouterMessages(options.prompt);
+
+    // Convert tools to Responses API format
+    const tools = convertToolsToResponsesFormat(options.tools, warnings);
+
+    // Convert toolChoice to Responses API format
+    const toolChoice = convertToolChoiceToResponsesFormat(options.toolChoice);
+
+    // Build request parameters for Responses API (streaming)
+    const requestParams: OpenResponsesRequest & { stream: true } = {
       model: this.modelId,
-      messages: openRouterMessages,
+      input: openRouterInput as OpenResponsesRequest['input'],
       stream: true,
-      stream_options: { include_usage: true },
       ...(options.maxOutputTokens !== undefined && {
-        max_tokens: options.maxOutputTokens,
+        maxOutputTokens: options.maxOutputTokens,
       }),
       ...(options.temperature !== undefined && {
         temperature: options.temperature,
       }),
-      ...(options.topP !== undefined && { top_p: options.topP }),
-      ...(options.frequencyPenalty !== undefined && {
-        frequency_penalty: options.frequencyPenalty,
-      }),
-      ...(options.presencePenalty !== undefined && {
-        presence_penalty: options.presencePenalty,
-      }),
-      ...(options.seed !== undefined && { seed: options.seed }),
-      ...(options.stopSequences !== undefined &&
-        options.stopSequences.length > 0 && {
-          stop: options.stopSequences,
-        }),
-      // OpenRouter-specific options from model settings
-      ...(modelOptions?.plugins && { plugins: modelOptions.plugins }),
-      ...(modelOptions?.transforms && { transforms: modelOptions.transforms }),
-      ...(modelOptions?.models && { models: modelOptions.models }),
-      ...(modelOptions?.route && { route: modelOptions.route }),
-      ...(modelOptions?.provider && { provider: modelOptions.provider }),
-      // Extra body parameters
-      ...this.settings.extraBody,
+      ...(options.topP !== undefined && { topP: options.topP }),
+      ...(tools.length > 0 && { tools }),
+      ...(toolChoice !== undefined && { toolChoice }),
     };
 
-    // Make the streaming request using native fetch
-    // (SDK has parsing issues with large annotation chunks)
+    // Make the streaming request using Responses API
     const combinedHeaders = normalizeHeaders(
       combineHeaders(this.settings.headers, options.headers)
     );
 
-    const baseUrl = this.settings.baseURL || 'https://openrouter.ai/api/v1';
-    const response = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.settings.apiKey}`,
-        ...combinedHeaders,
+    const eventStream = (await client.beta.responses.send(requestParams, {
+      fetchOptions: {
+        signal: options.abortSignal,
+        headers: combinedHeaders,
       },
-      body: JSON.stringify(requestParams),
-      signal: options.abortSignal,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`OpenRouter API error: ${response.status} ${errorBody}`);
-    }
-
-    if (!response.body) {
-      throw new Error('No response body');
-    }
+    })) as EventStream<OpenResponsesStreamEvent>;
 
     // Track state for stream transformation
-    let responseId: string | undefined;
-    let responseModel: string | undefined;
-    let responseCreated: number | undefined;
-    let responseProvider: string | undefined;
-    let textStarted = false;
-    const textId = 'text-0';
-    let reasoningStarted = false;
-    const reasoningId = 'reasoning-0';
-    let finishReason: string | null | undefined;
-    let textEnded = false;
-    let reasoningEnded = false;
-    const sourceIds: string[] = [];
-
-    // Create an async generator from the SSE stream
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    async function* parseSSEStream(): AsyncGenerator<RawStreamingChunk> {
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || trimmed.startsWith(':')) {
-            continue;
-          }
-          if (trimmed === 'data: [DONE]') {
-            continue;
-          }
-
-          if (trimmed.startsWith('data: ')) {
-            const jsonStr = trimmed.slice(6);
-            try {
-              const parsed = JSON.parse(jsonStr);
-              yield parsed as RawStreamingChunk;
-            } catch {
-              // Skip malformed JSON chunks (e.g., SSE comment lines)
-              continue;
-            }
-          }
-        }
-      }
-    }
+    const state = createStreamState();
 
     // Transform the EventStream to AI SDK V3 stream parts
     const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
@@ -397,53 +290,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         });
 
         try {
-          for await (const chunk of parseSSEStream()) {
-            const parts = transformChunk(chunk, {
-              getResponseId: () => responseId,
-              setResponseId: (id: string) => {
-                responseId = id;
-              },
-              getResponseModel: () => responseModel,
-              setResponseModel: (model: string) => {
-                responseModel = model;
-              },
-              getResponseCreated: () => responseCreated,
-              setResponseCreated: (created: number) => {
-                responseCreated = created;
-              },
-              getResponseProvider: () => responseProvider,
-              setResponseProvider: (provider: string) => {
-                responseProvider = provider;
-              },
-              getFinishReason: () => finishReason,
-              setFinishReason: (reason: string | null) => {
-                finishReason = reason;
-              },
-              getTextStarted: () => textStarted,
-              setTextStarted: (started: boolean) => {
-                textStarted = started;
-              },
-              getTextId: () => textId,
-              getReasoningStarted: () => reasoningStarted,
-              setReasoningStarted: (started: boolean) => {
-                reasoningStarted = started;
-              },
-              getReasoningId: () => reasoningId,
-              getTextEnded: () => textEnded,
-              setTextEnded: (ended: boolean) => {
-                textEnded = ended;
-              },
-              getReasoningEnded: () => reasoningEnded,
-              setReasoningEnded: (ended: boolean) => {
-                reasoningEnded = ended;
-              },
-              getNextSourceId: () => {
-                const id = `source-${sourceIds.length}`;
-                sourceIds.push(id);
-                return id;
-              },
-            });
-
+          for await (const event of eventStream) {
+            const parts = transformResponsesEvent(event, state);
             for (const part of parts) {
               controller.enqueue(part);
             }
@@ -468,193 +316,410 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   }
 }
 
+/**
+ * Stream state for tracking response metadata and content parts.
+ */
 interface StreamState {
-  getResponseId: () => string | undefined;
-  setResponseId: (id: string) => void;
-  getResponseModel: () => string | undefined;
-  setResponseModel: (model: string) => void;
-  getResponseCreated: () => number | undefined;
-  setResponseCreated: (created: number) => void;
-  getResponseProvider: () => string | undefined;
-  setResponseProvider: (provider: string) => void;
-  getTextStarted: () => boolean;
-  setTextStarted: (started: boolean) => void;
-  getTextId: () => string;
-  getReasoningStarted: () => boolean;
-  setReasoningStarted: (started: boolean) => void;
-  getReasoningId: () => string;
-  getFinishReason: () => string | null | undefined;
-  setFinishReason: (reason: string | null) => void;
-  getTextEnded: () => boolean;
-  setTextEnded: (ended: boolean) => void;
-  getReasoningEnded: () => boolean;
-  setReasoningEnded: (ended: boolean) => void;
-  getNextSourceId: () => string;
+  responseId: string | undefined;
+  responseModel: string | undefined;
+  responseCreated: number | undefined;
+  textStarted: boolean;
+  textId: string;
+  reasoningStarted: boolean;
+  reasoningId: string;
+  textEnded: boolean;
+  reasoningEnded: boolean;
+  sourceIds: string[];
+  toolCalls: Map<string, { name?: string; argumentsStarted: boolean }>;
+}
+
+function createStreamState(): StreamState {
+  return {
+    responseId: undefined,
+    responseModel: undefined,
+    responseCreated: undefined,
+    textStarted: false,
+    textId: 'text-0',
+    reasoningStarted: false,
+    reasoningId: 'reasoning-0',
+    textEnded: false,
+    reasoningEnded: false,
+    sourceIds: [],
+    toolCalls: new Map(),
+  };
 }
 
 /**
- * Transform a streaming chunk from OpenRouter to AI SDK V3 stream parts.
+ * Transform a Responses API stream event to AI SDK V3 stream parts.
  */
-function transformChunk(
-  chunk: RawStreamingChunk,
+function transformResponsesEvent(
+  event: OpenResponsesStreamEvent,
   state: StreamState
 ): LanguageModelV3StreamPart[] {
   const parts: LanguageModelV3StreamPart[] = [];
 
-  // Capture response metadata
-  if (chunk.id && !state.getResponseId()) {
-    state.setResponseId(chunk.id);
-  }
-  if (chunk.model && !state.getResponseModel()) {
-    state.setResponseModel(chunk.model);
-  }
-  if (chunk.created && !state.getResponseCreated()) {
-    state.setResponseCreated(chunk.created);
-  }
-  if (chunk.provider && !state.getResponseProvider()) {
-    state.setResponseProvider(chunk.provider);
-  }
+  switch (event.type) {
+    // Response lifecycle events
+    case 'response.created':
+    case 'response.in_progress': {
+      // Capture response metadata from initial events
+      if (event.response) {
+        state.responseId = event.response.id;
+        state.responseModel = event.response.model;
+        state.responseCreated = event.response.createdAt;
+      }
+      break;
+    }
 
-  // Process choices
-  for (const choice of chunk.choices) {
-    const delta = choice.delta;
-
-    // Handle text content
-    if (delta.content !== undefined && delta.content !== null) {
+    // Text streaming
+    case 'response.output_text.delta': {
       // Emit text-start if not started
-      if (!state.getTextStarted()) {
-        state.setTextStarted(true);
+      if (!state.textStarted) {
+        state.textStarted = true;
         parts.push({
           type: 'text-start',
-          id: state.getTextId(),
+          id: state.textId,
         });
       }
 
       // Emit text-delta
-      if (delta.content.length > 0) {
+      if (event.delta && event.delta.length > 0) {
         parts.push({
           type: 'text-delta',
-          id: state.getTextId(),
-          delta: delta.content,
+          id: state.textId,
+          delta: event.delta,
         });
       }
+      break;
     }
 
-    // Handle reasoning content
-    if (delta.reasoning !== undefined && delta.reasoning !== null) {
+    case 'response.output_text.done': {
+      // End text if started and not ended
+      if (state.textStarted && !state.textEnded) {
+        state.textEnded = true;
+        parts.push({
+          type: 'text-end',
+          id: state.textId,
+        });
+      }
+      break;
+    }
+
+    // Reasoning streaming
+    case 'response.reasoning_text.delta': {
       // Emit reasoning-start if not started
-      if (!state.getReasoningStarted()) {
-        state.setReasoningStarted(true);
+      if (!state.reasoningStarted) {
+        state.reasoningStarted = true;
         parts.push({
           type: 'reasoning-start',
-          id: state.getReasoningId(),
+          id: state.reasoningId,
         });
       }
 
       // Emit reasoning-delta
-      if (delta.reasoning.length > 0) {
+      if (event.delta && event.delta.length > 0) {
         parts.push({
           type: 'reasoning-delta',
-          id: state.getReasoningId(),
-          delta: delta.reasoning,
+          id: state.reasoningId,
+          delta: event.delta,
         });
       }
+      break;
     }
 
-    // Handle annotations (web search sources)
-    if (delta.annotations) {
-      for (const annotation of delta.annotations) {
-        if (annotation.type === 'url_citation' && annotation.url_citation) {
-          const sourceId = state.getNextSourceId();
-          parts.push({
-            type: 'source',
-            sourceType: 'url',
-            id: sourceId,
-            url: annotation.url_citation.url,
-            title: annotation.url_citation.title,
-          });
-        }
+    // Function call arguments streaming
+    case 'response.function_call_arguments.delta': {
+      const toolCallId = event.itemId;
+      let toolState = state.toolCalls.get(toolCallId);
+
+      if (!toolState) {
+        toolState = { argumentsStarted: false };
+        state.toolCalls.set(toolCallId, toolState);
       }
+
+      // Emit tool-input-start if not started
+      if (!toolState.argumentsStarted) {
+        toolState.argumentsStarted = true;
+        parts.push({
+          type: 'tool-input-start',
+          id: toolCallId,
+          toolName: toolState.name ?? '', // Will be filled in by output_item.added
+        });
+      }
+
+      // Emit tool-input-delta
+      if (event.delta && event.delta.length > 0) {
+        parts.push({
+          type: 'tool-input-delta',
+          id: toolCallId,
+          delta: event.delta,
+        });
+      }
+      break;
     }
 
-    // Handle finish reason - record it but don't emit finish yet (usage comes in separate chunk)
-    if (choice.finish_reason !== null && !state.getFinishReason()) {
-      state.setFinishReason(choice.finish_reason);
+    case 'response.function_call_arguments.done': {
+      const toolCallId = event.itemId;
+      const toolState = state.toolCalls.get(toolCallId);
 
+      // If we haven't started tool call yet, emit start + delta with full args
+      if (!toolState?.argumentsStarted) {
+        parts.push({
+          type: 'tool-input-start',
+          id: toolCallId,
+          toolName: event.name,
+        });
+        parts.push({
+          type: 'tool-input-delta',
+          id: toolCallId,
+          delta: event.arguments,
+        });
+      }
+
+      // Emit tool-input-end
+      parts.push({
+        type: 'tool-input-end',
+        id: toolCallId,
+      });
+      break;
+    }
+
+    // Output item events (for function call metadata)
+    case 'response.output_item.added': {
+      if (event.item.type === 'function_call') {
+        const funcItem = event.item as {
+          type: 'function_call';
+          callId?: string;
+          name: string;
+        };
+        const toolCallId = funcItem.callId ?? `tool-${event.outputIndex}`;
+        const toolState = state.toolCalls.get(toolCallId) ?? {
+          argumentsStarted: false,
+        };
+        toolState.name = funcItem.name;
+        state.toolCalls.set(toolCallId, toolState);
+      }
+      break;
+    }
+
+    // Annotation events (web search sources)
+    case 'response.output_text.annotation.added': {
+      const annotation = event.annotation;
+      if (annotation.type === 'url_citation') {
+        const urlAnnotation = annotation as {
+          type: 'url_citation';
+          url: string;
+          title: string;
+        };
+        const sourceId = `source-${state.sourceIds.length}`;
+        state.sourceIds.push(sourceId);
+        parts.push({
+          type: 'source',
+          sourceType: 'url',
+          id: sourceId,
+          url: urlAnnotation.url,
+          title: urlAnnotation.title,
+        });
+      }
+      break;
+    }
+
+    // Response completed - extract final usage data
+    case 'response.completed': {
       // End text if started and not ended
-      if (state.getTextStarted() && !state.getTextEnded()) {
-        state.setTextEnded(true);
+      if (state.textStarted && !state.textEnded) {
+        state.textEnded = true;
         parts.push({
           type: 'text-end',
-          id: state.getTextId(),
+          id: state.textId,
         });
       }
 
       // End reasoning if started and not ended
-      if (state.getReasoningStarted() && !state.getReasoningEnded()) {
-        state.setReasoningEnded(true);
+      if (state.reasoningStarted && !state.reasoningEnded) {
+        state.reasoningEnded = true;
         parts.push({
           type: 'reasoning-end',
-          id: state.getReasoningId(),
+          id: state.reasoningId,
         });
       }
+
+      // Emit response-metadata
+      const response = event.response;
+      parts.push({
+        type: 'response-metadata',
+        id: response.id,
+        timestamp: response.createdAt
+          ? new Date(response.createdAt * 1000)
+          : undefined,
+        modelId: response.model,
+      });
+
+      // Build finish reason based on response status
+      const finishReason = mapOpenRouterFinishReason(
+        response.status === 'completed' ? 'stop' : response.status ?? 'stop'
+      );
+
+      // Build usage
+      const usage = buildUsage(
+        response.usage
+          ? {
+              inputTokens: response.usage.inputTokens,
+              outputTokens: response.usage.outputTokens,
+            }
+          : undefined
+      );
+
+      // Build provider metadata
+      // Map Responses API field names to Chat Completions API names
+      const providerMetadata = buildProviderMetadata({
+        id: response.id,
+        provider: undefined, // Responses API doesn't expose provider
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.inputTokens,
+              completionTokens: response.usage.outputTokens,
+              totalTokens: response.usage.totalTokens,
+              cost: response.usage.cost ?? undefined,
+              // Map inputTokensDetails -> promptTokensDetails
+              promptTokensDetails: response.usage.inputTokensDetails
+                ? {
+                    cachedTokens:
+                      response.usage.inputTokensDetails.cachedTokens,
+                  }
+                : undefined,
+              // Map outputTokensDetails -> completionTokensDetails
+              completionTokensDetails: response.usage.outputTokensDetails
+                ? {
+                    reasoningTokens:
+                      response.usage.outputTokensDetails.reasoningTokens,
+                  }
+                : undefined,
+            }
+          : undefined,
+      });
+
+      parts.push({
+        type: 'finish',
+        finishReason,
+        usage,
+        providerMetadata,
+      });
+      break;
     }
-  }
 
-  // Handle usage data - this typically comes in a final chunk AFTER finishReason
-  // Only emit finish when we have usage data
-  if (chunk.usage) {
-    // Emit response-metadata first
-    const responseCreated = state.getResponseCreated();
-    parts.push({
-      type: 'response-metadata',
-      id: state.getResponseId(),
-      timestamp: responseCreated ? new Date(responseCreated * 1000) : undefined,
-      modelId: state.getResponseModel(),
-    });
+    // Response incomplete or failed
+    case 'response.incomplete':
+    case 'response.failed': {
+      // End any open content parts
+      if (state.textStarted && !state.textEnded) {
+        state.textEnded = true;
+        parts.push({
+          type: 'text-end',
+          id: state.textId,
+        });
+      }
+      if (state.reasoningStarted && !state.reasoningEnded) {
+        state.reasoningEnded = true;
+        parts.push({
+          type: 'reasoning-end',
+          id: state.reasoningId,
+        });
+      }
 
-    // Emit finish with usage data
-    const storedFinishReason = state.getFinishReason();
-    const finishReason = mapOpenRouterFinishReason(storedFinishReason ?? 'stop');
+      const response = event.response;
+      parts.push({
+        type: 'response-metadata',
+        id: response.id,
+        timestamp: response.createdAt
+          ? new Date(response.createdAt * 1000)
+          : undefined,
+        modelId: response.model,
+      });
 
-    // Build usage (raw API uses snake_case)
-    const usage = buildUsage({
-      inputTokens: chunk.usage.prompt_tokens,
-      outputTokens: chunk.usage.completion_tokens,
-    });
+      // Map finish reason
+      const finishReason =
+        event.type === 'response.failed'
+          ? mapOpenRouterFinishReason('error')
+          : mapOpenRouterFinishReason(response.status ?? 'incomplete');
 
-    // Build provider metadata with full usage data (convert to SDK camelCase format)
-    const providerMetadata = buildProviderMetadata({
-      id: state.getResponseId(),
-      provider: state.getResponseProvider(),
-      usage: {
-        promptTokens: chunk.usage.prompt_tokens,
-        completionTokens: chunk.usage.completion_tokens,
-        totalTokens: chunk.usage.total_tokens,
-        cost: chunk.usage.cost,
-        promptTokensDetails: chunk.usage.prompt_tokens_details
+      const usage = buildUsage(
+        response.usage
           ? {
-              cachedTokens: chunk.usage.prompt_tokens_details.cached_tokens,
-              cacheWriteTokens: chunk.usage.prompt_tokens_details.cache_write_tokens,
-              audioTokens: chunk.usage.prompt_tokens_details.audio_tokens,
-              videoTokens: chunk.usage.prompt_tokens_details.video_tokens,
+              inputTokens: response.usage.inputTokens,
+              outputTokens: response.usage.outputTokens,
+            }
+          : undefined
+      );
+
+      const providerMetadata = buildProviderMetadata({
+        id: response.id,
+        provider: undefined,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.inputTokens,
+              completionTokens: response.usage.outputTokens,
+              totalTokens: response.usage.totalTokens,
+              cost: response.usage.cost ?? undefined,
+              // Map inputTokensDetails -> promptTokensDetails
+              promptTokensDetails: response.usage.inputTokensDetails
+                ? {
+                    cachedTokens:
+                      response.usage.inputTokensDetails.cachedTokens,
+                  }
+                : undefined,
+              // Map outputTokensDetails -> completionTokensDetails
+              completionTokensDetails: response.usage.outputTokensDetails
+                ? {
+                    reasoningTokens:
+                      response.usage.outputTokensDetails.reasoningTokens,
+                  }
+                : undefined,
             }
           : undefined,
-        completionTokensDetails: chunk.usage.completion_tokens_details
-          ? {
-              reasoningTokens: chunk.usage.completion_tokens_details.reasoning_tokens,
-              imageTokens: chunk.usage.completion_tokens_details.image_tokens,
-            }
-          : undefined,
-      },
-    });
+      });
 
-    parts.push({
-      type: 'finish',
-      finishReason,
-      usage,
-      providerMetadata,
-    });
+      parts.push({
+        type: 'finish',
+        finishReason,
+        usage,
+        providerMetadata,
+      });
+      break;
+    }
+
+    // Error event
+    case 'error': {
+      const errorEvent = event as {
+        type: 'error';
+        error?: { message?: string };
+      };
+      parts.push({
+        type: 'error',
+        error: new Error(
+          errorEvent.error?.message ?? 'Unknown streaming error'
+        ),
+      });
+      break;
+    }
+
+    // Ignored events (handled implicitly or not needed)
+    case 'response.output_item.done':
+    case 'response.content_part.added':
+    case 'response.content_part.done':
+    case 'response.refusal.delta':
+    case 'response.refusal.done':
+    case 'response.reasoning_text.done':
+    case 'response.reasoning_summary_part.added':
+    case 'response.reasoning_summary_part.done':
+    case 'response.reasoning_summary_text.delta':
+    case 'response.reasoning_summary_text.done':
+    case 'response.image_generation_call.in_progress':
+    case 'response.image_generation_call.generating':
+    case 'response.image_generation_call.partial_image':
+    case 'response.image_generation_call.completed':
+      // These events are either handled by other events or not relevant for AI SDK
+      break;
   }
 
   return parts;
