@@ -2,11 +2,11 @@
   "url": "https://openrouter.ai/api/v1/responses",
   "method": "POST",
   "headers": {
-    "accept": "application/json",
+    "accept": "text/event-stream",
     "authorization": "[REDACTED]",
     "content-type": "application/json",
     "cookie": "[REDACTED]",
-    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk ai-sdk-provider/6.0.0-alpha.1"
   },
   "body": {
     "json": {
@@ -16,15 +16,15 @@
           "content": [
             {
               "type": "input_text",
-              "text": "What is 2+2? Think through this step by step."
+              "text": "What is the capital of France? Reply in one word."
             }
           ]
         }
       ],
-      "model": "anthropic/claude-sonnet-4",
+      "model": "openai/gpt-4o-mini",
       "store": false,
       "service_tier": "auto",
-      "stream": false
+      "stream": true
     }
   }
 }

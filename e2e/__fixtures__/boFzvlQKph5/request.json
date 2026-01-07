@@ -6,7 +6,7 @@
     "authorization": "[REDACTED]",
     "content-type": "application/json",
     "cookie": "[REDACTED]",
-    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk ai-sdk-provider/6.0.0-alpha.1"
   },
   "body": {
     "json": {
@@ -92,33 +92,9 @@
             },
             "additionalProperties": false
           }
-        },
-        {
-          "type": "function",
-          "name": "executeCommand",
-          "description": "Execute a command in the terminal",
-          "parameters": {
-            "$schema": "http://json-schema.org/draft-07/schema#",
-            "type": "object",
-            "properties": {
-              "command": {
-                "type": "string"
-              }
-            },
-            "required": [
-              "command"
-            ],
-            "~standard": {
-              "vendor": "zod",
-              "version": 1,
-              "jsonSchema": {}
-            },
-            "additionalProperties": false
-          }
         }
       ],
-      "tool_choice": "auto",
-      "model": "anthropic/claude-sonnet-4",
+      "model": "openai/gpt-4.1",
       "store": false,
       "service_tier": "auto",
       "stream": false

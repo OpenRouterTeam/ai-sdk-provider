@@ -4,6 +4,7 @@ import { OpenRouterChatLanguageModel } from '../../chat/openrouter-chat-language
 const createTestSettings = () => ({
   apiKey: 'test-key',
   baseURL: 'https://openrouter.ai/api/v1',
+  userAgent: 'test-user-agent/0.0.0',
 });
 
 describe('OpenRouterChatLanguageModel', () => {

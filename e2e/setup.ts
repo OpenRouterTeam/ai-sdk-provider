@@ -15,6 +15,7 @@ import {
   createFilesystemStorage,
   type HashableRequest,
 } from '@effect-native/fetch-hooks';
+import { SDK_METADATA } from '@openrouter/sdk';
 import { beforeAll, afterAll } from 'vitest';
 
 const FIXTURES_DIR = new URL('./__fixtures__', import.meta.url).pathname;
@@ -28,11 +29,20 @@ function redactSensitiveHeaders(request: HashableRequest): HashableRequest {
 
   for (const [key, value] of Object.entries(request.headers)) {
     const lowerKey = key.toLowerCase();
+
     if (SENSITIVE_HEADERS.includes(lowerKey)) {
       redactedHeaders[key] = '[REDACTED]';
-    } else {
-      redactedHeaders[key] = value;
+      continue;
     }
+
+    // Keep fixtures stable: normalize OpenRouter API `user-agent` back to the SDK default
+    // so UA changes don't invalidate recorded cassette keys.
+    if (lowerKey === 'user-agent' && request.url.includes('openrouter.ai')) {
+      redactedHeaders[key] = SDK_METADATA.userAgent;
+      continue;
+    }
+
+    redactedHeaders[key] = value;
   }
 
   return {

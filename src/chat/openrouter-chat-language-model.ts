@@ -67,6 +67,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
+      userAgent: this.settings.userAgent,
     });
 
     // Convert messages to OpenRouter Responses API format
@@ -268,6 +269,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
+      userAgent: this.settings.userAgent,
     });
 
     // Convert messages to OpenRouter Responses API format

@@ -1,5 +1,6 @@
 import type { ProviderV3 } from '@ai-sdk/provider';
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
+import { SDK_METADATA } from '@openrouter/sdk';
 import { OpenRouterChatLanguageModel } from './chat/openrouter-chat-language-model.js';
 import { OpenRouterEmbeddingModel } from './embedding/openrouter-embedding-model.js';
 import { OpenRouterImageModel } from './image/openrouter-image-model.js';
@@ -66,6 +67,13 @@ export interface OpenRouterProvider extends ProviderV3 {
 export interface OpenRouterModelSettings {
   apiKey: string;
   baseURL: string;
+  /**
+   * User-Agent string used by `@openrouter/sdk`.
+   *
+   * Note: Setting a `User-Agent` header via `fetchOptions.headers` is ineffective because
+   * the SDK sets it after merging user headers.
+   */
+  userAgent: string;
   headers?: Record<string, string>;
   fetch?: typeof globalThis.fetch;
   extraBody?: Record<string, unknown>;
@@ -160,16 +168,27 @@ export function createOpenRouter(
       description: 'OpenRouter',
     });
 
-    // Build User-Agent header with provider info
-    const userAgent = `@openrouter/ai-sdk-provider/${__PACKAGE_VERSION__}`;
+    const providerUserAgentPart = `ai-sdk-provider/${__PACKAGE_VERSION__}`;
+
+    // Allow overriding the base UA via headers, but always append our provider token.
+    const baseUserAgent =
+      options.headers?.['user-agent'] ?? options.headers?.['User-Agent'] ?? SDK_METADATA.userAgent;
+
+    const userAgent = baseUserAgent.includes('ai-sdk-provider/')
+      ? baseUserAgent
+      : `${baseUserAgent} ${providerUserAgentPart}`;
+
+    const {
+      'User-Agent': _ignoredUserAgent,
+      'user-agent': _ignoredUserAgentLower,
+      ...forwardHeaders
+    } = options.headers ?? {};
 
     return {
       apiKey,
       baseURL,
-      headers: {
-        'User-Agent': userAgent,
-        ...options.headers, // User headers can override defaults
-      },
+      userAgent,
+      headers: Object.keys(forwardHeaders).length > 0 ? forwardHeaders : undefined,
       fetch: options.fetch,
       extraBody: options.extraBody,
       modelOptions,

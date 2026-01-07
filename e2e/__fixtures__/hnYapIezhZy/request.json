@@ -6,7 +6,7 @@
     "authorization": "[REDACTED]",
     "content-type": "application/json",
     "cookie": "[REDACTED]",
-    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk ai-sdk-provider/6.0.0-alpha.1"
   },
   "body": {
     "json": {
@@ -33,18 +33,6 @@
         {
           "type": "function_call_output",
           "call_id": "toolu_vrtx_01Ybur83NL391VrEYdx6tTud",
-          "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
-          "status": "incomplete"
-        },
-        {
-          "type": "function_call",
-          "name": "test_tool",
-          "arguments": "",
-          "call_id": "toolu_vrtx_011qmry8xLNAiAcoRohnxbPu"
-        },
-        {
-          "type": "function_call_output",
-          "call_id": "toolu_vrtx_011qmry8xLNAiAcoRohnxbPu",
           "output": "Invalid input for tool test_tool: Type validation failed: Value: {}.\nError message: [\n  {\n    \"expected\": \"string\",\n    \"code\": \"invalid_type\",\n    \"path\": [\n      \"message\"\n    ],\n    \"message\": \"Invalid input: expected string, received undefined\"\n  }\n]",
           "status": "incomplete"
         }

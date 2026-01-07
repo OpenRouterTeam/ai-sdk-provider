@@ -2,11 +2,11 @@
   "url": "https://openrouter.ai/api/v1/responses",
   "method": "POST",
   "headers": {
-    "accept": "text/event-stream",
+    "accept": "application/json",
     "authorization": "[REDACTED]",
     "content-type": "application/json",
     "cookie": "[REDACTED]",
-    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk ai-sdk-provider/6.0.0-alpha.1"
   },
   "body": {
     "json": {

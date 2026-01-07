@@ -141,19 +141,21 @@ describe('createOpenRouter', () => {
     });
   });
 
-  describe('User-Agent header', () => {
-    it('sets User-Agent header with provider version', () => {
+  describe('User-Agent composition', () => {
+    it('defaults to SDK UA + ai-sdk-provider/<version> suffix', () => {
       const provider = createOpenRouter({ apiKey: TEST_API_KEY });
       const model = provider('test-model') as OpenRouterChatLanguageModel;
 
       const settings = getModelSettings(model);
-      expect(settings.headers).toBeDefined();
-      expect(settings.headers!['User-Agent']).toMatch(
-        /^@openrouter\/ai-sdk-provider\/\d+\.\d+\.\d+/
-      );
+      expect(settings.userAgent).toContain('@openrouter/sdk');
+      expect(settings.userAgent).toMatch(/\bai-sdk-provider\/\d+\.\d+\.\d+/);
+
+      // We no longer forward a `User-Agent` header because the SDK sets UA after merging headers.
+      expect(settings.headers?.['User-Agent']).toBeUndefined();
+      expect(settings.headers?.['user-agent']).toBeUndefined();
     });
 
-    it('User-Agent header can be overridden by user headers', () => {
+    it('uses user-provided base UA and appends ai-sdk-provider/<version>', () => {
       const provider = createOpenRouter({
         apiKey: TEST_API_KEY,
         headers: {
@@ -163,10 +165,11 @@ describe('createOpenRouter', () => {
       const model = provider('test-model') as OpenRouterChatLanguageModel;
 
       const settings = getModelSettings(model);
-      expect(settings.headers!['User-Agent']).toBe('custom-user-agent/1.0.0');
+      expect(settings.userAgent).toContain('custom-user-agent/1.0.0');
+      expect(settings.userAgent).toMatch(/\bai-sdk-provider\/\d+\.\d+\.\d+/);
     });
 
-    it('preserves other custom headers alongside User-Agent', () => {
+    it('preserves other custom headers alongside composed UA', () => {
       const provider = createOpenRouter({
         apiKey: TEST_API_KEY,
         headers: {
@@ -176,9 +179,8 @@ describe('createOpenRouter', () => {
       const model = provider('test-model') as OpenRouterChatLanguageModel;
 
       const settings = getModelSettings(model);
-      expect(settings.headers!['User-Agent']).toMatch(
-        /^@openrouter\/ai-sdk-provider\/\d+\.\d+\.\d+/
-      );
+      expect(settings.userAgent).toContain('@openrouter/sdk');
+      expect(settings.userAgent).toMatch(/\bai-sdk-provider\/\d+\.\d+\.\d+/);
       expect(settings.headers!['X-Custom-Header']).toBe('custom-value');
     });
   });

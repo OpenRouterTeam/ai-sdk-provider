@@ -43,6 +43,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
+      userAgent: this.settings.userAgent,
     });
 
     // Build request with provider routing options if configured

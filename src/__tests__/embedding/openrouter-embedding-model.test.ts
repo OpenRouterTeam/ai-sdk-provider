@@ -5,6 +5,7 @@ describe('OpenRouterEmbeddingModel', () => {
   const defaultSettings = {
     apiKey: 'test-api-key',
     baseURL: 'https://openrouter.ai/api/v1',
+    userAgent: 'test-user-agent/0.0.0',
   };
 
   describe('constructor', () => {
