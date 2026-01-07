@@ -23,17 +23,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
 
       - uses: actions/setup-node@v4
         with:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
           scope: "@openrouter"
-          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Upgrade npm for OIDC support
         run: npm install -g npm@latest
@@ -42,7 +41,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          version: pnpm changeset-version
+          version: bun run changeset-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,7 +79,7 @@ jobs:
 
       - name: Publish with OIDC
         if: steps.changesets.outputs.hasChangesets == 'false'
-        run: pnpm changeset-publish
+        run: bun run changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -91,7 +90,7 @@ jobs:
           echo "Versions:"
           echo "  Node: $(node --version)"
           echo "  npm: $(npm --version)"
-          echo "  pnpm: $(pnpm --version)"
+          echo "  bun: $(bun --version)"
           echo ""
           echo "Registry configuration:"
           echo "  registry: $(npm config get registry)"
