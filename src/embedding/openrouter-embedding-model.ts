@@ -9,6 +9,7 @@ import type { OpenRouterModelSettings } from '../openrouter-provider.js';
 
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
+import { HTTPClient } from '@openrouter/sdk/lib/http';
 
 /**
  * OpenRouter embedding model implementing AI SDK V3 EmbeddingModelV3 interface.
@@ -41,14 +42,19 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
   ): Promise<EmbeddingModelV3Result> {
     const warnings: SharedV3Warning[] = [];
 
-    // Create OpenRouter client
+    // Create OpenRouter client with optional custom fetch
+    const httpClient = this.settings.fetch
+      ? new HTTPClient({ fetcher: this.settings.fetch })
+      : undefined;
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
       userAgent: this.settings.userAgent,
+      httpClient,
     });
 
     // Build request with provider routing options if configured
+    // Note: extraBody is spread first so explicit params can override
     const requestParams: {
       model: string;
       input: string[];
@@ -58,7 +64,9 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
         allowFallbacks?: boolean;
         requireParameters?: boolean;
       };
+      [key: string]: unknown;
     } = {
+      ...this.settings.extraBody,
       model: this.modelId,
       input: options.values,
     };
