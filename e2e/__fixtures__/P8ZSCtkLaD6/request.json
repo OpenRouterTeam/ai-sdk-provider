@@ -1,0 +1,33 @@
+{
+  "url": "https://openrouter.ai/api/v1/chat/completions",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "[REDACTED]"
+  },
+  "body": {
+    "json": {
+      "model": "anthropic/claude-sonnet-4.5",
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant. You must call the test_tool once on every request."
+        },
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Hello, how are you today?"
+            }
+          ]
+        }
+      ],
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "max_tokens": 64000
+    }
+  }
+}

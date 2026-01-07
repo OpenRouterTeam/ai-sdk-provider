@@ -35,11 +35,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
   /**
    * Supported URL patterns by media type.
-   * OpenRouter supports image URLs and PDF URLs natively.
+   * OpenRouter Chat API only supports image URLs natively.
+   * PDF URLs are not supported - use PDF data URIs or the Responses API instead.
    */
   readonly supportedUrls: Record<string, RegExp[]> = {
     'image/*': [/^https?:\/\/.*$/],
-    'application/pdf': [/^https?:\/\/.*$/],
   };
 
   constructor(modelId: string, settings: OpenRouterModelSettings) {
@@ -186,52 +186,70 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const warnings: SharedV3Warning[] = [];
 
-    // Create OpenRouter client
-    const client = new OpenRouter({
-      apiKey: this.settings.apiKey,
-      serverURL: this.settings.baseURL,
-    });
-
     // Convert messages to OpenRouter format
     const openRouterMessages = convertToOpenRouterMessages(options.prompt);
 
     // Build request parameters
-    const requestParams: ChatGenerationParams & { stream: true } = {
+    const modelOptions = this.settings.modelOptions;
+    const requestParams: Record<string, unknown> = {
       model: this.modelId,
-      messages: openRouterMessages as ChatGenerationParams['messages'],
+      messages: openRouterMessages,
       stream: true,
-      streamOptions: { includeUsage: true },
+      stream_options: { include_usage: true },
       ...(options.maxOutputTokens !== undefined && {
-        maxTokens: options.maxOutputTokens,
+        max_tokens: options.maxOutputTokens,
       }),
       ...(options.temperature !== undefined && {
         temperature: options.temperature,
       }),
-      ...(options.topP !== undefined && { topP: options.topP }),
+      ...(options.topP !== undefined && { top_p: options.topP }),
       ...(options.frequencyPenalty !== undefined && {
-        frequencyPenalty: options.frequencyPenalty,
+        frequency_penalty: options.frequencyPenalty,
       }),
       ...(options.presencePenalty !== undefined && {
-        presencePenalty: options.presencePenalty,
+        presence_penalty: options.presencePenalty,
       }),
       ...(options.seed !== undefined && { seed: options.seed }),
       ...(options.stopSequences !== undefined &&
         options.stopSequences.length > 0 && {
           stop: options.stopSequences,
         }),
+      // OpenRouter-specific options from model settings
+      ...(modelOptions?.plugins && { plugins: modelOptions.plugins }),
+      ...(modelOptions?.transforms && { transforms: modelOptions.transforms }),
+      ...(modelOptions?.models && { models: modelOptions.models }),
+      ...(modelOptions?.route && { route: modelOptions.route }),
+      ...(modelOptions?.provider && { provider: modelOptions.provider }),
+      // Extra body parameters
+      ...this.settings.extraBody,
     };
 
-    // Make the streaming request
+    // Make the streaming request using native fetch
+    // (SDK has parsing issues with large annotation chunks)
     const combinedHeaders = normalizeHeaders(
       combineHeaders(this.settings.headers, options.headers)
     );
 
-    const eventStream = await client.chat.send(requestParams, {
-      fetchOptions: {
-        signal: options.abortSignal,
-        headers: combinedHeaders,
+    const baseUrl = this.settings.baseURL || 'https://openrouter.ai/api/v1';
+    const response = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.settings.apiKey}`,
+        ...combinedHeaders,
       },
+      body: JSON.stringify(requestParams),
+      signal: options.abortSignal,
     });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} ${errorBody}`);
+    }
+
+    if (!response.body) {
+      throw new Error('No response body');
+    }
 
     // Track state for stream transformation
     let responseId: string | undefined;
@@ -245,6 +263,47 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     let finishReason: string | null | undefined;
     let textEnded = false;
     let reasoningEnded = false;
+    const sourceIds: string[] = [];
+
+    // Create an async generator from the SSE stream
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    async function* parseSSEStream(): AsyncGenerator<ChatStreamingResponseChunkData> {
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith(':')) {
+            continue;
+          }
+          if (trimmed === 'data: [DONE]') {
+            continue;
+          }
+
+          if (trimmed.startsWith('data: ')) {
+            const jsonStr = trimmed.slice(6);
+            try {
+              const parsed = JSON.parse(jsonStr);
+              yield parsed as ChatStreamingResponseChunkData;
+            } catch {
+              // Skip malformed JSON chunks (e.g., SSE comment lines)
+              continue;
+            }
+          }
+        }
+      }
+    }
 
     // Transform the EventStream to AI SDK V3 stream parts
     const transformedStream = new ReadableStream<LanguageModelV3StreamPart>({
@@ -256,7 +315,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         });
 
         try {
-          for await (const chunk of eventStream) {
+          for await (const chunk of parseSSEStream()) {
             const parts = transformChunk(chunk, {
               getResponseId: () => responseId,
               setResponseId: (id: string) => {
@@ -295,6 +354,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               getReasoningEnded: () => reasoningEnded,
               setReasoningEnded: (ended: boolean) => {
                 reasoningEnded = ended;
+              },
+              getNextSourceId: () => {
+                const id = `source-${sourceIds.length}`;
+                sourceIds.push(id);
+                return id;
               },
             });
 
@@ -343,6 +407,7 @@ interface StreamState {
   setTextEnded: (ended: boolean) => void;
   getReasoningEnded: () => boolean;
   setReasoningEnded: (ended: boolean) => void;
+  getNextSourceId: () => string;
 }
 
 /**
@@ -414,6 +479,36 @@ function transformChunk(
           id: state.getReasoningId(),
           delta: delta.reasoning,
         });
+      }
+    }
+
+    // Handle annotations (web search sources)
+    // The SDK types don't include annotations but the API returns them for web search
+    const deltaWithAnnotations = delta as typeof delta & {
+      annotations?: Array<{
+        type: string;
+        url_citation?: {
+          url: string;
+          title: string;
+          start_index?: number;
+          end_index?: number;
+          content?: string;
+        };
+      }>;
+    };
+
+    if (deltaWithAnnotations.annotations) {
+      for (const annotation of deltaWithAnnotations.annotations) {
+        if (annotation.type === 'url_citation' && annotation.url_citation) {
+          const sourceId = state.getNextSourceId();
+          parts.push({
+            type: 'source',
+            sourceType: 'url',
+            id: sourceId,
+            url: annotation.url_citation.url,
+            title: annotation.url_citation.title,
+          });
+        }
       }
     }
 
