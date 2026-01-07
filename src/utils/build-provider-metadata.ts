@@ -24,9 +24,13 @@ export interface OpenRouterProviderMetadata {
     totalTokens?: number;
     promptTokensDetails?: {
       cachedTokens?: number;
+      cacheWriteTokens?: number;
+      audioTokens?: number;
+      videoTokens?: number;
     };
     completionTokensDetails?: {
       reasoningTokens?: number;
+      imageTokens?: number;
     };
     /**
      * Cost in USD (omit if unavailable).
@@ -44,13 +48,33 @@ export interface OpenRouterProviderMetadata {
 }
 
 /**
+ * Extended prompt tokens details with fields not in SDK types.
+ */
+export interface ExtendedPromptTokensDetails {
+  cachedTokens?: number | null;
+  cacheWriteTokens?: number | null;
+  audioTokens?: number | null;
+  videoTokens?: number | null;
+}
+
+/**
+ * Extended completion tokens details with fields not in SDK types.
+ */
+export interface ExtendedCompletionTokensDetails {
+  reasoningTokens?: number | null;
+  imageTokens?: number | null;
+}
+
+/**
  * Extended usage type with additional fields from raw OpenRouter API response.
  * The SDK types don't include cost/is_byok but the API returns them.
  */
-export interface OpenRouterUsageExtended extends ChatGenerationTokenUsage {
+export interface OpenRouterUsageExtended extends Omit<ChatGenerationTokenUsage, 'promptTokensDetails' | 'completionTokensDetails'> {
   cost?: number;
   isByok?: boolean;
   costDetails?: JSONObject;
+  promptTokensDetails?: ExtendedPromptTokensDetails | null;
+  completionTokensDetails?: ExtendedCompletionTokensDetails | null;
 }
 
 /**
@@ -92,13 +116,16 @@ export function buildProviderMetadata(
         totalTokens: usage.totalTokens,
         ...(usage.promptTokensDetails && {
           promptTokensDetails: {
-            cachedTokens: usage.promptTokensDetails.cachedTokens,
+            cachedTokens: usage.promptTokensDetails.cachedTokens ?? undefined,
+            cacheWriteTokens: usage.promptTokensDetails.cacheWriteTokens ?? undefined,
+            audioTokens: usage.promptTokensDetails.audioTokens ?? undefined,
+            videoTokens: usage.promptTokensDetails.videoTokens ?? undefined,
           },
         }),
         ...(usage.completionTokensDetails && {
           completionTokensDetails: {
-            reasoningTokens:
-              usage.completionTokensDetails.reasoningTokens ?? undefined,
+            reasoningTokens: usage.completionTokensDetails.reasoningTokens ?? undefined,
+            imageTokens: usage.completionTokensDetails.imageTokens ?? undefined,
           },
         }),
         ...(usage.cost !== undefined && { cost: usage.cost }),

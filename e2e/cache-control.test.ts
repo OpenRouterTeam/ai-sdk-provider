@@ -9,12 +9,15 @@ vi.setConfig({
 /**
  * Test cache_control with Anthropic's prompt caching.
  *
- * Note: The `cost` field is not available due to @openrouter/sdk limitations
- * (Zod schema strips unknown fields).
+ * This test verifies:
+ * 1. cache_control is properly passed in message content via providerOptions
+ * 2. cachedTokens/cacheWriteTokens are reported in provider metadata
  */
 it('should trigger cache read', async () => {
-  // First call to warm the cache
-  await callLLM();
+  // First call to warm the cache (or read from existing cache)
+  const firstResponse = await callLLM();
+  await firstResponse.providerMetadata;
+
   // Second call to test cache read
   const response = await callLLM();
   const providerMetadata = await response.providerMetadata;
@@ -24,10 +27,11 @@ it('should trigger cache read', async () => {
       completionTokens: expect.any(Number),
       promptTokensDetails: expect.objectContaining({
         cachedTokens: expect.any(Number),
+        cacheWriteTokens: expect.any(Number),
       }),
       completionTokensDetails: expect.any(Object),
       totalTokens: expect.any(Number),
-      // Note: cost is not available due to SDK limitations
+      cost: expect.any(Number),
     }),
   });
 
@@ -44,9 +48,13 @@ async function callLLM() {
     apiKey: process.env.OPENROUTER_API_KEY,
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
-  const model = openrouter('anthropic/claude-3.7-sonnet', {
+  const model = openrouter('anthropic/claude-sonnet-4', {
     usage: {
       include: true,
+    },
+    // Force routing to Anthropic to ensure prompt caching works
+    provider: {
+      order: ['Anthropic'],
     },
   });
   const response = streamText({

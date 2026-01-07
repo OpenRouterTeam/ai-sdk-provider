@@ -39,6 +39,40 @@ describe('convertToOpenRouterMessages', () => {
       ]);
     });
 
+    it('converts user text message with cache_control', () => {
+      const prompt: LanguageModelV3Prompt = [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Hello, world!',
+              providerOptions: {
+                openrouter: {
+                  cache_control: { type: 'ephemeral' },
+                },
+              },
+            },
+          ],
+        },
+      ];
+
+      const result = convertToOpenRouterMessages(prompt);
+
+      expect(result).toEqual([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Hello, world!',
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+        },
+      ]);
+    });
+
     it('converts user image URL message', () => {
       const prompt: LanguageModelV3Prompt = [
         {

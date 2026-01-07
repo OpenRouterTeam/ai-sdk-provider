@@ -46,6 +46,7 @@ interface RawStreamingChunk {
     cost?: number;
     prompt_tokens_details?: {
       cached_tokens?: number;
+      cache_write_tokens?: number;
       audio_tokens?: number;
       video_tokens?: number;
     };
@@ -594,6 +595,7 @@ function transformChunk(
         promptTokensDetails: chunk.usage.prompt_tokens_details
           ? {
               cachedTokens: chunk.usage.prompt_tokens_details.cached_tokens,
+              cacheWriteTokens: chunk.usage.prompt_tokens_details.cache_write_tokens,
               audioTokens: chunk.usage.prompt_tokens_details.audio_tokens,
               videoTokens: chunk.usage.prompt_tokens_details.video_tokens,
             }
@@ -601,6 +603,7 @@ function transformChunk(
         completionTokensDetails: chunk.usage.completion_tokens_details
           ? {
               reasoningTokens: chunk.usage.completion_tokens_details.reasoning_tokens,
+              imageTokens: chunk.usage.completion_tokens_details.image_tokens,
             }
           : undefined,
       },

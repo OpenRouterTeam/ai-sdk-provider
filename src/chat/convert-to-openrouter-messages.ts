@@ -48,9 +48,16 @@ export interface OpenRouterFunctionCallOutput {
   status?: 'incomplete';
 }
 
+/**
+ * Cache control directive for Anthropic prompt caching.
+ */
+export interface CacheControl {
+  type: 'ephemeral';
+}
+
 export type OpenRouterInputContent =
-  | { type: 'text'; text: string }
-  | { type: 'image_url'; imageUrl: { url: string; detail?: 'auto' | 'low' | 'high' } };
+  | { type: 'text'; text: string; cache_control?: CacheControl }
+  | { type: 'image_url'; imageUrl: { url: string; detail?: 'auto' | 'low' | 'high' }; cache_control?: CacheControl };
 
 export type OpenRouterOutputContent = { type: 'text'; text: string };
 
@@ -117,9 +124,16 @@ function convertUserMessage(
 
   for (const part of content) {
     switch (part.type) {
-      case 'text':
-        convertedContent.push({ type: 'text', text: part.text });
+      case 'text': {
+        const textContent: OpenRouterInputContent = { type: 'text', text: part.text };
+        // Extract cache_control from providerOptions.openrouter
+        const cacheControl = (part.providerOptions?.openrouter as Record<string, unknown> | undefined)?.cache_control as CacheControl | undefined;
+        if (cacheControl) {
+          textContent.cache_control = cacheControl;
+        }
+        convertedContent.push(textContent);
         break;
+      }
 
       case 'file':
         convertedContent.push(convertFilePart(part));
