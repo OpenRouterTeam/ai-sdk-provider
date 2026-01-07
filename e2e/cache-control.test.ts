@@ -6,6 +6,12 @@ vi.setConfig({
   testTimeout: 42_000,
 });
 
+/**
+ * Test cache_control with Anthropic's prompt caching.
+ *
+ * Note: The `cost` field is not available due to @openrouter/sdk limitations
+ * (Zod schema strips unknown fields).
+ */
 it('should trigger cache read', async () => {
   // First call to warm the cache
   await callLLM();
@@ -21,7 +27,7 @@ it('should trigger cache read', async () => {
       }),
       completionTokensDetails: expect.any(Object),
       totalTokens: expect.any(Number),
-      cost: expect.any(Number),
+      // Note: cost is not available due to SDK limitations
     }),
   });
 
