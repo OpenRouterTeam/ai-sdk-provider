@@ -96,6 +96,16 @@ export interface OpenRouterResponseData {
 }
 
 /**
+ * Filters out undefined values from an object, returning only defined properties.
+ * This ensures providerMetadata is valid JSON (undefined is not a valid JSON value).
+ */
+function filterUndefined<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([_, v]) => v !== undefined)
+  ) as Partial<T>;
+}
+
+/**
  * Builds provider metadata from OpenRouter API response data.
  *
  * @param response - The response data from OpenRouter API (with camelCase fields from SDK).
@@ -110,35 +120,35 @@ export function buildProviderMetadata(
 
   const usage = response.usage;
   const usageMetadata: OpenRouterProviderMetadata['usage'] | undefined = usage
-    ? {
+    ? filterUndefined({
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         totalTokens: usage.totalTokens,
         ...(usage.promptTokensDetails && {
-          promptTokensDetails: {
+          promptTokensDetails: filterUndefined({
             cachedTokens: usage.promptTokensDetails.cachedTokens ?? undefined,
             cacheWriteTokens: usage.promptTokensDetails.cacheWriteTokens ?? undefined,
             audioTokens: usage.promptTokensDetails.audioTokens ?? undefined,
             videoTokens: usage.promptTokensDetails.videoTokens ?? undefined,
-          },
+          }),
         }),
         ...(usage.completionTokensDetails && {
-          completionTokensDetails: {
+          completionTokensDetails: filterUndefined({
             reasoningTokens: usage.completionTokensDetails.reasoningTokens ?? undefined,
             imageTokens: usage.completionTokensDetails.imageTokens ?? undefined,
-          },
+          }),
         }),
-        ...(usage.cost !== undefined && { cost: usage.cost }),
-        ...(usage.isByok !== undefined && { isByok: usage.isByok }),
-        ...(usage.costDetails && { costDetails: usage.costDetails }),
-      }
+        cost: usage.cost,
+        isByok: usage.isByok,
+        costDetails: usage.costDetails,
+      })
     : undefined;
 
-  const metadata: OpenRouterProviderMetadata = {
-    ...(response.id !== undefined && { responseId: response.id }),
-    ...(response.provider !== undefined && { provider: response.provider }),
-    ...(usageMetadata && { usage: usageMetadata }),
-  };
+  const metadata: OpenRouterProviderMetadata = filterUndefined({
+    responseId: response.id,
+    provider: response.provider,
+    usage: usageMetadata,
+  });
 
   return {
     openrouter: metadata as unknown as JSONObject,
