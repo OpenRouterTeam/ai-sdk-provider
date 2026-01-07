@@ -1,7 +1,7 @@
 name: Release
 on:
   push:
-    branches: [main]
+    branches: [main, dev-v6]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,17 +20,24 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20.x"
           registry-url: "https://registry.npmjs.org"
           scope: "@openrouter"
           cache: pnpm
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
       - name: Upgrade npm for OIDC support
         run: npm install -g npm@latest
+
       - name: Create Release Pull Request or Publish
         id: changesets
         uses: changesets/action@v1
@@ -38,8 +45,9 @@ jobs:
           version: pnpm changeset-version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: OIDC preflight - scrub .npmrc and verify registry
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           echo "=== OIDC Preflight ==="
           
@@ -47,11 +55,8 @@ jobs:
           for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
             if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
               echo "Cleaning $npmrc of any existing auth tokens..."
-              # Remove registry-scoped tokens (allow optional whitespace around =)
               sed -i -E '/\/\/registry\.npmjs\.org\/:(_authToken|_auth)\s*=/d' "$npmrc"
-              # Remove global tokens in any form
               sed -i -E '/^\s*(_authToken|_auth)\s*=/d' "$npmrc"
-              # Remove global always-auth (case-insensitive, allow spacing)
               sed -i -E '/^\s*[Aa]lways-[Aa]uth\s*=/d' "$npmrc"
             fi
           done
@@ -72,13 +77,13 @@ jobs:
           echo "Registry configuration:"
           npm config get registry
           npm config get @openrouter:registry || echo "  (no @openrouter scope override)"
-      
+
       - name: Publish with OIDC
         if: steps.changesets.outputs.hasChangesets == 'false'
         run: pnpm changeset-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Post-mortem diagnostics
         if: failure()
         run: |
@@ -92,16 +97,5 @@ jobs:
           echo "  registry: $(npm config get registry)"
           echo "  @openrouter scope: $(npm config get @openrouter:registry || echo '(inherited from global)')"
           echo ""
-          echo ".npmrc files status:"
-          for npmrc in "$NPM_CONFIG_USERCONFIG" ~/.npmrc .npmrc; do
-            if [ -n "$npmrc" ] && [ -f "$npmrc" ]; then
-              echo "  $npmrc:"
-              echo "    Lines: $(wc -l < "$npmrc")"
-              echo "    Auth lines: $(grep -c "_auth\|_token" "$npmrc" || echo "0")"
-              echo "    Content (redacted):"
-              sed 's/\(_auth[^=]*=\).*/\1***REDACTED***/g; s/\(_token[^=]*=\).*/\1***REDACTED***/g' "$npmrc" | sed 's/^/      /'
-            fi
-          done
-          echo ""
           echo "Package availability:"
-          npm view @openrouter/ai-sdk-provider@latest version 2>&1 || echo "  (could not fetch)"
+          npm view @openrouter/ai-sdk-provider@alpha version 2>&1 || echo "  (could not fetch)"
