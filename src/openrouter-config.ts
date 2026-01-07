@@ -14,6 +14,13 @@ export interface OpenRouterProviderSettings {
   baseURL?: string;
 
   /**
+   * Base URL for the OpenRouter API (alias for baseURL).
+   * @default 'https://openrouter.ai/api/v1'
+   * @deprecated Use baseURL instead.
+   */
+  baseUrl?: string;
+
+  /**
    * Custom headers to include in all requests.
    */
   headers?: Record<string, string>;
@@ -22,10 +29,17 @@ export interface OpenRouterProviderSettings {
    * Custom fetch implementation.
    */
   fetch?: typeof globalThis.fetch;
+
+  /**
+   * Extra body parameters to include in all requests.
+   */
+  extraBody?: Record<string, unknown>;
 }
 
 /**
  * Plugin configuration for OpenRouter.
+ *
+ * Plugins can have arbitrary configuration properties in addition to the id.
  */
 export interface OpenRouterPluginConfig {
   /**
@@ -37,6 +51,11 @@ export interface OpenRouterPluginConfig {
    * Plugin-specific configuration.
    */
   config?: Record<string, unknown>;
+
+  /**
+   * Allow any additional plugin-specific properties.
+   */
+  [key: string]: unknown;
 }
 
 /**
@@ -105,4 +124,10 @@ export interface OpenRouterModelOptions {
    * - 'remove': Strip system messages entirely
    */
   systemMessageMode?: 'system' | 'developer' | 'remove';
+
+  /**
+   * Allow any additional model-specific options.
+   * These are passed through to the API.
+   */
+  [key: string]: unknown;
 }
