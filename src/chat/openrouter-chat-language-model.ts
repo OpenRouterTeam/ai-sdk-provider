@@ -158,7 +158,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           type: 'function_call';
           callId: string;
           name: string;
-          arguments: string;
+          arguments?: string;
         };
         // Attach reasoning_details to tool-call parts for multi-turn support
         // This is critical for Gemini 3 with thoughtSignature
@@ -166,7 +166,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           type: 'tool-call',
           toolCallId: functionCallItem.callId,
           toolName: functionCallItem.name,
-          input: functionCallItem.arguments,
+          // Default to empty object when arguments is undefined/empty
+          // (some providers omit arguments for tools with no parameters)
+          input: functionCallItem.arguments || '{}',
           ...(reasoningMetadata && { providerMetadata: reasoningMetadata }),
         });
       }
@@ -493,10 +495,12 @@ function transformResponsesEvent(
           id: toolCallId,
           toolName: event.name,
         });
+        // Default to empty object when arguments is undefined/empty
+        const args = event.arguments || '{}';
         parts.push({
           type: 'tool-input-delta',
           id: toolCallId,
-          delta: event.arguments,
+          delta: args,
         });
       }
 
@@ -507,11 +511,13 @@ function transformResponsesEvent(
       });
 
       // Emit tool-call with complete tool call data
+      // Default to empty object when arguments is undefined/empty
+      // (some providers omit arguments for tools with no parameters)
       parts.push({
         type: 'tool-call',
         toolCallId,
         toolName: event.name,
-        input: event.arguments,
+        input: event.arguments || '{}',
       });
       break;
     }

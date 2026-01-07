@@ -1,5 +1,24 @@
 /**
- * Settings for the OpenRouter provider.
+ * Settings for configuring an OpenRouter provider instance.
+ *
+ * @description
+ * Configuration options passed to `createOpenRouter()` to customize the provider behavior.
+ * All settings are optional - the provider will use sensible defaults and environment
+ * variables when settings are not explicitly provided.
+ *
+ * @example
+ * ```ts
+ * import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+ *
+ * const openrouter = createOpenRouter({
+ *   apiKey: process.env.OPENROUTER_API_KEY,
+ *   baseURL: 'https://openrouter.ai/api/v1',
+ *   headers: {
+ *     'X-Title': 'My App',
+ *     'HTTP-Referer': 'https://myapp.com',
+ *   },
+ * });
+ * ```
  */
 export interface OpenRouterProviderSettings {
   /**
@@ -37,9 +56,22 @@ export interface OpenRouterProviderSettings {
 }
 
 /**
- * Plugin configuration for OpenRouter.
+ * Configuration for an OpenRouter plugin.
  *
- * Plugins can have arbitrary configuration properties in addition to the id.
+ * @description
+ * Plugins extend OpenRouter functionality with features like web search, code execution,
+ * and more. Each plugin has a unique identifier and optional configuration parameters.
+ * Additional plugin-specific properties can be included as needed.
+ *
+ * @example
+ * ```ts
+ * const model = openrouter('anthropic/claude-3.5-sonnet', {
+ *   plugins: [
+ *     { id: 'web-search' },
+ *     { id: 'code-interpreter', config: { timeout: 30000 } },
+ *   ],
+ * });
+ * ```
  */
 export interface OpenRouterPluginConfig {
   /**
@@ -59,7 +91,22 @@ export interface OpenRouterPluginConfig {
 }
 
 /**
- * Provider routing configuration.
+ * Configuration for OpenRouter's provider routing behavior.
+ *
+ * @description
+ * Controls how OpenRouter selects and falls back between different AI providers
+ * when routing requests. Use this to specify provider preferences, enable/disable
+ * fallbacks, and require specific provider parameters.
+ *
+ * @example
+ * ```ts
+ * const model = openrouter('openai/gpt-4', {
+ *   provider: {
+ *     order: ['Azure', 'OpenAI'],
+ *     allowFallbacks: true,
+ *   },
+ * });
+ * ```
  */
 export interface OpenRouterProviderRoutingConfig {
   /**
@@ -79,7 +126,26 @@ export interface OpenRouterProviderRoutingConfig {
 }
 
 /**
- * Model-specific options for OpenRouter.
+ * Model-specific options for OpenRouter requests.
+ *
+ * @description
+ * Options that can be passed when creating a model to customize its behavior.
+ * These include OpenRouter-specific features like plugins, transforms, model
+ * fallbacks, and routing configuration. Additional properties are passed through
+ * to the underlying API.
+ *
+ * @example
+ * ```ts
+ * const model = openrouter('anthropic/claude-3.5-sonnet', {
+ *   usage: { include: true },
+ *   transforms: ['middle-out'],
+ *   models: ['anthropic/claude-3-opus', 'openai/gpt-4'],  // fallbacks
+ *   provider: {
+ *     order: ['Anthropic'],
+ *     allowFallbacks: false,
+ *   },
+ * });
+ * ```
  */
 export interface OpenRouterModelOptions {
   /**

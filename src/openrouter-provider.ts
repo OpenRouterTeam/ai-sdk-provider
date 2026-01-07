@@ -71,12 +71,31 @@ export interface OpenRouterModelSettings {
 }
 
 /**
- * Creates an OpenRouter provider instance.
+ * Creates an OpenRouter provider instance for the AI SDK.
+ *
+ * @description
+ * Factory function that creates an OpenRouter provider compatible with the AI SDK v3 provider
+ * specification. The provider can create language models, embedding models, and image models
+ * that route requests through OpenRouter to various AI providers (OpenAI, Anthropic, Google, etc.).
+ *
+ * The returned provider is callable - you can use it directly as a function to create language
+ * models, or use its methods for specific model types.
  *
  * @param options - Provider settings including API key, base URL, headers, and fetch implementation.
+ *   If no API key is provided, it will be loaded from the OPENROUTER_API_KEY environment variable.
  * @returns An OpenRouter provider that can create language, embedding, and image models.
  *
- * @example
+ * @example Basic usage with environment variable
+ * ```ts
+ * import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+ *
+ * // Uses OPENROUTER_API_KEY from environment
+ * const openrouter = createOpenRouter();
+ *
+ * const model = openrouter('anthropic/claude-3.5-sonnet');
+ * ```
+ *
+ * @example With explicit API key
  * ```ts
  * import { createOpenRouter } from '@openrouter/ai-sdk-provider';
  *
@@ -85,6 +104,20 @@ export interface OpenRouterModelSettings {
  * });
  *
  * const model = openrouter('anthropic/claude-3.5-sonnet');
+ * ```
+ *
+ * @example Creating different model types
+ * ```ts
+ * const openrouter = createOpenRouter();
+ *
+ * // Language model (callable shorthand)
+ * const chat = openrouter('anthropic/claude-3.5-sonnet');
+ *
+ * // Embedding model
+ * const embeddings = openrouter.embeddingModel('openai/text-embedding-3-small');
+ *
+ * // Image model
+ * const image = openrouter.imageModel('openai/dall-e-3');
  * ```
  */
 export function createOpenRouter(
