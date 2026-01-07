@@ -23,6 +23,7 @@ import type { ReasoningOutputItem } from './extract-reasoning-details.js';
 
 import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
+import { HTTPClient } from '@openrouter/sdk/lib/http';
 import { buildProviderMetadata } from '../utils/build-provider-metadata.js';
 import { buildUsage } from '../utils/build-usage.js';
 import { parseOpenRouterOptions } from '../utils/parse-provider-options.js';
@@ -67,6 +68,9 @@ function buildModelOptionsParams(
     ...(mergedOptions.route !== undefined && {
       route: mergedOptions.route,
     }),
+    // Note: usage.include is not supported by the Responses API.
+    // The Responses API always returns usage information in the response.
+    // If needed, usage options can be passed via extraBody for Chat Completions API.
   };
 }
 
@@ -101,11 +105,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3GenerateResult> {
     const warnings: SharedV3Warning[] = [];
 
-    // Create OpenRouter client
+    // Create OpenRouter client with optional custom fetch
+    const httpClient = this.settings.fetch
+      ? new HTTPClient({ fetcher: this.settings.fetch })
+      : undefined;
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
       userAgent: this.settings.userAgent,
+      httpClient,
     });
 
     // Convert messages to OpenRouter Responses API format
@@ -127,7 +135,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     );
 
     // Build request parameters for Responses API (non-streaming)
+    // Note: extraBody is spread first so explicit params can override
     const requestParams: OpenResponsesRequest & { stream: false } = {
+      ...this.settings.extraBody,
       model: this.modelId,
       input: openRouterInput as OpenResponsesRequest['input'],
       stream: false,
@@ -310,11 +320,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   ): Promise<LanguageModelV3StreamResult> {
     const warnings: SharedV3Warning[] = [];
 
-    // Create OpenRouter client
+    // Create OpenRouter client with optional custom fetch
+    const httpClient = this.settings.fetch
+      ? new HTTPClient({ fetcher: this.settings.fetch })
+      : undefined;
     const client = new OpenRouter({
       apiKey: this.settings.apiKey,
       serverURL: this.settings.baseURL,
       userAgent: this.settings.userAgent,
+      httpClient,
     });
 
     // Convert messages to OpenRouter Responses API format
@@ -336,7 +350,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     );
 
     // Build request parameters for Responses API (streaming)
+    // Note: extraBody is spread first so explicit params can override
     const requestParams: OpenResponsesRequest & { stream: true } = {
+      ...this.settings.extraBody,
       model: this.modelId,
       input: openRouterInput as OpenResponsesRequest['input'],
       stream: true,

@@ -1,6 +1,6 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../../chat/openrouter-chat-language-model.js';
 
 const createTestSettings = () => ({
@@ -9,34 +9,49 @@ const createTestSettings = () => ({
   userAgent: 'test-user-agent/0.0.0',
 });
 
+// Track OpenRouter constructor calls
+const openRouterConstructorCalls: unknown[][] = [];
+
 // Mock the OpenRouter SDK
 vi.mock('@openrouter/sdk', () => {
   return {
-    OpenRouter: vi.fn().mockImplementation(() => ({
-      beta: {
-        responses: {
-          send: vi.fn().mockResolvedValue({
-            id: 'resp-test',
-            model: 'test-model',
-            status: 'completed',
-            createdAt: 1704067200,
-            output: [
-              {
-                type: 'message',
-                content: [{ type: 'output_text', text: 'Hello' }],
+    OpenRouter: vi.fn().mockImplementation((...args: unknown[]) => {
+      openRouterConstructorCalls.push(args);
+      return {
+        beta: {
+          responses: {
+            send: vi.fn().mockResolvedValue({
+              id: 'resp-test',
+              model: 'test-model',
+              status: 'completed',
+              createdAt: 1704067200,
+              output: [
+                {
+                  type: 'message',
+                  content: [{ type: 'output_text', text: 'Hello' }],
+                },
+              ],
+              outputText: 'Hello',
+              usage: {
+                inputTokens: 10,
+                outputTokens: 5,
+                totalTokens: 15,
               },
-            ],
-            outputText: 'Hello',
-            usage: {
-              inputTokens: 10,
-              outputTokens: 5,
-              totalTokens: 15,
-            },
-          }),
+            }),
+          },
         },
-      },
-    })),
+      };
+    }),
     SDK_METADATA: { userAgent: 'test-sdk/1.0.0' },
+  };
+});
+
+// Mock HTTPClient
+vi.mock('@openrouter/sdk/lib/http', () => {
+  return {
+    HTTPClient: vi.fn().mockImplementation((options: unknown) => ({
+      _options: options,
+    })),
   };
 });
 
@@ -48,6 +63,10 @@ const createTestPrompt = (): LanguageModelV3Prompt => [
 ];
 
 describe('OpenRouterChatLanguageModel', () => {
+  beforeEach(() => {
+    // Clear constructor call tracking before each test
+    openRouterConstructorCalls.length = 0;
+  });
   describe('constructor', () => {
     it('should set specificationVersion to v3', () => {
       const model = new OpenRouterChatLanguageModel(
@@ -397,6 +416,129 @@ describe('OpenRouterChatLanguageModel', () => {
       expect(body.plugins).toEqual([{ id: 'code-interpreter' }]);
       expect(body).toHaveProperty('route');
       expect(body.route).toEqual('fallback');
+    });
+  });
+
+  describe('extraBody forwarding', () => {
+    it('should spread extraBody into doGenerate request params', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        extraBody: {
+          customField: 'customValue',
+          anotherField: 123,
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes extraBody fields
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('customField', 'customValue');
+      expect(body).toHaveProperty('anotherField', 123);
+    });
+
+    it('should spread extraBody into doStream request params', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        extraBody: {
+          customField: 'streamValue',
+        },
+      });
+
+      const result = await model.doStream({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify request body includes extraBody fields
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      expect(body).toHaveProperty('customField', 'streamValue');
+    });
+
+    it('should allow explicit params to override extraBody', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        extraBody: {
+          model: 'should-be-overridden',
+          temperature: 0.5,
+        },
+      });
+
+      const result = await model.doGenerate({
+        prompt: createTestPrompt(),
+        temperature: 0.9,
+      });
+
+      // Verify explicit params override extraBody
+      const body = result.request?.body as Record<string, unknown>;
+      expect(body).toBeDefined();
+      // Model should be from the constructor, not extraBody
+      expect(body.model).toBe('openai/gpt-4o');
+      // Temperature from call options should override extraBody
+      expect(body.temperature).toBe(0.9);
+    });
+  });
+
+  describe('custom fetch forwarding', () => {
+    it('should pass custom fetch to OpenRouter client via HTTPClient in doGenerate', async () => {
+      const customFetch = vi.fn();
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        fetch: customFetch,
+      });
+
+      await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify OpenRouter constructor was called with httpClient
+      expect(openRouterConstructorCalls.length).toBeGreaterThan(0);
+      const lastCall = openRouterConstructorCalls[
+        openRouterConstructorCalls.length - 1
+      ] as [{ httpClient?: unknown }];
+      expect(lastCall[0]).toHaveProperty('httpClient');
+      expect(lastCall[0].httpClient).toBeDefined();
+    });
+
+    it('should pass custom fetch to OpenRouter client via HTTPClient in doStream', async () => {
+      const customFetch = vi.fn();
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        fetch: customFetch,
+      });
+
+      await model.doStream({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify OpenRouter constructor was called with httpClient
+      expect(openRouterConstructorCalls.length).toBeGreaterThan(0);
+      const lastCall = openRouterConstructorCalls[
+        openRouterConstructorCalls.length - 1
+      ] as [{ httpClient?: unknown }];
+      expect(lastCall[0]).toHaveProperty('httpClient');
+      expect(lastCall[0].httpClient).toBeDefined();
+    });
+
+    it('should not pass httpClient when no custom fetch is provided', async () => {
+      const model = new OpenRouterChatLanguageModel('openai/gpt-4o', {
+        ...createTestSettings(),
+        // No custom fetch
+      });
+
+      await model.doGenerate({
+        prompt: createTestPrompt(),
+      });
+
+      // Verify OpenRouter constructor was called without httpClient (or with undefined)
+      expect(openRouterConstructorCalls.length).toBeGreaterThan(0);
+      const lastCall = openRouterConstructorCalls[
+        openRouterConstructorCalls.length - 1
+      ] as [{ httpClient?: unknown }];
+      expect(lastCall[0].httpClient).toBeUndefined();
     });
   });
 });
