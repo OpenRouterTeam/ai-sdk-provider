@@ -24,7 +24,7 @@
     "test:e2e": "vitest --config vitest.e2e.config.ts --run",
     "changeset": "changeset",
     "changeset-version": "changeset version",
-    "changeset-publish": "bun run build && bun test && changeset publish --provenance"
+    "changeset-publish": "bun run build && bun run test && changeset publish --provenance"
   },
   "exports": {
     "./package.json": "./package.json",

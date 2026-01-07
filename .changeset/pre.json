@@ -2,7 +2,7 @@
   "mode": "pre",
   "tag": "alpha",
   "initialVersions": {
-    "@openrouter/ai-sdk-provider": "5.0.7"
+    "@openrouter/ai-sdk-provider": "6.0.0-alpha.0"
   },
-  "changesets": []
+  "changesets": ["v6-alpha-initial"]
 }
