@@ -8,6 +8,8 @@ import type {
   OpenRouterModelOptions,
 } from './openrouter-config.js';
 
+declare const __PACKAGE_VERSION__: string;
+
 /**
  * OpenRouter provider interface extending the AI SDK V3 ProviderV3 interface.
  *
@@ -158,10 +160,16 @@ export function createOpenRouter(
       description: 'OpenRouter',
     });
 
+    // Build User-Agent header with provider info
+    const userAgent = `@openrouter/ai-sdk-provider/${__PACKAGE_VERSION__}`;
+
     return {
       apiKey,
       baseURL,
-      headers: options.headers,
+      headers: {
+        'User-Agent': userAgent,
+        ...options.headers, // User headers can override defaults
+      },
       fetch: options.fetch,
       extraBody: options.extraBody,
       modelOptions,

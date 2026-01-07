@@ -1,4 +1,8 @@
-export { createOpenRouter, type OpenRouterProvider } from './openrouter-provider.js';
+export {
+  createOpenRouter,
+  type OpenRouterProvider,
+  type OpenRouterModelSettings,
+} from './openrouter-provider.js';
 export type {
   OpenRouterProviderSettings,
   OpenRouterModelOptions,

@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { createOpenRouter } from '../openrouter-provider.js';
+import { createOpenRouter, type OpenRouterModelSettings } from '../openrouter-provider.js';
 import { OpenRouterChatLanguageModel } from '../chat/openrouter-chat-language-model.js';
 import { OpenRouterEmbeddingModel } from '../embedding/openrouter-embedding-model.js';
 import { OpenRouterImageModel } from '../image/openrouter-image-model.js';
+
+// Access private settings for testing - this is a test-only utility
+function getModelSettings(model: OpenRouterChatLanguageModel): OpenRouterModelSettings {
+  return (model as unknown as { settings: OpenRouterModelSettings }).settings;
+}
 
 describe('createOpenRouter', () => {
   const TEST_API_KEY = 'test-api-key';
@@ -133,6 +138,48 @@ describe('createOpenRouter', () => {
 
       expect(embeddingModel).toBeInstanceOf(OpenRouterEmbeddingModel);
       expect(embeddingModel.modelId).toBe('openai/text-embedding-3-small');
+    });
+  });
+
+  describe('User-Agent header', () => {
+    it('sets User-Agent header with provider version', () => {
+      const provider = createOpenRouter({ apiKey: TEST_API_KEY });
+      const model = provider('test-model') as OpenRouterChatLanguageModel;
+
+      const settings = getModelSettings(model);
+      expect(settings.headers).toBeDefined();
+      expect(settings.headers!['User-Agent']).toMatch(
+        /^@openrouter\/ai-sdk-provider\/\d+\.\d+\.\d+/
+      );
+    });
+
+    it('User-Agent header can be overridden by user headers', () => {
+      const provider = createOpenRouter({
+        apiKey: TEST_API_KEY,
+        headers: {
+          'User-Agent': 'custom-user-agent/1.0.0',
+        },
+      });
+      const model = provider('test-model') as OpenRouterChatLanguageModel;
+
+      const settings = getModelSettings(model);
+      expect(settings.headers!['User-Agent']).toBe('custom-user-agent/1.0.0');
+    });
+
+    it('preserves other custom headers alongside User-Agent', () => {
+      const provider = createOpenRouter({
+        apiKey: TEST_API_KEY,
+        headers: {
+          'X-Custom-Header': 'custom-value',
+        },
+      });
+      const model = provider('test-model') as OpenRouterChatLanguageModel;
+
+      const settings = getModelSettings(model);
+      expect(settings.headers!['User-Agent']).toMatch(
+        /^@openrouter\/ai-sdk-provider\/\d+\.\d+\.\d+/
+      );
+      expect(settings.headers!['X-Custom-Header']).toBe('custom-value');
     });
   });
 
