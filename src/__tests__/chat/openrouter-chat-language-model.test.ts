@@ -1,4 +1,5 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+
 import { describe, expect, it, vi } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../../chat/openrouter-chat-language-model.js';
 
