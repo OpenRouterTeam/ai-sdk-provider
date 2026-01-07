@@ -1,6 +1,7 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
+  LanguageModelV3Content,
   LanguageModelV3GenerateResult,
   LanguageModelV3StreamPart,
   LanguageModelV3StreamResult,
@@ -10,6 +11,7 @@ import { combineHeaders, normalizeHeaders } from '@ai-sdk/provider-utils';
 import { OpenRouter } from '@openrouter/sdk';
 import type {
   ChatGenerationParams,
+  ChatResponse,
   ChatStreamingResponseChunkData,
 } from '@openrouter/sdk/models';
 
@@ -46,9 +48,141 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(
-    _options: LanguageModelV3CallOptions
+    options: LanguageModelV3CallOptions
   ): Promise<LanguageModelV3GenerateResult> {
-    throw new Error('Not implemented');
+    const warnings: SharedV3Warning[] = [];
+
+    // Create OpenRouter client
+    const client = new OpenRouter({
+      apiKey: this.settings.apiKey,
+      serverURL: this.settings.baseURL,
+    });
+
+    // Convert messages to OpenRouter format
+    const openRouterMessages = convertToOpenRouterMessages(options.prompt);
+
+    // Build request parameters (non-streaming)
+    const requestParams: ChatGenerationParams & { stream: false } = {
+      model: this.modelId,
+      messages: openRouterMessages as ChatGenerationParams['messages'],
+      stream: false,
+      ...(options.maxOutputTokens !== undefined && {
+        maxTokens: options.maxOutputTokens,
+      }),
+      ...(options.temperature !== undefined && {
+        temperature: options.temperature,
+      }),
+      ...(options.topP !== undefined && { topP: options.topP }),
+      ...(options.frequencyPenalty !== undefined && {
+        frequencyPenalty: options.frequencyPenalty,
+      }),
+      ...(options.presencePenalty !== undefined && {
+        presencePenalty: options.presencePenalty,
+      }),
+      ...(options.seed !== undefined && { seed: options.seed }),
+      ...(options.stopSequences !== undefined &&
+        options.stopSequences.length > 0 && {
+          stop: options.stopSequences,
+        }),
+    };
+
+    // Make the non-streaming request
+    const combinedHeaders = normalizeHeaders(
+      combineHeaders(this.settings.headers, options.headers)
+    );
+
+    const response = (await client.chat.send(requestParams, {
+      fetchOptions: {
+        signal: options.abortSignal,
+        headers: combinedHeaders,
+      },
+    })) as ChatResponse;
+
+    // Extract choice data
+    const choice = response.choices[0];
+    const message = choice?.message;
+
+    // Build content array
+    const content: LanguageModelV3Content[] = [];
+
+    // Add reasoning if present
+    if (message?.reasoning) {
+      content.push({
+        type: 'reasoning',
+        text: message.reasoning,
+      });
+    }
+
+    // Add text content if present
+    if (message?.content) {
+      const textContent =
+        typeof message.content === 'string'
+          ? message.content
+          : message.content
+              .filter((c): c is { type: 'text'; text: string } => c.type === 'text')
+              .map((c) => c.text)
+              .join('');
+
+      if (textContent) {
+        content.push({
+          type: 'text',
+          text: textContent,
+        });
+      }
+    }
+
+    // Add tool calls if present
+    if (message?.toolCalls) {
+      for (const toolCall of message.toolCalls) {
+        content.push({
+          type: 'tool-call',
+          toolCallId: toolCall.id,
+          toolName: toolCall.function.name,
+          input: toolCall.function.arguments,
+        });
+      }
+    }
+
+    // Build finish reason
+    const finishReason = mapOpenRouterFinishReason(choice?.finishReason);
+
+    // Build usage
+    const usage = buildUsage(
+      response.usage
+        ? {
+            inputTokens: response.usage.promptTokens,
+            outputTokens: response.usage.completionTokens,
+          }
+        : undefined
+    );
+
+    // Build provider metadata
+    const providerMetadata = buildProviderMetadata({
+      id: response.id,
+      usage: response.usage
+        ? {
+            prompt_tokens: response.usage.promptTokens,
+            completion_tokens: response.usage.completionTokens,
+            total_tokens: response.usage.totalTokens,
+          }
+        : undefined,
+    });
+
+    return {
+      content,
+      finishReason,
+      usage,
+      warnings,
+      providerMetadata,
+      request: {
+        body: requestParams,
+      },
+      response: {
+        id: response.id,
+        timestamp: new Date(response.created * 1000),
+        modelId: response.model,
+      },
+    };
   }
 
   async doStream(

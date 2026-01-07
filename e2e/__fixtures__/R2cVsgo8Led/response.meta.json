@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "statusText": "OK",
+  "headers": {
+    "content-type": "application/pdf"
+  },
+  "ttfb_ms": 0,
+  "total_ms": 2,
+  "is_sse": false,
+  "is_binary": true,
+  "cached_at": "2026-01-07T04:37:55.878Z",
+  "size": 3490125,
+  "content_type": "application/pdf"
+}

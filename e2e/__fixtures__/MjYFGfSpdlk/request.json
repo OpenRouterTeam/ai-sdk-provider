@@ -1,0 +1,28 @@
+{
+  "url": "https://openrouter.ai/api/v1/chat/completions",
+  "method": "POST",
+  "headers": {
+    "accept": "application/json",
+    "authorization": "[REDACTED]",
+    "content-type": "application/json",
+    "cookie": "[REDACTED]",
+    "user-agent": "speakeasy-sdk/typescript 0.3.11 2.788.4 1.0.0 @openrouter/sdk"
+  },
+  "body": {
+    "json": {
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Solve this problem: If a train leaves station A at 60 mph and another train leaves station B at 80 mph, and they are 420 miles apart, when will they meet?"
+            }
+          ]
+        }
+      ],
+      "model": "anthropic/claude-sonnet-4",
+      "stream": false
+    }
+  }
+}
