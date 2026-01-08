@@ -33,8 +33,9 @@ export type ChatCompletionContentPart =
 export interface ChatCompletionContentPartFile {
   type: 'file';
   file: {
-    filename: string;
-    file_data: string;
+    filename?: string;
+    file_data?: string;
+    file_id?: string;
   };
   cache_control?: OpenRouterCacheControl;
 }
