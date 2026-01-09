@@ -204,17 +204,9 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              const parsedPartProviderOptions =
-                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
-              if (
-                parsedPartProviderOptions.success &&
-                parsedPartProviderOptions.data?.openrouter?.reasoning_details
-              ) {
-                accumulatedReasoningDetails.push(
-                  ...parsedPartProviderOptions.data.openrouter
-                    .reasoning_details,
-                );
-              }
+              // NOTE: We intentionally do NOT accumulate reasoning_details from reasoning parts
+              // because they can be corrupted/partial/truncated during streaming.
+              // Only tool-call parts contain the complete reasoning_details with proper signatures.
               break;
             }
 
@@ -236,14 +228,50 @@ export function convertToOpenRouterChatMessages(
           ? parsedProviderOptions.data?.openrouter?.annotations
           : undefined;
 
-        // Use message-level reasoning_details if available, otherwise use accumulated from parts
+        // Deduplicate accumulated reasoning_details to avoid duplicates
+        // when the same reasoning is attached to multiple parallel tool calls.
+        // Different providers use different unique identifiers:
+        // - Claude: uses 'signature' field
+        // - Gemini encrypted: uses 'id' and 'data' fields
+        // - Gemini text: uses 'text' content
+        const deduplicatedReasoningDetails = accumulatedReasoningDetails.reduce(
+          (acc, detail) => {
+            // Create a unique key based on provider-specific fields
+            let key: string;
+            if ('signature' in detail && detail.signature) {
+              // Claude: use cryptographic signature
+              key = `signature:${detail.signature}`;
+            } else if ('id' in detail && detail.id) {
+              // Gemini encrypted: use ID
+              key = `id:${detail.id}`;
+            } else if ('data' in detail && detail.data) {
+              // Gemini encrypted: fallback to encrypted data
+              key = `data:${detail.data}`;
+            } else if ('text' in detail && detail.text) {
+              // Gemini text or Claude text without signature: use text content + format + index
+              key = `text:${detail.text}:${detail.format || ''}:${detail.index ?? ''}`;
+            } else {
+              // Fallback: stringify the entire object
+              key = JSON.stringify(detail);
+            }
+
+            if (!acc.seen.has(key)) {
+              acc.seen.add(key);
+              acc.details.push(detail);
+            }
+            return acc;
+          },
+          { seen: new Set<string>(), details: [] as ReasoningDetailUnion[] },
+        ).details;
+
+        // Use message-level reasoning_details if available, otherwise use deduplicated accumulated from parts
         const finalReasoningDetails =
           messageReasoningDetails &&
           Array.isArray(messageReasoningDetails) &&
           messageReasoningDetails.length > 0
             ? messageReasoningDetails
-            : accumulatedReasoningDetails.length > 0
-              ? accumulatedReasoningDetails
+            : deduplicatedReasoningDetails.length > 0
+              ? deduplicatedReasoningDetails
               : undefined;
 
         messages.push({

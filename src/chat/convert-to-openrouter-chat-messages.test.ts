@@ -1,4 +1,7 @@
 import { ReasoningDetailType } from '../schemas/reasoning-details';
+import { ReasoningFormat } from '../schemas/format';
+import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
+
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { MIME_TO_FORMAT } from './file-url-utils';
 
@@ -939,6 +942,299 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'First chunk',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should deduplicate reasoning_details from parallel tool calls (Claude format)', () => {
+    // This test verifies that when 2 parallel tool calls have the same reasoning_details
+    // (as happens during streaming), they are deduplicated based on signature (Claude format)
+    const sharedReasoningDetails = [
+      {
+        type: ReasoningDetailType.Text,
+        text: 'User wants to execute 2 parallel tool calls with SELECT 1 and SELECT 2',
+        signature: 'SHARED_SIGNATURE_ABC123',
+        format: 'anthropic-claude-v1',
+        index: 0,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'User wants to execute 2 parallel tool calls',
+          },
+          {
+            type: 'text',
+            text: 'Executing two queries:',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'execute_query',
+            input: { query: 'SELECT 1' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: sharedReasoningDetails,
+              },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_2',
+            toolName: 'execute_query',
+            input: { query: 'SELECT 2' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: sharedReasoningDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Executing two queries:',
+        reasoning: 'User wants to execute 2 parallel tool calls',
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: {
+              name: 'execute_query',
+              arguments: '{"query":"SELECT 1"}',
+            },
+          },
+          {
+            id: 'call_2',
+            type: 'function',
+            function: {
+              name: 'execute_query',
+              arguments: '{"query":"SELECT 2"}',
+            },
+          },
+        ],
+        // Should only include reasoning_details once, not twice
+        reasoning_details: sharedReasoningDetails,
+      },
+    ]);
+  });
+
+  it('should deduplicate reasoning_details from parallel tool calls (Gemini format)', () => {
+    // This test verifies deduplication with Gemini's format which includes
+    // both reasoning.text and reasoning.encrypted types
+    const sharedReasoningDetails: ReasoningDetailUnion[] = [
+      {
+        type: ReasoningDetailType.Text,
+        text: 'Investigating parallel query execution. Will use execute_any_sql_query tool.',
+        format: ReasoningFormat.GoogleGeminiV1,
+        index: 0,
+      },
+      {
+        type: ReasoningDetailType.Encrypted,
+        data: 'CiQBjz1rX3AUnuJbEscd2c28pUpzqQ9Pe9Y0fyB9LUKO+emeE/YKawGPPWtf',
+        id: 'tool_execute_any_sql_query_IEiiyNbzNfZ99pGmaMHx',
+        format: ReasoningFormat.GoogleGeminiV1,
+        index: 0,
+      },
+    ];
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Executing two queries:',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'execute_query',
+            input: { query: 'SELECT 1' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: sharedReasoningDetails,
+              },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_2',
+            toolName: 'execute_query',
+            input: { query: 'SELECT 2' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: sharedReasoningDetails,
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Executing two queries:',
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: {
+              name: 'execute_query',
+              arguments: '{"query":"SELECT 1"}',
+            },
+          },
+          {
+            id: 'call_2',
+            type: 'function',
+            function: {
+              name: 'execute_query',
+              arguments: '{"query":"SELECT 2"}',
+            },
+          },
+        ],
+        // Should only include reasoning_details once, not twice
+        // Verifies both text and encrypted types are properly deduplicated
+        reasoning_details: sharedReasoningDetails,
+      },
+    ]);
+  });
+
+  it('should preserve unique reasoning_details from sequential tool calls', () => {
+    // This test verifies that different reasoning_details from sequential calls
+    // are all preserved (not deduplicated)
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'First action',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'search',
+            input: { query: 'data' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Need to search for data first',
+                    signature: 'SIGNATURE_1',
+                    format: 'anthropic-claude-v1',
+                    index: 0,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call_1',
+            toolName: 'search',
+            output: {
+              type: 'text',
+              value: 'Found data',
+            },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Second action',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_2',
+            toolName: 'analyze',
+            input: { data: 'result' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Now analyzing the search results',
+                    signature: 'SIGNATURE_2',
+                    format: 'anthropic-claude-v1',
+                    index: 0,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'First action',
+        tool_calls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: {
+              name: 'search',
+              arguments: '{"query":"data"}',
+            },
+          },
+        ],
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Need to search for data first',
+            signature: 'SIGNATURE_1',
+            format: 'anthropic-claude-v1',
+            index: 0,
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call_1',
+        content: 'Found data',
+      },
+      {
+        role: 'assistant',
+        content: 'Second action',
+        tool_calls: [
+          {
+            id: 'call_2',
+            type: 'function',
+            function: {
+              name: 'analyze',
+              arguments: '{"data":"result"}',
+            },
+          },
+        ],
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Now analyzing the search results',
+            signature: 'SIGNATURE_2',
+            format: 'anthropic-claude-v1',
+            index: 0,
           },
         ],
       },
