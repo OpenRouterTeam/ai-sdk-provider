@@ -4,29 +4,42 @@ The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https:
 
 ## Setup for AI SDK v5
 
+For pnpm:
+
 ```bash
-# For pnpm
 pnpm add @openrouter/ai-sdk-provider
+```
 
-# For npm
+For npm:
+
+```bash
 npm install @openrouter/ai-sdk-provider
+```
 
-# For yarn
+For yarn:
+
+```bash
 yarn add @openrouter/ai-sdk-provider
 ```
 
 ## (LEGACY) Setup for AI SDK v4
 
+For pnpm:
+
 ```bash
-# For pnpm
 pnpm add @openrouter/ai-sdk-provider@ai-sdk-v4
+```
 
-# For npm
+For npm:
+
+```bash
 npm install @openrouter/ai-sdk-provider@ai-sdk-v4
+```
 
-# For yarn
+For yarn:
+
+```bash
 yarn add @openrouter/ai-sdk-provider@ai-sdk-v4
-
 ```
 
 ## Provider Instance
