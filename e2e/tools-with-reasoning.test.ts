@@ -54,7 +54,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
         },
         providerOptions: {
           llmgateway: {
-            reasoning: {
+            reasoningText: {
               max_tokens: 2048,
             },
           },

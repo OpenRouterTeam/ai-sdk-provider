@@ -1,7 +1,7 @@
 import { generateObject, streamObject } from 'ai';
 import { it, expect, vi } from 'vitest';
 import { createLLMGateway } from '@/src';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -28,7 +28,7 @@ it('should generate structured output with json_schema using generateObject', as
   const result = await generateObject({
     model,
     schema,
-    mode: 'json',
+    output: 'object',
     prompt: 'Generate a simple recipe for chocolate chip cookies.',
   });
 
@@ -49,10 +49,10 @@ it('should generate structured output with json_schema using streamObject', asyn
   });
   const model = llmgateway('gpt-4o-mini');
 
-  const result = await streamObject({
+  const result = streamObject({
     model,
     schema,
-    mode: 'json',
+    output: 'object',
     prompt: 'Generate a simple recipe for pancakes.',
   });
 

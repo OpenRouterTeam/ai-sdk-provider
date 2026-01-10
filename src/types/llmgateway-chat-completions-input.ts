@@ -48,14 +48,14 @@ export interface ChatCompletionContentPartImage {
 export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
-  reasoning?: string | null;
+  reasoningText?: string | null;
   cache_control?: LLMGatewayCacheControl;
 }
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | null;
-  reasoning?: string | null;
+  reasoningText?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
   cache_control?: LLMGatewayCacheControl;

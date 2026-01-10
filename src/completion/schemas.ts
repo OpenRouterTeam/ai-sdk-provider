@@ -12,7 +12,7 @@ export const LLMGatewayCompletionChunkSchema = z.union([
     choices: z.array(
       z.object({
         text: z.string(),
-        reasoning: z.string().nullish().optional(),
+        reasoningText: z.string().nullish().optional(),
         reasoning_details: ReasoningDetailArraySchema.nullish(),
 
         finish_reason: z.string().nullish(),

@@ -3,12 +3,12 @@ import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import {
   convertReadableStreamToArray,
-  createTestServer,
 } from '@ai-sdk/provider-utils/test';
 
 import { createLLMGateway } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import type { ImageResponse } from '../schemas/image';
+import { createTestServer } from '../tests/create-test-server';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -113,13 +113,6 @@ const TEST_IMAGE_URL = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACA
 
 const TEST_IMAGE_BASE64 = TEST_IMAGE_URL.split(',')[1]!;
 
-const provider = createLLMGateway({
-  apiKey: 'test-api-key',
-  compatibility: 'strict',
-});
-
-const model = provider.chat('gpt-4o');
-
 describe('doGenerate', () => {
   const server = createTestServer({
     'https://api.llmgateway.io/v1/chat/completions': {
@@ -127,9 +120,21 @@ describe('doGenerate', () => {
     },
   });
 
+  beforeEach(() => {
+    server.calls.length = 0;
+  });
+
+  const provider = createLLMGateway({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  });
+
+  const model = provider.chat('gpt-4o');
+
   function prepareJsonResponse({
     content = '',
-    reasoning,
+    reasoningText,
     reasoning_details,
     images,
     usage = {
@@ -141,7 +146,7 @@ describe('doGenerate', () => {
     finish_reason = 'stop',
   }: {
     content?: string;
-    reasoning?: string;
+    reasoningText?: string;
     reasoning_details?: Array<ReasoningDetailUnion>;
     images?: Array<ImageResponse>;
     usage?: {
@@ -173,7 +178,7 @@ describe('doGenerate', () => {
             message: {
               role: 'assistant',
               content,
-              reasoning,
+              reasoningText,
               reasoning_details,
               images,
             },
@@ -258,7 +263,7 @@ describe('doGenerate', () => {
   it('should extract reasoning content from reasoning field', async () => {
     prepareJsonResponse({
       content: 'Hello!',
-      reasoning:
+      reasoningText:
         'I need to think about this... The user said hello, so I should respond with a greeting.',
     });
 
@@ -343,7 +348,7 @@ describe('doGenerate', () => {
   it('should prioritize reasoning_details over reasoning when both are present', async () => {
     prepareJsonResponse({
       content: 'Hello!',
-      reasoning: 'This should be ignored when reasoning_details is present',
+      reasoningText: 'This should be ignored when reasoning_details is present',
       reasoning_details: [
         {
           type: ReasoningDetailType.Text,
@@ -471,7 +476,7 @@ describe('doGenerate', () => {
           function: {
             name: 'test-tool',
             description: 'function',
-            parameters: {
+            inputSchema: {
               type: 'object',
               properties: { value: { type: 'string' } },
               required: ['value'],
@@ -496,6 +501,8 @@ describe('doGenerate', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.chat('openai/gpt-3.5-turbo').doGenerate({
@@ -507,12 +514,13 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
+    expect(requestHeaders['user-agent']).toBeDefined();
   });
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
@@ -697,6 +705,18 @@ describe('doStream', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeEach(() => {
+    server.calls.length = 0;
+  });
+
+  const provider = createLLMGateway({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  });
+
+  const model = provider.chat('gpt-4o');
 
   function prepareStreamResponse({
     content,
@@ -1414,6 +1434,8 @@ describe('doStream', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.chat('openai/gpt-3.5-turbo').doStream({
@@ -1425,12 +1447,13 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
+    expect(requestHeaders['user-agent']).toBeDefined();
   });
 
   it('should pass extra body', async () => {
@@ -1446,6 +1469,8 @@ describe('doStream', () => {
           },
         },
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.chat('gpt-4o').doStream({

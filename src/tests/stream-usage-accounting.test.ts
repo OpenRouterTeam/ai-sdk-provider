@@ -1,12 +1,10 @@
 import type { LLMGatewayChatSettings } from '../types/llmgateway-chat-settings';
 
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '@ai-sdk/provider-utils/test';
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 
 import { LLMGatewayChatLanguageModel } from '../chat';
+import { createTestServer } from './create-test-server';
 
 describe('LLMGateway Streaming Usage Accounting', () => {
   const server = createTestServer({
@@ -58,7 +56,7 @@ describe('LLMGateway Streaming Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model with streaming
@@ -73,7 +71,7 @@ describe('LLMGateway Streaming Usage Accounting', () => {
     });
 
     // Verify stream options
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = (await server.calls[0]!.requestBodyJson) as any;
     expect(requestBody).toBeDefined();
     expect(requestBody.stream).toBe(true);
     expect(requestBody.stream_options).toEqual({
@@ -94,7 +92,7 @@ describe('LLMGateway Streaming Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model with streaming
@@ -144,7 +142,7 @@ describe('LLMGateway Streaming Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model with streaming

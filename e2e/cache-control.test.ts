@@ -1,6 +1,6 @@
+import { createLLMGateway } from '@/src';
 import { streamText } from 'ai';
 import { it, vi } from 'vitest';
-import { createLLMGateway } from '@/src';
 
 vi.setConfig({
   testTimeout: 42_000,
@@ -11,11 +11,11 @@ it.skip('should trigger cache read', async () => {
   await callLLM();
   // Second call to test cache read
   const response = await callLLM();
-  const providerMetadata = await response.providerMetadata;
-  expect(providerMetadata?.llmgateway).toMatchObject({
+  const providerOptions = await response.providerMetadata;
+  expect(providerOptions?.llmgateway).toMatchObject({
     usage: expect.objectContaining({
-      promptTokens: expect.any(Number),
-      completionTokens: expect.any(Number),
+      inputTokens: expect.any(Number),
+      outputTokens: expect.any(Number),
       promptTokensDetails: expect.objectContaining({
         cachedTokens: expect.any(Number),
       }),
@@ -27,7 +27,7 @@ it.skip('should trigger cache read', async () => {
 
   const cachedTokens = Number(
     // @ts-ignore
-    providerMetadata?.llmgateway?.usage?.promptTokensDetails?.cachedTokens,
+    providerOptions?.llmgateway?.usage?.promptTokensDetails?.cachedTokens,
   );
 
   expect(cachedTokens).toBeGreaterThan(0);
@@ -48,6 +48,7 @@ async function callLLM() {
     messages: [
       {
         role: 'user',
+
         content: [
           {
             type: 'text',

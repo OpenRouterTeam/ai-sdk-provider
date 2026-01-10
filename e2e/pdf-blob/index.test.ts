@@ -48,7 +48,7 @@ test.skip('sending pdf base64 blob', async () => {
     messages: messageHistory,
     providerOptions: {
       llmgateway: {
-        reasoning: {
+        reasoningText: {
           max_tokens: 2048,
         },
       },

@@ -1,9 +1,9 @@
-import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { LLMGatewayChatModelId } from '@/src/types/llmgateway-chat-settings';
 import type {
   LanguageModelV2,
   LanguageModelV2CallOptions,
+  LanguageModelV2FinishReason,
   LanguageModelV2StreamPart,
   LanguageModelV2Usage,
 } from '@ai-sdk/provider';
@@ -127,7 +127,7 @@ export class LLMGatewayCompletionLanguageModel implements LanguageModelV2 {
 
       // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoningText: this.settings.reasoningText,
 
       // extra body:
       ...this.config.extraBody,
@@ -232,7 +232,7 @@ export class LLMGatewayCompletionLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: LanguageModelV2FinishReason = 'other';
     const usage: LanguageModelV2Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,

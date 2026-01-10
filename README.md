@@ -4,10 +4,11 @@ Forked from https://github.com/OpenRouterTeam/ai-sdk-provider
 
 The [LLMGateway](https://llmgateway.io/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language model on the LLMGateway chat and completion APIs.
 
-# AI SDK v4 & v5 support
+# AI SDK version support
 
 - For AI SDK v4 or lower, use `@llmgateway/ai-sdk-provider@1.x.x`.
 - For AI SDK v5, use `@llmgateway/ai-sdk-provider@2.x.x`.
+- For AI SDK v6, use `@llmgateway/ai-sdk-provider@3.x.x`.
 
 ## Setup
 

@@ -1,10 +1,10 @@
 import type { ModelMessage } from 'ai';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createLLMGateway } from '../provider';
+import { createTestServer } from './create-test-server';
 
 // Add type assertions for the mocked classes
 const TEST_MESSAGES: ModelMessage[] = [
@@ -28,6 +28,7 @@ describe('providerOptions', () => {
   it('should set providerOptions llmgateway to extra body', async () => {
     const llmgateway = createLLMGateway({
       apiKey: 'test',
+      fetch: server.fetch,
     });
     const model = llmgateway('gpt-4o');
 
@@ -36,7 +37,7 @@ describe('providerOptions', () => {
       messages: TEST_MESSAGES,
       providerOptions: {
         llmgateway: {
-          reasoning: {
+          reasoningText: {
             max_tokens: 1000,
           },
         },
@@ -50,7 +51,7 @@ describe('providerOptions', () => {
           role: 'user',
         },
       ],
-      reasoning: {
+      reasoningText: {
         max_tokens: 1000,
       },
       model: 'gpt-4o',

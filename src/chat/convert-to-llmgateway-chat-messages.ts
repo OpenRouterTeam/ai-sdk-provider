@@ -20,10 +20,10 @@ import { isUrl } from './is-url';
 export type LLMGatewayCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: SharedV2ProviderMetadata | undefined,
+  providerOptions: SharedV2ProviderMetadata | undefined,
 ): LLMGatewayCacheControl | undefined {
-  const anthropic = providerMetadata?.anthropic;
-  const llmgateway = providerMetadata?.llmgateway;
+  const anthropic = providerOptions?.anthropic;
+  const llmgateway = providerOptions?.llmgateway;
 
   // Allow both cacheControl and cache_control:
   return (llmgateway?.cacheControl ??
@@ -204,7 +204,7 @@ export function convertToLLMGatewayChatMessages(
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-          reasoning: reasoning || undefined,
+          reasoningText: reasoning || undefined,
           reasoning_details:
             reasoningDetails.length > 0 ? reasoningDetails : undefined,
           cache_control: getCacheControl(providerOptions),

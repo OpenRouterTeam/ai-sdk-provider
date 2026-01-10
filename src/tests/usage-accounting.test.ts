@@ -1,9 +1,9 @@
 import type { LLMGatewayChatSettings } from '../types/llmgateway-chat-settings';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 
 import { LLMGatewayChatLanguageModel } from '../chat';
+import { createTestServer } from './create-test-server';
 
 describe('LLMGateway Usage Accounting', () => {
   const server = createTestServer({
@@ -64,7 +64,7 @@ describe('LLMGateway Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model
@@ -79,7 +79,7 @@ describe('LLMGateway Usage Accounting', () => {
     });
 
     // Check request contains usage parameter
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = (await server.calls[0]!.requestBodyJson) as any;
     expect(requestBody).toBeDefined();
     expect(requestBody).toHaveProperty('usage');
     expect(requestBody.usage).toEqual({ include: true });
@@ -98,7 +98,7 @@ describe('LLMGateway Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model
@@ -149,7 +149,7 @@ describe('LLMGateway Usage Accounting', () => {
       url: () => 'https://api.llmgateway.io/v1/chat/completions',
       headers: () => ({}),
       compatibility: 'strict',
-      fetch: global.fetch,
+      fetch: server.fetch,
     });
 
     // Call the model
@@ -163,21 +163,7 @@ describe('LLMGateway Usage Accounting', () => {
       maxOutputTokens: 100,
     });
 
-    // Verify that LLMGateway metadata is not included
-    expect(result.providerMetadata?.llmgateway?.usage).toStrictEqual({
-      promptTokens: 10,
-      completionTokens: 20,
-      totalTokens: 30,
-      cost: 0.0015,
-      costDetails: {
-        upstreamInferenceCost: 19,
-      },
-      promptTokensDetails: {
-        cachedTokens: 5,
-      },
-      completionTokensDetails: {
-        reasoningTokens: 8,
-      },
-    });
+    // Verify that provider metadata is not included
+    expect(result.providerMetadata).toBeUndefined();
   });
 });

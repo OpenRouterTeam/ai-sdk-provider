@@ -3,7 +3,7 @@ import type { FilePart } from 'ai';
 import { createLLMGateway } from '@/src';
 import { generateObject, generateText, streamObject, streamText } from 'ai';
 import { expect, it, vi } from 'vitest';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 vi.setConfig({
   testTimeout: 60_000,
@@ -25,7 +25,7 @@ describe('image generation', () => {
     const result = await generateObject({
       model,
       schema: imageDescriptionSchema,
-      mode: 'json',
+      output: 'object',
       prompt: 'Generate a beautiful sunset over the ocean and describe it',
     });
 
@@ -47,10 +47,10 @@ describe('image generation', () => {
     });
     const model = llmgateway('gemini-2.5-flash-image-preview');
 
-    const result = await streamObject({
+    const result = streamObject({
       model,
       schema: imageDescriptionSchema,
-      mode: 'json',
+      output: 'object',
       prompt: 'Generate a serene mountain landscape and describe it',
     });
 
@@ -127,7 +127,7 @@ describe('image generation', () => {
     });
     const model = llmgateway('gemini-2.5-flash-image-preview');
 
-    const result = await streamText({
+    const result = streamText({
       model,
       prompt: 'Generate an abstract colorful painting',
     });

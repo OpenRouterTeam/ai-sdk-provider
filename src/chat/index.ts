@@ -1,4 +1,3 @@
-import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { ReasoningDetailUnion } from '@/src/schemas/reasoning-details';
 import type { LLMGatewayUsageAccounting } from '@/src/types/index';
@@ -131,7 +130,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
 
       // LLMGateway specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoningText: this.settings.reasoningText,
       usage: this.settings.usage,
 
       // extra body:
@@ -172,7 +171,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
           function: {
             name: tool.name,
             description: tool.type,
-            parameters: tool.inputSchema,
+            inputSchema: tool.inputSchema,
           },
         }));
 
@@ -211,6 +210,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
       ...this.getArgs(options),
       ...llmgatewayOptions,
     };
+    const includeUsageAccounting = args.usage?.include === true;
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
@@ -300,11 +300,11 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
               (p: LanguageModelV2Content | null): p is LanguageModelV2Content =>
                 p !== null,
             )
-        : choice.message.reasoning
+        : choice.message.reasoningText
           ? [
               {
                 type: 'reasoning' as const,
-                text: choice.message.reasoning,
+                text: choice.message.reasoningText,
               },
             ]
           : [];
@@ -352,7 +352,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
             url: annotation.url_citation.url,
             title: annotation.url_citation.title,
             providerMetadata: {
-              openrouter: {
+              llmgateway: {
                 content: annotation.url_citation.content || '',
               },
             },
@@ -366,29 +366,31 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
       finishReason: mapLLMGatewayFinishReason(choice.finish_reason),
       usage: usageInfo,
       warnings: [],
-      providerMetadata: {
-        llmgateway: {
-          usage: {
-            promptTokens: usageInfo.inputTokens ?? 0,
-            completionTokens: usageInfo.outputTokens ?? 0,
-            totalTokens: usageInfo.totalTokens ?? 0,
-            cost: response.usage?.cost,
-            promptTokensDetails: {
-              cachedTokens:
-                response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+      providerMetadata: includeUsageAccounting
+        ? {
+            llmgateway: {
+              usage: {
+                promptTokens: usageInfo.inputTokens ?? 0,
+                completionTokens: usageInfo.outputTokens ?? 0,
+                totalTokens: usageInfo.totalTokens ?? 0,
+                cost: response.usage?.cost,
+                promptTokensDetails: {
+                  cachedTokens:
+                    response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+                },
+                completionTokensDetails: {
+                  reasoningTokens:
+                    response.usage?.completion_tokens_details
+                      ?.reasoning_tokens ?? 0,
+                },
+                costDetails: {
+                  upstreamInferenceCost:
+                    response.usage?.cost_details?.upstream_inference_cost ?? 0,
+                },
+              },
             },
-            completionTokensDetails: {
-              reasoningTokens:
-                response.usage?.completion_tokens_details?.reasoning_tokens ??
-                0,
-            },
-            costDetails: {
-              upstreamInferenceCost:
-                response.usage?.cost_details?.upstream_inference_cost ?? 0,
-            },
-          },
-        },
-      },
+          }
+        : undefined,
       request: { body: args },
       response: {
         id: response.id,
@@ -428,13 +430,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
         // only include stream_options when in strict compatibility mode:
         stream_options:
           this.config.compatibility === 'strict'
-            ? {
-                include_usage: true,
-                // If user has requested usage accounting, make sure we get it in the stream
-                ...(this.settings.usage?.include
-                  ? { include_usage: true }
-                  : {}),
-              }
+            ? { include_usage: true }
             : undefined,
       },
       failedResponseHandler: llmgatewayFailedResponseHandler,
@@ -456,7 +452,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
       sent: boolean;
     }> = [];
 
-    let finishReason: FinishReason = 'other';
+    let finishReason: LanguageModelV2FinishReason = 'other';
     const usage: LanguageModelV2Usage = {
       inputTokens: Number.NaN,
       outputTokens: Number.NaN,
@@ -603,8 +599,17 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
                   }
                 }
               }
-            } else if (delta.reasoning != null) {
-              emitReasoningChunk(delta.reasoning);
+            } else if (
+              delta.reasoningText != null ||
+              ('reasoning' in delta && typeof delta.reasoning === 'string')
+            ) {
+              emitReasoningChunk(
+                delta.reasoningText ??
+                  ('reasoning' in delta && typeof delta.reasoning === 'string'
+                    ? delta.reasoning
+                    : undefined) ??
+                  '',
+              );
             }
 
             if (delta.content != null) {

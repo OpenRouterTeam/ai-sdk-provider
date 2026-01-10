@@ -60,7 +60,7 @@ export interface ProviderModelMapping {
   /**
    * Whether this model supports reasoning mode
    */
-  reasoning?: boolean;
+  reasoningText?: boolean;
   /**
    * Whether this model supports the OpenAI responses API (defaults to true if reasoning is true)
    */

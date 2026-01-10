@@ -1,11 +1,9 @@
 import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
 
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '@ai-sdk/provider-utils/test';
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 
 import { createLLMGateway } from '../provider';
+import { createTestServer } from '../tests/create-test-server';
 
 const TEST_PROMPT: LanguageModelV2Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -38,19 +36,24 @@ const TEST_LOGPROBS = {
   ] as Record<string, number>[],
 };
 
-const provider = createLLMGateway({
-  apiKey: 'test-api-key',
-  compatibility: 'strict',
-});
-
-const model = provider.completion('openai/gpt-3.5-turbo');
-
 describe('doGenerate', () => {
   const server = createTestServer({
     'https://api.llmgateway.io/v1/completions': {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeEach(() => {
+    server.calls.length = 0;
+  });
+
+  const provider = createLLMGateway({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  });
+
+  const model = provider.completion('openai/gpt-3.5-turbo');
 
   function prepareJsonResponse({
     content = '',
@@ -129,7 +132,11 @@ describe('doGenerate', () => {
   it('should extract logprobs', async () => {
     prepareJsonResponse({ logprobs: TEST_LOGPROBS });
 
-    const provider = createLLMGateway({ apiKey: 'test-api-key' });
+    const provider = createLLMGateway({
+      apiKey: 'test-api-key',
+      compatibility: 'strict',
+      fetch: server.fetch,
+    });
 
     await provider
       .completion('openai/gpt-3.5-turbo', { logprobs: 1 })
@@ -207,6 +214,8 @@ describe('doGenerate', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.completion('openai/gpt-3.5-turbo').doGenerate({
@@ -218,12 +227,13 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
+    expect(requestHeaders['user-agent']).toBeDefined();
   });
 });
 
@@ -233,6 +243,18 @@ describe('doStream', () => {
       response: { type: 'stream-chunks', chunks: [] },
     },
   });
+
+  beforeEach(() => {
+    server.calls.length = 0;
+  });
+
+  const provider = createLLMGateway({
+    apiKey: 'test-api-key',
+    compatibility: 'strict',
+    fetch: server.fetch,
+  });
+
+  const model = provider.completion('openai/gpt-3.5-turbo');
 
   function prepareStreamResponse({
     content,
@@ -422,6 +444,8 @@ describe('doStream', () => {
       headers: {
         'Custom-Provider-Header': 'provider-header-value',
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.completion('openai/gpt-3.5-turbo').doStream({
@@ -433,12 +457,13 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
+    expect(requestHeaders['user-agent']).toBeDefined();
   });
 
   it('should pass extra body', async () => {
@@ -454,6 +479,8 @@ describe('doStream', () => {
           },
         },
       },
+      compatibility: 'strict',
+      fetch: server.fetch,
     });
 
     await provider.completion('openai/gpt-4o').doStream({

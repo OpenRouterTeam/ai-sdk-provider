@@ -41,7 +41,7 @@ test.skip('send pdf urls', async () => {
     messages: messageHistory,
     providerOptions: {
       llmgateway: {
-        reasoning: {
+        reasoningText: {
           max_tokens: 2048,
         },
       },

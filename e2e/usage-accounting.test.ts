@@ -1,6 +1,6 @@
+import { createLLMGateway } from '@/src';
 import { streamText } from 'ai';
 import { it } from 'vitest';
-import { createLLMGateway } from '@/src';
 
 it.skip('receive usage accounting', async () => {
   const llmgateway = createLLMGateway({
@@ -17,14 +17,20 @@ it.skip('receive usage accounting', async () => {
     messages: [
       {
         role: 'user',
-        content: 'What is the capital of France?',
+
+        content: [
+          {
+            type: 'text',
+            text: 'What is the capital of France?',
+          },
+        ],
       },
     ],
     onFinish(e) {
       expect(e.providerMetadata?.llmgateway).toMatchObject({
         usage: expect.objectContaining({
-          promptTokens: expect.any(Number),
-          completionTokens: expect.any(Number),
+          inputTokens: expect.any(Number),
+          outputTokens: expect.any(Number),
           promptTokensDetails: expect.any(Object),
           completionTokensDetails: expect.any(Object),
           totalTokens: expect.any(Number),
@@ -35,12 +41,12 @@ it.skip('receive usage accounting', async () => {
   });
 
   await response.consumeStream();
-  const providerMetadata = await response.providerMetadata;
+  const providerOptions = await response.providerMetadata;
   // You can use expect.any(Type) or expect.objectContaining for schema-like matching
-  expect(providerMetadata?.llmgateway).toMatchObject({
+  expect(providerOptions?.llmgateway).toMatchObject({
     usage: expect.objectContaining({
-      promptTokens: expect.any(Number),
-      completionTokens: expect.any(Number),
+      inputTokens: expect.any(Number),
+      outputTokens: expect.any(Number),
       promptTokensDetails: expect.any(Object),
       completionTokensDetails: expect.any(Object),
       totalTokens: expect.any(Number),

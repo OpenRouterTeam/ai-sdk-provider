@@ -10,7 +10,7 @@ export type LLMGatewayProviderOptions = {
    * One of `max_tokens` or `effort` is required.
    * If `exclude` is true, reasoning will be removed from the response. Default is false.
    */
-  reasoning?: {
+  reasoningText?: {
     enabled?: boolean;
     exclude?: boolean;
   } & (
