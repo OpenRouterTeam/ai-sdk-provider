@@ -1,0 +1,28 @@
+name: Copybara Sync to Monorepo
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Sync to Monorepo
+        uses: olivr/copybara-action@v1.2.5
+        with:
+          ssh_key: ${{ secrets.COPYBARA_SSH_KEY }}
+          access_token: ${{ secrets.MONOREPO_SYNC_TOKEN }}
+          sot_repo: OpenRouterTeam/ai-sdk-provider
+          destination_repo: OpenRouterTeam/openrouter-web
+          workflow: push
+          push_move: '||sdks/ai-sdk-provider||**'
+          push_exclude: '.github/workflows/copybara-sync.yaml'
+          copybara_options: ${{ github.event_name == 'pull_request_target' && '--force' || '' }}
