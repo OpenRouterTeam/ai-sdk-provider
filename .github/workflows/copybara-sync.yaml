@@ -1,0 +1,24 @@
+name: Copybara Sync
+
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  copybara:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: olivr/copybara-action@v1.2.5
+        with:
+          ssh_key: ${{ secrets.COPYBARA_SSH_KEY }}
+          access_token: ${{ secrets.MONOREPO_SYNC_TOKEN }}
+          sot_repo: OpenRouterTeam/ai-sdk-provider
+          destination_repo: OpenRouterTeam/openrouter-web
+          push_move: '||sdks/ai-sdk-provider||**'
+          push_exclude: '.github/workflows/copybara-sync.yaml'
