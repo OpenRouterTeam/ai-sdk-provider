@@ -55,7 +55,7 @@ describe('OpenRouterEmbeddingModel', () => {
       expect(model).toBeInstanceOf(OpenRouterEmbeddingModel);
       expect(model.modelId).toBe('openai/text-embedding-3-small');
       expect(model.provider).toBe('openrouter');
-      expect(model.specificationVersion).toBe('v2');
+      expect(model.specificationVersion).toBe('v3');
     });
   });
 

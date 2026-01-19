@@ -1,8 +1,16 @@
-import type { LanguageModelV2FinishReason } from '@ai-sdk/provider';
+import type { LanguageModelV3FinishReason } from '@ai-sdk/provider';
 
-export function mapOpenRouterFinishReason(
+type UnifiedFinishReason =
+  | 'stop'
+  | 'length'
+  | 'content-filter'
+  | 'tool-calls'
+  | 'error'
+  | 'other';
+
+function mapToUnified(
   finishReason: string | null | undefined,
-): LanguageModelV2FinishReason {
+): UnifiedFinishReason {
   switch (finishReason) {
     case 'stop':
       return 'stop';
@@ -14,6 +22,22 @@ export function mapOpenRouterFinishReason(
     case 'tool_calls':
       return 'tool-calls';
     default:
-      return 'unknown';
+      return 'other';
   }
+}
+
+export function mapOpenRouterFinishReason(
+  finishReason: string | null | undefined,
+): LanguageModelV3FinishReason {
+  return {
+    unified: mapToUnified(finishReason),
+    raw: finishReason ?? undefined,
+  };
+}
+
+export function createFinishReason(
+  unified: UnifiedFinishReason,
+  raw?: string,
+): LanguageModelV3FinishReason {
+  return { unified, raw };
 }

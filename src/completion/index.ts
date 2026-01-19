@@ -1,11 +1,11 @@
 import type {
-  LanguageModelV2,
-  LanguageModelV2CallOptions,
-  LanguageModelV2StreamPart,
-  LanguageModelV2Usage,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
+  LanguageModelV3FinishReason,
+  LanguageModelV3StreamPart,
+  LanguageModelV3Usage,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
-import type { FinishReason } from 'ai';
 import type { z } from 'zod/v4';
 import type { OpenRouterUsageAccounting } from '../types';
 import type {
@@ -26,7 +26,10 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { mapOpenRouterFinishReason } from '../utils/map-finish-reason';
+import {
+  createFinishReason,
+  mapOpenRouterFinishReason,
+} from '../utils/map-finish-reason';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -39,8 +42,8 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
-  readonly specificationVersion = 'v2' as const;
+export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
+  readonly specificationVersion = 'v3' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
   readonly supportsImageUrls = true;
@@ -80,7 +83,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
     stopSequences,
     tools,
     toolChoice,
-  }: LanguageModelV2CallOptions) {
+  }: LanguageModelV3CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
       inputFormat: 'prompt',
@@ -142,8 +145,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   }
 
   async doGenerate(
-    options: LanguageModelV2CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV2['doGenerate']>>> {
+    options: LanguageModelV3CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV3['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -199,15 +202,20 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
       usage: {
-        inputTokens: response.usage?.prompt_tokens ?? 0,
-        outputTokens: response.usage?.completion_tokens ?? 0,
-        totalTokens:
-          (response.usage?.prompt_tokens ?? 0) +
-          (response.usage?.completion_tokens ?? 0),
-        reasoningTokens:
-          response.usage?.completion_tokens_details?.reasoning_tokens ?? 0,
-        cachedInputTokens:
-          response.usage?.prompt_tokens_details?.cached_tokens ?? 0,
+        inputTokens: {
+          total: response.usage?.prompt_tokens ?? 0,
+          noCache: undefined,
+          cacheRead:
+            response.usage?.prompt_tokens_details?.cached_tokens ?? undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: {
+          total: response.usage?.completion_tokens ?? 0,
+          text: undefined,
+          reasoning:
+            response.usage?.completion_tokens_details?.reasoning_tokens ??
+            undefined,
+        },
       },
       warnings: [],
       response: {
@@ -217,8 +225,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
   }
 
   async doStream(
-    options: LanguageModelV2CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV2['doStream']>>> {
+    options: LanguageModelV3CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV3['doStream']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -251,13 +259,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       fetch: this.config.fetch,
     });
 
-    let finishReason: FinishReason = 'other';
-    const usage: LanguageModelV2Usage = {
-      inputTokens: Number.NaN,
-      outputTokens: Number.NaN,
-      totalTokens: Number.NaN,
-      reasoningTokens: Number.NaN,
-      cachedInputTokens: Number.NaN,
+    let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
+    const usage: LanguageModelV3Usage = {
+      inputTokens: {
+        total: undefined,
+        noCache: undefined,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: {
+        total: undefined,
+        text: undefined,
+        reasoning: undefined,
+      },
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
@@ -265,12 +279,12 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
       stream: response.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
-          LanguageModelV2StreamPart
+          LanguageModelV3StreamPart
         >({
           transform(chunk, controller) {
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: chunk.error });
               return;
             }
@@ -279,16 +293,14 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
 
             // handle error chunks:
             if ('error' in value) {
-              finishReason = 'error';
+              finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: value.error });
               return;
             }
 
             if (value.usage != null) {
-              usage.inputTokens = value.usage.prompt_tokens;
-              usage.outputTokens = value.usage.completion_tokens;
-              usage.totalTokens =
-                value.usage.prompt_tokens + value.usage.completion_tokens;
+              usage.inputTokens.total = value.usage.prompt_tokens;
+              usage.outputTokens.total = value.usage.completion_tokens;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
@@ -297,7 +309,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                 const cachedInputTokens =
                   value.usage.prompt_tokens_details.cached_tokens ?? 0;
 
-                usage.cachedInputTokens = cachedInputTokens;
+                usage.inputTokens.cacheRead = cachedInputTokens;
                 openrouterUsage.promptTokensDetails = {
                   cachedTokens: cachedInputTokens,
                 };
@@ -308,7 +320,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV2 {
                 const reasoningTokens =
                   value.usage.completion_tokens_details.reasoning_tokens ?? 0;
 
-                usage.reasoningTokens = reasoningTokens;
+                usage.outputTokens.reasoning = reasoningTokens;
                 openrouterUsage.completionTokensDetails = {
                   reasoningTokens,
                 };

@@ -1,23 +1,24 @@
 import type {
-  LanguageModelV2Prompt,
-  LanguageModelV2StreamPart,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
+import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '@ai-sdk/provider-utils/test';
 import { vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
+import {
+  convertReadableStreamToArray,
+  createTestServer,
+} from '../test-utils/test-server';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -127,8 +128,8 @@ const provider = createOpenRouter({
 
 const model = provider.chat('anthropic/claude-3.5-sonnet');
 
-function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isReasoningDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'reasoning-delta';
   }
@@ -136,8 +137,8 @@ function isReasoningDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
   return part.type === 'reasoning-delta';
 }
 
-function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isReasoningStartPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'reasoning-start';
   }
@@ -145,8 +146,8 @@ function isReasoningStartPart(part: LanguageModelV2StreamPart): part is Extract<
   return part.type === 'reasoning-start';
 }
 
-function isTextDeltaPart(part: LanguageModelV2StreamPart): part is Extract<
-  LanguageModelV2StreamPart,
+function isTextDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
+  LanguageModelV3StreamPart,
   {
     type: 'text-delta';
   }
@@ -252,11 +253,17 @@ describe('doGenerate', () => {
     });
 
     expect(usage).toStrictEqual({
-      inputTokens: 20,
-      outputTokens: 5,
-      totalTokens: 25,
-      reasoningTokens: 0,
-      cachedInputTokens: 0,
+      inputTokens: {
+        total: 20,
+        noCache: undefined,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: {
+        total: 5,
+        text: undefined,
+        reasoning: undefined,
+      },
     });
   });
 
@@ -280,7 +287,10 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual('stop');
+    expect(response.finishReason).toStrictEqual({
+      unified: 'stop',
+      raw: 'stop',
+    });
   });
 
   it('should support unknown finish reason', async () => {
@@ -293,7 +303,10 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual('unknown');
+    expect(response.finishReason).toStrictEqual({
+      unified: 'other',
+      raw: 'eos',
+    });
   });
 
   it('should extract reasoning content from reasoning field', async () => {
@@ -501,7 +514,10 @@ describe('doGenerate', () => {
     });
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(result.finishReason).toBe('tool-calls');
+    expect(result.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'stop',
+    });
 
     // Should still have the tool call in content
     expect(result.content).toContainEqual(
@@ -639,19 +655,21 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -689,7 +707,7 @@ describe('doGenerate', () => {
   it('should use default name when name is not provided in responseFormat', async () => {
     prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -887,7 +905,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
 
         providerMetadata: {
           openrouter: {
@@ -900,11 +918,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 17,
-          outputTokens: 227,
-          totalTokens: 244,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 17,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 227,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -929,11 +953,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -969,11 +993,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -1474,7 +1498,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'tool-calls',
+        finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1486,11 +1510,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 53,
-          outputTokens: 17,
-          totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 53,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 17,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -1582,7 +1612,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'tool-calls',
+        finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1594,11 +1624,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 53,
-          outputTokens: 17,
-          totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 53,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 17,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -1648,16 +1684,19 @@ describe('doStream', () => {
 
     // Find the finish event
     const finishEvent = elements.find(
-      (el): el is LanguageModelV2StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(finishEvent?.finishReason).toBe('tool-calls');
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'stop',
+    });
 
     // Should have the tool call
     const toolCallEvent = elements.find(
-      (el): el is LanguageModelV2StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
@@ -1706,7 +1745,7 @@ describe('doStream', () => {
       },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -1718,11 +1757,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 53,
-          outputTokens: 17,
-          totalTokens: 70,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 53,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 17,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -1756,7 +1801,7 @@ describe('doStream', () => {
         },
       },
       {
-        finishReason: 'error',
+        finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
             usage: {},
@@ -1764,11 +1809,17 @@ describe('doStream', () => {
         },
         type: 'finish',
         usage: {
-          inputTokens: Number.NaN,
-          outputTokens: Number.NaN,
-          totalTokens: Number.NaN,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: undefined,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: undefined,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -1789,7 +1840,7 @@ describe('doStream', () => {
     expect(elements.length).toBe(2);
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
-      finishReason: 'error',
+      finishReason: { unified: 'error', raw: undefined },
 
       type: 'finish',
       providerMetadata: {
@@ -1798,11 +1849,17 @@ describe('doStream', () => {
         },
       },
       usage: {
-        inputTokens: Number.NaN,
-        outputTokens: Number.NaN,
-        totalTokens: Number.NaN,
-        reasoningTokens: Number.NaN,
-        cachedInputTokens: Number.NaN,
+        inputTokens: {
+          total: undefined,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: {
+          total: undefined,
+          text: undefined,
+          reasoning: undefined,
+        },
       },
     });
   });
@@ -1841,13 +1898,15 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass extra body', async () => {
@@ -1881,7 +1940,7 @@ describe('doStream', () => {
   it('should pass responseFormat for JSON schema structured outputs', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -1921,7 +1980,7 @@ describe('doStream', () => {
   it('should pass responseFormat AND tools together', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
-    const testSchema = {
+    const testSchema: JSONSchema7 = {
       type: 'object',
       properties: {
         name: { type: 'string' },
@@ -2051,13 +2110,13 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
 
     // Find the finish chunk
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 
@@ -2125,12 +2184,12 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
 
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 

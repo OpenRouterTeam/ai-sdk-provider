@@ -1,10 +1,10 @@
 import type {
-  LanguageModelV2FilePart,
-  LanguageModelV2Prompt,
-  LanguageModelV2ReasoningPart,
-  LanguageModelV2TextPart,
-  LanguageModelV2ToolCallPart,
-  LanguageModelV2ToolResultPart,
+  LanguageModelV3FilePart,
+  LanguageModelV3Prompt,
+  LanguageModelV3ReasoningPart,
+  LanguageModelV3TextPart,
+  LanguageModelV3ToolCallPart,
+  LanguageModelV3ToolResultPart,
 } from '@ai-sdk/provider';
 
 import {
@@ -18,7 +18,7 @@ export function convertToOpenRouterCompletionPrompt({
   user = 'user',
   assistant = 'assistant',
 }: {
-  prompt: LanguageModelV2Prompt;
+  prompt: LanguageModelV3Prompt;
   inputFormat: 'prompt' | 'messages';
   user?: string;
   assistant?: string;
@@ -58,7 +58,7 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'user': {
         const userMessage = content
-          .map((part: LanguageModelV2TextPart | LanguageModelV2FilePart) => {
+          .map((part: LanguageModelV3TextPart | LanguageModelV3FilePart) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
@@ -85,11 +85,11 @@ export function convertToOpenRouterCompletionPrompt({
           .map(
             (
               part:
-                | LanguageModelV2TextPart
-                | LanguageModelV2FilePart
-                | LanguageModelV2ReasoningPart
-                | LanguageModelV2ToolCallPart
-                | LanguageModelV2ToolResultPart,
+                | LanguageModelV3TextPart
+                | LanguageModelV3FilePart
+                | LanguageModelV3ReasoningPart
+                | LanguageModelV3ToolCallPart
+                | LanguageModelV3ToolResultPart,
             ) => {
               switch (part.type) {
                 case 'text': {

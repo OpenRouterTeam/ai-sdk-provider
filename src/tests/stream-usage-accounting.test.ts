@@ -1,11 +1,11 @@
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
+import { describe, expect, it } from 'vitest';
+import { OpenRouterChatLanguageModel } from '../chat';
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
-import { describe, expect, it } from 'vitest';
-import { OpenRouterChatLanguageModel } from '../chat';
+} from '../test-utils/test-server';
 
 describe('OpenRouter Streaming Usage Accounting', () => {
   const server = createTestServer({
@@ -73,7 +73,10 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     });
 
     // Verify stream options
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
     expect(requestBody).toBeDefined();
     expect(requestBody.stream).toBe(true);
     expect(requestBody.stream_options).toEqual({

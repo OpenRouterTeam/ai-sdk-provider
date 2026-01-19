@@ -1,4 +1,4 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 import type { OpenRouterChatCompletionsInput } from '../types/openrouter-chat-completions-input';
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
@@ -61,7 +61,7 @@ describe('Payload Comparison - Large PDF', () => {
     const smallPdfBase64 = 'JVBERi0xLjQKJeLjz9MKM...(truncated)';
     const dataUrl = `data:application/pdf;base64,${smallPdfBase64}`;
 
-    const prompt: LanguageModelV2Prompt = [
+    const prompt: LanguageModelV3Prompt = [
       {
         role: 'user',
         content: [

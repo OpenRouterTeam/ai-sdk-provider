@@ -1,10 +1,10 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
+import { createTestServer } from '../test-utils/test-server';
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -24,7 +24,7 @@ describe('HTTP 200 Error Response Handling', () => {
       // This can occur for various server errors (e.g., internal errors, processing failures)
       server.urls[
         'https://test.openrouter.ai/api/v1/chat/completions'
-      ].response = {
+      ]!.response = {
         type: 'json-value',
         body: {
           error: {
@@ -48,7 +48,7 @@ describe('HTTP 200 Error Response Handling', () => {
       // Normal successful response without error
       server.urls[
         'https://test.openrouter.ai/api/v1/chat/completions'
-      ].response = {
+      ]!.response = {
         type: 'json-value',
         body: {
           id: 'gen-123',
@@ -84,7 +84,10 @@ describe('HTTP 200 Error Response Handling', () => {
           text: 'Hello! How can I help you?',
         },
       ]);
-      expect(result.usage.totalTokens).toBe(18);
+      expect(
+        (result.usage.inputTokens?.total ?? 0) +
+          (result.usage.outputTokens?.total ?? 0),
+      ).toBe(18);
     });
   });
 });

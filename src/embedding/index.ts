@@ -1,7 +1,7 @@
 import type {
-  EmbeddingModelV2,
-  SharedV2Headers,
-  SharedV2ProviderMetadata,
+  EmbeddingModelV3,
+  SharedV3Headers,
+  SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterEmbeddingModelId,
@@ -24,8 +24,8 @@ type OpenRouterEmbeddingConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
-  readonly specificationVersion = 'v2' as const;
+export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
+  readonly specificationVersion = 'v3' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterEmbeddingModelId;
   readonly settings: OpenRouterEmbeddingSettings;
@@ -51,11 +51,12 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
   }): Promise<{
     embeddings: Array<Array<number>>;
     usage?: { tokens: number };
-    providerMetadata?: SharedV2ProviderMetadata;
+    providerMetadata?: SharedV3ProviderMetadata;
     response?: {
-      headers?: SharedV2Headers;
+      headers?: SharedV3Headers;
       body?: unknown;
     };
+    warnings: Array<import('@ai-sdk/provider').SharedV3Warning>;
   }> {
     const { values, abortSignal, headers } = options;
 
@@ -101,6 +102,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV2<string> {
         headers: responseHeaders,
         body: responseValue,
       },
+      warnings: [],
     };
   }
 }

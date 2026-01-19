@@ -1,10 +1,10 @@
-import type { LanguageModelV2Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
+import { createTestServer } from '../test-utils/test-server';
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -24,7 +24,7 @@ describe('Large PDF Response Handling', () => {
       // HTTP 200 status but contains error object instead of choices
       server.urls[
         'https://test.openrouter.ai/api/v1/chat/completions'
-      ].response = {
+      ]!.response = {
         type: 'json-value',
         body: {
           error: {
@@ -48,7 +48,7 @@ describe('Large PDF Response Handling', () => {
       // Successful response with file annotations from FileParserPlugin
       server.urls[
         'https://test.openrouter.ai/api/v1/chat/completions'
-      ].response = {
+      ]!.response = {
         type: 'json-value',
         body: {
           id: 'gen-123',
@@ -95,7 +95,10 @@ describe('Large PDF Response Handling', () => {
           text: 'LARGE-M9N3T',
         },
       ]);
-      expect(result.usage.totalTokens).toBe(120);
+      expect(
+        (result.usage.inputTokens?.total ?? 0) +
+          (result.usage.outputTokens?.total ?? 0),
+      ).toBe(120);
     });
   });
 });

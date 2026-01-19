@@ -1,20 +1,20 @@
 import type {
-  LanguageModelV2Prompt,
-  LanguageModelV2StreamPart,
+  LanguageModelV3Prompt,
+  LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
 
+import { vi } from 'vitest';
+import { createOpenRouter } from '../provider';
 import {
   convertReadableStreamToArray,
   createTestServer,
-} from '@ai-sdk/provider-utils/test';
-import { vi } from 'vitest';
-import { createOpenRouter } from '../provider';
+} from '../test-utils/test-server';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV2Prompt = [
+const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -125,11 +125,17 @@ describe('doGenerate', () => {
     });
 
     expect(usage).toStrictEqual({
-      inputTokens: 20,
-      outputTokens: 5,
-      totalTokens: 25,
-      reasoningTokens: 0,
-      cachedInputTokens: 0,
+      inputTokens: {
+        total: 20,
+        noCache: undefined,
+        cacheRead: undefined,
+        cacheWrite: undefined,
+      },
+      outputTokens: {
+        total: 5,
+        text: undefined,
+        reasoning: undefined,
+      },
     });
   });
 
@@ -157,7 +163,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
 
-    expect(finishReason).toStrictEqual('stop');
+    expect(finishReason).toStrictEqual({ unified: 'stop', raw: 'stop' });
   });
 
   it('should support unknown finish reason', async () => {
@@ -172,7 +178,7 @@ describe('doGenerate', () => {
         prompt: TEST_PROMPT,
       });
 
-    expect(finishReason).toStrictEqual('unknown');
+    expect(finishReason).toStrictEqual({ unified: 'other', raw: 'eos' });
   });
 
   it('should pass the model and the prompt', async () => {
@@ -225,13 +231,15 @@ describe('doGenerate', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 });
 
@@ -317,7 +325,7 @@ describe('doStream', () => {
       { type: 'text-delta', delta: '', id: expect.any(String) },
       {
         type: 'finish',
-        finishReason: 'stop',
+        finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
             usage: {
@@ -329,11 +337,17 @@ describe('doStream', () => {
           },
         },
         usage: {
-          inputTokens: 10,
-          outputTokens: 362,
-          totalTokens: 372,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: 10,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: 362,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -358,11 +372,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -398,11 +412,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV2StreamPart[];
+    )) as LanguageModelV3StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV2StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -447,7 +461,7 @@ describe('doStream', () => {
         },
       },
       {
-        finishReason: 'error',
+        finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
             usage: {},
@@ -455,11 +469,17 @@ describe('doStream', () => {
         },
         type: 'finish',
         usage: {
-          inputTokens: Number.NaN,
-          outputTokens: Number.NaN,
-          totalTokens: Number.NaN,
-          reasoningTokens: Number.NaN,
-          cachedInputTokens: Number.NaN,
+          inputTokens: {
+            total: undefined,
+            noCache: undefined,
+            cacheRead: undefined,
+            cacheWrite: undefined,
+          },
+          outputTokens: {
+            total: undefined,
+            text: undefined,
+            reasoning: undefined,
+          },
         },
       },
     ]);
@@ -480,7 +500,7 @@ describe('doStream', () => {
     expect(elements.length).toBe(2);
     expect(elements[0]?.type).toBe('error');
     expect(elements[1]).toStrictEqual({
-      finishReason: 'error',
+      finishReason: { unified: 'error', raw: undefined },
       providerMetadata: {
         openrouter: {
           usage: {},
@@ -488,11 +508,17 @@ describe('doStream', () => {
       },
       type: 'finish',
       usage: {
-        inputTokens: Number.NaN,
-        outputTokens: Number.NaN,
-        totalTokens: Number.NaN,
-        reasoningTokens: Number.NaN,
-        cachedInputTokens: Number.NaN,
+        inputTokens: {
+          total: undefined,
+          noCache: undefined,
+          cacheRead: undefined,
+          cacheWrite: undefined,
+        },
+        outputTokens: {
+          total: undefined,
+          text: undefined,
+          reasoning: undefined,
+        },
       },
     });
   });
@@ -531,13 +557,15 @@ describe('doStream', () => {
 
     const requestHeaders = server.calls[0]!.requestHeaders;
 
-    expect(requestHeaders).toStrictEqual({
+    expect(requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
-      'user-agent': 'ai-sdk/openrouter/0.0.0-test',
     });
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass extra body', async () => {

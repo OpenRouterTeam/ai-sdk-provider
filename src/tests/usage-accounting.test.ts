@@ -1,8 +1,8 @@
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-import { createTestServer } from '@ai-sdk/provider-utils/test';
 import { describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat';
+import { createTestServer } from '../test-utils/test-server';
 
 describe('OpenRouter Usage Accounting', () => {
   const server = createTestServer({
@@ -78,7 +78,10 @@ describe('OpenRouter Usage Accounting', () => {
     });
 
     // Check request contains usage parameter
-    const requestBody = await server.calls[0]!.requestBodyJson;
+    const requestBody = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
     expect(requestBody).toBeDefined();
     expect(requestBody).toHaveProperty('usage');
     expect(requestBody.usage).toEqual({ include: true });
