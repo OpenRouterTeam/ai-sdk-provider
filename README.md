@@ -2,7 +2,7 @@
 
 The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
 
-## Setup for AI SDK v5
+## Setup for AI SDK v6
 
 ```bash
 # For pnpm
@@ -15,18 +15,17 @@ npm install @openrouter/ai-sdk-provider
 yarn add @openrouter/ai-sdk-provider
 ```
 
-## (LEGACY) Setup for AI SDK v4
+## (LEGACY) Setup for AI SDK v5
 
 ```bash
 # For pnpm
-pnpm add @openrouter/ai-sdk-provider@ai-sdk-v4
+pnpm add @openrouter/ai-sdk-provider@ai-sdk-v5
 
 # For npm
-npm install @openrouter/ai-sdk-provider@ai-sdk-v4
+npm install @openrouter/ai-sdk-provider@ai-sdk-v5
 
 # For yarn
-yarn add @openrouter/ai-sdk-provider@ai-sdk-v4
-
+yarn add @openrouter/ai-sdk-provider@ai-sdk-v5
 ```
 
 ## Provider Instance
@@ -57,9 +56,9 @@ You can find the latest list of tool-supported models supported by OpenRouter [h
 
 ## Embeddings
 
-OpenRouter supports embedding models for semantic search, RAG pipelines, and vector-native features. The provider exposes embeddings compatible with both AI SDK v5 and v4.
+OpenRouter supports embedding models for semantic search, RAG pipelines, and vector-native features.
 
-### AI SDK v5 (Recommended)
+### Basic Usage
 
 ```ts
 import { embed } from 'ai';
@@ -89,20 +88,6 @@ const { embeddings } = await embedMany({
 });
 
 console.log(embeddings); // Array of embedding arrays
-```
-
-### AI SDK v4 (Deprecated)
-
-For backwards compatibility, the `embedding` method is also available:
-
-```ts
-import { embed } from 'ai';
-import { openrouter } from '@openrouter/ai-sdk-provider';
-
-const { embedding } = await embed({
-  model: openrouter.embedding('openai/text-embedding-3-small'),
-  value: 'sunny day at the beach',
-});
 ```
 
 ### Supported Embedding Models
@@ -225,6 +210,7 @@ await streamText({
   ],
 });
 ```
+
 ## Anthropic Beta Features
 
 You can enable Anthropic beta features by passing custom headers through the OpenRouter SDK.
@@ -318,8 +304,6 @@ for await (const partialComponent of result.partialObjectStream) {
   console.log('Partial component:', partialComponent);
 }
 ```
-
-
 
 ## Use Cases
 
