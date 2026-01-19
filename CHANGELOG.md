@@ -1,5 +1,19 @@
 # @openrouter/ai-sdk-provider
 
+## 2.0.0
+
+### Major Changes
+
+- [#307](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/307) [`6fd68db`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/6fd68dba222d12a555c08c644e27e18949331dbb) Thanks [@pablof7z](https://github.com/pablof7z)! - Add AI SDK v6 support with LanguageModelV3 and EmbeddingModelV3 interfaces
+
+### Minor Changes
+
+- [#324](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/324) [`d055b96`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d055b963a16e95beabecb5f880b4b0ec7b0b83c1) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Update zod peerDependency from "^3.24.1 || ^v4" to "^3.25.0 || ^4.0.0". This fixes TypeScript errors ("Cannot find module 'zod/v3'") that occur when users have Zod < 3.25.0 installed, as the subpath exports (zod/v3, zod/v4) were only added in Zod 3.25.0.
+
+### Patch Changes
+
+- [#326](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/326) [`9f7a125`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f7a1259e2fd69e670ebb2a14bdcff5d064ad3d5) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Make file content part fields optional and add file_id support. The `filename` and `file_data` fields in `ChatCompletionContentPartFile` are now optional, and a new `file_id` field has been added for OpenAI file uploads support.
+
 ## 1.5.4
 
 ### Patch Changes
