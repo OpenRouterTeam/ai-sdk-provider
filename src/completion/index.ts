@@ -27,8 +27,8 @@ import {
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import {
-  mapOpenRouterFinishReason,
   createFinishReason,
+  mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
@@ -205,13 +205,16 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         inputTokens: {
           total: response.usage?.prompt_tokens ?? 0,
           noCache: undefined,
-          cacheRead: response.usage?.prompt_tokens_details?.cached_tokens ?? undefined,
+          cacheRead:
+            response.usage?.prompt_tokens_details?.cached_tokens ?? undefined,
           cacheWrite: undefined,
         },
         outputTokens: {
           total: response.usage?.completion_tokens ?? 0,
           text: undefined,
-          reasoning: response.usage?.completion_tokens_details?.reasoning_tokens ?? undefined,
+          reasoning:
+            response.usage?.completion_tokens_details?.reasoning_tokens ??
+            undefined,
         },
       },
       warnings: [],

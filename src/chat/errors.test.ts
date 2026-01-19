@@ -1,8 +1,8 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { createTestServer } from '../test-utils/test-server';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
+import { createTestServer } from '../test-utils/test-server';
 
 const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -84,7 +84,10 @@ describe('HTTP 200 Error Response Handling', () => {
           text: 'Hello! How can I help you?',
         },
       ]);
-      expect(((result.usage.inputTokens?.total ?? 0) + (result.usage.outputTokens?.total ?? 0))).toBe(18);
+      expect(
+        (result.usage.inputTokens?.total ?? 0) +
+          (result.usage.outputTokens?.total ?? 0),
+      ).toBe(18);
     });
   });
 });

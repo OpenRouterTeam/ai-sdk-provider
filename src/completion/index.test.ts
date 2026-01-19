@@ -3,12 +3,12 @@ import type {
   LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
 
+import { vi } from 'vitest';
+import { createOpenRouter } from '../provider';
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '../test-utils/test-server';
-import { vi } from 'vitest';
-import { createOpenRouter } from '../provider';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
@@ -82,7 +82,7 @@ describe('doGenerate', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
       type: 'json-value',
       body: {
         id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
@@ -237,7 +237,9 @@ describe('doGenerate', () => {
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 });
 
@@ -281,7 +283,7 @@ describe('doStream', () => {
     } | null;
     finish_reason?: string;
   }) {
-    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         ...content.map((text) => {
@@ -432,7 +434,7 @@ describe('doStream', () => {
   });
 
   it('should handle error stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"error":{"message": "The server had an error processing your request. Sorry about that! You can retry your request, or contact us through our ` +
@@ -484,7 +486,7 @@ describe('doStream', () => {
   });
 
   it('should handle unparsable stream parts', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!!.response = {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
       type: 'stream-chunks',
       chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
     };
@@ -561,7 +563,9 @@ describe('doStream', () => {
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass extra body', async () => {

@@ -6,13 +6,13 @@ import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
+import { vi } from 'vitest';
+import { createOpenRouter } from '../provider';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import {
   convertReadableStreamToArray,
   createTestServer,
 } from '../test-utils/test-server';
-import { vi } from 'vitest';
-import { createOpenRouter } from '../provider';
-import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
@@ -287,7 +287,10 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual({ unified: 'stop', raw: 'stop' });
+    expect(response.finishReason).toStrictEqual({
+      unified: 'stop',
+      raw: 'stop',
+    });
   });
 
   it('should support unknown finish reason', async () => {
@@ -300,7 +303,10 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    expect(response.finishReason).toStrictEqual({ unified: 'other', raw: 'eos' });
+    expect(response.finishReason).toStrictEqual({
+      unified: 'other',
+      raw: 'eos',
+    });
   });
 
   it('should extract reasoning content from reasoning field', async () => {
@@ -508,7 +514,10 @@ describe('doGenerate', () => {
     });
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(result.finishReason).toStrictEqual({ unified: 'tool-calls', raw: 'stop' });
+    expect(result.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'stop',
+    });
 
     // Should still have the tool call in content
     expect(result.content).toContainEqual(
@@ -652,7 +661,9 @@ describe('doGenerate', () => {
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
@@ -1678,7 +1689,10 @@ describe('doStream', () => {
     );
 
     // Should override to 'tool-calls' when encrypted reasoning + tool calls + stop
-    expect(finishEvent?.finishReason).toStrictEqual({ unified: 'tool-calls', raw: 'stop' });
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'stop',
+    });
 
     // Should have the tool call
     const toolCallEvent = elements.find(
@@ -1890,7 +1904,9 @@ describe('doStream', () => {
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain('ai-sdk/openrouter/0.0.0-test');
+    expect(requestHeaders['user-agent']).toContain(
+      'ai-sdk/openrouter/0.0.0-test',
+    );
   });
 
   it('should pass extra body', async () => {

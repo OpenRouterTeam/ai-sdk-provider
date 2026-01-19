@@ -1,8 +1,8 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { createTestServer } from '../test-utils/test-server';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
+import { createTestServer } from '../test-utils/test-server';
 
 const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -95,7 +95,10 @@ describe('Large PDF Response Handling', () => {
           text: 'LARGE-M9N3T',
         },
       ]);
-      expect(((result.usage.inputTokens?.total ?? 0) + (result.usage.outputTokens?.total ?? 0))).toBe(120);
+      expect(
+        (result.usage.inputTokens?.total ?? 0) +
+          (result.usage.outputTokens?.total ?? 0),
+      ).toBe(120);
     });
   });
 });

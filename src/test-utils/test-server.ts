@@ -3,10 +3,12 @@
  * This provides HTTP request interception for testing purposes.
  */
 
-import { afterAll, afterEach, beforeAll } from 'vitest';
-import { setupServer, SetupServerApi } from 'msw/node';
-import { http, HttpResponse } from 'msw';
 import type { JsonBodyType } from 'msw';
+import type { SetupServerApi } from 'msw/node';
+
+import { HttpResponse, http } from 'msw';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll } from 'vitest';
 
 // Re-export utilities that were previously in @ai-sdk/provider-utils/test
 export { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
@@ -48,7 +50,7 @@ export function createTestServer(config: TestServerConfig): {
     urls[url] = { ...urlConfig, calls: [] };
   }
 
-  const handlers = Object.keys(config).map(url =>
+  const handlers = Object.keys(config).map((url) =>
     http.post(url, async ({ request }) => {
       const urlConfig = urls[url]!;
 
@@ -78,7 +80,10 @@ export function createTestServer(config: TestServerConfig): {
       const response = urlConfig.response;
 
       if (!response) {
-        return HttpResponse.json({ error: 'No response configured' }, { status: 500 });
+        return HttpResponse.json(
+          { error: 'No response configured' },
+          { status: 500 },
+        );
       }
 
       const status = response.status ?? 200;
@@ -86,7 +91,10 @@ export function createTestServer(config: TestServerConfig): {
 
       switch (response.type) {
         case 'json-value':
-          return HttpResponse.json(response.body ?? null, { status, headers: responseHeaders });
+          return HttpResponse.json(response.body ?? null, {
+            status,
+            headers: responseHeaders,
+          });
 
         case 'stream-chunks': {
           const encoder = new TextEncoder();
@@ -115,9 +123,12 @@ export function createTestServer(config: TestServerConfig): {
           });
 
         default:
-          return HttpResponse.json(response.body ?? null, { status, headers: responseHeaders });
+          return HttpResponse.json(response.body ?? null, {
+            status,
+            headers: responseHeaders,
+          });
       }
-    })
+    }),
   );
 
   const server = setupServer(...handlers);

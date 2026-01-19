@@ -1,7 +1,6 @@
 import type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
-  SharedV3Warning,
   LanguageModelV3Content,
   LanguageModelV3FinishReason,
   LanguageModelV3FunctionTool,
@@ -10,6 +9,7 @@ import type {
   LanguageModelV3Usage,
   SharedV3Headers,
   SharedV3ProviderMetadata,
+  SharedV3Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { z } from 'zod/v4';
@@ -38,8 +38,8 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import {
-  mapOpenRouterFinishReason,
   createFinishReason,
+  mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
@@ -277,13 +277,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           inputTokens: {
             total: response.usage.prompt_tokens ?? 0,
             noCache: undefined,
-            cacheRead: response.usage.prompt_tokens_details?.cached_tokens ?? undefined,
+            cacheRead:
+              response.usage.prompt_tokens_details?.cached_tokens ?? undefined,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: response.usage.completion_tokens ?? 0,
             text: undefined,
-            reasoning: response.usage.completion_tokens_details?.reasoning_tokens ?? undefined,
+            reasoning:
+              response.usage.completion_tokens_details?.reasoning_tokens ??
+              undefined,
           },
         }
       : {

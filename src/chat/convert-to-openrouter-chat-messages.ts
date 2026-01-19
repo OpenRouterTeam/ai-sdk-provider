@@ -261,6 +261,10 @@ export function convertToOpenRouterChatMessages(
 
       case 'tool': {
         for (const toolResponse of content) {
+          // Skip tool approval responses - only process tool results
+          if (toolResponse.type === 'tool-approval-response') {
+            continue;
+          }
           const content = getToolResultContent(toolResponse);
 
           messages.push({
