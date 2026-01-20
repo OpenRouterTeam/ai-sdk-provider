@@ -366,7 +366,12 @@ interface StreamState {
   textEnded: boolean;
   reasoningEnded: boolean;
   sourceIds: string[];
-  toolCalls: Map<string, { name?: string; argumentsStarted: boolean }>;
+  toolCalls: Map<
+    string,
+    { name?: string; argumentsStarted: boolean; argumentsDelta: string }
+  >;
+  /** Track which tool calls have been emitted to avoid duplicates */
+  emittedToolCalls: Set<string>;
 }
 
 function createStreamState(): StreamState {
@@ -382,6 +387,7 @@ function createStreamState(): StreamState {
     reasoningEnded: false,
     sourceIds: [],
     toolCalls: new Map(),
+    emittedToolCalls: new Set(),
   };
 }
 
@@ -469,8 +475,13 @@ function transformResponsesEvent(
       let toolState = state.toolCalls.get(toolCallId);
 
       if (!toolState) {
-        toolState = { argumentsStarted: false };
+        toolState = { argumentsStarted: false, argumentsDelta: '' };
         state.toolCalls.set(toolCallId, toolState);
+      }
+
+      // Accumulate arguments delta
+      if (event.delta) {
+        toolState.argumentsDelta += event.delta;
       }
 
       // Emit tool-input-start if not started
@@ -498,37 +509,44 @@ function transformResponsesEvent(
       const toolCallId = event.itemId;
       const toolState = state.toolCalls.get(toolCallId);
 
-      // If we haven't started tool call yet, emit start + delta with full args
-      if (!toolState?.argumentsStarted) {
+      // Use accumulated delta or event.arguments (prefer accumulated as it's more reliable)
+      // OpenRouter streaming doesn't send arguments in this event - they come in response.completed
+      const accumulatedArgs = toolState?.argumentsDelta || '';
+      const args = accumulatedArgs || event.arguments || '';
+
+      // Only emit events if we have actual arguments
+      // OpenRouter often sends empty arguments in streaming - the real args come in response.completed
+      if (args) {
+        // If we haven't started tool call yet, emit start + delta with full args
+        if (!toolState?.argumentsStarted) {
+          parts.push({
+            type: 'tool-input-start',
+            id: toolCallId,
+            toolName: event.name,
+          });
+          parts.push({
+            type: 'tool-input-delta',
+            id: toolCallId,
+            delta: args,
+          });
+        }
+
+        // Emit tool-input-end
         parts.push({
-          type: 'tool-input-start',
+          type: 'tool-input-end',
           id: toolCallId,
-          toolName: event.name,
         });
-        // Default to empty object when arguments is undefined/empty
-        const args = event.arguments || '{}';
+
+        // Emit tool-call
+        state.emittedToolCalls.add(toolCallId);
         parts.push({
-          type: 'tool-input-delta',
-          id: toolCallId,
-          delta: args,
+          type: 'tool-call',
+          toolCallId,
+          toolName: event.name,
+          input: args,
         });
       }
-
-      // Emit tool-input-end
-      parts.push({
-        type: 'tool-input-end',
-        id: toolCallId,
-      });
-
-      // Emit tool-call with complete tool call data
-      // Default to empty object when arguments is undefined/empty
-      // (some providers omit arguments for tools with no parameters)
-      parts.push({
-        type: 'tool-call',
-        toolCallId,
-        toolName: event.name,
-        input: event.arguments || '{}',
-      });
+      // If no args, don't emit anything - wait for response.completed
       break;
     }
 
@@ -543,6 +561,7 @@ function transformResponsesEvent(
         const toolCallId = funcItem.callId ?? `tool-${event.outputIndex}`;
         const toolState = state.toolCalls.get(toolCallId) ?? {
           argumentsStarted: false,
+          argumentsDelta: '',
         };
         toolState.name = funcItem.name;
         state.toolCalls.set(toolCallId, toolState);
@@ -592,8 +611,57 @@ function transformResponsesEvent(
         });
       }
 
-      // Emit response-metadata
+      // Extract tool calls from response.output - this is where OpenRouter
+      // provides the actual arguments in streaming mode
       const response = event.response;
+      if (response.output) {
+        for (const outputItem of response.output) {
+          if (outputItem.type === 'function_call') {
+            const funcCall = outputItem as {
+              type: 'function_call';
+              callId?: string;
+              name: string;
+              arguments?: string;
+            };
+            const toolCallId = funcCall.callId ?? funcCall.name;
+
+            // Only emit if not already emitted
+            if (!state.emittedToolCalls.has(toolCallId)) {
+              state.emittedToolCalls.add(toolCallId);
+
+              // Check if we need to emit tool-input events
+              const toolState = state.toolCalls.get(toolCallId);
+              if (!toolState?.argumentsStarted) {
+                parts.push({
+                  type: 'tool-input-start',
+                  id: toolCallId,
+                  toolName: funcCall.name,
+                });
+                if (funcCall.arguments) {
+                  parts.push({
+                    type: 'tool-input-delta',
+                    id: toolCallId,
+                    delta: funcCall.arguments,
+                  });
+                }
+                parts.push({
+                  type: 'tool-input-end',
+                  id: toolCallId,
+                });
+              }
+
+              parts.push({
+                type: 'tool-call',
+                toolCallId,
+                toolName: funcCall.name,
+                input: funcCall.arguments || '{}',
+              });
+            }
+          }
+        }
+      }
+
+      // Emit response-metadata
       parts.push({
         type: 'response-metadata',
         id: response.id,
