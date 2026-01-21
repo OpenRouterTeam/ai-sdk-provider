@@ -387,7 +387,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           type: 'tool-call' as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
-          input: toolCall.function.arguments,
+          // Default to empty JSON object if arguments is missing (e.g., tools with no parameters)
+          input: toolCall.function.arguments ?? '{}',
           providerMetadata: {
             openrouter: {
               reasoning_details: reasoningDetails,
