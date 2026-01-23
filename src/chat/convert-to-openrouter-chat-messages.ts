@@ -83,8 +83,7 @@ export function convertToOpenRouterChatMessages(
             const textCacheControl =
               partCacheControl ??
               (index === lastTextIndex ? messageCacheControl : undefined);
-            const nonTextCacheControl =
-              partCacheControl ?? messageCacheControl;
+            const nonTextCacheControl = partCacheControl ?? messageCacheControl;
 
             switch (part.type) {
               case 'text':
