@@ -572,6 +572,72 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should apply message cache control only to the last text part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'user query 1',
+          },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+          },
+          {
+            type: 'text',
+            text: 'user query 2',
+          },
+          {
+            type: 'text',
+            text: 'user query 3',
+          },
+          {
+            type: 'text',
+            text: 'last user query',
+          },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'user query 1',
+          },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'text',
+            text: 'user query 2',
+          },
+          {
+            type: 'text',
+            text: 'user query 3',
+          },
+          {
+            type: 'text',
+            text: 'last user query',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should pass cache control from assistant message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
       {
