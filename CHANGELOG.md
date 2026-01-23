@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.0.1
+
+### Patch Changes
+
+- [#337](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/337) [`09f85dc`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/09f85dccd2db2d81de8dd0f9b0b944a5b01a6d8d) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix ai peer dependency from exact version 6.0.3 to ^6.0.0
+
 ## 2.0.0
 
 ### Major Changes
