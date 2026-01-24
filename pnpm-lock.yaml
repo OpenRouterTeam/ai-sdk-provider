@@ -7,13 +7,17 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@llmgateway/models':
+        specifier: ^1.0.1
+        version: 1.0.1
     devDependencies:
       '@ai-sdk/provider':
         specifier: 3.0.2
         version: 3.0.2
       '@ai-sdk/provider-utils':
         specifier: 4.0.4
-        version: 4.0.4(zod@3.25.34)
+        version: 4.0.4(zod@3.25.76)
       '@biomejs/biome':
         specifier: 1.9.4
         version: 1.9.4
@@ -31,7 +35,7 @@ importers:
         version: 22.15.24
       ai:
         specifier: 6.0.27
-        version: 6.0.27(zod@3.25.34)
+        version: 6.0.27(zod@3.25.76)
       dotenv:
         specifier: 16.5.0
         version: 16.5.0
@@ -54,8 +58,8 @@ importers:
         specifier: 3.1.4
         version: 3.1.4(@edge-runtime/vm@5.0.0)(@types/node@22.15.24)
       zod:
-        specifier: 3.25.34
-        version: 3.25.34
+        specifier: 3.25.76
+        version: 3.25.76
 
 packages:
 
@@ -365,6 +369,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.25':
     resolution: {integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==}
+
+  '@llmgateway/models@1.0.1':
+    resolution: {integrity: sha512-IuFDXRS7t+epDsP/AM/6uMpwzLydpebVKN1hfphYzYv6lOfDylYoXxwCeupBYP5uynG07sFc63MuFc/TrIuQDA==}
 
   '@nodelib/fs.scandir@2.1.5':
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
@@ -2154,24 +2161,24 @@ packages:
     resolution: {integrity: sha512-GQHQqAopRhwU8Kt1DDM8NjibDXHC8eoh1erhGAJPEyveY9qqVeXvVikNKrDz69sHowPMorbPUrH/mx8c50eiBQ==}
     engines: {node: '>=18'}
 
-  zod@3.25.34:
-    resolution: {integrity: sha512-lZHvSc2PpWdcfpHlyB33HA9nqP16GpC9IpiG4lYq9jZCJVLZNnWd6Y1cj79bcLSBKTkxepfpjckPv5Y5VOPlwA==}
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
 
-  '@ai-sdk/gateway@3.0.11(zod@3.25.34)':
+  '@ai-sdk/gateway@3.0.11(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.2
-      '@ai-sdk/provider-utils': 4.0.4(zod@3.25.34)
+      '@ai-sdk/provider-utils': 4.0.4(zod@3.25.76)
       '@vercel/oidc': 3.1.0
-      zod: 3.25.34
+      zod: 3.25.76
 
-  '@ai-sdk/provider-utils@4.0.4(zod@3.25.34)':
+  '@ai-sdk/provider-utils@4.0.4(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.2
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.6
-      zod: 3.25.34
+      zod: 3.25.76
 
   '@ai-sdk/provider@3.0.2':
     dependencies:
@@ -2394,6 +2401,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
+
+  '@llmgateway/models@1.0.1': {}
 
   '@nodelib/fs.scandir@2.1.5':
     dependencies:
@@ -2708,13 +2717,13 @@ snapshots:
       clean-stack: 5.2.0
       indent-string: 5.0.0
 
-  ai@6.0.27(zod@3.25.34):
+  ai@6.0.27(zod@3.25.76):
     dependencies:
-      '@ai-sdk/gateway': 3.0.11(zod@3.25.34)
+      '@ai-sdk/gateway': 3.0.11(zod@3.25.76)
       '@ai-sdk/provider': 3.0.2
-      '@ai-sdk/provider-utils': 4.0.4(zod@3.25.34)
+      '@ai-sdk/provider-utils': 4.0.4(zod@3.25.76)
       '@opentelemetry/api': 1.9.0
-      zod: 3.25.34
+      zod: 3.25.76
 
   ansi-escapes@7.0.0:
     dependencies:
@@ -4092,4 +4101,4 @@ snapshots:
 
   yoctocolors@2.1.1: {}
 
-  zod@3.25.34: {}
+  zod@3.25.76: {}

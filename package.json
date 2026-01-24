@@ -53,7 +53,10 @@
     "typescript": "5.8.3",
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.1.4",
-    "zod": "3.25.34"
+    "zod": "3.25.76"
+  },
+  "dependencies": {
+    "@llmgateway/models": "^1.0.1"
   },
   "peerDependencies": {
     "ai": "^6.0.0",

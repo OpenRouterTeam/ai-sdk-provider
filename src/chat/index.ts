@@ -297,9 +297,8 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
               return null;
             })
             .filter(
-              (p: LanguageModelV2Content | null): p is LanguageModelV2Content =>
-                p !== null,
-            )
+              (p): p is { type: 'reasoning'; text: string } => p !== null,
+            ) as LanguageModelV2Content[]
         : choice.message.reasoningText
           ? [
               {
@@ -344,7 +343,7 @@ export class LLMGatewayChatLanguageModel implements LanguageModelV2 {
 
     if (choice.message.annotations) {
       for (const annotation of choice.message.annotations) {
-        if (annotation.type === 'url_citation') {
+        if (annotation.type === 'url_citation' && annotation.url_citation) {
           content.push({
             type: 'source' as const,
             sourceType: 'url' as const,

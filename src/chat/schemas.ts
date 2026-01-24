@@ -44,6 +44,20 @@ export const LLMGatewayNonStreamChatCompletionResponseSchema =
           reasoningText: z.string().nullable().optional(),
           reasoning_details: ReasoningDetailArraySchema.nullish(),
           images: ImageResponseArraySchema.nullish(),
+          annotations: z
+            .array(
+              z.object({
+                type: z.string(),
+                url_citation: z
+                  .object({
+                    url: z.string(),
+                    title: z.string().optional(),
+                    content: z.string().optional(),
+                  })
+                  .optional(),
+              }),
+            )
+            .optional(),
 
           tool_calls: z
             .array(
