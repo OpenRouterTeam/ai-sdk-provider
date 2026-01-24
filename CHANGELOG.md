@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.0.2
+
+### Patch Changes
+
+- [#344](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/344) [`8228294`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/822829423def7a801b8e4e630370ada4386dc89f) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix parallel tool calls with Claude models when thinking/reasoning is enabled. Previously, reasoning_details were duplicated across all parallel tool calls, causing Anthropic to reject continuation requests.
+
 ## 2.0.1
 
 ### Patch Changes
