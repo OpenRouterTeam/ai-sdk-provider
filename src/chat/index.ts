@@ -382,18 +382,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     }
 
     if (choice.message.tool_calls) {
+      // Only attach reasoning_details to the first tool call to avoid
+      // duplicating thinking blocks for parallel tool calls (Claude)
+      let reasoningDetailsAttachedToToolCall = false;
       for (const toolCall of choice.message.tool_calls) {
         content.push({
           type: 'tool-call' as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
           input: toolCall.function.arguments,
-          providerMetadata: {
-            openrouter: {
-              reasoning_details: reasoningDetails,
-            },
-          },
+          providerMetadata: !reasoningDetailsAttachedToToolCall
+            ? {
+                openrouter: {
+                  reasoning_details: reasoningDetails,
+                },
+              }
+            : undefined,
         });
+        reasoningDetailsAttachedToToolCall = true;
       }
     }
 
@@ -590,6 +596,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
     // Track reasoning details to preserve for multi-turn conversations
     const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
+
+    // Track whether reasoning_details have been attached to a tool call
+    // For parallel tool calls (e.g., Claude with thinking), only the first tool call
+    // should have reasoning_details to avoid duplicating thinking blocks
+    let reasoningDetailsAttachedToToolCall = false;
 
     // Track file annotations to expose in providerMetadata
     const accumulatedFileAnnotations: FileAnnotation[] = [];
@@ -916,18 +927,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     });
 
                     // send tool call
+                    // Only attach reasoning_details to the first tool call to avoid
+                    // duplicating thinking blocks for parallel tool calls (Claude)
                     controller.enqueue({
                       type: 'tool-call',
                       toolCallId: toolCall.id,
                       toolName: toolCall.function.name,
                       input: toolCall.function.arguments,
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: accumulatedReasoningDetails,
-                        },
-                      },
+                      providerMetadata: !reasoningDetailsAttachedToToolCall
+                        ? {
+                            openrouter: {
+                              reasoning_details: accumulatedReasoningDetails,
+                            },
+                          }
+                        : undefined,
                     });
 
+                    reasoningDetailsAttachedToToolCall = true;
                     toolCall.sent = true;
                   }
 
@@ -975,18 +991,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   toolCall.function?.arguments != null &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
+                  // Only attach reasoning_details to the first tool call to avoid
+                  // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
                     type: 'tool-call',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
-                    providerMetadata: {
-                      openrouter: {
-                        reasoning_details: accumulatedReasoningDetails,
-                      },
-                    },
+                    providerMetadata: !reasoningDetailsAttachedToToolCall
+                      ? {
+                          openrouter: {
+                            reasoning_details: accumulatedReasoningDetails,
+                          },
+                        }
+                      : undefined,
                   });
 
+                  reasoningDetailsAttachedToToolCall = true;
                   toolCall.sent = true;
                 }
               }
@@ -1023,6 +1044,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {
                 if (toolCall && !toolCall.sent) {
+                  // Only attach reasoning_details to the first tool call to avoid
+                  // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
                     type: 'tool-call',
                     toolCallId: toolCall.id ?? generateId(),
@@ -1031,12 +1054,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     input: isParsableJson(toolCall.function.arguments)
                       ? toolCall.function.arguments
                       : '{}',
-                    providerMetadata: {
-                      openrouter: {
-                        reasoning_details: accumulatedReasoningDetails,
-                      },
-                    },
+                    providerMetadata: !reasoningDetailsAttachedToToolCall
+                      ? {
+                          openrouter: {
+                            reasoning_details: accumulatedReasoningDetails,
+                          },
+                        }
+                      : undefined,
                   });
+                  reasoningDetailsAttachedToToolCall = true;
                   toolCall.sent = true;
                 }
               }
