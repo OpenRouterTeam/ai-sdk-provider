@@ -944,4 +944,389 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
   });
+
+  it('should only collect reasoning_details from first tool call (parallel tool calls)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Full reasoning text',
+                  },
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-signature',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Full reasoning text',
+                  },
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-signature',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+          {
+            id: 'call-2',
+            type: 'function',
+            function: {
+              name: 'get_time',
+              arguments: '{}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Full reasoning text',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'encrypted-signature',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should collect reasoning_details from single tool call', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Reasoning for weather call',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Reasoning for weather call',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should prefer message-level reasoning_details over tool call reasoning_details', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Tool call reasoning',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Message-level reasoning',
+              },
+              {
+                type: ReasoningDetailType.Encrypted,
+                data: 'message-level-signature',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Message-level reasoning',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'message-level-signature',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should handle reasoning parts followed by tool calls (collect from first source only)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking about the request',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Thinking about the request',
+                  },
+                ],
+              },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Full accumulated reasoning',
+                  },
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-signature',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+        ],
+        reasoning: 'Thinking about the request',
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Thinking about the request',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should handle tool calls without reasoning_details', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+          {
+            id: 'call-2',
+            type: 'function',
+            function: {
+              name: 'get_time',
+              arguments: '{}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: undefined,
+      },
+    ]);
+  });
+
+  it('should collect from second tool call if first has no reasoning_details', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Reasoning from second tool call',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"location":"San Francisco"}',
+            },
+          },
+          {
+            id: 'call-2',
+            type: 'function',
+            function: {
+              name: 'get_time',
+              arguments: '{}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Reasoning from second tool call',
+          },
+        ],
+      },
+    ]);
+  });
 });

@@ -8,3 +8,5 @@ dist
 
 # Reference repositories (git submodules)
 reference/
+
+/tmp

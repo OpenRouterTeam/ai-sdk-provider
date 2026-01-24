@@ -173,6 +173,10 @@ export function convertToOpenRouterChatMessages(
         }> = [];
         const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
 
+        // Track whether we've already collected reasoning_details from a source
+        // to avoid duplicating thinking blocks for parallel tool calls (Claude)
+        let reasoningDetailsCollected = false;
+
         for (const part of content) {
           switch (part.type) {
             case 'text': {
@@ -181,16 +185,22 @@ export function convertToOpenRouterChatMessages(
               break;
             }
             case 'tool-call': {
-              const partReasoningDetails = (
-                part.providerOptions as Record<string, unknown>
-              )?.openrouter as Record<string, unknown> | undefined;
-              if (
-                partReasoningDetails?.reasoning_details &&
-                Array.isArray(partReasoningDetails.reasoning_details)
-              ) {
-                accumulatedReasoningDetails.push(
-                  ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
-                );
+              // Only collect reasoning_details from the first tool call that has them
+              // to avoid duplicating thinking blocks
+              if (!reasoningDetailsCollected) {
+                const partReasoningDetails = (
+                  part.providerOptions as Record<string, unknown>
+                )?.openrouter as Record<string, unknown> | undefined;
+                if (
+                  partReasoningDetails?.reasoning_details &&
+                  Array.isArray(partReasoningDetails.reasoning_details) &&
+                  partReasoningDetails.reasoning_details.length > 0
+                ) {
+                  accumulatedReasoningDetails.push(
+                    ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
+                  );
+                  reasoningDetailsCollected = true;
+                }
               }
               toolCalls.push({
                 id: part.toolCallId,
@@ -204,16 +214,25 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              const parsedPartProviderOptions =
-                OpenRouterProviderOptionsSchema.safeParse(part.providerOptions);
-              if (
-                parsedPartProviderOptions.success &&
-                parsedPartProviderOptions.data?.openrouter?.reasoning_details
-              ) {
-                accumulatedReasoningDetails.push(
-                  ...parsedPartProviderOptions.data.openrouter
-                    .reasoning_details,
-                );
+              // Only collect reasoning_details if we haven't already collected from another source
+              if (!reasoningDetailsCollected) {
+                const parsedPartProviderOptions =
+                  OpenRouterProviderOptionsSchema.safeParse(
+                    part.providerOptions,
+                  );
+                if (
+                  parsedPartProviderOptions.success &&
+                  parsedPartProviderOptions.data?.openrouter
+                    ?.reasoning_details &&
+                  parsedPartProviderOptions.data.openrouter.reasoning_details
+                    .length > 0
+                ) {
+                  accumulatedReasoningDetails.push(
+                    ...parsedPartProviderOptions.data.openrouter
+                      .reasoning_details,
+                  );
+                  reasoningDetailsCollected = true;
+                }
               }
               break;
             }
