@@ -171,37 +171,14 @@ export function convertToOpenRouterChatMessages(
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
-        const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
-
-        // Track whether we've already collected reasoning_details from a source
-        // to avoid duplicating thinking blocks for parallel tool calls (Claude)
-        let reasoningDetailsCollected = false;
 
         for (const part of content) {
           switch (part.type) {
             case 'text': {
               text += part.text;
-
               break;
             }
             case 'tool-call': {
-              // Only collect reasoning_details from the first tool call that has them
-              // to avoid duplicating thinking blocks
-              if (!reasoningDetailsCollected) {
-                const partReasoningDetails = (
-                  part.providerOptions as Record<string, unknown>
-                )?.openrouter as Record<string, unknown> | undefined;
-                if (
-                  partReasoningDetails?.reasoning_details &&
-                  Array.isArray(partReasoningDetails.reasoning_details) &&
-                  partReasoningDetails.reasoning_details.length > 0
-                ) {
-                  accumulatedReasoningDetails.push(
-                    ...(partReasoningDetails.reasoning_details as ReasoningDetailUnion[]),
-                  );
-                  reasoningDetailsCollected = true;
-                }
-              }
               toolCalls.push({
                 id: part.toolCallId,
                 type: 'function',
@@ -214,29 +191,8 @@ export function convertToOpenRouterChatMessages(
             }
             case 'reasoning': {
               reasoning += part.text;
-              // Only collect reasoning_details if we haven't already collected from another source
-              if (!reasoningDetailsCollected) {
-                const parsedPartProviderOptions =
-                  OpenRouterProviderOptionsSchema.safeParse(
-                    part.providerOptions,
-                  );
-                if (
-                  parsedPartProviderOptions.success &&
-                  parsedPartProviderOptions.data?.openrouter
-                    ?.reasoning_details &&
-                  parsedPartProviderOptions.data.openrouter.reasoning_details
-                    .length > 0
-                ) {
-                  accumulatedReasoningDetails.push(
-                    ...parsedPartProviderOptions.data.openrouter
-                      .reasoning_details,
-                  );
-                  reasoningDetailsCollected = true;
-                }
-              }
               break;
             }
-
             case 'file':
               break;
             default: {
@@ -255,15 +211,15 @@ export function convertToOpenRouterChatMessages(
           ? parsedProviderOptions.data?.openrouter?.annotations
           : undefined;
 
-        // Use message-level reasoning_details if available, otherwise use accumulated from parts
+        // Use message-level reasoning_details if available, otherwise find from parts
+        // Priority: message-level > first tool call > first reasoning part
+        // This prevents duplicate thinking blocks when Claude makes parallel tool calls
         const finalReasoningDetails =
           messageReasoningDetails &&
           Array.isArray(messageReasoningDetails) &&
           messageReasoningDetails.length > 0
             ? messageReasoningDetails
-            : accumulatedReasoningDetails.length > 0
-              ? accumulatedReasoningDetails
-              : undefined;
+            : findFirstReasoningDetails(content);
 
         messages.push({
           role: 'assistant',
@@ -319,4 +275,49 @@ function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
     case 'execution-denied':
       return input.output.reason ?? 'Tool execution denied';
   }
+}
+
+/**
+ * Find the first reasoning_details from content parts.
+ * Priority: tool calls (complete accumulated data) > reasoning parts (delta data)
+ *
+ * This prevents duplicate thinking blocks when Claude makes parallel tool calls,
+ * as each tool call may have the same reasoning_details attached.
+ */
+function findFirstReasoningDetails(
+  content: Array<{
+    type: string;
+    providerOptions?: Record<string, unknown>;
+  }>,
+): ReasoningDetailUnion[] | undefined {
+  // First, try tool calls - they have complete accumulated reasoning_details
+  for (const part of content) {
+    if (part.type === 'tool-call') {
+      const openrouter = part.providerOptions?.openrouter as
+        | Record<string, unknown>
+        | undefined;
+      const details = openrouter?.reasoning_details;
+      if (Array.isArray(details) && details.length > 0) {
+        return details as ReasoningDetailUnion[];
+      }
+    }
+  }
+
+  // Fall back to reasoning parts - they have delta reasoning_details
+  for (const part of content) {
+    if (part.type === 'reasoning') {
+      const parsed = OpenRouterProviderOptionsSchema.safeParse(
+        part.providerOptions,
+      );
+      if (
+        parsed.success &&
+        parsed.data?.openrouter?.reasoning_details &&
+        parsed.data.openrouter.reasoning_details.length > 0
+      ) {
+        return parsed.data.openrouter.reasoning_details;
+      }
+    }
+  }
+
+  return undefined;
 }

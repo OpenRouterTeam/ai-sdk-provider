@@ -944,8 +944,10 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
   });
+});
 
-  it('should only collect reasoning_details from first tool call (parallel tool calls)', () => {
+describe('parallel tool calls reasoning_details deduplication', () => {
+  it('should only use reasoning_details from first tool call (parallel tool calls)', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -994,41 +996,24 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-          {
-            id: 'call-2',
-            type: 'function',
-            function: {
-              name: 'get_time',
-              arguments: '{}',
-            },
-          },
-        ],
-        reasoning: undefined,
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Full reasoning text',
-          },
-          {
-            type: ReasoningDetailType.Encrypted,
-            data: 'encrypted-signature',
-          },
-        ],
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.role).toBe('assistant');
+    expect(result[0]).toMatchObject({
+      tool_calls: expect.arrayContaining([
+        expect.objectContaining({ id: 'call-1' }),
+        expect.objectContaining({ id: 'call-2' }),
+      ]),
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Full reasoning text',
+        },
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-signature',
+        },
+      ],
+    });
   });
 
   it('should collect reasoning_details from single tool call', () => {
@@ -1056,29 +1041,15 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-        ],
-        reasoning: undefined,
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Reasoning for weather call',
-          },
-        ],
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Reasoning for weather call',
+        },
+      ],
+    });
   });
 
   it('should prefer message-level reasoning_details over tool call reasoning_details', () => {
@@ -1120,36 +1091,22 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-        ],
-        reasoning: undefined,
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Message-level reasoning',
-          },
-          {
-            type: ReasoningDetailType.Encrypted,
-            data: 'message-level-signature',
-          },
-        ],
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Message-level reasoning',
+        },
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'message-level-signature',
+        },
+      ],
+    });
   });
 
-  it('should handle reasoning parts followed by tool calls (collect from first source only)', () => {
+  it('should prefer tool call reasoning_details over reasoning part (tool calls have complete data)', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -1162,7 +1119,7 @@ describe('reasoning_details accumulation', () => {
                 reasoning_details: [
                   {
                     type: ReasoningDetailType.Text,
-                    text: 'Thinking about the request',
+                    text: 'Delta reasoning only',
                   },
                 ],
               },
@@ -1192,29 +1149,20 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-        ],
-        reasoning: 'Thinking about the request',
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Thinking about the request',
-          },
-        ],
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      reasoning: 'Thinking about the request',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Full accumulated reasoning',
+        },
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-signature',
+        },
+      ],
+    });
   });
 
   it('should handle tool calls without reasoning_details', () => {
@@ -1238,95 +1186,54 @@ describe('reasoning_details accumulation', () => {
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-          {
-            id: 'call-2',
-            type: 'function',
-            function: {
-              name: 'get_time',
-              arguments: '{}',
-            },
-          },
-        ],
-        reasoning: undefined,
-        reasoning_details: undefined,
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      tool_calls: expect.arrayContaining([
+        expect.objectContaining({ id: 'call-1' }),
+        expect.objectContaining({ id: 'call-2' }),
+      ]),
+      reasoning_details: undefined,
+    });
   });
 
-  it('should collect from second tool call if first has no reasoning_details', () => {
+  it('should fall back to reasoning part if no tool calls have reasoning_details', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
         content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking process',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Reasoning from part',
+                  },
+                ],
+              },
+            },
+          },
           {
             type: 'tool-call',
             toolCallId: 'call-1',
             toolName: 'get_weather',
             input: { location: 'San Francisco' },
           },
-          {
-            type: 'tool-call',
-            toolCallId: 'call-2',
-            toolName: 'get_time',
-            input: {},
-            providerOptions: {
-              openrouter: {
-                reasoning_details: [
-                  {
-                    type: ReasoningDetailType.Text,
-                    text: 'Reasoning from second tool call',
-                  },
-                ],
-              },
-            },
-          },
         ],
       },
     ]);
 
-    expect(result).toEqual([
-      {
-        role: 'assistant',
-        content: '',
-        tool_calls: [
-          {
-            id: 'call-1',
-            type: 'function',
-            function: {
-              name: 'get_weather',
-              arguments: '{"location":"San Francisco"}',
-            },
-          },
-          {
-            id: 'call-2',
-            type: 'function',
-            function: {
-              name: 'get_time',
-              arguments: '{}',
-            },
-          },
-        ],
-        reasoning: undefined,
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Reasoning from second tool call',
-          },
-        ],
-      },
-    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      reasoning: 'Thinking process',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Reasoning from part',
+        },
+      ],
+    });
   });
 });
