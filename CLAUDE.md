@@ -65,9 +65,11 @@ Test files are co-located with source: `src/chat/index.test.ts` tests `src/chat/
 - Tests may use explicit any and console (configured in biome.json overrides)
 - Import organization: type imports first, then regular imports, then aliases
 
-## PR Requirements
+## Dev Workflow
+
+When asked to "follow the dev workflow" or after completing implementation:
 
 1. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
 2. Add changeset: `pnpm changeset` (or `pnpm changeset --empty` for non-release changes)
-3. PR titles: `fix:`, `feat:`, `docs:`, `test:`, `chore:` prefixes
-4. Branch naming: Use `claude/` prefix for branches (e.g., `claude/fix-reasoning-duplicates`)
+3. Create branch with `claude/` prefix (e.g., `claude/fix-reasoning-duplicates`)
+4. Push branch and create PR with conventional commit title (`fix:`, `feat:`, `docs:`, `test:`, `chore:`)
