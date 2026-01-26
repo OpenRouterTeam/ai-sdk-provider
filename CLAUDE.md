@@ -73,3 +73,4 @@ When asked to "follow the dev workflow" or after completing implementation:
 2. Add changeset: `pnpm changeset` (or `pnpm changeset --empty` for non-release changes)
 3. Create branch with `claude/` prefix (e.g., `claude/fix-reasoning-duplicates`)
 4. Push branch and create PR with conventional commit title (`fix:`, `feat:`, `docs:`, `test:`, `chore:`)
+5. Wait for CI with `gh pr checks <PR_NUMBER> --watch` and fix any failures
