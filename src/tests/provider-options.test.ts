@@ -1,9 +1,18 @@
 import type { ModelMessage } from 'ai';
 
+import { createTestServer } from '@ai-sdk/test-server';
 import { streamText } from 'ai';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { createOpenRouter } from '../provider';
-import { createTestServer } from '../test-utils/test-server';
 
 // Add type assertions for the mocked classes
 const TEST_MESSAGES: ModelMessage[] = [
@@ -19,6 +28,10 @@ describe('providerOptions', () => {
       },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   beforeEach(() => {
     vi.clearAllMocks();

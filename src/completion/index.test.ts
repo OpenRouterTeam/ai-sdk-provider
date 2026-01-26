@@ -3,12 +3,10 @@ import type {
   LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
 
-import { vi } from 'vitest';
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '../test-utils/test-server';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
@@ -58,6 +56,10 @@ describe('doGenerate', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareJsonResponse({
     content = '',
@@ -229,17 +231,15 @@ describe('doGenerate', () => {
       },
     });
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const call = server.calls[0]!;
 
-    expect(requestHeaders).toMatchObject({
+    expect(call.requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain(
-      'ai-sdk/openrouter/0.0.0-test',
-    );
+    expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 });
 
@@ -249,6 +249,10 @@ describe('doStream', () => {
       response: { type: 'stream-chunks', chunks: [] },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareStreamResponse({
     content,
@@ -555,17 +559,15 @@ describe('doStream', () => {
       },
     });
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const call = server.calls[0]!;
 
-    expect(requestHeaders).toMatchObject({
+    expect(call.requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain(
-      'ai-sdk/openrouter/0.0.0-test',
-    );
+    expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 
   it('should pass extra body', async () => {

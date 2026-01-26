@@ -1,8 +1,8 @@
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-import { describe, expect, it } from 'vitest';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat';
-import { createTestServer } from '../test-utils/test-server';
 
 describe('OpenRouter Usage Accounting', () => {
   const server = createTestServer({
@@ -10,6 +10,10 @@ describe('OpenRouter Usage Accounting', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareJsonResponse(includeUsage = true) {
     const response = {

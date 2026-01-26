@@ -6,13 +6,11 @@ import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
-import { vi } from 'vitest';
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '../test-utils/test-server';
 
 vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
@@ -161,6 +159,10 @@ describe('doGenerate', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareJsonResponse({
     content = '',
@@ -653,17 +655,15 @@ describe('doGenerate', () => {
       },
     });
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const call = server.calls[0]!;
 
-    expect(requestHeaders).toMatchObject({
+    expect(call.requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain(
-      'ai-sdk/openrouter/0.0.0-test',
-    );
+    expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {
@@ -771,6 +771,10 @@ describe('doStream', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareStreamResponse({
     content,
@@ -1896,17 +1900,15 @@ describe('doStream', () => {
       },
     });
 
-    const requestHeaders = server.calls[0]!.requestHeaders;
+    const call = server.calls[0]!;
 
-    expect(requestHeaders).toMatchObject({
+    expect(call.requestHeaders).toMatchObject({
       authorization: 'Bearer test-api-key',
       'content-type': 'application/json',
       'custom-provider-header': 'provider-header-value',
       'custom-request-header': 'request-header-value',
     });
-    expect(requestHeaders['user-agent']).toContain(
-      'ai-sdk/openrouter/0.0.0-test',
-    );
+    expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
 
   it('should pass extra body', async () => {
@@ -2217,6 +2219,10 @@ describe('debug settings', () => {
       response: { type: 'json-value', body: {} },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
