@@ -74,5 +74,6 @@ After completing any implementation task, automatically:
 3. Add changeset (`pnpm changeset --empty` for non-user-facing changes)
 4. Create PR on a `claude/` branch using the template in `.github/PULL_REQUEST_TEMPLATE.md`
 5. Wait for CI to pass, fix any issues
+6. Provide the PR link when complete
 
 **Key principle**: Always ensure git state is clean and CI passes before considering work complete. Local tests can pass with uncommitted dependency changes - CI is the source of truth.
