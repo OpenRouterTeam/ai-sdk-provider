@@ -67,37 +67,63 @@ Test files are co-located with source: `src/chat/index.test.ts` tests `src/chat/
 
 ## Dev Workflow
 
-**IMPORTANT**: Always run this workflow automatically after completing any implementation task. Do not wait to be asked.
-
-Run this sequence:
-
+### Before Starting Any Task
+Always check the current state:
 ```bash
-# 1. Stage ALL changes first (catches missing package.json, lock files, etc.)
-git add -A
-
-# 2. Check what's staged - review for unintended files
-git status
-
-# 3. Commit with conventional commit message
-git commit -m "feat/fix/chore: description"
-
-# 4. Run full verification (AFTER commit, so we test exactly what will be in PR)
-pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build
-
-# 5. Add changeset (for release notes)
-pnpm changeset  # or: pnpm changeset --empty (for non-release changes)
-git add .changeset && git commit -m "chore: add changeset"
-
-# 6. Create branch, push, and open PR
-git checkout -b claude/<feature-name>
-git push -u origin claude/<feature-name>
-gh pr create --title "feat/fix/chore: description" --body "..."
-
-# 7. Wait for CI and fix any failures
-gh pr checks <PR_NUMBER> --watch
+git status                    # Any uncommitted changes?
+git branch                    # Which branch am I on?
 ```
 
-### Why this order matters
-- **Stage first**: Ensures `package.json`/`pnpm-lock.yaml` changes aren't forgotten (local tests pass with installed node_modules even if package.json isn't committed)
-- **Test after commit**: Verifies the exact state that CI will see
-- **Changeset after verification**: Only add changeset once code is confirmed working
+**If there are uncommitted changes**: Either commit them, stash them (`git stash`), or discard them - never start new work with a dirty state.
+
+**If on wrong branch**: Switch to main (`git checkout main && git pull`) before starting new work.
+
+### After Completing Implementation
+Automatically run this workflow - do not wait to be asked:
+
+1. **Stage and review all changes**
+   ```bash
+   git add -A && git status
+   ```
+   Verify no unintended files (credentials, large binaries, etc.)
+
+2. **Run full verification**
+   ```bash
+   pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build
+   ```
+   If anything fails, fix it and re-run before proceeding.
+
+3. **Commit, branch, and push**
+   ```bash
+   git commit -m "feat/fix/chore: description"
+   git checkout -b claude/<feature-name>
+   git push -u origin claude/<feature-name>
+   ```
+
+4. **Add changeset and push**
+   ```bash
+   pnpm changeset --empty  # or interactive: pnpm changeset
+   git add .changeset && git commit -m "chore: add changeset" && git push
+   ```
+
+5. **Create PR and wait for CI**
+   ```bash
+   gh pr create --title "feat/fix/chore: description" --body "..."
+   gh pr checks <PR_NUMBER> --watch
+   ```
+   If CI fails, fix issues, commit, push, and wait for CI again.
+
+### Recovering from Issues
+
+**Tests pass locally but CI fails**:
+- Usually means uncommitted `package.json`/`pnpm-lock.yaml` changes
+- Run `git status` to check, commit any missing files, push
+
+**Need to fix something after PR is created**:
+- Make fixes on the same branch
+- `git add -A && git commit -m "fix: description" && git push`
+- CI will re-run automatically
+
+**Interrupted mid-workflow**:
+- Run `git status` to see current state
+- Either complete the workflow or `git stash` to save work for later
