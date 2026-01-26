@@ -72,7 +72,7 @@ After completing any implementation task, automatically:
 1. Commit **all** changes (including `package.json`, `pnpm-lock.yaml`)
 2. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
 3. Add changeset (`pnpm changeset --empty` for non-user-facing changes)
-4. Create PR on a `claude/` branch with conventional commit title
+4. Create PR on a `claude/` branch using the template in `.github/PULL_REQUEST_TEMPLATE.md`
 5. Wait for CI to pass, fix any issues
 
 **Key principle**: Always ensure git state is clean and CI passes before considering work complete. Local tests can pass with uncommitted dependency changes - CI is the source of truth.
