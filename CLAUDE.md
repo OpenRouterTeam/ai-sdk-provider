@@ -71,6 +71,7 @@ When asked to "follow the dev workflow" or after completing implementation:
 
 1. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
 2. Add changeset: `pnpm changeset` (or `pnpm changeset --empty` for non-release changes)
-3. Create branch with `claude/` prefix (e.g., `claude/fix-reasoning-duplicates`)
-4. Push branch and create PR with conventional commit title (`fix:`, `feat:`, `docs:`, `test:`, `chore:`)
-5. Wait for CI with `gh pr checks <PR_NUMBER> --watch` and fix any failures
+3. **Verify clean state**: Run `git status` and commit ALL changes (including `package.json`, `pnpm-lock.yaml`) before creating PR
+4. Create branch with `claude/` prefix (e.g., `claude/fix-reasoning-duplicates`)
+5. Push branch and create PR with conventional commit title (`fix:`, `feat:`, `docs:`, `test:`, `chore:`)
+6. Wait for CI with `gh pr checks <PR_NUMBER> --watch` and fix any failures
