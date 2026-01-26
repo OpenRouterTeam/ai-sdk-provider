@@ -67,11 +67,35 @@ Test files are co-located with source: `src/chat/index.test.ts` tests `src/chat/
 
 ## Dev Workflow
 
-When asked to "follow the dev workflow" or after completing implementation:
+When asked to "follow the dev workflow" or after completing implementation, run this sequence:
 
-1. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
-2. Add changeset: `pnpm changeset` (or `pnpm changeset --empty` for non-release changes)
-3. **Verify clean state**: Run `git status` and commit ALL changes (including `package.json`, `pnpm-lock.yaml`) before creating PR
-4. Create branch with `claude/` prefix (e.g., `claude/fix-reasoning-duplicates`)
-5. Push branch and create PR with conventional commit title (`fix:`, `feat:`, `docs:`, `test:`, `chore:`)
-6. Wait for CI with `gh pr checks <PR_NUMBER> --watch` and fix any failures
+```bash
+# 1. Stage ALL changes first (catches missing package.json, lock files, etc.)
+git add -A
+
+# 2. Check what's staged - review for unintended files
+git status
+
+# 3. Commit with conventional commit message
+git commit -m "feat/fix/chore: description"
+
+# 4. Run full verification (AFTER commit, so we test exactly what will be in PR)
+pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build
+
+# 5. Add changeset (for release notes)
+pnpm changeset  # or: pnpm changeset --empty (for non-release changes)
+git add .changeset && git commit -m "chore: add changeset"
+
+# 6. Create branch, push, and open PR
+git checkout -b claude/<feature-name>
+git push -u origin claude/<feature-name>
+gh pr create --title "feat/fix/chore: description" --body "..."
+
+# 7. Wait for CI and fix any failures
+gh pr checks <PR_NUMBER> --watch
+```
+
+### Why this order matters
+- **Stage first**: Ensures `package.json`/`pnpm-lock.yaml` changes aren't forgotten (local tests pass with installed node_modules even if package.json isn't committed)
+- **Test after commit**: Verifies the exact state that CI will see
+- **Changeset after verification**: Only add changeset once code is confirmed working
