@@ -67,7 +67,9 @@ Test files are co-located with source: `src/chat/index.test.ts` tests `src/chat/
 
 ## Dev Workflow
 
-When asked to "follow the dev workflow" or after completing implementation, run this sequence:
+**IMPORTANT**: Always run this workflow automatically after completing any implementation task. Do not wait to be asked.
+
+Run this sequence:
 
 ```bash
 # 1. Stage ALL changes first (catches missing package.json, lock files, etc.)
