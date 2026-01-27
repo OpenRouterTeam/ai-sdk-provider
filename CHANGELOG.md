@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.1.1
+
+### Patch Changes
+
+- [#365](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/365) [`363e232`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/363e232615e3a6430c547a90f45f12b567331911) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: deduplicate reasoning_details across multi-turn conversations to prevent duplicate ID errors
+
 ## 2.1.0
 
 ### Minor Changes
