@@ -2386,6 +2386,295 @@ describe('debug settings', () => {
   });
 });
 
+describe('web search citations', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('should handle url_citation with missing title field in non-streaming response', async () => {
+    // Some upstream providers return url_citation without title field
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    // title is missing
+                    start_index: 0,
+                    end_index: 30,
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    // Should have a source content part with empty title fallback
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: '', // Should default to empty string
+    });
+  });
+
+  it('should handle url_citation with missing start_index and end_index in non-streaming response', async () => {
+    // Some providers may omit index fields
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Example Article',
+                    // start_index and end_index are missing
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    // Should have a source content part
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Example Article',
+    });
+  });
+
+  it('should handle url_citation with all optional fields missing in streaming response', async () => {
+    // Test streaming with minimal url_citation (only url present)
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":"Web search result."},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://example.com/page"}}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doStream({
+        prompt: TEST_PROMPT,
+      });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find the source event
+    const sourceEvent = elements.find(
+      (e): e is Extract<LanguageModelV3StreamPart, { type: 'source' }> =>
+        e.type === 'source',
+    );
+
+    expect(sourceEvent).toBeDefined();
+    expect(sourceEvent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/page',
+      title: '', // Should default to empty string
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      },
+    });
+  });
+
+  it('should handle complete url_citation with all fields present', async () => {
+    // Verify normal case still works
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Complete Article',
+                    start_index: 5,
+                    end_index: 25,
+                    content: 'Article content here',
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Complete Article',
+      providerMetadata: {
+        openrouter: {
+          content: 'Article content here',
+          startIndex: 5,
+          endIndex: 25,
+        },
+      },
+    });
+  });
+
+  it('should default startIndex and endIndex to 0 when missing', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Article Without Indices',
+                    // start_index and end_index are missing
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Article Without Indices',
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      },
+    });
+  });
+});
+
 describe('includeRawChunks', () => {
   const server = createTestServer({
     'https://openrouter.ai/api/v1/chat/completions': {

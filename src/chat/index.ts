@@ -424,10 +424,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             sourceType: 'url' as const,
             id: annotation.url_citation.url,
             url: annotation.url_citation.url,
-            title: annotation.url_citation.title,
+            title: annotation.url_citation.title ?? '',
             providerMetadata: {
               openrouter: {
-                content: annotation.url_citation.content || '',
+                content: annotation.url_citation.content ?? '',
+                startIndex: annotation.url_citation.start_index ?? 0,
+                endIndex: annotation.url_citation.end_index ?? 0,
               },
             },
           });
@@ -843,10 +845,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     sourceType: 'url' as const,
                     id: annotation.url_citation.url,
                     url: annotation.url_citation.url,
-                    title: annotation.url_citation.title,
+                    title: annotation.url_citation.title ?? '',
                     providerMetadata: {
                       openrouter: {
-                        content: annotation.url_citation.content || '',
+                        content: annotation.url_citation.content ?? '',
+                        startIndex: annotation.url_citation.start_index ?? 0,
+                        endIndex: annotation.url_citation.end_index ?? 0,
                       },
                     },
                   });
