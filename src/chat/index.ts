@@ -480,7 +480,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             totalTokens:
               (usageInfo.inputTokens.total ?? 0) +
               (usageInfo.outputTokens.total ?? 0),
-            cost: response.usage?.cost,
+            ...(response.usage?.cost != null
+              ? { cost: response.usage.cost }
+              : {}),
             ...(response.usage?.prompt_tokens_details?.cached_tokens != null
               ? {
                   promptTokensDetails: {
@@ -684,7 +686,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 };
               }
 
-              openrouterUsage.cost = value.usage.cost;
+              if (value.usage.cost != null) {
+                openrouterUsage.cost = value.usage.cost;
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =
                 value.usage.cost_details?.upstream_inference_cost;

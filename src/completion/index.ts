@@ -326,7 +326,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
                 };
               }
 
-              openrouterUsage.cost = value.usage.cost;
+              if (value.usage.cost != null) {
+                openrouterUsage.cost = value.usage.cost;
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =
                 value.usage.cost_details?.upstream_inference_cost;

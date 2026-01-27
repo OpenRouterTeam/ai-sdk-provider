@@ -336,7 +336,6 @@ describe('doStream', () => {
               promptTokens: 10,
               completionTokens: 362,
               totalTokens: 372,
-              cost: undefined,
             },
           },
         },
