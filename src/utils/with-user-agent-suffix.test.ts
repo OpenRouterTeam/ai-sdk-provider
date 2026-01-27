@@ -79,13 +79,55 @@ describe('withUserAgentSuffix', () => {
       expect(result['user-agent']).toBe('part1 part2');
     });
 
-    it('should remove undefined header values', () => {
+    it('should remove undefined header values and not include the key', () => {
       const result = withUserAgentSuffix(
         { 'some-header': undefined as unknown as string },
         SDK_SUFFIX,
       );
-      expect(result['some-header']).toBeUndefined();
+      expect('some-header' in result).toBe(false);
       expect(result['user-agent']).toBe(SDK_SUFFIX);
+    });
+  });
+
+  describe('HeadersInit variants', () => {
+    it('should handle Headers object input', () => {
+      const headers = new Headers({
+        Authorization: 'Bearer token',
+        'User-Agent': 'my-custom-agent/1.0',
+      });
+      const result = withUserAgentSuffix(headers, SDK_SUFFIX);
+      expect(result['user-agent']).toBe('my-custom-agent/1.0');
+      expect(result['authorization']).toBe('Bearer token');
+    });
+
+    it('should handle Headers object without user-agent', () => {
+      const headers = new Headers({
+        Authorization: 'Bearer token',
+      });
+      const result = withUserAgentSuffix(headers, SDK_SUFFIX);
+      expect(result['user-agent']).toBe(SDK_SUFFIX);
+      expect(result['authorization']).toBe('Bearer token');
+    });
+
+    it('should handle array-of-tuples input', () => {
+      const headers: [string, string][] = [
+        ['Authorization', 'Bearer token'],
+        ['User-Agent', 'my-custom-agent/1.0'],
+      ];
+      const result = withUserAgentSuffix(headers, SDK_SUFFIX);
+      expect(result['user-agent']).toBe('my-custom-agent/1.0');
+      expect(result['Authorization']).toBe('Bearer token');
+    });
+
+    it('should handle array-of-tuples without user-agent', () => {
+      const headers: [string, string][] = [
+        ['Authorization', 'Bearer token'],
+        ['Content-Type', 'application/json'],
+      ];
+      const result = withUserAgentSuffix(headers, SDK_SUFFIX);
+      expect(result['user-agent']).toBe(SDK_SUFFIX);
+      expect(result['Authorization']).toBe('Bearer token');
+      expect(result['Content-Type']).toBe('application/json');
     });
   });
 });

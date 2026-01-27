@@ -1,6 +1,27 @@
 import { removeUndefinedEntries } from '@/src/utils/remove-undefined';
 
 /**
+ * Normalizes HeadersInit to a plain object.
+ * Handles Headers objects, array-of-tuples, and plain objects.
+ * @param headers - The headers in any HeadersInit format.
+ * @returns A plain object with string keys and values.
+ */
+function normalizeHeaders(
+  headers: HeadersInit | Record<string, string | undefined> | undefined,
+): Record<string, string | undefined> {
+  if (!headers) {
+    return {};
+  }
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return headers as Record<string, string | undefined>;
+}
+
+/**
  * Finds a header key in a case-insensitive manner.
  * @param headers - The headers object to search.
  * @param targetKey - The key to find (case-insensitive).
@@ -28,9 +49,8 @@ export function withUserAgentSuffix(
   headers: HeadersInit | Record<string, string | undefined> | undefined,
   ...userAgentSuffixParts: string[]
 ): Record<string, string> {
-  const cleanedHeaders = removeUndefinedEntries(
-    (headers as Record<string, string | undefined>) ?? {},
-  );
+  const normalizedHeaders = normalizeHeaders(headers);
+  const cleanedHeaders = removeUndefinedEntries(normalizedHeaders);
 
   // Find user-agent header with case-insensitive lookup
   const existingUserAgentKey = findHeaderKey(cleanedHeaders, 'user-agent');
