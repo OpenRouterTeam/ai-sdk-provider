@@ -70,18 +70,34 @@ export function convertToOpenRouterChatMessages(
 
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerOptions);
+
+        // Find the index of the last text part for applying message-level cache control
+        let lastTextPartIndex = -1;
+        for (let i = content.length - 1; i >= 0; i--) {
+          if (content[i]?.type === 'text') {
+            lastTextPartIndex = i;
+            break;
+          }
+        }
+
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part: LanguageModelV3TextPart | LanguageModelV3FilePart) => {
+          (part: LanguageModelV3TextPart | LanguageModelV3FilePart, index) => {
+            const isLastTextPart =
+              part.type === 'text' && index === lastTextPartIndex;
+            const partCacheControl = getCacheControl(part.providerOptions);
+
             const cacheControl =
-              getCacheControl(part.providerOptions) ?? messageCacheControl;
+              part.type === 'text'
+                ? (partCacheControl ??
+                  (isLastTextPart ? messageCacheControl : undefined))
+                : partCacheControl;
 
             switch (part.type) {
               case 'text':
                 return {
                   type: 'text' as const,
                   text: part.text,
-                  // For text parts, only use part-specific cache control
-                  cache_control: cacheControl,
+                  ...(cacheControl && { cache_control: cacheControl }),
                 };
               case 'file': {
                 if (part.mediaType?.startsWith('image/')) {
@@ -94,8 +110,7 @@ export function convertToOpenRouterChatMessages(
                     image_url: {
                       url,
                     },
-                    // For image parts, use part-specific or message-level cache control
-                    cache_control: cacheControl,
+                    ...(cacheControl && { cache_control: cacheControl }),
                   };
                 }
 
@@ -104,7 +119,7 @@ export function convertToOpenRouterChatMessages(
                   return {
                     type: 'input_audio' as const,
                     input_audio: getInputAudioData(part),
-                    cache_control: cacheControl,
+                    ...(cacheControl && { cache_control: cacheControl }),
                   };
                 }
 
@@ -140,14 +155,14 @@ export function convertToOpenRouterChatMessages(
                     filename: fileName,
                     file_data: fileData,
                   },
-                  cache_control: cacheControl,
+                  ...(cacheControl && { cache_control: cacheControl }),
                 } satisfies ChatCompletionContentPart;
               }
               default: {
                 return {
                   type: 'text' as const,
                   text: '',
-                  cache_control: cacheControl,
+                  ...(cacheControl && { cache_control: cacheControl }),
                 };
               }
             }

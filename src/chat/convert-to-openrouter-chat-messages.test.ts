@@ -345,7 +345,6 @@ describe('cache control', () => {
           {
             type: 'image_url',
             image_url: { url: 'data:image/png;base64,AAECAw==' },
-            cache_control: { type: 'ephemeral' },
           },
         ],
       },
@@ -405,12 +404,10 @@ describe('cache control', () => {
           {
             type: 'image_url',
             image_url: { url: 'data:image/png;base64,AAECAw==' },
-            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
             image_url: { url: 'data:image/jpeg;base64,BAUGBw==' },
-            cache_control: { type: 'ephemeral' },
           },
         ],
       },
@@ -457,7 +454,6 @@ describe('cache control', () => {
               filename: 'file.txt',
               file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
-            cache_control: { type: 'ephemeral' },
           },
         ],
       },
@@ -524,6 +520,44 @@ describe('cache control', () => {
               filename: 'file.txt',
               file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should only apply message-level cache control to last text part (multiple text parts)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'First text part' },
+          { type: 'text', text: 'Second text part' },
+          { type: 'text', text: 'Third text part' },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'First text part',
+          },
+          {
+            type: 'text',
+            text: 'Second text part',
+          },
+          {
+            type: 'text',
+            text: 'Third text part',
             cache_control: { type: 'ephemeral' },
           },
         ],
@@ -724,7 +758,6 @@ describe('cache control', () => {
               data: 'AAECAw==',
               format: 'mp3',
             },
-            cache_control: { type: 'ephemeral' },
           },
         ],
       },
