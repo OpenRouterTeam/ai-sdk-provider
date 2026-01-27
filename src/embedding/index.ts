@@ -89,15 +89,15 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
       usage: responseValue.usage
         ? { tokens: responseValue.usage.prompt_tokens }
         : undefined,
-      providerMetadata: responseValue.usage?.cost
-        ? {
-            openrouter: {
-              usage: {
-                cost: responseValue.usage.cost,
-              },
-            },
-          }
-        : undefined,
+      providerMetadata: {
+        openrouter: {
+          usage: {
+            ...(responseValue.usage?.cost != null
+              ? { cost: responseValue.usage.cost }
+              : {}),
+          },
+        },
+      },
       response: {
         headers: responseHeaders,
         body: responseValue,

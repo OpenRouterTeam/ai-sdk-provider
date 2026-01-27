@@ -247,7 +247,11 @@ describe('OpenRouterEmbeddingModel', () => {
 
       expect(result.embeddings).toHaveLength(1);
       expect(result.usage).toBeUndefined();
-      expect(result.providerMetadata).toBeUndefined();
+      expect(result.providerMetadata).toStrictEqual({
+        openrouter: {
+          usage: {},
+        },
+      });
     });
   });
 });
