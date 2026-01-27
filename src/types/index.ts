@@ -3,6 +3,7 @@ import type { LanguageModelV3, LanguageModelV3Prompt } from '@ai-sdk/provider';
 export type { LanguageModelV3, LanguageModelV3Prompt };
 
 export * from './openrouter-embedding-settings';
+export * from './openrouter-image-settings';
 
 export type OpenRouterProviderOptions = {
   models?: string[];

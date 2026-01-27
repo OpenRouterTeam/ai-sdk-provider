@@ -11,11 +11,16 @@ import type {
   OpenRouterEmbeddingModelId,
   OpenRouterEmbeddingSettings,
 } from './types/openrouter-embedding-settings';
+import type {
+  OpenRouterImageModelId,
+  OpenRouterImageSettings,
+} from './types/openrouter-image-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
+import { OpenRouterImageModel } from './image';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
 
@@ -72,6 +77,14 @@ Creates an OpenRouter text embedding model. (AI SDK v4 - deprecated, use textEmb
     modelId: OpenRouterEmbeddingModelId,
     settings?: OpenRouterEmbeddingSettings,
   ): OpenRouterEmbeddingModel;
+
+  /**
+Creates an OpenRouter image model for image generation.
+   */
+  imageModel(
+    modelId: OpenRouterImageModelId,
+    settings?: OpenRouterImageSettings,
+  ): OpenRouterImageModel;
 }
 
 export interface OpenRouterProviderSettings {
@@ -188,6 +201,18 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createImageModel = (
+    modelId: OpenRouterImageModelId,
+    settings: OpenRouterImageSettings = {},
+  ) =>
+    new OpenRouterImageModel(modelId, settings, {
+      provider: 'openrouter.image',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
@@ -218,6 +243,7 @@ export function createOpenRouter(
   provider.completion = createCompletionModel;
   provider.textEmbeddingModel = createEmbeddingModel;
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
+  provider.imageModel = createImageModel;
 
   return provider as OpenRouterProvider;
 }
