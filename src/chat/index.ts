@@ -390,7 +390,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           type: 'tool-call' as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
-          input: toolCall.function.arguments,
+          input: toolCall.function.arguments ?? '{}',
           providerMetadata: !reasoningDetailsAttachedToToolCall
             ? {
                 openrouter: {

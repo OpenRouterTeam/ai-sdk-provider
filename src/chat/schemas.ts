@@ -62,7 +62,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                       function: z
                         .object({
                           name: z.string(),
-                          arguments: z.string(),
+                          arguments: z.string().optional(),
                         })
                         .passthrough(),
                     })
