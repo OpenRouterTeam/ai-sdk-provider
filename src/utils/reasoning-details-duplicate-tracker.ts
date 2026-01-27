@@ -86,7 +86,8 @@ export class ReasoningDetailsDuplicateTracker {
           return `text:${detail.text}`;
         }
         if (detail.signature) {
-          return `text:${detail.signature}`;
+          // Use different prefix to avoid collision with text field
+          return `text-sig:${detail.signature}`;
         }
         return null;
       }

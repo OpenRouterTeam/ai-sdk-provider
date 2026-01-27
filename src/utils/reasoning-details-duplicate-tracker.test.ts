@@ -371,5 +371,48 @@ describe('ReasoningDetailsDuplicateTracker', () => {
 
       expect(tracker.has(encrypted)).toBe(false);
     });
+
+    it('should not collide text field with signature field having same value', () => {
+      // This tests the fix for text/signature key collision within Text type.
+      // Without different prefixes, { text: 'abc' } and { text: null, signature: 'abc' }
+      // would both have key "text:abc" and collide incorrectly.
+      const tracker = new ReasoningDetailsDuplicateTracker();
+
+      const textWithText: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same-value',
+        signature: null,
+      };
+
+      const textWithSignature: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: null,
+        signature: 'same-value',
+      };
+
+      tracker.upsert(textWithText);
+      tracker.upsert(textWithSignature);
+
+      // Both should be stored separately because text uses "text:" prefix
+      // and signature uses "text-sig:" prefix
+      const result = tracker.getAll();
+      expect(result.length).toBe(2);
+
+      // Verify both are present
+      expect(
+        result.some(
+          (d) =>
+            d.type === ReasoningDetailType.Text &&
+            (d as { text?: string | null }).text === 'same-value',
+        ),
+      ).toBe(true);
+      expect(
+        result.some(
+          (d) =>
+            d.type === ReasoningDetailType.Text &&
+            (d as { signature?: string | null }).signature === 'same-value',
+        ),
+      ).toBe(true);
+    });
   });
 });
