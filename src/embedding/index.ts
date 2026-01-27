@@ -14,6 +14,7 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { OpenRouterEmbeddingResponseSchema } from './schemas';
 
 type OpenRouterEmbeddingConfig = {
@@ -90,7 +91,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
         ? { tokens: responseValue.usage.prompt_tokens }
         : undefined,
       providerMetadata: {
-        openrouter: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: responseValue.provider ?? '',
           usage: {
             promptTokens: responseValue.usage?.prompt_tokens ?? 0,
@@ -100,7 +101,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
               ? { cost: responseValue.usage.cost }
               : {}),
           },
-        },
+        }),
       },
       response: {
         headers: responseHeaders,
