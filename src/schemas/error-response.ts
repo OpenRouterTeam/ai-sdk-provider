@@ -1,10 +1,8 @@
-import type { ChatErrorError } from '@openrouter/sdk/models';
+import type { ChatErrorError } from '../types/openrouter-api-types';
 
 import { createJsonErrorResponseHandler } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
 
-// Use SDK's ChatErrorError type but wrap in response schema
-// SDK type: { code: string | number | null; message: string; param?: string | null; type?: string | null }
 export const OpenRouterErrorResponseSchema = z
   .object({
     error: z

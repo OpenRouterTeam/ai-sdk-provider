@@ -1,5 +1,14 @@
-import type * as models from '@openrouter/sdk/models';
 import type { OpenRouterSharedSettings } from '..';
+import type {
+  DataCollection,
+  Engine,
+  IdFileParser,
+  IdModeration,
+  IdWeb,
+  PdfEngine,
+  ProviderSort,
+  Quantization,
+} from './openrouter-api-types';
 
 // https://openrouter.ai/api/v1/models
 export type OpenRouterChatModelId = string;
@@ -50,20 +59,20 @@ monitor and detect abuse. Learn more.
    */
   plugins?: Array<
     | {
-        id: models.IdWeb;
+        id: IdWeb;
         max_results?: number;
         search_prompt?: string;
-        engine?: models.Engine;
+        engine?: Engine;
       }
     | {
-        id: models.IdFileParser;
+        id: IdFileParser;
         max_files?: number;
         pdf?: {
-          engine?: models.PdfEngine;
+          engine?: PdfEngine;
         };
       }
     | {
-        id: models.IdModeration;
+        id: IdModeration;
       }
   >;
 
@@ -86,7 +95,7 @@ monitor and detect abuse. Learn more.
      * - undefined: Native if supported, otherwise Exa
      * @see https://openrouter.ai/docs/features/web-search
      */
-    engine?: models.Engine;
+    engine?: Engine;
   };
 
   /**
@@ -122,7 +131,7 @@ monitor and detect abuse. Learn more.
     /**
      * Control whether to use providers that may store data
      */
-    data_collection?: models.DataCollection;
+    data_collection?: DataCollection;
     /**
      * List of provider slugs to allow for this request
      */
@@ -134,11 +143,11 @@ monitor and detect abuse. Learn more.
     /**
      * List of quantization levels to filter by (e.g. ["int4", "int8"])
      */
-    quantizations?: Array<models.Quantization>;
+    quantizations?: Array<Quantization>;
     /**
      * Sort providers by price, throughput, or latency
      */
-    sort?: models.ProviderSort;
+    sort?: ProviderSort;
     /**
      * Maximum pricing you want to pay for this request
      */
