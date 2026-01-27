@@ -10,7 +10,10 @@ import type {
   OpenRouterImageSettings,
 } from '../types/openrouter-image-settings';
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import {
+  NoContentGeneratedError,
+  UnsupportedFunctionalityError,
+} from '@ai-sdk/provider';
 import {
   combineHeaders,
   createJsonResponseHandler,
@@ -137,10 +140,17 @@ export class OpenRouterImageModel implements ImageModelV3 {
       fetch: this.config.fetch,
     });
 
-    const images: string[] = [];
     const choice = responseValue.choices[0];
 
-    if (choice?.message?.images) {
+    if (!choice) {
+      throw new NoContentGeneratedError({
+        message: 'No choice in response',
+      });
+    }
+
+    const images: string[] = [];
+
+    if (choice.message?.images) {
       for (const image of choice.message.images) {
         const dataUrl = image.image_url.url;
         const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);

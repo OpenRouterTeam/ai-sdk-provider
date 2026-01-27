@@ -341,7 +341,7 @@ describe('OpenRouterImageModel', () => {
       });
     });
 
-    it('should handle response without images', async () => {
+    it('should handle response without images in message', async () => {
       const mockFetchNoImages = async (
         _url: URL | RequestInfo,
         _init?: RequestInit,
@@ -395,6 +395,53 @@ describe('OpenRouterImageModel', () => {
       });
 
       expect(result.images).toEqual([]);
+    });
+
+    it('should throw NoContentGeneratedError when choices array is empty', async () => {
+      const mockFetchEmptyChoices = async (
+        _url: URL | RequestInfo,
+        _init?: RequestInit,
+      ): Promise<Response> => {
+        return new Response(
+          JSON.stringify({
+            id: 'chatcmpl-test',
+            object: 'chat.completion',
+            created: 1711115037,
+            model: 'google/gemini-2.5-flash-image',
+            choices: [],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 0,
+              total_tokens: 10,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetchEmptyChoices,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await expect(
+        model.doGenerate({
+          prompt: 'A cat',
+          n: 1,
+          size: undefined,
+          aspectRatio: undefined,
+          seed: undefined,
+          files: undefined,
+          mask: undefined,
+          providerOptions: {},
+        }),
+      ).rejects.toThrow('No choice in response');
     });
 
     it('should pass provider routing settings', async () => {
