@@ -138,6 +138,11 @@ describe('doGenerate', () => {
         text: undefined,
         reasoning: undefined,
       },
+      raw: {
+        prompt_tokens: 20,
+        total_tokens: 25,
+        completion_tokens: 5,
+      },
     });
   });
 
@@ -352,6 +357,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 10,
+            completion_tokens: 362,
+            total_tokens: 372,
+          },
         },
       },
     ]);
@@ -484,6 +494,7 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: undefined,
         },
       },
     ]);
@@ -523,6 +534,7 @@ describe('doStream', () => {
           text: undefined,
           reasoning: undefined,
         },
+        raw: undefined,
       },
     });
   });

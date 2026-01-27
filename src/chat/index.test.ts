@@ -266,6 +266,11 @@ describe('doGenerate', () => {
         text: undefined,
         reasoning: undefined,
       },
+      raw: {
+        prompt_tokens: 20,
+        total_tokens: 25,
+        completion_tokens: 5,
+      },
     });
   });
 
@@ -962,6 +967,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 17,
+            total_tokens: 244,
+            completion_tokens: 227,
+          },
         },
       },
     ]);
@@ -1554,6 +1564,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
+          },
         },
       },
     ]);
@@ -1667,6 +1682,11 @@ describe('doStream', () => {
             total: 17,
             text: undefined,
             reasoning: undefined,
+          },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
           },
         },
       },
@@ -1801,6 +1821,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
+          },
         },
       },
     ]);
@@ -1853,6 +1878,7 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: undefined,
         },
       },
     ]);
@@ -1893,6 +1919,7 @@ describe('doStream', () => {
           text: undefined,
           reasoning: undefined,
         },
+        raw: undefined,
       },
     });
   });
