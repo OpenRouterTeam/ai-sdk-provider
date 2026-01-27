@@ -5,12 +5,6 @@ export type OpenRouterImageModelId = string;
 
 export type OpenRouterImageSettings = {
   /**
-   * A unique identifier representing your end-user, which can help OpenRouter to
-   * monitor and detect abuse.
-   */
-  user?: string;
-
-  /**
    * Provider routing preferences to control request routing behavior
    */
   provider?: {

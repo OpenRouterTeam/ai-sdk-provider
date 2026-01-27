@@ -19,6 +19,7 @@ import {
   createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
+import { getBase64FromDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterImageResponseSchema } from './schemas';
 
@@ -153,12 +154,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
     if (choice.message?.images) {
       for (const image of choice.message.images) {
         const dataUrl = image.image_url.url;
-        const base64Match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
-        if (base64Match) {
-          images.push(base64Match[1]!);
-        } else {
-          images.push(dataUrl);
-        }
+        images.push(getBase64FromDataUrl(dataUrl));
       }
     }
 
