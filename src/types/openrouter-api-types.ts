@@ -29,6 +29,13 @@ export type IdFileParser = 'file-parser';
 export type IdModeration = 'moderation';
 
 /**
+ * Plugin identifier for response healing.
+ * Automatically validates and repairs malformed JSON responses.
+ * @see https://openrouter.ai/docs/guides/features/plugins/response-healing
+ */
+export type IdResponseHealing = 'response-healing';
+
+/**
  * Search engine options for web search.
  * Open enum - accepts known values or any string for forward compatibility.
  */

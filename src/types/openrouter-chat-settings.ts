@@ -4,6 +4,7 @@ import type {
   Engine,
   IdFileParser,
   IdModeration,
+  IdResponseHealing,
   IdWeb,
   PdfEngine,
   ProviderSort,
@@ -73,6 +74,14 @@ monitor and detect abuse. Learn more.
       }
     | {
         id: IdModeration;
+      }
+    | {
+        /**
+         * Response healing plugin - automatically validates and repairs malformed JSON responses.
+         * Only works with non-streaming requests using response_format with json_schema or json_object.
+         * @see https://openrouter.ai/docs/guides/features/plugins/response-healing
+         */
+        id: IdResponseHealing;
       }
   >;
 
