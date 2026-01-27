@@ -12,6 +12,7 @@ import type {
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
+import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import { getFileUrl, getInputAudioData } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -35,6 +36,13 @@ export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV3Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
+
+  // Track reasoning_details across all messages in this conversion to prevent duplicates.
+  // This fixes issue #254 where the same reasoning ID appears in multiple
+  // assistant messages during multi-turn conversations, causing the API
+  // to reject the request with "Duplicate item found with id" error.
+  const reasoningDetailsTracker = new ReasoningDetailsDuplicateTracker();
+
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
       case 'system': {
@@ -229,12 +237,28 @@ export function convertToOpenRouterChatMessages(
         // Use message-level reasoning_details if available, otherwise find from parts
         // Priority: message-level > first tool call > first reasoning part
         // This prevents duplicate thinking blocks when Claude makes parallel tool calls
-        const finalReasoningDetails =
+        const candidateReasoningDetails =
           messageReasoningDetails &&
           Array.isArray(messageReasoningDetails) &&
           messageReasoningDetails.length > 0
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
+
+        // Deduplicate reasoning_details across all messages to prevent
+        // "Duplicate item found with id" errors in multi-turn conversations.
+        // upsert() returns true only for NEW details (not seen before and has valid key).
+        // Details without valid keys or duplicates are skipped.
+        let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
+        if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+          const uniqueDetails: ReasoningDetailUnion[] = [];
+          for (const detail of candidateReasoningDetails) {
+            if (reasoningDetailsTracker.upsert(detail)) {
+              uniqueDetails.push(detail);
+            }
+          }
+          finalReasoningDetails =
+            uniqueDetails.length > 0 ? uniqueDetails : undefined;
+        }
 
         messages.push({
           role: 'assistant',

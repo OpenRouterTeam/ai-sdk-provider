@@ -1270,3 +1270,295 @@ describe('parallel tool calls reasoning_details deduplication', () => {
     });
   });
 });
+
+describe('multi-turn reasoning_details deduplication (issue #254)', () => {
+  it('should deduplicate reasoning_details with same ID across multiple assistant messages', () => {
+    // This test reproduces the exact scenario from issue #254 where
+    // gpt-5-codex generates the same reasoning ID across multiple turns
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data-1',
+                    id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            output: { type: 'text', value: 'Sunny, 72F' },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data-2',
+                    id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26', // Same ID!
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    // First assistant message should have reasoning_details
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-data-1',
+          id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26',
+        },
+      ],
+    });
+
+    // Second assistant message should NOT have reasoning_details (duplicate ID)
+    expect(result[2]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should preserve unique reasoning_details across multiple assistant messages', () => {
+    // Gemini uses different IDs/data for each turn's thoughtSignature
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'gemini-thought-signature-1',
+                    format: 'google-gemini-v1',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            output: { type: 'text', value: 'Sunny, 72F' },
+          },
+        ],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'gemini-thought-signature-2', // Different data = unique
+                    format: 'google-gemini-v1',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    // First assistant message should have its reasoning_details
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'gemini-thought-signature-1',
+          format: 'google-gemini-v1',
+        },
+      ],
+    });
+
+    // Second assistant message should also have its reasoning_details (unique)
+    expect(result[2]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'gemini-thought-signature-2',
+          format: 'google-gemini-v1',
+        },
+      ],
+    });
+  });
+
+  it('should deduplicate reasoning_details from message-level providerOptions', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'First response' }],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Summary,
+                summary: 'This is the reasoning summary',
+              },
+            ],
+          },
+        },
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Follow up question' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Second response' }],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Summary,
+                summary: 'This is the reasoning summary', // Same summary = duplicate
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    // First assistant message should have reasoning_details
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'First response',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Summary,
+          summary: 'This is the reasoning summary',
+        },
+      ],
+    });
+
+    // Second assistant message should NOT have reasoning_details (duplicate)
+    expect(result[2]).toMatchObject({
+      role: 'assistant',
+      content: 'Second response',
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should handle mixed reasoning_details types with some duplicates', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'First response' }],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Thinking step 1',
+                signature: 'sig-1',
+              },
+              {
+                type: ReasoningDetailType.Summary,
+                summary: 'Summary of thinking',
+              },
+            ],
+          },
+        },
+      },
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Follow up' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Second response' }],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Thinking step 1', // Duplicate
+                signature: 'sig-1',
+              },
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Thinking step 2', // New
+                signature: 'sig-2',
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    // First assistant message should have both reasoning_details
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: expect.arrayContaining([
+        expect.objectContaining({ text: 'Thinking step 1' }),
+        expect.objectContaining({ summary: 'Summary of thinking' }),
+      ]),
+    });
+
+    // Second assistant message should only have the new reasoning_detail
+    expect(result[2]).toMatchObject({
+      role: 'assistant',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Thinking step 2',
+          signature: 'sig-2',
+        },
+      ],
+    });
+  });
+});
