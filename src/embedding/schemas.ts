@@ -17,6 +17,7 @@ export const OpenRouterEmbeddingResponseSchema = z.object({
   object: z.literal('list'),
   data: z.array(openrouterEmbeddingDataSchema),
   model: z.string(),
+  provider: z.string().optional(),
   usage: openrouterEmbeddingUsageSchema.optional(),
 });
 

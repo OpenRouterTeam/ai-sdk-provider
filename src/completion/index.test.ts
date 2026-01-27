@@ -70,12 +70,23 @@ describe('doGenerate', () => {
     },
     logprobs = null,
     finish_reason = 'stop',
+    provider,
   }: {
     content?: string;
     usage?: {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      cost?: number;
+      prompt_tokens_details?: {
+        cached_tokens: number;
+      };
+      completion_tokens_details?: {
+        reasoning_tokens: number;
+      };
+      cost_details?: {
+        upstream_inference_cost: number;
+      };
     };
     logprobs?: {
       tokens: string[];
@@ -83,6 +94,7 @@ describe('doGenerate', () => {
       top_logprobs: Record<string, number>[];
     } | null;
     finish_reason?: string;
+    provider?: string;
   }) {
     server.urls['https://openrouter.ai/api/v1/completions']!.response = {
       type: 'json-value',
@@ -91,6 +103,7 @@ describe('doGenerate', () => {
         object: 'text_completion',
         created: 1711363706,
         model: 'openai/gpt-3.5-turbo-instruct',
+        provider,
         choices: [
           {
             text: content,
@@ -142,6 +155,149 @@ describe('doGenerate', () => {
         prompt_tokens: 20,
         total_tokens: 25,
         completion_tokens: 5,
+      },
+    });
+  });
+
+  it('should return providerMetadata with usage and provider', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 10,
+        total_tokens: 20,
+        completion_tokens: 10,
+        cost: 0.0001,
+      },
+      provider: 'openai',
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(providerMetadata).toStrictEqual({
+      openrouter: {
+        provider: 'openai',
+        usage: {
+          promptTokens: 10,
+          completionTokens: 10,
+          totalTokens: 20,
+          cost: 0.0001,
+        },
+      },
+    });
+  });
+
+  it('should omit cost from providerMetadata when undefined', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 10,
+        total_tokens: 20,
+        completion_tokens: 10,
+      },
+      provider: 'google',
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const openrouterMetadata = providerMetadata?.openrouter as {
+      provider?: string;
+      usage?: { cost?: number };
+    };
+
+    expect(openrouterMetadata?.provider).toBe('google');
+    expect(openrouterMetadata?.usage?.cost).toBeUndefined();
+    expect('cost' in (openrouterMetadata?.usage ?? {})).toBe(false);
+  });
+
+  it('should include cost: 0 in providerMetadata when cost is zero', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 10,
+        total_tokens: 20,
+        completion_tokens: 10,
+        cost: 0,
+      },
+      provider: 'openai',
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const openrouterMetadata = providerMetadata?.openrouter as {
+      usage?: { cost?: number };
+    };
+
+    expect(openrouterMetadata?.usage?.cost).toBe(0);
+  });
+
+  it('should default provider to empty string when not returned by API', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 10,
+        total_tokens: 20,
+        completion_tokens: 10,
+      },
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const openrouterMetadata = providerMetadata?.openrouter as {
+      provider?: string;
+    };
+
+    expect(openrouterMetadata?.provider).toBe('');
+  });
+
+  it('should include token details in providerMetadata when provided', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 100,
+        total_tokens: 150,
+        completion_tokens: 50,
+        prompt_tokens_details: {
+          cached_tokens: 80,
+        },
+        completion_tokens_details: {
+          reasoning_tokens: 20,
+        },
+        cost_details: {
+          upstream_inference_cost: 0.005,
+        },
+      },
+      provider: 'anthropic',
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(providerMetadata).toStrictEqual({
+      openrouter: {
+        provider: 'anthropic',
+        usage: {
+          promptTokens: 100,
+          completionTokens: 50,
+          totalTokens: 150,
+          promptTokensDetails: {
+            cachedTokens: 80,
+          },
+          completionTokensDetails: {
+            reasoningTokens: 20,
+          },
+          costDetails: {
+            upstreamInferenceCost: 0.005,
+          },
+        },
       },
     });
   });
@@ -341,7 +497,6 @@ describe('doStream', () => {
               promptTokens: 10,
               completionTokens: 362,
               totalTokens: 372,
-              cost: undefined,
             },
           },
         },

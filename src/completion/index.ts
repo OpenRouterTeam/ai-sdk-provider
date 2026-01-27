@@ -27,6 +27,7 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import {
   createFinishReason,
   mapOpenRouterFinishReason,
@@ -220,6 +221,46 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         raw: (response.usage as JSONObject) ?? undefined,
       },
       warnings: [],
+      providerMetadata: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
+          provider: response.provider ?? '',
+          usage: {
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens:
+              (response.usage?.prompt_tokens ?? 0) +
+              (response.usage?.completion_tokens ?? 0),
+            ...(response.usage?.cost != null
+              ? { cost: response.usage.cost }
+              : {}),
+            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
+              ? {
+                  promptTokensDetails: {
+                    cachedTokens:
+                      response.usage.prompt_tokens_details.cached_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
+            null
+              ? {
+                  completionTokensDetails: {
+                    reasoningTokens:
+                      response.usage.completion_tokens_details.reasoning_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.cost_details?.upstream_inference_cost != null
+              ? {
+                  costDetails: {
+                    upstreamInferenceCost:
+                      response.usage.cost_details.upstream_inference_cost,
+                  },
+                }
+              : {}),
+          },
+        }),
+      },
       response: {
         headers: responseHeaders,
       },
@@ -278,9 +319,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    let provider: string | undefined;
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
+
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -307,6 +350,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: value.error });
               return;
+            }
+
+            if (value.provider) {
+              provider = value.provider;
             }
 
             if (value.usage != null) {
@@ -340,7 +387,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
                 };
               }
 
-              openrouterUsage.cost = value.usage.cost;
+              if (value.usage.cost != null) {
+                openrouterUsage.cost = value.usage.cost;
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =
                 value.usage.cost_details?.upstream_inference_cost;
@@ -370,14 +419,24 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
             // Set raw usage before emitting finish event
             usage.raw = rawUsage;
 
+            const openrouterMetadata: {
+              usage: Partial<OpenRouterUsageAccounting>;
+              provider?: string;
+            } = {
+              usage: openrouterUsage,
+            };
+
+            // Only include provider if it's actually set
+            if (provider !== undefined) {
+              openrouterMetadata.provider = provider;
+            }
+
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  usage: openrouterUsage,
-                },
+                openrouter: openrouterMetadata,
               },
             });
           },
