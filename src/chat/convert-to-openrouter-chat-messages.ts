@@ -91,12 +91,13 @@ export function convertToOpenRouterChatMessages(
             const partCacheControl = getCacheControl(part.providerOptions);
 
             // Text parts: use part-specific cache control, or message-level only if it's the last text part
-            // Non-text parts: use part-specific cache control, or fall back to message-level
+            // Non-text parts: only use part-specific cache control (don't inherit message-level)
+            // This prevents exceeding Anthropic's 4-segment limit when message-level cache_control is set
             const cacheControl =
               part.type === 'text'
                 ? (partCacheControl ??
                   (isLastTextPart ? messageCacheControl : undefined))
-                : (partCacheControl ?? messageCacheControl);
+                : partCacheControl;
 
             switch (part.type) {
               case 'text':
