@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 2.0.4
+
+### Patch Changes
+
+- [#352](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/352) [`d76d566`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d76d566da54c4ac3133c5abc045297fd4da2f11d) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: handle tool calls with missing arguments field (#287)
+
+  Made the arguments field optional in the tool_calls schema and default to '{}' (empty JSON object) when missing. This handles cases where upstream providers may omit the arguments field for tools with no parameters.
+
 ## 2.0.3
 
 ### Patch Changes
