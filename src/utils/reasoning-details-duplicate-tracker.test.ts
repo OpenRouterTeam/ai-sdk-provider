@@ -22,6 +22,38 @@ describe('ReasoningDetailsDuplicateTracker', () => {
       expect(tracker.getAll()).toEqual([detail]);
     });
 
+    it('should return true from upsert for new detail', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Summary,
+        summary: 'test summary',
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+    });
+
+    it('should return false from upsert for duplicate detail', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Summary,
+        summary: 'test summary',
+      };
+
+      tracker.upsert(detail);
+      expect(tracker.upsert(detail)).toBe(false);
+    });
+
+    it('should return false from upsert for detail with no valid key', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: null,
+        signature: null,
+      };
+
+      expect(tracker.upsert(detail)).toBe(false);
+    });
+
     it('should return false for non-existent detail', () => {
       const tracker = new ReasoningDetailsDuplicateTracker();
       const detail: ReasoningDetailUnion = {
@@ -413,6 +445,58 @@ describe('ReasoningDetailsDuplicateTracker', () => {
             (d as { signature?: string | null }).signature === 'same-value',
         ),
       ).toBe(true);
+    });
+
+    it('should treat empty string text as valid key (not fall through to signature)', () => {
+      // This tests the fix for empty string handling.
+      // Without explicit null check, empty string '' would be falsy and
+      // fall through to use signature as the key instead.
+      const tracker = new ReasoningDetailsDuplicateTracker();
+
+      const detailWithEmptyText: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: '',
+        signature: 'some-signature',
+      };
+
+      const detailWithSignatureOnly: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: null,
+        signature: 'some-signature',
+      };
+
+      tracker.upsert(detailWithEmptyText);
+      tracker.upsert(detailWithSignatureOnly);
+
+      // Both should be stored separately:
+      // - detailWithEmptyText has key "text:" (empty string)
+      // - detailWithSignatureOnly has key "text-sig:some-signature"
+      const result = tracker.getAll();
+      expect(result.length).toBe(2);
+    });
+
+    it('should treat empty string encrypted id as valid key', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+
+      const detailWithEmptyId: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        data: 'some-data',
+        id: '',
+      };
+
+      const detailWithDataOnly: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        data: 'some-data',
+      };
+
+      tracker.upsert(detailWithEmptyId);
+      tracker.upsert(detailWithDataOnly);
+
+      // Both should be stored separately:
+      // - detailWithEmptyId has key "encrypted:" (empty string id)
+      // - detailWithDataOnly has key "encrypted:some-data"
+      const result = tracker.getAll();
+      expect(result.length).toBe(2);
     });
   });
 });

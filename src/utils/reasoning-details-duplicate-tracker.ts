@@ -32,8 +32,12 @@ export class ReasoningDetailsDuplicateTracker {
 
   /**
    * Adds or updates a detail in the tracker.
-   * Returns true if the detail was stored (has a valid canonical key),
-   * false if it was skipped (no valid key could be derived).
+   * Returns true if this is a NEW detail (not seen before),
+   * false if it was skipped (no valid key) or already existed (merged).
+   *
+   * When a detail with the same canonical key already exists, the new detail
+   * is merged with the existing one (defined values from new detail override),
+   * but false is returned since it's not a new unique detail.
    */
   upsert(detail: ReasoningDetailUnion): boolean {
     const key = this.getCanonicalKey(detail);
@@ -54,7 +58,8 @@ export class ReasoningDetailsDuplicateTracker {
       ...this.definedValues(existingDetail),
       ...this.definedValues(detail),
     } as ReasoningDetailUnion);
-    return true;
+    // Return false because this is not a NEW detail - it already existed
+    return false;
   }
 
   private definedValues<T extends Record<string, unknown>>(obj: T): Partial<T> {
@@ -76,16 +81,18 @@ export class ReasoningDetailsDuplicateTracker {
         return `summary:${detail.summary}`;
 
       case ReasoningDetailType.Encrypted:
-        if (detail.id) {
+        // Use explicit null check to allow empty string IDs
+        if (detail.id != null) {
           return `encrypted:${detail.id}`;
         }
         return `encrypted:${detail.data}`;
 
       case ReasoningDetailType.Text: {
-        if (detail.text) {
+        // Use explicit null checks to allow empty strings as valid values
+        if (detail.text != null) {
           return `text:${detail.text}`;
         }
-        if (detail.signature) {
+        if (detail.signature != null) {
           // Use different prefix to avoid collision with text field
           return `text-sig:${detail.signature}`;
         }

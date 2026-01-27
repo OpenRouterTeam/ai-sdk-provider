@@ -246,19 +246,14 @@ export function convertToOpenRouterChatMessages(
 
         // Deduplicate reasoning_details across all messages to prevent
         // "Duplicate item found with id" errors in multi-turn conversations.
-        // Only include reasoning_details that:
-        // 1. Haven't been seen before (not a duplicate)
-        // 2. Have a valid canonical key (can be tracked for deduplication)
-        // Details without valid keys are skipped entirely to avoid potential duplicates.
+        // upsert() returns true only for NEW details (not seen before and has valid key).
+        // Details without valid keys or duplicates are skipped.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
           const uniqueDetails: ReasoningDetailUnion[] = [];
           for (const detail of candidateReasoningDetails) {
-            if (!reasoningDetailsTracker.has(detail)) {
-              // Only add if upsert succeeds (detail has a valid canonical key)
-              if (reasoningDetailsTracker.upsert(detail)) {
-                uniqueDetails.push(detail);
-              }
+            if (reasoningDetailsTracker.upsert(detail)) {
+              uniqueDetails.push(detail);
             }
           }
           finalReasoningDetails =
