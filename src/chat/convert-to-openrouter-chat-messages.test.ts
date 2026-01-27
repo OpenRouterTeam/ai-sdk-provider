@@ -313,7 +313,7 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should pass cache control from user message provider metadata (multiple parts)', () => {
+  it('should apply message-level cache control only to last text part (multiple parts with text first)', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -333,6 +333,7 @@ describe('cache control', () => {
       },
     ]);
 
+    // Message-level cache_control applies to last text part and all non-text parts
     expect(result).toEqual([
       {
         role: 'user',
@@ -368,7 +369,7 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should pass cache control to multiple image parts from user message provider metadata', () => {
+  it('should apply message-level cache control to last text part and all image parts', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -393,6 +394,7 @@ describe('cache control', () => {
       },
     ]);
 
+    // Message-level cache_control applies to last text part and all non-text parts
     expect(result).toEqual([
       {
         role: 'user',
@@ -417,7 +419,7 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should pass cache control to file parts from user message provider metadata', () => {
+  it('should apply message-level cache control to last text part and file parts', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -442,6 +444,7 @@ describe('cache control', () => {
       },
     ]);
 
+    // Message-level cache_control applies to last text part and all non-text parts
     expect(result).toEqual([
       {
         role: 'user',
@@ -472,7 +475,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            // No part-specific provider metadata
+            // No part-specific provider metadata - and this is not the last text part
           },
           {
             type: 'file',
@@ -493,7 +496,6 @@ describe('cache control', () => {
                 filename: 'file.txt',
               },
             },
-            // No part-specific provider metadata
           },
         ],
         providerOptions: {
@@ -504,6 +506,7 @@ describe('cache control', () => {
       },
     ]);
 
+    // Message-level cache_control applies to the (only) text part and all non-text parts
     expect(result).toEqual([
       {
         role: 'user',
@@ -689,7 +692,7 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should pass cache control to audio input parts from user message provider metadata', () => {
+  it('should apply message-level cache control to last text part and audio input parts', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -709,6 +712,7 @@ describe('cache control', () => {
       },
     ]);
 
+    // Message-level cache_control applies to the (only) text part and all non-text parts
     expect(result).toEqual([
       {
         role: 'user',
@@ -724,6 +728,144 @@ describe('cache control', () => {
               data: 'AAECAw==',
               format: 'mp3',
             },
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should only apply message-level cache control to last text part when multiple text parts exist', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'user query 1' },
+          { type: 'text', text: 'user query 2' },
+          { type: 'text', text: 'user query 3' },
+          { type: 'text', text: 'user query 4' },
+          { type: 'text', text: 'last user query' },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    // Only the last text part should have cache_control
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'user query 1' },
+          { type: 'text', text: 'user query 2' },
+          { type: 'text', text: 'user query 3' },
+          { type: 'text', text: 'user query 4' },
+          {
+            type: 'text',
+            text: 'last user query',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should respect part-level cache control even when not the last text part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'first query',
+            providerOptions: {
+              anthropic: {
+                cacheControl: { type: 'ephemeral' },
+              },
+            },
+          },
+          { type: 'text', text: 'second query' },
+          { type: 'text', text: 'last query' },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    // First part has part-level cache control, last part gets message-level
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'first query',
+            cache_control: { type: 'ephemeral' },
+          },
+          { type: 'text', text: 'second query' },
+          {
+            type: 'text',
+            text: 'last query',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should apply message-level cache control to last text part and all non-text parts in mixed content', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'first text' },
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+          },
+          { type: 'text', text: 'second text' },
+          {
+            type: 'file',
+            data: new Uint8Array([4, 5, 6, 7]),
+            mediaType: 'image/jpeg',
+          },
+          { type: 'text', text: 'last text' },
+        ],
+        providerOptions: {
+          anthropic: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    // Only the last text part and all non-text parts get cache_control
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'first text' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+          { type: 'text', text: 'second text' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/jpeg;base64,BAUGBw==' },
+            cache_control: { type: 'ephemeral' },
+          },
+          {
+            type: 'text',
+            text: 'last text',
             cache_control: { type: 'ephemeral' },
           },
         ],
