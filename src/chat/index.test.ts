@@ -183,7 +183,7 @@ describe('doGenerate', () => {
     tool_calls?: Array<{
       id: string;
       type: 'function';
-      function: { name: string; arguments: string };
+      function: { name: string; arguments?: string };
     }>;
     usage?: {
       prompt_tokens: number;
@@ -525,6 +525,37 @@ describe('doGenerate', () => {
         type: 'tool-call',
         toolCallId: 'call_123',
         toolName: 'get_weather',
+      }),
+    );
+  });
+
+  it('should handle tool calls with missing arguments field (Anthropic Haiku)', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_no_args',
+          type: 'function',
+          function: {
+            name: 'get_current_time',
+            // arguments field is omitted - some models like Anthropic Haiku do this
+          },
+        },
+      ],
+      finish_reason: 'tool_calls',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // Should default to empty JSON object when arguments is missing
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call_no_args',
+        toolName: 'get_current_time',
+        input: '{}',
       }),
     );
   });

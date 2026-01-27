@@ -62,7 +62,9 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                       function: z
                         .object({
                           name: z.string(),
-                          arguments: z.string(),
+                          // Some models (e.g., Anthropic Haiku) may omit arguments field
+                          // when there are no arguments to pass
+                          arguments: z.string().optional(),
                         })
                         .passthrough(),
                     })
