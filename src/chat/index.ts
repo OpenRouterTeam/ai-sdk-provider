@@ -1,4 +1,5 @@
 import type {
+  JSONObject,
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3Content,
@@ -288,6 +289,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               response.usage.completion_tokens_details?.reasoning_tokens ??
               undefined,
           },
+          raw: response.usage as JSONObject,
         }
       : {
           inputTokens: {
@@ -301,6 +303,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             text: undefined,
             reasoning: undefined,
           },
+          raw: undefined,
         };
 
     const reasoningDetails = choice.message.reasoning_details ?? [];
@@ -589,10 +592,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         text: undefined,
         reasoning: undefined,
       },
+      raw: undefined,
     };
 
     // Track provider-specific usage information
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+
+    // Track raw usage from the API response for usage.raw
+    let rawUsage: JSONObject | undefined;
 
     // Track reasoning details to preserve for multi-turn conversations
     const accumulatedReasoningDetails: ReasoningDetailUnion[] = [];
@@ -621,6 +628,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           LanguageModelV3StreamPart
         >({
           transform(chunk, controller) {
+            // Emit raw chunk if requested (before anything else)
+            if (options.includeRawChunks) {
+              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+            }
+
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
               finishReason = createFinishReason('error');
@@ -659,6 +671,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             if (value.usage != null) {
               usage.inputTokens.total = value.usage.prompt_tokens;
               usage.outputTokens.total = value.usage.completion_tokens;
+
+              // Store raw usage from the API response (cast to JSONObject since schema uses passthrough)
+              rawUsage = value.usage as JSONObject;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
@@ -1106,6 +1121,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             if (accumulatedFileAnnotations.length > 0) {
               openrouterMetadata.annotations = accumulatedFileAnnotations;
             }
+
+            // Set raw usage before emitting finish event
+            usage.raw = rawUsage;
 
             controller.enqueue({
               type: 'finish',

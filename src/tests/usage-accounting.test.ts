@@ -327,4 +327,75 @@ describe('OpenRouter Usage Accounting', () => {
     expect(usage).not.toHaveProperty('completionTokensDetails');
     expect(usage).not.toHaveProperty('costDetails');
   });
+
+  it('should include raw usage in usage.raw field with original snake_case format', async () => {
+    prepareJsonResponse();
+
+    const settings: OpenRouterChatSettings = {
+      usage: { include: true },
+    };
+
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
+      headers: () => ({}),
+      compatibility: 'strict',
+      fetch: global.fetch,
+    });
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    // Verify usage.raw contains the original snake_case format from the API
+    expect(result.usage.raw).toBeDefined();
+    expect(result.usage.raw).toMatchObject({
+      prompt_tokens: 10,
+      prompt_tokens_details: {
+        cached_tokens: 5,
+      },
+      completion_tokens: 20,
+      completion_tokens_details: {
+        reasoning_tokens: 8,
+      },
+      total_tokens: 30,
+      cost: 0.0015,
+      cost_details: {
+        upstream_inference_cost: 0.0019,
+      },
+    });
+  });
+
+  it('should set usage.raw to undefined when no usage data in response', async () => {
+    prepareJsonResponse(false);
+
+    const settings: OpenRouterChatSettings = {};
+
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
+      headers: () => ({}),
+      compatibility: 'strict',
+      fetch: global.fetch,
+    });
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    // When no usage data, raw should be undefined
+    expect(result.usage.raw).toBeUndefined();
+  });
 });
