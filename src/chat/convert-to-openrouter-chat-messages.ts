@@ -70,17 +70,39 @@ export function convertToOpenRouterChatMessages(
 
         // Get message level cache control
         const messageCacheControl = getCacheControl(providerOptions);
+
+        // Find the index of the last text part for applying message-level cache control
+        // Per Anthropic's docs, only the last text part should receive message-level cache_control
+        // to avoid exceeding the 4-segment limit
+        let lastTextPartIndex = -1;
+        for (let i = content.length - 1; i >= 0; i--) {
+          if (content[i]?.type === 'text') {
+            lastTextPartIndex = i;
+            break;
+          }
+        }
+
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part: LanguageModelV3TextPart | LanguageModelV3FilePart) => {
+          (part: LanguageModelV3TextPart | LanguageModelV3FilePart, index) => {
+            // For text parts: only apply message-level cache control to the last text part
+            // For non-text parts: continue to apply message-level cache control as before
+            const isLastTextPart =
+              part.type === 'text' && index === lastTextPartIndex;
+            const partCacheControl = getCacheControl(part.providerOptions);
+
+            // Text parts: use part-specific cache control, or message-level only if it's the last text part
+            // Non-text parts: use part-specific cache control, or fall back to message-level
             const cacheControl =
-              getCacheControl(part.providerOptions) ?? messageCacheControl;
+              part.type === 'text'
+                ? (partCacheControl ??
+                  (isLastTextPart ? messageCacheControl : undefined))
+                : (partCacheControl ?? messageCacheControl);
 
             switch (part.type) {
               case 'text':
                 return {
                   type: 'text' as const,
                   text: part.text,
-                  // For text parts, only use part-specific cache control
                   cache_control: cacheControl,
                 };
               case 'file': {
