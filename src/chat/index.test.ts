@@ -773,6 +773,51 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should pass response-healing plugin in request payload', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const modelWithPlugin = provider.chat('anthropic/claude-3.5-sonnet', {
+      plugins: [{ id: 'response-healing' }],
+    });
+
+    await modelWithPlugin.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            age: { type: 'number' },
+          },
+          required: ['name', 'age'],
+        },
+        name: 'PersonResponse',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      plugins: [{ id: 'response-healing' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              age: { type: 'number' },
+            },
+            required: ['name', 'age'],
+          },
+          strict: true,
+          name: 'PersonResponse',
+        },
+      },
+    });
+  });
+
   it('should pass images', async () => {
     prepareJsonResponse({
       content: '',

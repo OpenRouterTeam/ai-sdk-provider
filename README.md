@@ -307,6 +307,34 @@ for await (const partialComponent of result.partialObjectStream) {
 
 ## Use Cases
 
+### Response Healing for Structured Outputs
+
+The provider supports the [Response Healing plugin](https://openrouter.ai/docs/guides/features/plugins/response-healing), which automatically validates and repairs malformed JSON responses from AI models. This is particularly useful when using `generateObject` or structured outputs, as it can fix common issues like missing brackets, trailing commas, markdown wrappers, and mixed text.
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateObject } from 'ai';
+import { z } from 'zod';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('openai/gpt-4o', {
+  plugins: [{ id: 'response-healing' }],
+});
+
+const { object } = await generateObject({
+  model,
+  schema: z.object({
+    name: z.string(),
+    age: z.number(),
+  }),
+  prompt: 'Generate a person with name and age.',
+});
+
+console.log(object); // { name: "John", age: 30 }
+```
+
+Note that Response Healing only works with non-streaming requests. When the model returns imperfect JSON formatting, the plugin attempts to repair the response so you receive valid, parseable JSON.
+
 ### Debugging API Requests
 
 The provider supports a debug mode that echoes back the request body sent to the upstream provider. This is useful for troubleshooting and understanding how your requests are being processed. Note that debug mode only works with streaming requests.
