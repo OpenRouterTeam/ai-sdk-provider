@@ -1,5 +1,84 @@
 # @openrouter/ai-sdk-provider
 
+## 2.1.0
+
+### Minor Changes
+
+- [#366](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/366) [`f2b78f5`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f2b78f54f395cd1bce5be9ff3690a8752b991b49) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add imageModel() method to OpenRouter provider for image generation support
+
+  This adds the `imageModel()` method to the OpenRouter provider, enabling image generation through the AI SDK's `generateImage()` function. The implementation uses OpenRouter's chat completions endpoint with `modalities: ['image', 'text']` to generate images.
+
+  Features:
+
+  - Implements `ImageModelV3` interface from AI SDK
+  - Supports `aspectRatio` parameter via `image_config`
+  - Supports `seed` parameter for reproducible generation
+  - Supports provider routing settings (order, allow_fallbacks, etc.)
+  - Returns appropriate warnings for unsupported features (n > 1, size)
+  - Throws `UnsupportedFunctionalityError` for image editing (files/mask parameters)
+
+  Usage:
+
+  ```typescript
+  import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+  import { generateImage } from "ai";
+
+  const openrouter = createOpenRouter();
+  const { image } = await generateImage({
+    model: openrouter.imageModel("google/gemini-2.5-flash-image"),
+    prompt: "A cat wearing a hat",
+    aspectRatio: "16:9",
+  });
+  ```
+
+- [#361](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/361) [`da10f19`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/da10f190cca86fb8c0942033e1af32d1520760db) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add support for the Response Healing plugin
+
+  The Response Healing plugin automatically validates and repairs malformed JSON responses from AI models. Enable it by adding `{ id: 'response-healing' }` to the plugins array when using structured outputs with `generateObject`.
+
+  ```typescript
+  const model = openrouter("openai/gpt-4o", {
+    plugins: [{ id: "response-healing" }],
+  });
+
+  const { object } = await generateObject({
+    model,
+    schema: z.object({ name: z.string(), age: z.number() }),
+    prompt: "Generate a person.",
+  });
+  ```
+
+  Note: Response Healing only works with non-streaming requests.
+
+- [#360](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/360) [`b129d36`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b129d36987e4a635f86f28bead4259f79dc265d3) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add includeRawChunks support for streaming
+
+  When `includeRawChunks: true` is passed to streaming calls, the provider now emits `{ type: 'raw', rawValue: <parsed chunk> }` stream parts for each SSE event, giving consumers access to the raw provider chunks alongside the processed AI SDK stream parts.
+
+  This feature is available for both chat and completion models.
+
+- [#357](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/357) [`f24fac7`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f24fac78fb99341698a5f7a5d44484c61644321c) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Remove dependency on @openrouter/sdk
+
+  This change removes the external dependency on `@openrouter/sdk` by inlining the necessary type definitions locally. The types are now defined in `src/types/openrouter-api-types.ts`.
+
+  This reduces the package's dependency footprint and eliminates potential version conflicts with the SDK.
+
+### Patch Changes
+
+- [#359](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/359) [`85d6633`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/85d6633058f8853d66b6a658c33604af1e9c0233) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix undefined cost field in providerMetadata causing AI SDK validation failures
+
+- [#362](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/362) [`bd8794a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/bd8794a86707ae16eb97c16a01b169e00b524b3c) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: respect user-specified User-Agent headers without modification
+
+  Previously, when users provided a custom `User-Agent` header via `createOpenRouter({ headers: { 'User-Agent': 'my-app/1.0' } })`, the SDK would append its identifier to the header, resulting in `my-app/1.0, ai-sdk/openrouter/x.x.x`. This was unexpected behavior.
+
+  Now, user-specified `User-Agent` headers are used verbatim without modification. The SDK identifier is only added as the default when no `User-Agent` header is provided.
+
+  This also fixes a case-sensitivity bug where `User-Agent` (capitalized) was not recognized as the same header as `user-agent` (lowercase), causing duplicate headers to be sent.
+
+  Fixes #300
+
+- [#363](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/363) [`f2d5034`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f2d5034ef85cc5ef5b16283de5ee45fe8bfeaf64) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Populate usage.raw with OpenRouter raw usage accounting object in finish step
+
+- [#364](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/364) [`c6ae94d`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/c6ae94db7b2832fe1bcc6b1722ca7dca9855bc21) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix missing web search citations by making url_citation schema fields optional
+
 ## 2.0.4
 
 ### Patch Changes
