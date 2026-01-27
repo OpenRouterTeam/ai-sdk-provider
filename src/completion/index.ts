@@ -218,6 +218,45 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         },
       },
       warnings: [],
+      providerMetadata: {
+        openrouter: {
+          usage: {
+            promptTokens: response.usage?.prompt_tokens ?? 0,
+            completionTokens: response.usage?.completion_tokens ?? 0,
+            totalTokens:
+              (response.usage?.prompt_tokens ?? 0) +
+              (response.usage?.completion_tokens ?? 0),
+            ...(response.usage?.cost != null
+              ? { cost: response.usage.cost }
+              : {}),
+            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
+              ? {
+                  promptTokensDetails: {
+                    cachedTokens:
+                      response.usage.prompt_tokens_details.cached_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
+            null
+              ? {
+                  completionTokensDetails: {
+                    reasoningTokens:
+                      response.usage.completion_tokens_details.reasoning_tokens,
+                  },
+                }
+              : {}),
+            ...(response.usage?.cost_details?.upstream_inference_cost != null
+              ? {
+                  costDetails: {
+                    upstreamInferenceCost:
+                      response.usage.cost_details.upstream_inference_cost,
+                  },
+                }
+              : {}),
+          },
+        },
+      },
       response: {
         headers: responseHeaders,
       },
