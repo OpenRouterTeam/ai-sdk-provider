@@ -62,22 +62,25 @@ export class ReasoningDetailsDuplicateTracker {
   }
 
   private getCanonicalKey(detail: ReasoningDetailUnion): string | null {
+    // Prefix keys with type to prevent cross-type collisions.
+    // For example, a summary with summary="abc" and an encrypted with data="abc"
+    // would otherwise collide. The type prefix ensures they're treated as distinct.
     switch (detail.type) {
       case ReasoningDetailType.Summary:
-        return detail.summary;
+        return `summary:${detail.summary}`;
 
       case ReasoningDetailType.Encrypted:
         if (detail.id) {
-          return detail.id;
+          return `encrypted:${detail.id}`;
         }
-        return detail.data;
+        return `encrypted:${detail.data}`;
 
       case ReasoningDetailType.Text: {
         if (detail.text) {
-          return detail.text;
+          return `text:${detail.text}`;
         }
         if (detail.signature) {
-          return detail.signature;
+          return `text:${detail.signature}`;
         }
         return null;
       }
@@ -88,36 +91,4 @@ export class ReasoningDetailsDuplicateTracker {
       }
     }
   }
-}
-
-/**
- * Deduplicates an array of reasoning details across multiple messages.
- * Returns only unique reasoning details based on their canonical keys.
- */
-export function deduplicateReasoningDetails(
-  allReasoningDetails: Array<ReasoningDetailUnion[] | undefined>,
-): Map<number, ReasoningDetailUnion[]> {
-  const tracker = new ReasoningDetailsDuplicateTracker();
-  const result = new Map<number, ReasoningDetailUnion[]>();
-
-  for (let i = 0; i < allReasoningDetails.length; i++) {
-    const details = allReasoningDetails[i];
-    if (!details || details.length === 0) {
-      continue;
-    }
-
-    const uniqueForThisMessage: ReasoningDetailUnion[] = [];
-    for (const detail of details) {
-      if (!tracker.has(detail)) {
-        tracker.upsert(detail);
-        uniqueForThisMessage.push(detail);
-      }
-    }
-
-    if (uniqueForThisMessage.length > 0) {
-      result.set(i, uniqueForThisMessage);
-    }
-  }
-
-  return result;
 }

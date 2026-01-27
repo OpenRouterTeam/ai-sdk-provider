@@ -1,12 +1,8 @@
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import { describe, expect, it } from 'vitest';
-import { ReasoningFormat } from '../schemas/format';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
-import {
-  deduplicateReasoningDetails,
-  ReasoningDetailsDuplicateTracker,
-} from './reasoning-details-duplicate-tracker';
+import { ReasoningDetailsDuplicateTracker } from './reasoning-details-duplicate-tracker';
 
 describe('ReasoningDetailsDuplicateTracker', () => {
   describe('basic operations', () => {
@@ -315,120 +311,65 @@ describe('ReasoningDetailsDuplicateTracker', () => {
 
       expect(tracker.getAll().length).toBe(3);
     });
-  });
-});
 
-describe('deduplicateReasoningDetails', () => {
-  it('should deduplicate reasoning_details across multiple messages', () => {
-    const message1Details: ReasoningDetailUnion[] = [
-      {
+    it('should not collide when different types have same field value', () => {
+      // This tests the fix for cross-type key collision.
+      // Without type prefixing, a summary with summary="abc" and an encrypted
+      // with data="abc" would collide because they'd both have key "abc".
+      const tracker = new ReasoningDetailsDuplicateTracker();
+
+      const summary: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Summary,
+        summary: 'same-value',
+      };
+
+      const encrypted: ReasoningDetailUnion = {
         type: ReasoningDetailType.Encrypted,
-        data: 'encrypted-data',
-        id: 'rs_duplicate_id',
-      },
-    ];
+        data: 'same-value',
+      };
 
-    const message2Details: ReasoningDetailUnion[] = [
-      {
+      const text: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same-value',
+      };
+
+      tracker.upsert(summary);
+      tracker.upsert(encrypted);
+      tracker.upsert(text);
+
+      // All three should be stored separately because they have different types
+      const result = tracker.getAll();
+      expect(result.length).toBe(3);
+
+      // Verify each type is present
+      expect(result.some((d) => d.type === ReasoningDetailType.Summary)).toBe(
+        true,
+      );
+      expect(result.some((d) => d.type === ReasoningDetailType.Encrypted)).toBe(
+        true,
+      );
+      expect(result.some((d) => d.type === ReasoningDetailType.Text)).toBe(
+        true,
+      );
+    });
+
+    it('should not detect cross-type duplicates with has()', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+
+      const summary: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Summary,
+        summary: 'same-value',
+      };
+
+      tracker.upsert(summary);
+
+      // An encrypted detail with the same value should NOT be detected as duplicate
+      const encrypted: ReasoningDetailUnion = {
         type: ReasoningDetailType.Encrypted,
-        data: 'encrypted-data',
-        id: 'rs_duplicate_id', // Same ID as message 1
-      },
-    ];
+        data: 'same-value',
+      };
 
-    const message3Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'different-data',
-        id: 'rs_unique_id', // Different ID
-      },
-    ];
-
-    const result = deduplicateReasoningDetails([
-      message1Details,
-      message2Details,
-      message3Details,
-    ]);
-
-    // Message 1 should have its detail (first occurrence)
-    expect(result.get(0)?.length).toBe(1);
-    expect(result.get(0)?.[0]?.id).toBe('rs_duplicate_id');
-
-    // Message 2 should have no details (duplicate)
-    expect(result.has(1)).toBe(false);
-
-    // Message 3 should have its detail (unique)
-    expect(result.get(2)?.length).toBe(1);
-    expect(result.get(2)?.[0]?.id).toBe('rs_unique_id');
-  });
-
-  it('should handle empty and undefined arrays', () => {
-    const result = deduplicateReasoningDetails([undefined, [], undefined]);
-
-    expect(result.size).toBe(0);
-  });
-
-  it('should handle the exact scenario from issue #254 - multi-turn with same reasoning ID', () => {
-    // Simulating the POC scenario where gpt-5-codex generates the same reasoning ID
-    // across multiple tool call turns
-    const turn1Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'reasoning-content-1',
-        id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26',
-      },
-    ];
-
-    const turn2Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'reasoning-content-2',
-        id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26', // Same ID!
-      },
-    ];
-
-    const turn3Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'reasoning-content-3',
-        id: 'rs_0ad20f1f8629dc53016924443203408193abb5b3d0b4301e26', // Same ID!
-      },
-    ];
-
-    const result = deduplicateReasoningDetails([
-      turn1Details,
-      turn2Details,
-      turn3Details,
-    ]);
-
-    // Only the first turn should have reasoning_details
-    expect(result.get(0)?.length).toBe(1);
-    expect(result.has(1)).toBe(false);
-    expect(result.has(2)).toBe(false);
-  });
-
-  it('should preserve Gemini encrypted reasoning across turns when IDs are different', () => {
-    // Gemini uses different IDs for each turn's thoughtSignature
-    const turn1Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'gemini-thought-signature-1',
-        format: ReasoningFormat.GoogleGeminiV1,
-      },
-    ];
-
-    const turn2Details: ReasoningDetailUnion[] = [
-      {
-        type: ReasoningDetailType.Encrypted,
-        data: 'gemini-thought-signature-2', // Different data = different key
-        format: ReasoningFormat.GoogleGeminiV1,
-      },
-    ];
-
-    const result = deduplicateReasoningDetails([turn1Details, turn2Details]);
-
-    // Both turns should have their reasoning_details preserved
-    expect(result.get(0)?.length).toBe(1);
-    expect(result.get(1)?.length).toBe(1);
+      expect(tracker.has(encrypted)).toBe(false);
+    });
   });
 });
