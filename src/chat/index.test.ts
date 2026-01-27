@@ -2410,4 +2410,30 @@ describe('includeRawChunks', () => {
     // Should have raw chunks for: initial, Hello, World, finish_reason, usage
     expect(rawChunks.length).toBe(5);
   });
+
+  it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+    const errorChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'error' }> =>
+        chunk.type === 'error',
+    );
+
+    // Raw chunk is emitted before error handling, useful for debugging
+    expect(rawChunks.length).toBe(1);
+    expect(errorChunks.length).toBe(1);
+  });
 });
