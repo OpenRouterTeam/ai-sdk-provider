@@ -610,3 +610,126 @@ describe('doStream', () => {
     );
   });
 });
+
+describe('includeRawChunks', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: { type: 'stream-chunks', chunks: [] },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  function prepareStreamResponse({ content }: { content: string[] }) {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        ...content.map(
+          (text) =>
+            `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"choices":[{"text":"${text}","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        ),
+        `data: {"id":"cmpl-test","object":"text_completion","created":1711363310,"choices":[{"text":"","index":0,"logprobs":null,"finish_reason":"stop"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        `data: {"id":"cmpl-test","object":"text_completion","created":1711363310,"model":"openai/gpt-3.5-turbo-instruct","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15},"choices":[]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+  }
+
+  it('should emit raw chunks when includeRawChunks is true', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBeGreaterThan(0);
+    expect(rawChunks[0]).toHaveProperty('rawValue');
+    expect(rawChunks[0]!.rawValue).toHaveProperty('id', 'cmpl-test');
+  });
+
+  it('should not emit raw chunks when includeRawChunks is false', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: false,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBe(0);
+  });
+
+  it('should not emit raw chunks when includeRawChunks is not specified', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBe(0);
+  });
+
+  it('should emit raw chunks for each SSE event including usage chunk', async () => {
+    prepareStreamResponse({ content: ['Hello', ' World'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    // Should have raw chunks for: Hello, World, finish_reason, usage
+    expect(rawChunks.length).toBe(4);
+  });
+
+  it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+    const errorChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'error' }> =>
+        chunk.type === 'error',
+    );
+
+    // Raw chunk is emitted before error handling, useful for debugging
+    expect(rawChunks.length).toBe(1);
+    expect(errorChunks.length).toBe(1);
+  });
+});
