@@ -74,15 +74,16 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
                 .array(
                   z.union([
                     // URL citation from web search
+                    // title, start_index, end_index are optional as some upstream providers may omit them
                     z
                       .object({
                         type: z.literal('url_citation'),
                         url_citation: z
                           .object({
-                            end_index: z.number(),
-                            start_index: z.number(),
-                            title: z.string(),
                             url: z.string(),
+                            title: z.string().optional(),
+                            start_index: z.number().optional(),
+                            end_index: z.number().optional(),
                             content: z.string().optional(),
                           })
                           .passthrough(),
@@ -198,15 +199,16 @@ export const OpenRouterStreamChatCompletionChunkSchema = z.union([
                 .array(
                   z.union([
                     // URL citation from web search
+                    // title, start_index, end_index are optional as some upstream providers may omit them
                     z
                       .object({
                         type: z.literal('url_citation'),
                         url_citation: z
                           .object({
-                            end_index: z.number(),
-                            start_index: z.number(),
-                            title: z.string(),
                             url: z.string(),
+                            title: z.string().optional(),
+                            start_index: z.number().optional(),
+                            end_index: z.number().optional(),
                             content: z.string().optional(),
                           })
                           .passthrough(),

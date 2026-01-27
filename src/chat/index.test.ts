@@ -266,6 +266,11 @@ describe('doGenerate', () => {
         text: undefined,
         reasoning: undefined,
       },
+      raw: {
+        prompt_tokens: 20,
+        total_tokens: 25,
+        completion_tokens: 5,
+      },
     });
   });
 
@@ -768,6 +773,51 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should pass response-healing plugin in request payload', async () => {
+    prepareJsonResponse({ content: '{"name": "John", "age": 30}' });
+
+    const modelWithPlugin = provider.chat('anthropic/claude-3.5-sonnet', {
+      plugins: [{ id: 'response-healing' }],
+    });
+
+    await modelWithPlugin.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            age: { type: 'number' },
+          },
+          required: ['name', 'age'],
+        },
+        name: 'PersonResponse',
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      plugins: [{ id: 'response-healing' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string' },
+              age: { type: 'number' },
+            },
+            required: ['name', 'age'],
+          },
+          strict: true,
+          name: 'PersonResponse',
+        },
+      },
+    });
+  });
+
   it('should pass images', async () => {
     prepareJsonResponse({
       content: '',
@@ -960,6 +1010,11 @@ describe('doStream', () => {
             total: 227,
             text: undefined,
             reasoning: undefined,
+          },
+          raw: {
+            prompt_tokens: 17,
+            total_tokens: 244,
+            completion_tokens: 227,
           },
         },
       },
@@ -1552,6 +1607,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
+          },
         },
       },
     ]);
@@ -1664,6 +1724,11 @@ describe('doStream', () => {
             total: 17,
             text: undefined,
             reasoning: undefined,
+          },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
           },
         },
       },
@@ -1797,6 +1862,11 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: {
+            prompt_tokens: 53,
+            completion_tokens: 17,
+            total_tokens: 70,
+          },
         },
       },
     ]);
@@ -1849,6 +1919,7 @@ describe('doStream', () => {
             text: undefined,
             reasoning: undefined,
           },
+          raw: undefined,
         },
       },
     ]);
@@ -1889,6 +1960,7 @@ describe('doStream', () => {
           text: undefined,
           reasoning: undefined,
         },
+        raw: undefined,
       },
     });
   });
@@ -2307,5 +2379,418 @@ describe('debug settings', () => {
 
     const requestBody = await server.calls[0]!.requestBodyJson;
     expect(requestBody).not.toHaveProperty('debug');
+  });
+});
+
+describe('web search citations', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('should handle url_citation with missing title field in non-streaming response', async () => {
+    // Some upstream providers return url_citation without title field
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    // title is missing
+                    start_index: 0,
+                    end_index: 30,
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    // Should have a source content part with empty title fallback
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: '', // Should default to empty string
+    });
+  });
+
+  it('should handle url_citation with missing start_index and end_index in non-streaming response', async () => {
+    // Some providers may omit index fields
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Example Article',
+                    // start_index and end_index are missing
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    // Should have a source content part
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Example Article',
+    });
+  });
+
+  it('should handle url_citation with all optional fields missing in streaming response', async () => {
+    // Test streaming with minimal url_citation (only url present)
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":"Web search result."},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{"annotations":[{"type":"url_citation","url_citation":{"url":"https://example.com/page"}}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-web-search","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet:online",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doStream({
+        prompt: TEST_PROMPT,
+      });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find the source event
+    const sourceEvent = elements.find(
+      (e): e is Extract<LanguageModelV3StreamPart, { type: 'source' }> =>
+        e.type === 'source',
+    );
+
+    expect(sourceEvent).toBeDefined();
+    expect(sourceEvent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/page',
+      title: '', // Should default to empty string
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      },
+    });
+  });
+
+  it('should handle complete url_citation with all fields present', async () => {
+    // Verify normal case still works
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Complete Article',
+                    start_index: 5,
+                    end_index: 25,
+                    content: 'Article content here',
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Complete Article',
+      providerMetadata: {
+        openrouter: {
+          content: 'Article content here',
+          startIndex: 5,
+          endIndex: 25,
+        },
+      },
+    });
+  });
+
+  it('should default startIndex and endIndex to 0 when missing', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Article Without Indices',
+                    // start_index and end_index are missing
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Article Without Indices',
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      },
+    });
+  });
+});
+
+describe('includeRawChunks', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  function prepareStreamResponse({ content }: { content: string[] }) {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}\n\n`,
+        ...content.map(
+          (text) =>
+            `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","choices":[{"index":0,"delta":{"content":"${text}"},"finish_reason":null}]}\n\n`,
+        ),
+        `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-test","object":"chat.completion.chunk","created":1702657020,"model":"gpt-3.5-turbo-0613","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+  }
+
+  it('should emit raw chunks when includeRawChunks is true', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBeGreaterThan(0);
+    expect(rawChunks[0]).toHaveProperty('rawValue');
+    expect(rawChunks[0]!.rawValue).toHaveProperty('id', 'chatcmpl-test');
+  });
+
+  it('should not emit raw chunks when includeRawChunks is false', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: false,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBe(0);
+  });
+
+  it('should not emit raw chunks when includeRawChunks is not specified', async () => {
+    prepareStreamResponse({ content: ['Hello'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    expect(rawChunks.length).toBe(0);
+  });
+
+  it('should emit raw chunks for each SSE event including usage chunk', async () => {
+    prepareStreamResponse({ content: ['Hello', ' World'] });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+
+    // Should have raw chunks for: initial, Hello, World, finish_reason, usage
+    expect(rawChunks.length).toBe(5);
+  });
+
+  it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: ['data: {unparsable}\n\n', 'data: [DONE]\n\n'],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+      includeRawChunks: true,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const rawChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+        chunk.type === 'raw',
+    );
+    const errorChunks = elements.filter(
+      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'error' }> =>
+        chunk.type === 'error',
+    );
+
+    // Raw chunk is emitted before error handling, useful for debugging
+    expect(rawChunks.length).toBe(1);
+    expect(errorChunks.length).toBe(1);
   });
 });

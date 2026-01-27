@@ -1,4 +1,5 @@
 import type {
+  JSONObject,
   LanguageModelV3,
   LanguageModelV3CallOptions,
   LanguageModelV3FinishReason,
@@ -217,6 +218,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
             response.usage?.completion_tokens_details?.reasoning_tokens ??
             undefined,
         },
+        raw: (response.usage as JSONObject) ?? undefined,
       },
       warnings: [],
       providerMetadata: {
@@ -313,10 +315,14 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         text: undefined,
         reasoning: undefined,
       },
+      raw: undefined,
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
     let provider: string | undefined;
+
+    // Track raw usage from the API response for usage.raw
+    let rawUsage: JSONObject | undefined;
 
     return {
       stream: response.pipeThrough(
@@ -325,6 +331,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
           LanguageModelV3StreamPart
         >({
           transform(chunk, controller) {
+            // Emit raw chunk if requested (before anything else)
+            if (options.includeRawChunks) {
+              controller.enqueue({ type: 'raw', rawValue: chunk.rawValue });
+            }
+
             // handle failed chunk parsing / validation:
             if (!chunk.success) {
               finishReason = createFinishReason('error');
@@ -348,6 +359,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
             if (value.usage != null) {
               usage.inputTokens.total = value.usage.prompt_tokens;
               usage.outputTokens.total = value.usage.completion_tokens;
+
+              // Store raw usage from the API response (cast to JSONObject since schema uses passthrough)
+              rawUsage = value.usage as JSONObject;
 
               // Collect OpenRouter specific usage information
               openrouterUsage.promptTokens = value.usage.prompt_tokens;
@@ -402,6 +416,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
           },
 
           flush(controller) {
+            // Set raw usage before emitting finish event
+            usage.raw = rawUsage;
+
             const openrouterMetadata: {
               usage: Partial<OpenRouterUsageAccounting>;
               provider?: string;
