@@ -37,11 +37,11 @@ export function convertToOpenRouterChatMessages(
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
 
-  // Track reasoning_details across all messages to prevent duplicates
+  // Track reasoning_details across all messages in this conversion to prevent duplicates.
   // This fixes issue #254 where the same reasoning ID appears in multiple
   // assistant messages during multi-turn conversations, causing the API
   // to reject the request with "Duplicate item found with id" error.
-  const globalReasoningDetailsTracker = new ReasoningDetailsDuplicateTracker();
+  const reasoningDetailsTracker = new ReasoningDetailsDuplicateTracker();
 
   for (const { role, content, providerOptions } of prompt) {
     switch (role) {
@@ -246,14 +246,19 @@ export function convertToOpenRouterChatMessages(
 
         // Deduplicate reasoning_details across all messages to prevent
         // "Duplicate item found with id" errors in multi-turn conversations.
-        // Only include reasoning_details that haven't been seen before.
+        // Only include reasoning_details that:
+        // 1. Haven't been seen before (not a duplicate)
+        // 2. Have a valid canonical key (can be tracked for deduplication)
+        // Details without valid keys are skipped entirely to avoid potential duplicates.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
           const uniqueDetails: ReasoningDetailUnion[] = [];
           for (const detail of candidateReasoningDetails) {
-            if (!globalReasoningDetailsTracker.has(detail)) {
-              globalReasoningDetailsTracker.upsert(detail);
-              uniqueDetails.push(detail);
+            if (!reasoningDetailsTracker.has(detail)) {
+              // Only add if upsert succeeds (detail has a valid canonical key)
+              if (reasoningDetailsTracker.upsert(detail)) {
+                uniqueDetails.push(detail);
+              }
             }
           }
           finalReasoningDetails =

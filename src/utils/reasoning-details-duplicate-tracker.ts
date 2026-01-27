@@ -30,16 +30,21 @@ export class ReasoningDetailsDuplicateTracker {
     return this.#entriesByKey.has(key);
   }
 
-  upsert(detail: ReasoningDetailUnion): void {
+  /**
+   * Adds or updates a detail in the tracker.
+   * Returns true if the detail was stored (has a valid canonical key),
+   * false if it was skipped (no valid key could be derived).
+   */
+  upsert(detail: ReasoningDetailUnion): boolean {
     const key = this.getCanonicalKey(detail);
     if (key === null) {
-      return;
+      return false;
     }
 
     const existingDetail = this.#entriesByKey.get(key);
     if (existingDetail === undefined) {
       this.#entriesByKey.set(key, detail);
-      return;
+      return true;
     }
 
     // Merge the 2 details to dedupe them, cherry pick only defined values
@@ -49,6 +54,7 @@ export class ReasoningDetailsDuplicateTracker {
       ...this.definedValues(existingDetail),
       ...this.definedValues(detail),
     } as ReasoningDetailUnion);
+    return true;
   }
 
   private definedValues<T extends Record<string, unknown>>(obj: T): Partial<T> {
