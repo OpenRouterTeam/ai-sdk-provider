@@ -425,6 +425,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             providerMetadata: {
               openrouter: {
                 content: annotation.url_citation.content ?? '',
+                startIndex: annotation.url_citation.start_index ?? 0,
+                endIndex: annotation.url_citation.end_index ?? 0,
               },
             },
           });
@@ -832,6 +834,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     providerMetadata: {
                       openrouter: {
                         content: annotation.url_citation.content ?? '',
+                        startIndex: annotation.url_citation.start_index ?? 0,
+                        endIndex: annotation.url_citation.end_index ?? 0,
                       },
                     },
                   });

@@ -2471,6 +2471,13 @@ describe('web search citations', () => {
       sourceType: 'url',
       url: 'https://example.com/page',
       title: '', // Should default to empty string
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
+        },
+      },
     });
   });
 
@@ -2529,6 +2536,67 @@ describe('web search citations', () => {
       providerMetadata: {
         openrouter: {
           content: 'Article content here',
+          startIndex: 5,
+          endIndex: 25,
+        },
+      },
+    });
+  });
+
+  it('should default startIndex and endIndex to 0 when missing', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-web-search',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet:online',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Here is information from the web.',
+              annotations: [
+                {
+                  type: 'url_citation',
+                  url_citation: {
+                    url: 'https://example.com/article',
+                    title: 'Article Without Indices',
+                    // start_index and end_index are missing
+                  },
+                },
+              ],
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      },
+    };
+
+    const result = await provider
+      .chat('anthropic/claude-3.5-sonnet:online')
+      .doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+    const sourceContent = result.content.find((c) => c.type === 'source');
+    expect(sourceContent).toBeDefined();
+    expect(sourceContent).toMatchObject({
+      type: 'source',
+      sourceType: 'url',
+      url: 'https://example.com/article',
+      title: 'Article Without Indices',
+      providerMetadata: {
+        openrouter: {
+          content: '',
+          startIndex: 0,
+          endIndex: 0,
         },
       },
     });
