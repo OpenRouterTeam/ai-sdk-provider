@@ -91,7 +91,11 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV3 {
         : undefined,
       providerMetadata: {
         openrouter: {
+          provider: responseValue.provider ?? '',
           usage: {
+            promptTokens: responseValue.usage?.prompt_tokens ?? 0,
+            completionTokens: 0,
+            totalTokens: responseValue.usage?.total_tokens ?? 0,
             ...(responseValue.usage?.cost != null
               ? { cost: responseValue.usage.cost }
               : {}),

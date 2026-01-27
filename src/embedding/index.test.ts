@@ -249,7 +249,12 @@ describe('OpenRouterEmbeddingModel', () => {
       expect(result.usage).toBeUndefined();
       expect(result.providerMetadata).toStrictEqual({
         openrouter: {
-          usage: {},
+          provider: '',
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
         },
       });
     });

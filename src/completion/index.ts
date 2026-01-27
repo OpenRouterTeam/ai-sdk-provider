@@ -26,6 +26,7 @@ import {
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import {
   createFinishReason,
   mapOpenRouterFinishReason,
@@ -219,7 +220,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       },
       warnings: [],
       providerMetadata: {
-        openrouter: {
+        openrouter: OpenRouterProviderMetadataSchema.parse({
+          provider: response.provider ?? '',
           usage: {
             promptTokens: response.usage?.prompt_tokens ?? 0,
             completionTokens: response.usage?.completion_tokens ?? 0,
@@ -255,7 +257,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
                 }
               : {}),
           },
-        },
+        }),
       },
       response: {
         headers: responseHeaders,
@@ -314,6 +316,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
     };
 
     const openrouterUsage: Partial<OpenRouterUsageAccounting> = {};
+    let provider: string | undefined;
+
     return {
       stream: response.pipeThrough(
         new TransformStream<
@@ -335,6 +339,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: value.error });
               return;
+            }
+
+            if (value.provider) {
+              provider = value.provider;
             }
 
             if (value.usage != null) {
@@ -394,14 +402,24 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
           },
 
           flush(controller) {
+            const openrouterMetadata: {
+              usage: Partial<OpenRouterUsageAccounting>;
+              provider?: string;
+            } = {
+              usage: openrouterUsage,
+            };
+
+            // Only include provider if it's actually set
+            if (provider !== undefined) {
+              openrouterMetadata.provider = provider;
+            }
+
             controller.enqueue({
               type: 'finish',
               finishReason,
               usage,
               providerMetadata: {
-                openrouter: {
-                  usage: openrouterUsage,
-                },
+                openrouter: openrouterMetadata,
               },
             });
           },
