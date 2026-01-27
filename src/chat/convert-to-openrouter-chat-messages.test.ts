@@ -333,8 +333,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // Non-text parts do NOT inherit message-level cache_control to avoid exceeding 4-segment limit
     expect(result).toEqual([
       {
         role: 'user',
@@ -342,12 +340,11 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: { type: 'ephemeral' }, // Last (and only) text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
             image_url: { url: 'data:image/png;base64,AAECAw==' },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
         ],
       },
@@ -395,8 +392,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // Non-text parts do NOT inherit message-level cache_control to avoid exceeding 4-segment limit
     expect(result).toEqual([
       {
         role: 'user',
@@ -404,17 +399,15 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: { type: 'ephemeral' }, // Last (and only) text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
             image_url: { url: 'data:image/png;base64,AAECAw==' },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
           {
             type: 'image_url',
             image_url: { url: 'data:image/jpeg;base64,BAUGBw==' },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
         ],
       },
@@ -446,8 +439,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // Non-text parts do NOT inherit message-level cache_control to avoid exceeding 4-segment limit
     expect(result).toEqual([
       {
         role: 'user',
@@ -455,7 +446,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: { type: 'ephemeral' }, // Last (and only) text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'file',
@@ -463,7 +454,6 @@ describe('cache control', () => {
               filename: 'file.txt',
               file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
         ],
       },
@@ -510,8 +500,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // Non-text parts only get cache_control if explicitly set on the part
     expect(result).toEqual([
       {
         role: 'user',
@@ -519,12 +507,12 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Hello',
-            cache_control: { type: 'ephemeral' }, // Last (and only) text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'image_url',
             image_url: { url: 'data:image/png;base64,AAECAw==' },
-            cache_control: { type: 'ephemeral' }, // Part-specific cache_control (explicitly set)
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'file',
@@ -532,7 +520,6 @@ describe('cache control', () => {
               filename: 'file.txt',
               file_data: 'data:text/plain;base64,ZmlsZSBjb250ZW50',
             },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
         ],
       },
@@ -556,8 +543,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // to avoid exceeding the 4-segment limit
     expect(result).toEqual([
       {
         role: 'user',
@@ -565,17 +550,15 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'First text part',
-            // No cache_control - not the last text part
           },
           {
             type: 'text',
             text: 'Second text part',
-            // No cache_control - not the last text part
           },
           {
             type: 'text',
             text: 'Third text part',
-            cache_control: { type: 'ephemeral' }, // Only the last text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
         ],
       },
@@ -760,8 +743,6 @@ describe('cache control', () => {
       },
     ]);
 
-    // Per Anthropic's docs, only the last text part should receive message-level cache_control
-    // Non-text parts (audio) do NOT inherit message-level cache_control to avoid exceeding 4-segment limit
     expect(result).toEqual([
       {
         role: 'user',
@@ -769,7 +750,7 @@ describe('cache control', () => {
           {
             type: 'text',
             text: 'Listen to this',
-            cache_control: { type: 'ephemeral' }, // Last (and only) text part gets cache_control
+            cache_control: { type: 'ephemeral' },
           },
           {
             type: 'input_audio',
@@ -777,7 +758,6 @@ describe('cache control', () => {
               data: 'AAECAw==',
               format: 'mp3',
             },
-            // No cache_control - non-text parts don't inherit message-level cache_control
           },
         ],
       },
