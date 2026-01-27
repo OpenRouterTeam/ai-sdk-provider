@@ -543,5 +543,82 @@ describe('OpenRouterImageModel', () => {
         totalTokens: 110,
       });
     });
+
+    it('should apply runtime providerOptions.openrouter to request', async () => {
+      let capturedRequest: Record<string, unknown> | undefined;
+
+      const mockFetchWithCapture = async (
+        _url: URL | RequestInfo,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        capturedRequest = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({
+            id: 'chatcmpl-test',
+            object: 'chat.completion',
+            created: 1711115037,
+            model: 'google/gemini-2.5-flash-image',
+            choices: [
+              {
+                index: 0,
+                message: {
+                  role: 'assistant',
+                  content: '',
+                  images: [
+                    {
+                      type: 'image_url',
+                      image_url: {
+                        url: `data:image/png;base64,${TEST_IMAGE_BASE64}`,
+                      },
+                    },
+                  ],
+                },
+                finish_reason: 'stop',
+              },
+            ],
+            usage: {
+              prompt_tokens: 10,
+              completion_tokens: 100,
+              total_tokens: 110,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetchWithCapture,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {
+          openrouter: {
+            custom_field: 'test_value',
+            provider: {
+              order: ['google'],
+            },
+          },
+        },
+      });
+
+      expect(capturedRequest?.custom_field).toBe('test_value');
+      expect(capturedRequest?.provider).toEqual({
+        order: ['google'],
+      });
+    });
   });
 });

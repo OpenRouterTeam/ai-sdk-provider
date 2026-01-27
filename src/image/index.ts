@@ -71,7 +71,11 @@ export class OpenRouterImageModel implements ImageModelV3 {
       mask,
       abortSignal,
       headers,
+      providerOptions,
     } = options;
+
+    const openrouterOptions =
+      (providerOptions?.openrouter as Record<string, unknown>) || {};
 
     const warnings: SharedV3Warning[] = [];
 
@@ -124,6 +128,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
       }),
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...openrouterOptions,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
