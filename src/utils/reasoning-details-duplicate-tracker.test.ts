@@ -194,8 +194,10 @@ describe('ReasoningDetailsDuplicateTracker', () => {
     });
   });
 
-  describe('cross-type collision prevention', () => {
-    it('should not collide when different types have same field value', () => {
+  describe('cross-type collision behavior (matches API)', () => {
+    it('should collide when different types have same field value', () => {
+      // This matches the OpenRouter API behavior - keys are not type-prefixed
+      // so different types with the same value will collide
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const summary: ReasoningDetailUnion = {
@@ -214,11 +216,13 @@ describe('ReasoningDetailsDuplicateTracker', () => {
       };
 
       expect(tracker.upsert(summary)).toBe(true);
-      expect(tracker.upsert(encrypted)).toBe(true);
-      expect(tracker.upsert(text)).toBe(true);
+      expect(tracker.upsert(encrypted)).toBe(false); // Collides with summary
+      expect(tracker.upsert(text)).toBe(false); // Collides with summary
     });
 
-    it('should not collide text field with signature field having same value', () => {
+    it('should collide text field with signature field having same value', () => {
+      // This matches the OpenRouter API behavior - text and signature use
+      // the same key space, so they will collide if they have the same value
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const textWithText: ReasoningDetailUnion = {
@@ -234,12 +238,14 @@ describe('ReasoningDetailsDuplicateTracker', () => {
       };
 
       expect(tracker.upsert(textWithText)).toBe(true);
-      expect(tracker.upsert(textWithSignature)).toBe(true);
+      expect(tracker.upsert(textWithSignature)).toBe(false); // Collides
     });
   });
 
-  describe('empty string handling', () => {
-    it('should treat empty string text as valid key', () => {
+  describe('empty string handling (matches API)', () => {
+    it('should treat empty string text as falsy and fall through to signature', () => {
+      // This matches the OpenRouter API behavior - empty strings are falsy
+      // so they fall through to the next field
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const detailWithEmptyText: ReasoningDetailUnion = {
@@ -254,12 +260,13 @@ describe('ReasoningDetailsDuplicateTracker', () => {
         signature: 'some-signature',
       };
 
-      // Empty string text should use "text:" key, not fall through to signature
+      // Empty string text falls through to signature, so both use 'some-signature' as key
       expect(tracker.upsert(detailWithEmptyText)).toBe(true);
-      expect(tracker.upsert(detailWithSignatureOnly)).toBe(true);
+      expect(tracker.upsert(detailWithSignatureOnly)).toBe(false); // Collides
     });
 
-    it('should treat empty string encrypted id as valid key', () => {
+    it('should treat empty string encrypted id as falsy and fall through to data', () => {
+      // This matches the OpenRouter API behavior - empty strings are falsy
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const detailWithEmptyId: ReasoningDetailUnion = {
@@ -273,9 +280,9 @@ describe('ReasoningDetailsDuplicateTracker', () => {
         data: 'some-data',
       };
 
-      // Empty string id should use "encrypted:" key, not fall through to data
+      // Empty string id falls through to data, so both use 'some-data' as key
       expect(tracker.upsert(detailWithEmptyId)).toBe(true);
-      expect(tracker.upsert(detailWithDataOnly)).toBe(true);
+      expect(tracker.upsert(detailWithDataOnly)).toBe(false); // Collides
     });
   });
 

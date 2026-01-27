@@ -10,10 +10,11 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
  * contains unique reasoning details, preventing "Duplicate item found with id"
  * errors in multi-turn conversations.
  *
- * The canonical key logic matches the OpenRouter API's deduplication:
+ * The canonical key logic matches the OpenRouter API's deduplication exactly
+ * (see openrouter-web/packages/llm-interfaces/reasonings/duplicate-tracker.ts):
  * - Summary: key = summary field
- * - Encrypted: key = id field (if present) or data field
- * - Text: key = text field (if present) or signature field
+ * - Encrypted: key = id field (if truthy) or data field
+ * - Text: key = text field (if truthy) or signature field (if truthy)
  */
 export class ReasoningDetailsDuplicateTracker {
   readonly #seenKeys = new Set<string>();
@@ -38,28 +39,24 @@ export class ReasoningDetailsDuplicateTracker {
   }
 
   private getCanonicalKey(detail: ReasoningDetailUnion): string | null {
-    // Prefix keys with type to prevent cross-type collisions.
-    // For example, a summary with summary="abc" and an encrypted with data="abc"
-    // would otherwise collide. The type prefix ensures they're treated as distinct.
+    // This logic matches the OpenRouter API's deduplication exactly.
+    // See: openrouter-web/packages/llm-interfaces/reasonings/duplicate-tracker.ts
     switch (detail.type) {
       case ReasoningDetailType.Summary:
-        return `summary:${detail.summary}`;
+        return detail.summary;
 
       case ReasoningDetailType.Encrypted:
-        // Use explicit null check to allow empty string IDs
-        if (detail.id != null) {
-          return `encrypted:${detail.id}`;
+        if (detail.id) {
+          return detail.id;
         }
-        return `encrypted:${detail.data}`;
+        return detail.data;
 
       case ReasoningDetailType.Text: {
-        // Use explicit null checks to allow empty strings as valid values
-        if (detail.text != null) {
-          return `text:${detail.text}`;
+        if (detail.text) {
+          return detail.text;
         }
-        if (detail.signature != null) {
-          // Use different prefix to avoid collision with text field
-          return `text-sig:${detail.signature}`;
+        if (detail.signature) {
+          return detail.signature;
         }
         return null;
       }
