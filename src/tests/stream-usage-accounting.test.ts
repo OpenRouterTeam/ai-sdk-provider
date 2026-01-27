@@ -176,4 +176,77 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       usage: {},
     });
   });
+
+  it('should include raw usage in finish event usage.raw field with original snake_case format', async () => {
+    prepareStreamResponse(true);
+
+    const settings: OpenRouterChatSettings = {
+      usage: { include: true },
+    };
+
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
+      headers: () => ({}),
+      compatibility: 'strict',
+      fetch: global.fetch,
+    });
+
+    const result = await model.doStream({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    const chunks = await convertReadableStreamToArray(result.stream);
+    const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
+    expect(finishChunk).toBeDefined();
+
+    // Verify usage.raw contains the original snake_case format from the API
+    expect(finishChunk?.usage?.raw).toBeDefined();
+    expect(finishChunk?.usage?.raw).toMatchObject({
+      prompt_tokens: 10,
+      prompt_tokens_details: { cached_tokens: 5 },
+      completion_tokens: 20,
+      completion_tokens_details: { reasoning_tokens: 8 },
+      total_tokens: 30,
+      cost: 0.0015,
+      cost_details: { upstream_inference_cost: 0.0019 },
+    });
+  });
+
+  it('should set usage.raw to undefined when no usage data in stream', async () => {
+    prepareStreamResponse(false);
+
+    const settings: OpenRouterChatSettings = {};
+
+    const model = new OpenRouterChatLanguageModel('test-model', settings, {
+      provider: 'openrouter.chat',
+      url: () => 'https://api.openrouter.ai/chat/completions',
+      headers: () => ({}),
+      compatibility: 'strict',
+      fetch: global.fetch,
+    });
+
+    const result = await model.doStream({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    const chunks = await convertReadableStreamToArray(result.stream);
+    const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
+    expect(finishChunk).toBeDefined();
+
+    // When no usage data, raw should be undefined
+    expect(finishChunk?.usage?.raw).toBeUndefined();
+  });
 });

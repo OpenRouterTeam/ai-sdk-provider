@@ -7,6 +7,6 @@ export function removeUndefinedEntries<T>(
   record: Record<string, T | undefined>,
 ): Record<string, T> {
   return Object.fromEntries(
-    Object.entries(record).filter(([, value]) => value !== null),
+    Object.entries(record).filter(([, value]) => value != null),
   ) as Record<string, T>;
 }
