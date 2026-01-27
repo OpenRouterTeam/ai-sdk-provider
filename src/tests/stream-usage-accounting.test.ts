@@ -1,11 +1,9 @@
 import type { OpenRouterChatSettings } from '../types/openrouter-chat-settings';
 
-import { describe, expect, it } from 'vitest';
+import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from '../chat';
-import {
-  convertReadableStreamToArray,
-  createTestServer,
-} from '../test-utils/test-server';
 
 describe('OpenRouter Streaming Usage Accounting', () => {
   const server = createTestServer({
@@ -13,6 +11,10 @@ describe('OpenRouter Streaming Usage Accounting', () => {
       response: { type: 'stream-chunks', chunks: [] },
     },
   });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
 
   function prepareStreamResponse(includeUsage = true) {
     const chunks = [

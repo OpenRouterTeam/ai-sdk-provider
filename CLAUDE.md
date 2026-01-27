@@ -65,9 +65,15 @@ Test files are co-located with source: `src/chat/index.test.ts` tests `src/chat/
 - Tests may use explicit any and console (configured in biome.json overrides)
 - Import organization: type imports first, then regular imports, then aliases
 
-## PR Requirements
+## Dev Workflow
 
-1. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
-2. Add changeset: `pnpm changeset` (or `pnpm changeset --empty` for non-release changes)
-3. PR titles: `fix:`, `feat:`, `docs:`, `test:`, `chore:` prefixes
-4. Branch naming: Use `claude/` prefix for branches (e.g., `claude/fix-reasoning-duplicates`)
+After completing any implementation task, automatically:
+
+1. Commit **all** changes (including `package.json`, `pnpm-lock.yaml`)
+2. Run `pnpm stylecheck && pnpm typecheck && pnpm test && pnpm build`
+3. Add changeset (`pnpm changeset --empty` for non-user-facing changes)
+4. Create PR on a `claude/` branch using the template in `.github/PULL_REQUEST_TEMPLATE.md`
+5. Wait for CI to pass, fix any issues
+6. Provide the PR link when complete
+
+**Key principle**: Always ensure git state is clean and CI passes before considering work complete. Local tests can pass with uncommitted dependency changes - CI is the source of truth.

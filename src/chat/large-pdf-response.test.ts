@@ -1,8 +1,8 @@
 import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
 
-import { describe, expect, it } from 'vitest';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
-import { createTestServer } from '../test-utils/test-server';
 
 const TEST_PROMPT: LanguageModelV3Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
@@ -16,6 +16,10 @@ const provider = createOpenRouter({
 const server = createTestServer({
   'https://test.openrouter.ai/api/v1/chat/completions': {},
 });
+
+beforeAll(() => server.server.start());
+afterEach(() => server.server.reset());
+afterAll(() => server.server.stop());
 
 describe('Large PDF Response Handling', () => {
   describe('doGenerate', () => {
