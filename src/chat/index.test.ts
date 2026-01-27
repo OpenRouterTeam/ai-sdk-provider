@@ -529,7 +529,7 @@ describe('doGenerate', () => {
     );
   });
 
-  it('should handle tool calls with missing arguments field (Anthropic Haiku)', async () => {
+  it('should default to empty JSON object when tool call arguments field is missing', async () => {
     prepareJsonResponse({
       content: '',
       tool_calls: [
@@ -538,7 +538,6 @@ describe('doGenerate', () => {
           type: 'function',
           function: {
             name: 'get_current_time',
-            // arguments field is omitted - some models like Anthropic Haiku do this
           },
         },
       ],
@@ -549,7 +548,6 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    // Should default to empty JSON object when arguments is missing
     expect(result.content).toContainEqual(
       expect.objectContaining({
         type: 'tool-call',

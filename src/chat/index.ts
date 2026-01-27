@@ -390,7 +390,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           type: 'tool-call' as const,
           toolCallId: toolCall.id ?? generateId(),
           toolName: toolCall.function.name,
-          // Some models (e.g., Anthropic Haiku) may omit arguments field when there are no arguments
           input: toolCall.function.arguments ?? '{}',
           providerMetadata: !reasoningDetailsAttachedToToolCall
             ? {
