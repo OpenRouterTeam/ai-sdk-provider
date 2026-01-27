@@ -16,28 +16,12 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
  * - Text: key = text field (if present) or signature field
  */
 export class ReasoningDetailsDuplicateTracker {
-  readonly #entriesByKey = new Map<string, ReasoningDetailUnion>();
-
-  getAll(): ReasoningDetailUnion[] {
-    return Array.from(this.#entriesByKey.values());
-  }
-
-  has(detail: ReasoningDetailUnion): boolean {
-    const key = this.getCanonicalKey(detail);
-    if (key === null) {
-      return false;
-    }
-    return this.#entriesByKey.has(key);
-  }
+  readonly #seenKeys = new Set<string>();
 
   /**
-   * Adds or updates a detail in the tracker.
-   * Returns true if this is a NEW detail (not seen before),
-   * false if it was skipped (no valid key) or already existed (merged).
-   *
-   * When a detail with the same canonical key already exists, the new detail
-   * is merged with the existing one (defined values from new detail override),
-   * but false is returned since it's not a new unique detail.
+   * Attempts to track a detail.
+   * Returns true if this is a NEW detail (not seen before and has valid key),
+   * false if it was skipped (no valid key) or already seen (duplicate).
    */
   upsert(detail: ReasoningDetailUnion): boolean {
     const key = this.getCanonicalKey(detail);
@@ -45,31 +29,12 @@ export class ReasoningDetailsDuplicateTracker {
       return false;
     }
 
-    const existingDetail = this.#entriesByKey.get(key);
-    if (existingDetail === undefined) {
-      this.#entriesByKey.set(key, detail);
-      return true;
+    if (this.#seenKeys.has(key)) {
+      return false;
     }
 
-    // Merge the 2 details to dedupe them, cherry pick only defined values
-    // The type assertion is safe because we're merging two details of the same
-    // canonical key, which means they have the same discriminated type
-    this.#entriesByKey.set(key, {
-      ...this.definedValues(existingDetail),
-      ...this.definedValues(detail),
-    } as ReasoningDetailUnion);
-    // Return false because this is not a NEW detail - it already existed
-    return false;
-  }
-
-  private definedValues<T extends Record<string, unknown>>(obj: T): Partial<T> {
-    const result: Partial<T> = {};
-    for (const key of Object.keys(obj) as Array<keyof T>) {
-      if (obj[key] !== undefined) {
-        result[key] = obj[key];
-      }
-    }
-    return result;
+    this.#seenKeys.add(key);
+    return true;
   }
 
   private getCanonicalKey(detail: ReasoningDetailUnion): string | null {
