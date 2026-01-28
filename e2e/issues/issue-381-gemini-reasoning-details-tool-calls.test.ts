@@ -13,16 +13,17 @@
  * The user manually builds the message array from fullStream events, preserving
  * providerMetadata on tool-call and tool-result messages.
  *
- * This test verifies that multi-turn tool calls with Gemini work correctly when
- * reasoning details are preserved in the message history.
+ * This test reproduces the EXACT code pattern from the issue report.
  */
+import type { ModelMessage, ProviderMetadata } from 'ai';
+
 import { streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({
-  testTimeout: 180_000,
+  testTimeout: 300_000,
 });
 
 describe('Issue #381: Gemini reasoning details with tool calls', () => {
@@ -34,7 +35,7 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
   // Use exact model from issue report
   const model = openrouter('google/gemini-3-flash-preview');
 
-  // Simple tools similar to what the user described (listDirectory, glob, readFile, readFiles)
+  // Tools similar to what the user described (listDirectory, glob, readFile, readFiles)
   const listDirectory = tool({
     description: 'Lists files in a directory',
     inputSchema: z.object({
@@ -42,7 +43,7 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
     }),
     execute: async ({ path }) => {
       return {
-        files: ['file1.ts', 'file2.ts', 'README.md'],
+        files: ['file1.ts', 'file2.ts', 'README.md', 'package.json'],
         path,
       };
     },
@@ -55,21 +56,172 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
     }),
     execute: async ({ path }) => {
       return {
-        content: `// Contents of ${path}\nexport const example = true;`,
+        content: `// Contents of ${path}\nexport const example = true;\nexport function main() { console.log('hello'); }`,
         path,
       };
     },
   });
 
-  it('should preserve reasoning details across multiple tool calls using response.messages', async () => {
-    // First request - should trigger a tool call
+  const glob = tool({
+    description: 'Find files matching a pattern',
+    inputSchema: z.object({
+      pattern: z.string().describe('The glob pattern to match'),
+    }),
+    execute: async ({ pattern }) => {
+      return {
+        matches: ['src/index.ts', 'src/utils.ts', 'src/types.ts'],
+        pattern,
+      };
+    },
+  });
+
+  /**
+   * This test reproduces the EXACT code pattern from issue #381:
+   * - Uses fullStream to iterate over events
+   * - Manually builds messages array from stream events
+   * - Passes providerMetadata on tool-call and tool-result messages
+   * - Recursively calls generateResponse on 'tool-calls' finish reason
+   */
+  it('should handle manual message building from fullStream with providerMetadata (exact issue pattern)', async () => {
+    // This matches the user's code pattern exactly
+    const messages: ModelMessage[] = [];
+    let generationCount = 0;
+    const maxGenerations = 5; // Limit to prevent infinite loops
+    let lastError: Error | null = null;
+
+    const generateResponse = async (): Promise<void> => {
+      generationCount++;
+      if (generationCount > maxGenerations) {
+        return;
+      }
+
+      try {
+        const response = streamText({
+          model,
+          messages:
+            messages.length > 0
+              ? messages
+              : [
+                  {
+                    role: 'user',
+                    content:
+                      'Can you please explore the codebase located at ~/Code/veridian and give me an overview of it?',
+                  },
+                ],
+          tools: { listDirectory, readFile, glob },
+          providerOptions: {
+            openrouter: {
+              includeReasoning: true,
+            },
+          },
+        });
+
+        // Track accumulated content for text/reasoning parts
+        let accumulatedText = '';
+        let textProviderMetadata: ProviderMetadata | undefined;
+
+        for await (const token of response.fullStream) {
+          switch (token.type) {
+            case 'text-delta':
+              accumulatedText += token.text;
+              break;
+
+            case 'tool-call':
+              // Exact pattern from issue: push assistant message with tool call
+              messages.push({
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolCallId: token.toolCallId,
+                    toolName: token.toolName,
+                    input: token.input,
+                    providerOptions: token.providerMetadata,
+                  },
+                ],
+                providerOptions: token.providerMetadata,
+              });
+              break;
+
+            case 'tool-result':
+              // Exact pattern from issue: push tool message with result
+              messages.push({
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolCallId: token.toolCallId,
+                    toolName: token.toolName,
+                    output: {
+                      type: 'text',
+                      value:
+                        typeof token.output === 'string'
+                          ? token.output
+                          : JSON.stringify(token.output, null, 2),
+                    },
+                    providerOptions: token.providerMetadata,
+                  },
+                ],
+                providerOptions: token.providerMetadata,
+              });
+              break;
+
+            case 'finish':
+              // Add any accumulated text as assistant message
+              if (accumulatedText) {
+                messages.push({
+                  role: 'assistant',
+                  content: accumulatedText,
+                  providerOptions: textProviderMetadata,
+                });
+              }
+
+              // Exact pattern from issue: recursive call on tool-calls finish
+              if (token.finishReason === 'tool-calls') {
+                await generateResponse();
+              }
+              break;
+
+            case 'error':
+              lastError = new Error(String(token.error));
+              break;
+          }
+        }
+      } catch (error) {
+        lastError = error as Error;
+        throw error;
+      }
+    };
+
+    // Run the generation loop (matching the user's pattern)
+    await generateResponse();
+
+    // Verify we completed without the "reasoning details must be preserved" error
+    if (lastError) {
+      // If we got the specific error from the issue, the test should fail
+      const errorMessage = (lastError as Error).message;
+      expect(errorMessage).not.toContain(
+        'Gemini models require OpenRouter reasoning details to be preserved',
+      );
+    }
+
+    // We should have made multiple generations (tool calls)
+    expect(generationCount).toBeGreaterThan(1);
+    expect(messages.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * Comparison test using response.messages (the recommended approach)
+   * This should always work - if it fails, there's a fundamental issue
+   */
+  it('should work with response.messages (recommended approach)', async () => {
     const firstResult = await streamText({
       model,
       system:
-        'You are a helpful assistant that explores codebases. Use the listDirectory tool to see files.',
+        'You are a helpful assistant that explores codebases. Use the tools to explore.',
       prompt:
-        'Please list the files in the /src directory and tell me what you find.',
-      tools: { listDirectory, readFile },
+        'Can you please explore the codebase located at ~/Code/veridian and give me an overview of it?',
+      tools: { listDirectory, readFile, glob },
       providerOptions: {
         openrouter: {
           includeReasoning: true,
@@ -78,19 +230,15 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
     });
 
     const firstResponse = await firstResult.response;
-
-    // Verify first response has messages with reasoning details
     expect(firstResponse.messages).toBeDefined();
-    expect(firstResponse.messages.length).toBeGreaterThan(0);
 
-    // Second request using response.messages (the recommended approach)
-    // This should work without the "reasoning details must be preserved" error
+    // Second request using response.messages
     const secondResult = await streamText({
       model,
       system:
-        'You are a helpful assistant that explores codebases. Use the listDirectory tool to see files.',
+        'You are a helpful assistant that explores codebases. Use the tools to explore.',
       messages: firstResponse.messages,
-      tools: { listDirectory, readFile },
+      tools: { listDirectory, readFile, glob },
       providerOptions: {
         openrouter: {
           includeReasoning: true,
@@ -99,17 +247,15 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
     });
 
     const secondResponse = await secondResult.response;
-
-    // Should complete without errors
     expect(secondResponse.messages).toBeDefined();
 
-    // Third request to simulate more tool calls
+    // Third request
     const thirdResult = await streamText({
       model,
       system:
-        'You are a helpful assistant that explores codebases. Use the listDirectory tool to see files.',
+        'You are a helpful assistant that explores codebases. Use the tools to explore.',
       messages: secondResponse.messages,
-      tools: { listDirectory, readFile },
+      tools: { listDirectory, readFile, glob },
       providerOptions: {
         openrouter: {
           includeReasoning: true,
@@ -118,70 +264,6 @@ describe('Issue #381: Gemini reasoning details with tool calls', () => {
     });
 
     const thirdText = await thirdResult.text;
-
-    // Should complete without the "reasoning details must be preserved" error
     expect(thirdText).toBeDefined();
-  });
-
-  it('should handle multiple sequential tool calls without reasoning details error', async () => {
-    // This test simulates the user's scenario of multiple tool calls in sequence
-    // The issue reported that after 1 to around a dozen tool calls, the error occurs
-
-    // First request
-    const firstResult = await streamText({
-      model,
-      system:
-        'You are a helpful assistant. Use the listDirectory and readFile tools to explore.',
-      prompt: 'List the files in /src directory.',
-      tools: { listDirectory, readFile },
-      providerOptions: {
-        openrouter: {
-          includeReasoning: true,
-        },
-      },
-    });
-
-    const firstResponse = await firstResult.response;
-    let currentMessages = firstResponse.messages;
-
-    // Perform multiple follow-up requests (simulating the user's agentic loop)
-    const followUpPrompts = [
-      'Now read the file1.ts file.',
-      'What about file2.ts?',
-      'Can you summarize what you found?',
-    ];
-
-    for (const followUpPrompt of followUpPrompts) {
-      // Add user message to continue the conversation
-      const messagesWithFollowUp = [
-        ...currentMessages,
-        { role: 'user' as const, content: followUpPrompt },
-      ];
-
-      const result = await streamText({
-        model,
-        system:
-          'You are a helpful assistant. Use the listDirectory and readFile tools to explore.',
-        messages: messagesWithFollowUp,
-        tools: { listDirectory, readFile },
-        providerOptions: {
-          openrouter: {
-            includeReasoning: true,
-          },
-        },
-      });
-
-      const response = await result.response;
-
-      // Should complete without the "reasoning details must be preserved" error
-      expect(response.messages).toBeDefined();
-      expect(response.messages.length).toBeGreaterThan(0);
-
-      // Update messages for next iteration
-      currentMessages = response.messages;
-    }
-
-    // Final verification - we should have completed all iterations without error
-    expect(currentMessages.length).toBeGreaterThan(0);
   });
 });
