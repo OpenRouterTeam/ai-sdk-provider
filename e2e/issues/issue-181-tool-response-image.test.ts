@@ -4,25 +4,16 @@
  *
  * Issue: "tool response for image not working"
  *
- * Root cause: The `getToolResultContent` function in convert-to-openrouter-chat-messages.ts
- * only returns strings. When a tool result contains multimodal content (images via the
- * AI SDK v3 'content' output type), the content is JSON.stringified rather than being
- * converted to the OpenRouter multimodal format (image_url).
+ * Reported behavior: When a tool returns an image in its response using the AI SDK's
+ * toModelOutput with multimodal content, the model cannot view or interpret the image.
  *
- * Current behavior: This is expected behavior because the OpenRouter API backend does not
- * currently support multimodal content in tool messages. The backend extracts only text
- * from tool message content arrays, so properly formatting images would not help.
- *
- * This test documents the current behavior and serves as a regression monitor for when
- * multimodal tool results may be supported in the future.
+ * Observed behavior: Tool results with multimodal content (images) are JSON.stringified.
  */
 import { describe, expect, it } from 'vitest';
 import { convertToOpenRouterChatMessages } from '@/src/chat/convert-to-openrouter-chat-messages';
 
 describe('Issue #181: Tool response for image not working', () => {
-  it('should stringify tool result with content type containing image (current behavior)', () => {
-    // This test documents that tool results with multimodal content are stringified
-    // rather than converted to image_url format
+  it('should stringify tool result with content type containing image', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -50,17 +41,14 @@ describe('Issue #181: Tool response for image not working', () => {
       },
     ]);
 
-    // The tool message content should be a string (JSON stringified)
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
       role: 'tool',
       tool_call_id: 'call-123',
     });
 
-    // Content is stringified, not converted to multimodal format
     expect(typeof result[0]?.content).toBe('string');
 
-    // The stringified content contains the original structure
     const content = result[0]?.content as string;
     expect(content).toContain('"type":"text"');
     expect(content).toContain('"type":"file-data"');
@@ -84,7 +72,6 @@ describe('Issue #181: Tool response for image not working', () => {
                   text: 'Generated image:',
                 },
                 {
-                  // file-url type doesn't have mediaType in AI SDK v3
                   type: 'file-url',
                   url: 'https://example.com/generated-image.png',
                 },
@@ -153,18 +140,14 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-abc',
     });
 
-    // JSON output is also stringified
     const content = result[0]?.content as string;
     expect(content).toBe(
       '{"temperature":72,"unit":"F","location":"San Francisco"}',
     );
   });
 
-  it('should stringify tool result with file-data type (AI SDK v3 format for issue #181)', () => {
-    // This test reproduces issue #181 using the latest AI SDK v3 format.
-    // The original issue used { type: "media", ... } which is the V2 format.
-    // In AI SDK v3, the equivalent is { type: "file-data", data: ..., mediaType: ... }
-    // The behavior is the same: multimodal content in tool results is stringified.
+  it('should stringify tool result with file-data type (reproduces issue #181)', () => {
+    // Reproduces issue #181 using AI SDK v3 format (file-data instead of V2's media type)
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -177,10 +160,9 @@ describe('Issue #181: Tool response for image not working', () => {
               type: 'content',
               value: [
                 {
-                  // AI SDK v3 format for base64 image data (equivalent to V2's "media" type)
                   type: 'file-data',
                   mediaType: 'image/jpeg',
-                  // Truncated version of the flower JPEG from the original issue
+                  // Truncated JPEG from the original issue
                   data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
                 },
               ],
@@ -196,8 +178,6 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-original-issue',
     });
 
-    // Content is stringified, not converted to image_url format
-    // This is the core issue: the model cannot "see" the image because it's just a JSON string
     expect(typeof result[0]?.content).toBe('string');
 
     const content = result[0]?.content as string;
