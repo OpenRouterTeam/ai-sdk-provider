@@ -4,6 +4,10 @@
  *
  * Issue: "Delayed caching with GPT 4.1, none with Kimi K2 Thinking"
  *
+ * The user reported that with GPT 4.1, native_tokens_cached was 0 for the first
+ * two requests and only showed cached tokens on the third request. With Kimi K2
+ * Thinking, no caching occurred at all even with 8171 native prompt tokens.
+ *
  * Root cause: The "delayed caching" behavior is expected for automatic prompt
  * caching. Automatic caching (used by OpenAI, Moonshot, Groq) works by:
  * 1. First request: Cache is written (no savings visible yet)
@@ -14,17 +18,25 @@
  * upstream API issues, not ai-sdk-provider bugs.
  *
  * This test verifies that:
- * - The provider correctly extracts cached_tokens from OpenRouter responses
- * - The usage.inputTokens.cacheRead field is properly populated
- * - Automatic caching shows expected "delayed" behavior (cache read on 2nd request)
+ * - The provider correctly exposes cachedTokens in providerMetadata when present
+ * - The response structure is valid regardless of whether caching occurs
  */
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({
-  testTimeout: 120_000,
+  testTimeout: 180_000,
 });
+
+// Type for OpenRouter provider metadata usage structure
+interface OpenRouterUsageMetadata {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  promptTokensDetails?: { cachedTokens?: number };
+  completionTokensDetails?: { reasoningTokens?: number };
+}
 
 describe('Issue #234: Prompt caching behavior', () => {
   const openrouter = createOpenRouter({
@@ -49,120 +61,109 @@ Remember to be helpful and concise in your responses.`;
   describe('GPT 4.1 automatic caching', () => {
     const model = openrouter('openai/gpt-4.1');
 
-    it('should report cached_tokens in usage when cache is hit', async () => {
-      // First request - writes to cache (no cached_tokens expected)
-      const firstResponse = await generateText({
-        model,
-        messages: [
-          { role: 'system', content: longSystemPrompt },
-          {
-            role: 'user',
-            content: 'What is 2+2? Answer with just the number.',
-          },
-        ],
-      });
+    it('should correctly expose cachedTokens in providerMetadata structure', async () => {
+      // Make 3 consecutive requests with identical prompts (matching the issue scenario)
+      // The user reported: request 1 & 2 had 0 cached tokens, request 3 had 1536
+      const responses: Array<{
+        text: string;
+        promptTokens: number;
+        cachedTokens: number | undefined;
+      }> = [];
 
-      expect(firstResponse.text).toBeDefined();
-      expect(firstResponse.usage).toBeDefined();
+      for (let i = 0; i < 3; i++) {
+        const response = await generateText({
+          model,
+          messages: [
+            { role: 'system', content: longSystemPrompt },
+            {
+              role: 'user',
+              content: 'What is 2+2? Answer with just the number.',
+            },
+          ],
+        });
 
-      // Verify usage structure is correct
-      expect(firstResponse.usage.totalTokens).toBeGreaterThan(0);
+        // Verify basic response validity
+        expect(response.text).toBeDefined();
+        expect(response.text.length).toBeGreaterThan(0);
+        expect(response.finishReason).toBeDefined();
 
-      // Check provider metadata for detailed usage
-      const openrouterMetadata = firstResponse.providerMetadata?.openrouter as
-        | {
-            usage?: {
-              promptTokens?: number;
-              completionTokens?: number;
-              promptTokensDetails?: { cachedTokens?: number };
-            };
-          }
-        | undefined;
+        // Verify usage structure
+        expect(response.usage).toBeDefined();
+        expect(response.usage.totalTokens).toBeGreaterThan(0);
 
-      // Verify detailed usage is available in provider metadata
-      expect(openrouterMetadata?.usage?.promptTokens).toBeGreaterThan(0);
-      expect(openrouterMetadata?.usage?.completionTokens).toBeGreaterThan(0);
+        // Verify providerMetadata structure exists
+        expect(response.providerMetadata).toBeDefined();
+        expect(response.providerMetadata?.openrouter).toBeDefined();
 
-      // First request typically has 0 cached tokens (cache write)
-      const firstCachedTokens =
-        openrouterMetadata?.usage?.promptTokensDetails?.cachedTokens ?? 0;
+        const openrouterMetadata = response.providerMetadata?.openrouter as {
+          usage?: OpenRouterUsageMetadata;
+        };
 
-      // Second request - should read from cache
-      const secondResponse = await generateText({
-        model,
-        messages: [
-          { role: 'system', content: longSystemPrompt },
-          {
-            role: 'user',
-            content: 'What is 2+2? Answer with just the number.',
-          },
-        ],
-      });
+        // Verify usage is available in provider metadata
+        expect(openrouterMetadata?.usage).toBeDefined();
+        expect(openrouterMetadata?.usage?.promptTokens).toBeGreaterThan(0);
+        expect(openrouterMetadata?.usage?.completionTokens).toBeGreaterThan(0);
 
-      expect(secondResponse.text).toBeDefined();
-      expect(secondResponse.usage).toBeDefined();
+        // Extract cached tokens from providerMetadata (maps to native_tokens_cached)
+        const cachedTokens =
+          openrouterMetadata?.usage?.promptTokensDetails?.cachedTokens;
 
-      const secondOpenrouterMetadata = secondResponse.providerMetadata
-        ?.openrouter as
-        | { usage?: { promptTokensDetails?: { cachedTokens?: number } } }
-        | undefined;
+        responses.push({
+          text: response.text,
+          promptTokens: openrouterMetadata?.usage?.promptTokens ?? 0,
+          cachedTokens,
+        });
 
-      const secondCachedTokens =
-        secondOpenrouterMetadata?.usage?.promptTokensDetails?.cachedTokens ?? 0;
-
-      // The key verification: if caching is working, second request should have
-      // more cached tokens than first request (or at least some cached tokens)
-      // Note: We use >= because caching behavior depends on server-side routing
-      // and cache availability, which we cannot fully control in tests
-      console.log(
-        `First request cached tokens: ${firstCachedTokens}, Second request cached tokens: ${secondCachedTokens}`,
-      );
-
-      // Verify the provider correctly reports whatever OpenRouter returns
-      // The cached tokens should be a non-negative number
-      expect(typeof secondCachedTokens).toBe('number');
-      expect(secondCachedTokens).toBeGreaterThanOrEqual(0);
-
-      // If caching worked, second request should have cached tokens
-      // This is a soft assertion - caching may not always work due to server routing
-      if (secondCachedTokens > 0) {
-        expect(secondCachedTokens).toBeGreaterThan(firstCachedTokens);
+        // If cachedTokens is present, verify it's correctly typed
+        if (cachedTokens !== undefined) {
+          expect(typeof cachedTokens).toBe('number');
+          expect(cachedTokens).toBeGreaterThanOrEqual(0);
+        }
       }
-    });
 
-    it('should include cacheRead in usage.inputTokens when cached', async () => {
-      // Make two requests to trigger cache
-      await generateText({
-        model,
-        messages: [
-          { role: 'system', content: longSystemPrompt },
-          { role: 'user', content: 'Say hello.' },
-        ],
+      // Log all responses for debugging (matches the issue's format)
+      console.log('GPT 4.1 caching test results:');
+      responses.forEach((r, i) => {
+        console.log(
+          `  Request ${i + 1}: promptTokens=${r.promptTokens}, cachedTokens=${r.cachedTokens ?? 'undefined'}`,
+        );
       });
 
-      const response = await generateText({
-        model,
-        messages: [
-          { role: 'system', content: longSystemPrompt },
-          { role: 'user', content: 'Say hello.' },
-        ],
+      // Verify the provider correctly structures all responses
+      // The key assertion: all responses have valid structure
+      responses.forEach((r) => {
+        expect(r.promptTokens).toBeGreaterThan(0);
+        // cachedTokens may be undefined or a number - both are valid
+        if (r.cachedTokens !== undefined) {
+          expect(r.cachedTokens).toBeGreaterThanOrEqual(0);
+        }
       });
 
-      // Verify the raw usage object is available
-      expect(response.usage).toBeDefined();
-
-      // The provider should correctly structure the usage response
-      // Even if caching doesn't occur, the structure should be valid
-      expect(response.usage.totalTokens).toBeGreaterThan(0);
+      // If caching worked (any request has cachedTokens > 0), verify it's on a later request
+      const cachedRequest = responses.findIndex(
+        (r) => r.cachedTokens !== undefined && r.cachedTokens > 0,
+      );
+      if (cachedRequest > 0) {
+        console.log(`  Cache hit detected on request ${cachedRequest + 1}`);
+        // Verify earlier requests had 0 or undefined cached tokens
+        for (let i = 0; i < cachedRequest; i++) {
+          const earlier = responses[i]?.cachedTokens;
+          expect(earlier === undefined || earlier === 0).toBe(true);
+        }
+      } else if (cachedRequest === -1) {
+        console.log(
+          '  No cache hit detected (expected - caching depends on server routing)',
+        );
+      }
     });
   });
 
   describe('Kimi K2 automatic caching', () => {
-    // Note: Kimi K2 caching behavior depends on upstream Groq/OpenRouter API
-    // This test verifies the provider correctly handles whatever is returned
     const model = openrouter('moonshotai/kimi-k2-thinking');
 
-    it('should handle Kimi K2 responses with or without cached_tokens', async () => {
+    it('should correctly expose usage structure for Kimi K2 responses', async () => {
+      // The user reported no caching with Kimi K2 even with 8171 native prompt tokens
+      // This test verifies the provider correctly handles the response structure
       const response = await generateText({
         model,
         messages: [
@@ -174,31 +175,48 @@ Remember to be helpful and concise in your responses.`;
         ],
       });
 
+      // Verify basic response validity
       expect(response.text).toBeDefined();
+      expect(response.text.length).toBeGreaterThan(0);
+      expect(response.finishReason).toBeDefined();
+
+      // Verify usage structure
       expect(response.usage).toBeDefined();
       expect(response.usage.totalTokens).toBeGreaterThan(0);
 
-      // Verify provider metadata is accessible
-      const openrouterMetadata = response.providerMetadata?.openrouter as
-        | {
-            usage?: {
-              promptTokens?: number;
-              promptTokensDetails?: { cachedTokens?: number };
-            };
-          }
-        | undefined;
+      // Verify providerMetadata structure exists
+      expect(response.providerMetadata).toBeDefined();
+      expect(response.providerMetadata?.openrouter).toBeDefined();
 
-      // The provider should correctly report usage even if cached_tokens is not present
-      if (openrouterMetadata?.usage) {
-        expect(openrouterMetadata.usage.promptTokens).toBeGreaterThan(0);
-      }
+      const openrouterMetadata = response.providerMetadata?.openrouter as {
+        usage?: OpenRouterUsageMetadata;
+      };
 
-      // If cached_tokens is present, it should be a valid number
+      // Verify usage is available in provider metadata
+      expect(openrouterMetadata?.usage).toBeDefined();
+      expect(openrouterMetadata?.usage?.promptTokens).toBeGreaterThan(0);
+
+      // Log the response for debugging
+      console.log('Kimi K2 test results:');
+      console.log(
+        `  promptTokens=${openrouterMetadata?.usage?.promptTokens}, cachedTokens=${openrouterMetadata?.usage?.promptTokensDetails?.cachedTokens ?? 'undefined'}`,
+      );
+
+      // If cachedTokens is present, verify it's correctly typed
       const cachedTokens =
         openrouterMetadata?.usage?.promptTokensDetails?.cachedTokens;
       if (cachedTokens !== undefined) {
         expect(typeof cachedTokens).toBe('number');
         expect(cachedTokens).toBeGreaterThanOrEqual(0);
+      }
+
+      // If reasoningTokens is present (Kimi K2 is a thinking model), verify it
+      const reasoningTokens =
+        openrouterMetadata?.usage?.completionTokensDetails?.reasoningTokens;
+      if (reasoningTokens !== undefined) {
+        expect(typeof reasoningTokens).toBe('number');
+        expect(reasoningTokens).toBeGreaterThanOrEqual(0);
+        console.log(`  reasoningTokens=${reasoningTokens}`);
       }
     });
   });
