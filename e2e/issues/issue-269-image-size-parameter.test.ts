@@ -4,15 +4,24 @@
  *
  * Issue: "Add support for image_size parameter for google/gemini-3-pro-image-preview"
  *
- * The user reports that while aspect_ratio is supported via image_config,
- * the image_size parameter (values: "1K", "2K", "4K") is not supported.
- * They request: "The API should include a parameter that allows requesting
- * specific resolutions (1k, 2k, 4k)."
+ * The user reports using the OpenRouter API to generate images via:
+ * - model: "google/gemini-3-pro-image-preview"
+ * - endpoint: /chat/completions
+ * - modalities: ["image", "text"]
+ *
+ * Currently supports: { "image_config": { "aspect_ratio": "16:9" } }
+ * Does NOT support: { "image_config": { "image_size": "4k" } }
+ *
+ * The user requests: "The API should include a parameter that allows
+ * requesting specific resolutions (1k, 2k, 4k)."
+ *
+ * A commenter confirms: "whatever I send as image_size it's always generating
+ * 1024x1024 px, it does not work."
  *
  * Status: UNRESOLVED - The image_size parameter can be passed through the SDK
- * via providerOptions, but it does not actually affect the output resolution.
- * Both 1K and 2K requests return identical 1024x1024 images.
+ * but it does not actually affect the output resolution.
  */
+import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
@@ -61,110 +70,144 @@ function getImageDimensions(base64Data: string): {
   throw new Error('Unable to determine image dimensions - unsupported format');
 }
 
-describe('Issue #269: image_size parameter for Gemini image generation', () => {
+function extractBase64FromDataUrl(dataUrl: string): string {
+  const match = dataUrl.match(/^data:[^;]+;base64,(.+)$/);
+  if (match?.[1]) {
+    return match[1];
+  }
+  return dataUrl;
+}
+
+describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview', () => {
   const openrouter = createOpenRouter({
     apiKey: process.env.OPENROUTER_API_KEY,
   });
 
   describe('Feature request: image_size should produce different resolutions', () => {
-    it('should generate higher resolution image with 2K vs 1K image_size', async () => {
-      const model = openrouter.imageModel('google/gemini-2.5-flash-image');
-
-      const result1K = await model.doGenerate({
-        prompt: 'A simple red circle on a white background',
-        n: 1,
-        size: undefined,
-        aspectRatio: '1:1',
-        seed: 12345,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            image_config: {
-              image_size: '1K',
-            },
+    it('should generate higher resolution image with 4k vs 1k image_size', async () => {
+      const model = openrouter('google/gemini-2.5-flash-image', {
+        extraBody: {
+          modalities: ['image', 'text'],
+          image_config: {
+            aspect_ratio: '1:1',
+            image_size: '1k',
           },
         },
       });
 
-      const result2K = await model.doGenerate({
-        prompt: 'A simple red circle on a white background',
-        n: 1,
-        size: undefined,
-        aspectRatio: '1:1',
-        seed: 12345,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            image_config: {
-              image_size: '2K',
-            },
+      const result1k = await generateText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate a simple red circle on a white background',
+          },
+        ],
+      });
+
+      const model4k = openrouter('google/gemini-2.5-flash-image', {
+        extraBody: {
+          modalities: ['image', 'text'],
+          image_config: {
+            aspect_ratio: '1:1',
+            image_size: '4k',
           },
         },
       });
 
-      expect(result1K.images.length).toBeGreaterThan(0);
-      expect(result2K.images.length).toBeGreaterThan(0);
+      const result4k = await generateText({
+        model: model4k,
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate a simple red circle on a white background',
+          },
+        ],
+      });
 
-      const dim1K = getImageDimensions(result1K.images[0] as string);
-      const dim2K = getImageDimensions(result2K.images[0] as string);
+      expect(result1k.files).toBeDefined();
+      expect(result1k.files?.length).toBeGreaterThan(0);
+      expect(result4k.files).toBeDefined();
+      expect(result4k.files?.length).toBeGreaterThan(0);
 
-      expect(dim2K.width).toBeGreaterThan(dim1K.width);
-      expect(dim2K.height).toBeGreaterThan(dim1K.height);
+      const file1k = result1k.files?.[0];
+      const file4k = result4k.files?.[0];
+
+      expect(file1k).toBeDefined();
+      expect(file4k).toBeDefined();
+
+      const base641k = extractBase64FromDataUrl(file1k?.base64 ?? '');
+      const base644k = extractBase64FromDataUrl(file4k?.base64 ?? '');
+
+      const dim1k = getImageDimensions(base641k);
+      const dim4k = getImageDimensions(base644k);
+
+      expect(dim4k.width).toBeGreaterThan(dim1k.width);
+      expect(dim4k.height).toBeGreaterThan(dim1k.height);
     });
   });
 
-  describe('Workaround: image_size can be passed via providerOptions', () => {
-    it('should pass image_size via providerOptions.openrouter.image_config', async () => {
-      const model = openrouter.imageModel('google/gemini-2.5-flash-image');
+  describe('Workaround: image_size can be passed via extraBody', () => {
+    it('should pass image_size via extraBody.image_config matching issue pattern', async () => {
+      const model = openrouter('google/gemini-2.5-flash-image', {
+        extraBody: {
+          modalities: ['image', 'text'],
+          image_config: {
+            aspect_ratio: '16:9',
+            image_size: '4k',
+          },
+        },
+      });
 
-      const result = await model.doGenerate({
-        prompt: 'A simple blue square on a white background',
-        n: 1,
-        size: undefined,
-        aspectRatio: '1:1',
-        seed: 12345,
-        files: undefined,
-        mask: undefined,
+      const result = await generateText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate a simple blue square on a white background',
+          },
+        ],
+      });
+
+      expect(result.files).toBeDefined();
+      expect(result.files?.length).toBeGreaterThan(0);
+
+      const file = result.files?.[0];
+      expect(file).toBeDefined();
+      expect(file?.base64).toBeTruthy();
+    });
+
+    it('should pass image_size via providerOptions.openrouter', async () => {
+      const model = openrouter('google/gemini-2.5-flash-image', {
+        extraBody: {
+          modalities: ['image', 'text'],
+        },
+      });
+
+      const result = await generateText({
+        model,
+        messages: [
+          {
+            role: 'user',
+            content: 'Generate a simple green triangle on a white background',
+          },
+        ],
         providerOptions: {
           openrouter: {
             image_config: {
-              image_size: '1K',
+              aspect_ratio: '1:1',
+              image_size: '1k',
             },
           },
         },
       });
 
-      expect(result.images.length).toBeGreaterThan(0);
-      expect(result.images[0]).toBeTruthy();
-      expect(result.images[0]).toMatch(/^[A-Za-z0-9+/]+=*$/);
-    });
+      expect(result.files).toBeDefined();
+      expect(result.files?.length).toBeGreaterThan(0);
 
-    it('should pass image_size via settings.extraBody.image_config', async () => {
-      const model = openrouter.imageModel('google/gemini-2.5-flash-image', {
-        extraBody: {
-          image_config: {
-            aspect_ratio: '1:1',
-            image_size: '1K',
-          },
-        },
-      });
-
-      const result = await model.doGenerate({
-        prompt: 'A simple green triangle on a white background',
-        n: 1,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: 12345,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {},
-      });
-
-      expect(result.images.length).toBeGreaterThan(0);
-      expect(result.images[0]).toBeTruthy();
-      expect(result.images[0]).toMatch(/^[A-Za-z0-9+/]+=*$/);
+      const file = result.files?.[0];
+      expect(file).toBeDefined();
+      expect(file?.base64).toBeTruthy();
     });
   });
 });
