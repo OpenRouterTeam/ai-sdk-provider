@@ -1798,6 +1798,84 @@ describe('doStream', () => {
     expect(toolCallEvent?.toolCallId).toBe('call_gemini3_123');
   });
 
+  /**
+   * Regression test for GitHub issue #190
+   * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/190
+   *
+   * Issue: TypeError "Cannot read properties of undefined (reading 'sent')"
+   * when using streamObject with certain models.
+   *
+   * Root cause: Some models return tool calls with non-sequential indices
+   * (e.g., index 1 without index 0), creating a sparse array. The flush
+   * function must handle undefined entries gracefully when iterating.
+   *
+   * This test verifies that sparse tool call indices don't crash the stream.
+   */
+  it('should handle sparse tool call indices without crashing (issue #190)', async () => {
+    // Simulate a model that returns a tool call at index 1 (skipping index 0)
+    // This creates a sparse array: [<1 empty item>, {...}]
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-sparse","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":1,"id":"call_sparse_test","type":"function","function":{"name":"test-tool","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-sparse","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"function":{"arguments":"{\\"value\\":\\"test\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-sparse","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-sparse","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    // The test passes if we can consume the stream without crashing
+    // Without the fix, this would throw:
+    // TypeError: Cannot read properties of undefined (reading 'sent')
+    const result = await convertReadableStreamToArray(stream);
+
+    // Verify the tool call was processed correctly
+    const toolCallEvent = result.find(
+      (event): event is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        event.type === 'tool-call',
+    );
+    expect(toolCallEvent).toBeDefined();
+    expect(toolCallEvent?.toolCallId).toBe('call_sparse_test');
+    expect(toolCallEvent?.toolName).toBe('test-tool');
+    expect(toolCallEvent?.input).toBe('{"value":"test"}');
+
+    // Verify finish event
+    const finishEvent = result.find(
+      (event): event is LanguageModelV3StreamPart & { type: 'finish' } =>
+        event.type === 'finish',
+    );
+    expect(finishEvent).toBeDefined();
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'tool_calls',
+    });
+  });
+
   it('should stream images', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
