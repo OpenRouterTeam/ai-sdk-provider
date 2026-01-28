@@ -6,7 +6,7 @@
  *
  * Root cause: Early Grok 4 Fast API instability (model was only 11 days old
  * when the issue was reported on September 30, 2025). Multiple API-side fixes
- * were deployed in openrouter-web after the issue was reported.
+ * were deployed after the issue was reported.
  *
  * This test verifies that Grok 4 Fast works correctly with the SDK:
  * - doGenerate returns valid JSON responses
