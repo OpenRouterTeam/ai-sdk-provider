@@ -27,6 +27,7 @@
     "test:edge": "vitest --config vitest.edge.config.ts --run",
     "test:node": "vitest --config vitest.node.config.ts --run",
     "test:e2e": "vitest --config vitest.e2e.config.ts --run",
+    "test:issues": "vitest --config vitest.issues.config.ts --run",
     "changeset": "changeset",
     "changeset-version": "changeset version",
     "changeset-publish": "pnpm build && pnpm test && changeset publish --provenance"

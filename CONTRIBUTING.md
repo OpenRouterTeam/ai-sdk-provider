@@ -93,6 +93,51 @@ Examples of test files include:
 - `openrouter-usage-accounting.test.ts`
 - `openrouter-stream-usage-accounting.test.ts`
 
+### Issue-Specific Regression Tests
+
+When fixing bugs reported in GitHub issues, add a regression test to the `e2e/issues/` directory. This ensures the issue doesn't recur and provides traceability back to the original report.
+
+**Running issue regression tests:**
+```bash
+# Run issue regression tests separately (not included in test:e2e)
+pnpm test:issues
+```
+
+> **Note:** Issue regression tests are excluded from `pnpm test:e2e` because they may hit different models/APIs that could be slow or rate-limited. Run them separately when needed.
+
+**File naming convention:** `issue-{number}-{brief-description}.test.ts`
+
+**Required test file structure:**
+```typescript
+/**
+ * Regression test for GitHub issue #{number}
+ * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/{number}
+ *
+ * Issue: {brief description of the issue}
+ *
+ * Root cause: {explanation of what caused the issue}
+ *
+ * This test verifies that {what the test checks}
+ */
+import { ... } from 'ai';
+import { describe, expect, it, vi } from 'vitest';
+import { createOpenRouter } from '@/src';
+
+describe('Issue #{number}: {brief description}', () => {
+  // Test cases that verify the issue is resolved
+});
+```
+
+**When to add issue regression tests:**
+- Bug fixes that have a clear reproduction case
+- Issues that could potentially regress
+- API compatibility issues with specific models or features
+
+**When NOT to add issue regression tests:**
+- Documentation-only changes
+- Issues that were user configuration errors
+- Transient API issues that were fixed server-side (though you may still add one for monitoring)
+
 ## Adding New Features
 
 When adding new features to the OpenRouter provider:
