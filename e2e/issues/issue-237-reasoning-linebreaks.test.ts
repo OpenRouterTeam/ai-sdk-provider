@@ -8,10 +8,6 @@
  * (like `**Exploring mathematical concepts**`) don't have line breaks before them.
  * Example from issue: "intriguing!**Discussing arithmetic and set theory**"
  *
- * Root cause: This is an UPSTREAM issue - the OpenRouter API or OpenAI API does not
- * include line breaks between reasoning sections. The ai-sdk-provider correctly
- * passes through the reasoning text without modification.
- *
  * This test uses the EXACT code and prompt from the issue to verify the behavior.
  */
 import { streamText } from 'ai';
@@ -33,9 +29,7 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
    * The test checks for the exact issue pattern: non-whitespace character
    * immediately followed by ** (bold marker).
    *
-   * SKIPPED: This is an upstream issue in the OpenRouter/OpenAI API, not in ai-sdk-provider.
-   * The ai-sdk-provider correctly passes through reasoning text without modification.
-   * Unskip this test to verify when the upstream fix is deployed.
+   * SKIPPED: Issue is still reproducible as of 2025-01-28. Unskip to verify if fixed.
    */
   it.skip('should have line breaks before bold section headers (exact reproduction from issue)', async () => {
     // EXACT code from issue #237
@@ -98,8 +92,7 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
 
   /**
    * Verification test using the exact code pattern from issue #237.
-   * This test passes regardless of the line break issue - it just verifies
-   * that the ai-sdk-provider correctly receives and accumulates reasoning chunks.
+   * This test verifies that reasoning-delta chunks are received and accumulated.
    */
   it('should receive reasoning-delta chunks using exact issue #237 code pattern', async () => {
     // EXACT code pattern from issue #237
@@ -125,7 +118,7 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
       }
     }
 
-    // Verify the ai-sdk-provider correctly receives reasoning content
+    // Verify reasoning content was received
     expect(reasoning.length).toBeGreaterThan(0);
 
     // Log the reasoning output for manual inspection
