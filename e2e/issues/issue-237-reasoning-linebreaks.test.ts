@@ -12,9 +12,7 @@
  * include line breaks between reasoning sections. The ai-sdk-provider correctly
  * passes through the reasoning text without modification.
  *
- * This test verifies the exact issue pattern: non-whitespace characters immediately
- * followed by bold section markers (**). The test will FAIL while the upstream
- * issue persists, and will PASS once it's fixed.
+ * This test uses the EXACT code and prompt from the issue to verify the behavior.
  */
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,57 +23,50 @@ vi.setConfig({
 });
 
 describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
-  const openrouter = createOpenRouter({
-    apiKey: process.env.OPENROUTER_API_KEY,
-    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
-  });
-
   /**
-   * This test checks for the exact issue pattern from #237:
-   * - Non-whitespace character immediately followed by ** (bold marker)
-   * - Example: "intriguing!**Discussing" or "misuse.**Explaining"
+   * This test reproduces the EXACT code from issue #237.
    *
-   * The test FAILS if this pattern is found (issue still present).
-   * The test PASSES if all ** markers are preceded by whitespace/newline (issue fixed).
+   * The issue reports that section titles like "**Exploring mathematical concepts**"
+   * don't have line breaks before them, resulting in output like:
+   * "intriguing!**Discussing arithmetic and set theory**"
+   *
+   * The test checks for the exact issue pattern: non-whitespace character
+   * immediately followed by ** (bold marker).
    *
    * SKIPPED: This is an upstream issue in the OpenRouter/OpenAI API, not in ai-sdk-provider.
    * The ai-sdk-provider correctly passes through reasoning text without modification.
    * Unskip this test to verify when the upstream fix is deployed.
    */
-  it.skip('should have line breaks before bold section headers in reasoning (upstream issue)', async () => {
-    const model = openrouter('openai/gpt-5.1', {
-      usage: { include: true },
+  it.skip('should have line breaks before bold section headers (exact reproduction from issue)', async () => {
+    // EXACT code from issue #237
+    const provider = createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
     });
 
-    const response = await streamText({
+    const model = provider('openai/gpt-5.1');
+
+    const stream = streamText({
       model,
-      messages: [
-        {
-          role: 'user',
-          content:
-            'Explain the difference between prime numbers and composite numbers. Think through this step by step.',
-        },
-      ],
+      // EXACT prompt from issue #237
+      prompt:
+        'Think before answering. When does 2+2 not equal 4? Not counting final fields',
     });
 
     let reasoning = '';
-    const reasoningChunks: string[] = [];
 
-    for await (const chunk of response.fullStream) {
+    for await (const chunk of stream.fullStream) {
       if (chunk.type === 'reasoning-delta') {
-        const delta =
-          (chunk as { type: 'reasoning-delta'; text?: string }).text || '';
-        reasoningChunks.push(delta);
-        reasoning += delta;
+        reasoning += chunk.text;
       }
     }
 
     // Verify we received reasoning content
-    expect(reasoningChunks.length).toBeGreaterThan(0);
     expect(reasoning.length).toBeGreaterThan(0);
 
-    // Check for the exact issue pattern: non-whitespace followed by **
-    // This matches patterns like "intriguing!**" or "misuse.**" or "primes**"
+    // Check for the exact issue pattern from #237:
+    // Non-whitespace character immediately followed by ** (bold section header)
+    // Example: "intriguing!**Discussing" - no line break before the bold marker
     const issuePattern = /[^\s\n]\*\*/g;
     const matches = reasoning.match(issuePattern);
 
@@ -86,8 +77,8 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
       for (const match of matches) {
         const idx = reasoning.indexOf(match, searchStart);
         if (idx !== -1) {
-          const start = Math.max(0, idx - 15);
-          const end = Math.min(reasoning.length, idx + match.length + 25);
+          const start = Math.max(0, idx - 20);
+          const end = Math.min(reasoning.length, idx + match.length + 30);
           contexts.push(reasoning.substring(start, end).replace(/\n/g, '\\n'));
           searchStart = idx + 1;
         }
@@ -95,92 +86,51 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
 
       // Fail with detailed information about where the issue occurs
       expect.fail(
-        `Found ${matches.length} instance(s) of missing line breaks before bold markers:\n` +
+        `Found ${matches.length} instance(s) of missing line breaks before bold section headers:\n` +
           contexts.map((c, i) => `  ${i + 1}. "...${c}..."`).join('\n') +
-          '\n\nThis is the exact issue reported in #237. ' +
-          'The upstream API is not including line breaks between reasoning sections.',
+          '\n\nThis is the exact issue reported in #237: section titles like ' +
+          '"**Exploring mathematical concepts**" do not have line breaks before them.',
       );
     }
 
-    // If we get here, no issues found - the upstream fix has been deployed
+    // If we get here, all ** markers are preceded by whitespace/newline - issue is fixed
   });
 
   /**
-   * Verification test that reasoning-delta streaming works correctly.
+   * Verification test using the exact code pattern from issue #237.
    * This test passes regardless of the line break issue - it just verifies
    * that the ai-sdk-provider correctly receives and accumulates reasoning chunks.
    */
-  it('should receive reasoning-delta chunks from GPT-5.1', async () => {
-    const model = openrouter('openai/gpt-5.1', {
-      usage: { include: true },
+  it('should receive reasoning-delta chunks using exact issue #237 code pattern', async () => {
+    // EXACT code pattern from issue #237
+    const provider = createOpenRouter({
+      apiKey: process.env.OPENROUTER_API_KEY,
+      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
     });
 
-    const response = await streamText({
+    const model = provider('openai/gpt-5.1');
+
+    const stream = streamText({
       model,
-      messages: [
-        {
-          role: 'user',
-          content: 'What is 2+2? Think step by step.',
-        },
-      ],
+      // EXACT prompt from issue #237
+      prompt:
+        'Think before answering. When does 2+2 not equal 4? Not counting final fields',
     });
 
     let reasoning = '';
-    const reasoningChunks: string[] = [];
 
-    for await (const chunk of response.fullStream) {
+    for await (const chunk of stream.fullStream) {
       if (chunk.type === 'reasoning-delta') {
-        const delta =
-          (chunk as { type: 'reasoning-delta'; text?: string }).text || '';
-        reasoningChunks.push(delta);
-        reasoning += delta;
+        reasoning += chunk.text;
       }
     }
 
     // Verify the ai-sdk-provider correctly receives reasoning content
-    expect(reasoningChunks.length).toBeGreaterThan(0);
     expect(reasoning.length).toBeGreaterThan(0);
-  });
 
-  /**
-   * Cross-model verification with Claude to ensure reasoning streaming works.
-   */
-  it('should receive reasoning-delta chunks from Claude', async () => {
-    const model = openrouter('anthropic/claude-sonnet-4', {
-      usage: { include: true },
-    });
-
-    const response = await streamText({
-      model,
-      messages: [
-        {
-          role: 'user',
-          content: 'What is 2+2? Think step by step.',
-        },
-      ],
-      providerOptions: {
-        openrouter: {
-          reasoning: {
-            effort: 'medium',
-          },
-        },
-      },
-    });
-
-    let reasoning = '';
-    const reasoningChunks: string[] = [];
-
-    for await (const chunk of response.fullStream) {
-      if (chunk.type === 'reasoning-delta') {
-        const delta =
-          (chunk as { type: 'reasoning-delta'; text?: string }).text || '';
-        reasoningChunks.push(delta);
-        reasoning += delta;
-      }
-    }
-
-    // Verify the ai-sdk-provider correctly receives reasoning content
-    expect(reasoningChunks.length).toBeGreaterThan(0);
-    expect(reasoning.length).toBeGreaterThan(0);
+    // Log the reasoning output for manual inspection
+    console.log('\n=== REASONING OUTPUT (Issue #237 reproduction) ===\n');
+    console.log(reasoning);
+    console.log('\n=== END REASONING OUTPUT ===\n');
   });
 });
