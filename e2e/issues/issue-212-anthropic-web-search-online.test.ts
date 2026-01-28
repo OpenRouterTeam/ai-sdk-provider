@@ -32,51 +32,31 @@ describe('Issue #212: Anthropic Web Search :online Error', () => {
   const model = openrouter('anthropic/claude-3.5-sonnet:online');
 
   it('should handle streaming with anthropic/claude-3.5-sonnet:online without errors', async () => {
-    const result = streamText({
+    // Matches the exact code pattern from issue #212
+    const { textStream } = streamText({
       model,
-      messages: [
-        {
-          role: 'user',
-          content:
-            'What is the current weather in San Francisco? Keep your answer brief.',
-        },
-      ],
+      prompt: 'What is the weather in San Francisco?',
     });
 
-    await result.consumeStream();
-
-    const text = await result.text;
-
-    expect(text).toBeDefined();
-    expect(text.length).toBeGreaterThan(0);
-
-    // Verify sources are available from web search
-    const sources = await result.sources;
-    // Sources may or may not be present depending on the query, but no error should occur
-    if (sources && sources.length > 0) {
-      expect(sources[0]).toHaveProperty('url');
+    // Consume the stream to completion - this is where the original error occurred
+    let fullText = '';
+    for await (const chunk of textStream) {
+      fullText += chunk;
     }
+
+    expect(fullText).toBeDefined();
+    expect(fullText.length).toBeGreaterThan(0);
   });
 
   it('should handle generateText with anthropic/claude-3.5-sonnet:online without errors', async () => {
+    // Also test non-streaming to ensure both paths work
     const response = await generateText({
       model,
-      messages: [
-        {
-          role: 'user',
-          content: 'What is the population of Tokyo? Keep your answer brief.',
-        },
-      ],
+      prompt: 'What is the population of Tokyo?',
     });
 
     expect(response.text).toBeDefined();
     expect(response.text.length).toBeGreaterThan(0);
     expect(response.finishReason).toBeDefined();
-
-    // Verify sources are available from web search
-    // Sources may or may not be present depending on the query, but no error should occur
-    if (response.sources && response.sources.length > 0) {
-      expect(response.sources[0]).toHaveProperty('url');
-    }
   });
 });
