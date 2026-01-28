@@ -26,8 +26,9 @@ describe('Issue #287: Tool calls with missing arguments field', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  // Use a model that supports tool calling
-  const model = openrouter('openai/gpt-4o-mini');
+  // Use Anthropic Haiku model - mentioned in original issue context as potentially
+  // omitting the arguments field for tools with no parameters
+  const model = openrouter('anthropic/claude-3.5-haiku');
 
   it('should handle tool with no parameters', async () => {
     // Tool with no parameters - some providers may omit the arguments field entirely
