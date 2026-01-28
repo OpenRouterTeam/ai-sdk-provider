@@ -7,14 +7,30 @@
  * observed 1.25x cache write cost instead of 2x, suggesting the TTL
  * parameter wasn't being applied correctly.
  *
+ * The user's exact code structure was:
+ * ```
+ * messages: [
+ *   { role: 'system', content: '...' },
+ *   { role: 'user', content: [
+ *     { type: 'text', text: 'Given the text body below:' },
+ *     { type: 'text', text: <large_text>,
+ *       providerOptions: {
+ *         openrouter: { cacheControl: { type: 'ephemeral', ttl: "1h" } },
+ *       },
+ *     },
+ *     { type: 'text', text: 'List the speakers?' },
+ *   ]},
+ * ]
+ * ```
+ *
  * Root cause: The TypeScript type definition for OpenRouterCacheControl
  * did not include the `ttl` field, though the runtime behavior correctly
  * passes through the ttl parameter to the API.
  *
  * This test verifies that:
  * - The ttl parameter is accepted by the API without errors
+ * - The exact message structure from the issue works correctly
  * - Cache is populated on first call and hit on subsequent calls
- * - Both system messages and user content parts support cache_control with ttl
  */
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -37,23 +53,32 @@ describe('Issue #196: Anthropic 1-hour cache TTL', () => {
     },
   });
 
-  it('should accept ttl parameter in cache_control on user content parts', async () => {
-    // This test verifies that the ttl parameter is accepted by the API without errors
-    // when used on user content parts. The ttl parameter enables 1-hour caching (2x write cost)
-    // vs the default 5-minute caching (1.25x write cost).
+  // Helper function matching the EXACT structure from issue #196
+  // Uses cacheControl (camelCase) as the user reported
+  async function callWithIssue196Structure() {
     const response = await streamText({
       model,
       messages: [
+        {
+          role: 'system',
+          content:
+            'You are a podcast summary assistant. You are detail-oriented and critical about the content.',
+        },
         {
           role: 'user',
           content: [
             {
               type: 'text',
+              text: 'Given the text body below:',
+            },
+            {
+              type: 'text',
               // Large text to ensure caching threshold is met (>1024 tokens for Anthropic)
-              text: 'x'.repeat(4200),
+              text: 'c'.repeat(4200),
               providerOptions: {
+                // Using cacheControl (camelCase) EXACTLY as in issue #196
                 openrouter: {
-                  cache_control: {
+                  cacheControl: {
                     type: 'ephemeral',
                     ttl: '1h',
                   },
@@ -62,49 +87,35 @@ describe('Issue #196: Anthropic 1-hour cache TTL', () => {
             },
             {
               type: 'text',
-              text: 'How many "x" did I use in the previous message?',
+              text: 'List the speakers?',
             },
           ],
         },
       ],
     });
-
     await response.consumeStream();
-    const metadata = await response.providerMetadata;
+    return response;
+  }
+
+  it('should hit cache with ttl parameter using exact issue #196 structure', async () => {
+    // First call to warm the cache with 1h TTL
+    const response1 = await callWithIssue196Structure();
+    const metadata1 = await response1.providerMetadata;
 
     // Verify the API accepted the request without errors
-    expect(metadata?.openrouter).toBeDefined();
-    expect(metadata?.openrouter?.usage).toBeDefined();
-  });
+    expect(metadata1?.openrouter).toBeDefined();
+    expect(metadata1?.openrouter?.usage).toBeDefined();
 
-  it('should accept ttl parameter on system messages', async () => {
-    const response = await streamText({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant. ' + 'y'.repeat(4000),
-          providerOptions: {
-            openrouter: {
-              cacheControl: {
-                type: 'ephemeral',
-                ttl: '5m',
-              },
-            },
-          },
-        },
-        {
-          role: 'user',
-          content: 'Say hello.',
-        },
-      ],
-    });
+    // Second call should hit the cache (same exact prompt)
+    const response2 = await callWithIssue196Structure();
+    const metadata2 = await response2.providerMetadata;
 
-    await response.consumeStream();
-    const metadata = await response.providerMetadata;
+    // Verify cache was hit (cachedTokens > 0)
+    const usage = metadata2?.openrouter?.usage as
+      | { promptTokensDetails?: { cachedTokens?: number } }
+      | undefined;
+    const cachedTokens = Number(usage?.promptTokensDetails?.cachedTokens ?? 0);
 
-    // Verify the API accepted the request without errors
-    expect(metadata?.openrouter).toBeDefined();
-    expect(metadata?.openrouter?.usage).toBeDefined();
+    expect(cachedTokens).toBeGreaterThan(0);
   });
 });
