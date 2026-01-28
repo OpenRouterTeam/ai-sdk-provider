@@ -97,6 +97,14 @@ Examples of test files include:
 
 When fixing bugs reported in GitHub issues, add a regression test to the `e2e/issues/` directory. This ensures the issue doesn't recur and provides traceability back to the original report.
 
+**Running issue regression tests:**
+```bash
+# Run issue regression tests separately (not included in test:e2e)
+pnpm test:issues
+```
+
+> **Note:** Issue regression tests are excluded from `pnpm test:e2e` because they may hit different models/APIs that could be slow or rate-limited. Run them separately when needed.
+
 **File naming convention:** `issue-{number}-{brief-description}.test.ts`
 
 **Required test file structure:**
