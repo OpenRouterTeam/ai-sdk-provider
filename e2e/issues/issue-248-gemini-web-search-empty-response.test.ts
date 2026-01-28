@@ -4,12 +4,14 @@
  *
  * Issue: "google/gemini-3-pro-preview: search capability returns empty responses"
  *
+ * Original report: User was using Gemini 3 Pro Preview with both reasoning
+ * (effort: "high") and web search plugin enabled, and getting empty responses.
+ *
  * Root cause: The web search plugin was injecting the full Exa results array
  * instead of the limited context string (15K chars), which could cause context
- * length errors leading to empty responses. Fixed in openrouter-web commit
- * c4666eff4e on January 16, 2026.
+ * length errors leading to empty responses. Fixed server-side on January 16, 2026.
  *
- * This test verifies that Gemini 3 Pro Preview with web search plugin:
+ * This test verifies that Gemini 3 Pro Preview with reasoning + web search:
  * - Returns non-empty responses with generateText
  * - Returns non-empty responses with streamText
  * - Includes URL citation annotations in the response
@@ -28,7 +30,10 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
+  // Match the exact configuration from the issue report:
+  // reasoning: { effort: "high" } + plugins: [{ id: "web" }]
   const model = openrouter('google/gemini-3-pro-preview', {
+    reasoning: { effort: 'high' },
     plugins: [{ id: 'web' }],
   });
 
