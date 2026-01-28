@@ -2,13 +2,9 @@
  * Regression test for GitHub issue #237
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/237
  *
- * Issue: "Missing line breaks between reasoning sections in `reasoning-delta` stream"
- *
- * Problem: When streaming reasoning content with openai/gpt-5.1, section titles
+ * Issue: When streaming reasoning content with openai/gpt-5.1, section titles
  * (like `**Exploring mathematical concepts**`) don't have line breaks before them.
- * Example from issue: "intriguing!**Discussing arithmetic and set theory**"
- *
- * This test uses the EXACT code and prompt from the issue to verify the behavior.
+ * Example: "intriguing!**Discussing arithmetic and set theory**"
  */
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,30 +15,17 @@ vi.setConfig({
 });
 
 describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
-  /**
-   * This test reproduces the EXACT code from issue #237.
-   *
-   * The issue reports that section titles like "**Exploring mathematical concepts**"
-   * don't have line breaks before them, resulting in output like:
-   * "intriguing!**Discussing arithmetic and set theory**"
-   *
-   * The test checks for the exact issue pattern: non-whitespace character
-   * immediately followed by ** (bold marker).
-   *
-   * SKIPPED: Issue is still reproducible as of 2025-01-28. Unskip to verify if fixed.
-   */
-  it.skip('should have line breaks before bold section headers (exact reproduction from issue)', async () => {
-    // EXACT code from issue #237
-    const provider = createOpenRouter({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
-    });
+  const provider = createOpenRouter({
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
+  });
 
+  // SKIPPED: Issue is still reproducible as of 2025-01-28. Unskip to verify if fixed.
+  it.skip('should have line breaks before bold section headers', async () => {
     const model = provider('openai/gpt-5.1');
 
     const stream = streamText({
       model,
-      // EXACT prompt from issue #237
       prompt:
         'Think before answering. When does 2+2 not equal 4? Not counting final fields',
     });
@@ -55,17 +38,13 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
       }
     }
 
-    // Verify we received reasoning content
     expect(reasoning.length).toBeGreaterThan(0);
 
-    // Check for the exact issue pattern from #237:
-    // Non-whitespace character immediately followed by ** (bold section header)
-    // Example: "intriguing!**Discussing" - no line break before the bold marker
+    // Pattern: non-whitespace immediately followed by ** (bold marker)
     const issuePattern = /[^\s\n]\*\*/g;
     const matches = reasoning.match(issuePattern);
 
     if (matches && matches.length > 0) {
-      // Find context around each match for better error messages
       const contexts: string[] = [];
       let searchStart = 0;
       for (const match of matches) {
@@ -78,34 +57,18 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
         }
       }
 
-      // Fail with detailed information about where the issue occurs
       expect.fail(
         `Found ${matches.length} instance(s) of missing line breaks before bold section headers:\n` +
-          contexts.map((c, i) => `  ${i + 1}. "...${c}..."`).join('\n') +
-          '\n\nThis is the exact issue reported in #237: section titles like ' +
-          '"**Exploring mathematical concepts**" do not have line breaks before them.',
+          contexts.map((c, i) => `  ${i + 1}. "...${c}..."`).join('\n'),
       );
     }
-
-    // If we get here, all ** markers are preceded by whitespace/newline - issue is fixed
   });
 
-  /**
-   * Verification test using the exact code pattern from issue #237.
-   * This test verifies that reasoning-delta chunks are received and accumulated.
-   */
-  it('should receive reasoning-delta chunks using exact issue #237 code pattern', async () => {
-    // EXACT code pattern from issue #237
-    const provider = createOpenRouter({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
-    });
-
+  it('should receive reasoning-delta chunks', async () => {
     const model = provider('openai/gpt-5.1');
 
     const stream = streamText({
       model,
-      // EXACT prompt from issue #237
       prompt:
         'Think before answering. When does 2+2 not equal 4? Not counting final fields',
     });
@@ -118,11 +81,9 @@ describe('Issue #237: Reasoning line breaks in reasoning-delta stream', () => {
       }
     }
 
-    // Verify reasoning content was received
     expect(reasoning.length).toBeGreaterThan(0);
 
-    // Log the reasoning output for manual inspection
-    console.log('\n=== REASONING OUTPUT (Issue #237 reproduction) ===\n');
+    console.log('\n=== REASONING OUTPUT ===\n');
     console.log(reasoning);
     console.log('\n=== END REASONING OUTPUT ===\n');
   });
