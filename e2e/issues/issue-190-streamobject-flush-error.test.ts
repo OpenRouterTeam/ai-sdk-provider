@@ -2,16 +2,14 @@
  * Regression test for GitHub issue #190
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/190
  *
- * Issue: "streamObject with ai@4 + @openrouter/ai-sdk-provider@0.7.x throws
- * TypeError in flush: Cannot read properties of undefined (reading 'sent')"
+ * Issue: streamObject with ai@4 + @openrouter/ai-sdk-provider@0.7.x threw
+ * TypeError in flush: "Cannot read properties of undefined (reading 'sent')"
  *
- * Root cause: When using streamObject with JSON Schema, some models return
- * tool calls with non-sequential indices, creating sparse arrays. The flush
- * function must handle undefined entries gracefully when iterating toolCalls.
+ * Reported: September 24, 2025
+ * Affected versions: ai@4.3.18 + @openrouter/ai-sdk-provider@0.7.5
+ * Working versions: ai@5.x + @openrouter/ai-sdk-provider@1.0.0
  *
- * This test verifies that streamObject with JSON Schema works correctly:
- * - Stream completes without TypeError
- * - Returns valid structured output matching the schema
+ * This test verifies that streamObject with JSON Schema completes without error.
  */
 import type { JSONSchema7 } from 'json-schema';
 
@@ -44,8 +42,6 @@ describe('Issue #190: streamObject flush TypeError', () => {
       additionalProperties: false,
     };
 
-    // Without the fix, this would throw:
-    // TypeError: Cannot read properties of undefined (reading 'sent')
     const result = streamObject({
       model,
       temperature: 0,
@@ -60,7 +56,6 @@ describe('Issue #190: streamObject flush TypeError', () => {
       schema: jsonSchema(schema),
     });
 
-    // Consume the stream - this is where the error would occur
     const object = (await result.object) as { title: string; priority: string };
 
     // Verify the output matches the schema
