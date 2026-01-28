@@ -7,26 +7,6 @@
  * observed 1.25x cache write cost instead of 2x, suggesting the TTL
  * parameter wasn't being applied correctly.
  *
- * The user's exact code structure was:
- * ```
- * messages: [
- *   { role: 'system', content: '...' },
- *   { role: 'user', content: [
- *     { type: 'text', text: 'Given the text body below:' },
- *     { type: 'text', text: <large_text>,
- *       providerOptions: {
- *         openrouter: { cacheControl: { type: 'ephemeral', ttl: "1h" } },
- *       },
- *     },
- *     { type: 'text', text: 'List the speakers?' },
- *   ]},
- * ]
- * ```
- *
- * Root cause: The TypeScript type definition for OpenRouterCacheControl
- * did not include the `ttl` field, though the runtime behavior correctly
- * passes through the ttl parameter to the API.
- *
  * This test verifies that:
  * - The ttl parameter is accepted by the API without errors
  * - The exact message structure from the issue works correctly
