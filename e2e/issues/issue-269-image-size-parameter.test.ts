@@ -4,29 +4,24 @@
  *
  * Issue: "Add support for image_size parameter for google/gemini-3-pro-image-preview"
  *
- * The user reports using the OpenRouter API to generate images via:
- * - model: "google/gemini-3-pro-image-preview"
- * - endpoint: /chat/completions
+ * User report:
+ * - Model: "google/gemini-3-pro-image-preview"
+ * - Endpoint: /chat/completions
  * - modalities: ["image", "text"]
+ * - Currently supports: { "image_config": { "aspect_ratio": "16:9" } }
+ * - Does NOT support: { "image_config": { "image_size": "4k" } }
+ * - Request: "The API should include a parameter that allows requesting
+ *   specific resolutions (1k, 2k, 4k)."
  *
- * Currently supports: { "image_config": { "aspect_ratio": "16:9" } }
- * Does NOT support: { "image_config": { "image_size": "4k" } }
- *
- * The user requests: "The API should include a parameter that allows
- * requesting specific resolutions (1k, 2k, 4k)."
- *
- * A commenter confirms: "whatever I send as image_size it's always generating
+ * Commenter report: "whatever I send as image_size it's always generating
  * 1024x1024 px, it does not work."
- *
- * Status: UNRESOLVED - The image_size parameter can be passed through the SDK
- * but it does not actually affect the output resolution.
  */
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({
-  testTimeout: 60_000,
+  testTimeout: 120_000,
 });
 
 function getImageDimensions(base64Data: string): {
@@ -85,7 +80,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
 
   describe('Feature request: image_size should produce different resolutions', () => {
     it('should generate higher resolution image with 4k vs 1k image_size', async () => {
-      const model = openrouter('google/gemini-2.5-flash-image', {
+      const model = openrouter('google/gemini-3-pro-image-preview', {
         extraBody: {
           modalities: ['image', 'text'],
           image_config: {
@@ -105,7 +100,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
         ],
       });
 
-      const model4k = openrouter('google/gemini-2.5-flash-image', {
+      const model4k = openrouter('google/gemini-3-pro-image-preview', {
         extraBody: {
           modalities: ['image', 'text'],
           image_config: {
@@ -149,7 +144,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
 
   describe('Workaround: image_size can be passed via extraBody', () => {
     it('should pass image_size via extraBody.image_config matching issue pattern', async () => {
-      const model = openrouter('google/gemini-2.5-flash-image', {
+      const model = openrouter('google/gemini-3-pro-image-preview', {
         extraBody: {
           modalities: ['image', 'text'],
           image_config: {
@@ -178,7 +173,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
     });
 
     it('should pass image_size via providerOptions.openrouter', async () => {
-      const model = openrouter('google/gemini-2.5-flash-image', {
+      const model = openrouter('google/gemini-3-pro-image-preview', {
         extraBody: {
           modalities: ['image', 'text'],
         },
