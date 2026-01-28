@@ -16,23 +16,8 @@
  *   Request 2: native_tokens_cached=0, native_tokens_reasoning=297
  *   Request 3: native_tokens_cached=0, native_tokens_reasoning=322
  *
- * Root cause: The "delayed caching" behavior is expected for automatic prompt
- * caching. Automatic caching (used by OpenAI, Moonshot, Groq) works by:
- * 1. First request: Cache is written (no savings visible yet)
- * 2. Subsequent requests: Cache is read (savings appear as cached_tokens)
- *
- * The ai-sdk-provider correctly handles cached_tokens when OpenRouter returns
- * them via prompt_tokens_details.cached_tokens. The provider exposes this as
- * providerMetadata.openrouter.usage.promptTokensDetails.cachedTokens.
- *
- * Note: The user's issue showed native_tokens_cached from the OpenRouter API
- * response. The ai-sdk-provider maps prompt_tokens_details.cached_tokens to
- * cachedTokens in the provider metadata.
- *
- * This test verifies that:
- * - The provider correctly exposes cachedTokens in providerMetadata when present
- * - The response structure matches what the user would see
- * - The "delayed caching" pattern is observable (cache hits on later requests)
+ * This test verifies that the provider correctly exposes cachedTokens and
+ * reasoningTokens in providerMetadata when present in the API response.
  */
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
