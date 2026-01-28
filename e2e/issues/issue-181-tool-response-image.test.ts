@@ -160,11 +160,11 @@ describe('Issue #181: Tool response for image not working', () => {
     );
   });
 
-  it('should stringify tool result with media type (exact format from original issue #181)', () => {
-    // This test uses the EXACT format from the original issue:
-    // toModelOutput returns { type: "content", value: [{ type: "media", mediaType: "image/jpeg", data: ... }] }
-    // Note: "media" type is from LanguageModelV2, but the function handles it at runtime
-    // We use 'unknown' cast to test the actual runtime behavior with the exact issue format
+  it('should stringify tool result with file-data type (AI SDK v3 format for issue #181)', () => {
+    // This test reproduces issue #181 using the latest AI SDK v3 format.
+    // The original issue used { type: "media", ... } which is the V2 format.
+    // In AI SDK v3, the equivalent is { type: "file-data", data: ..., mediaType: ... }
+    // The behavior is the same: multimodal content in tool results is stringified.
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -177,8 +177,8 @@ describe('Issue #181: Tool response for image not working', () => {
               type: 'content',
               value: [
                 {
-                  // Exact format from issue #181's toModelOutput function
-                  type: 'media',
+                  // AI SDK v3 format for base64 image data (equivalent to V2's "media" type)
+                  type: 'file-data',
                   mediaType: 'image/jpeg',
                   // Truncated version of the flower JPEG from the original issue
                   data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
@@ -188,7 +188,7 @@ describe('Issue #181: Tool response for image not working', () => {
           },
         ],
       },
-    ] as unknown as Parameters<typeof convertToOpenRouterChatMessages>[0]);
+    ]);
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({
@@ -201,7 +201,7 @@ describe('Issue #181: Tool response for image not working', () => {
     expect(typeof result[0]?.content).toBe('string');
 
     const content = result[0]?.content as string;
-    expect(content).toContain('"type":"media"');
+    expect(content).toContain('"type":"file-data"');
     expect(content).toContain('"mediaType":"image/jpeg"');
     expect(content).toContain('/9j/4AAQSkZJRgABAQAAAQABAAD'); // JPEG magic bytes
   });
