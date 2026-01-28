@@ -4,17 +4,13 @@
  *
  * Issue: "google/gemini-3-pro-preview: search capability returns empty responses"
  *
- * Original report: User was using Gemini 3 Pro Preview with both reasoning
- * (effort: "high") and web search plugin enabled, and getting empty responses.
+ * Original report: User was using Gemini 3 Pro Preview with providerOptions
+ * containing reasoning (effort: "high") and web search plugin, and getting
+ * empty responses. A follow-up comment showed 502 errors with "Malformed
+ * function call" when the model tried to use google_search.
  *
- * Root cause: The web search plugin was injecting the full Exa results array
- * instead of the limited context string (15K chars), which could cause context
- * length errors leading to empty responses. Fixed server-side on January 16, 2026.
- *
- * This test verifies that Gemini 3 Pro Preview with reasoning + web search:
- * - Returns non-empty responses with generateText
- * - Returns non-empty responses with streamText
- * - Includes URL citation annotations in the response
+ * This test verifies that Gemini 3 Pro Preview with reasoning + web search
+ * returns non-empty responses using the exact code pattern from the issue.
  */
 import { generateText, streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -30,21 +26,23 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  // Match the exact configuration from the issue report:
-  // reasoning: { effort: "high" } + plugins: [{ id: "web" }]
-  const model = openrouter('google/gemini-3-pro-preview', {
-    reasoning: { effort: 'high' },
-    plugins: [{ id: 'web' }],
-  });
+  const model = openrouter('google/gemini-3-pro-preview');
 
-  it('should return non-empty response with generateText and web search', async () => {
+  it('should return non-empty response with generateText using exact issue code pattern', async () => {
+    // Exact code pattern from issue #248:
+    // https://github.com/OpenRouterTeam/ai-sdk-provider/issues/248
     const response = await generateText({
       model,
+      providerOptions: {
+        openrouter: {
+          reasoning: { effort: 'high' },
+          plugins: [{ id: 'web' }],
+        },
+      },
       messages: [
         {
           role: 'user',
-          content:
-            'What is the current weather in San Francisco? Search the web for the latest information.',
+          content: 'What is the current weather in San Francisco?',
         },
       ],
     });
@@ -54,14 +52,19 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     expect(response.finishReason).toBeDefined();
   });
 
-  it('should return non-empty streaming response with streamText and web search', async () => {
+  it('should return non-empty streaming response with streamText using exact issue code pattern', async () => {
     const result = await streamText({
       model,
+      providerOptions: {
+        openrouter: {
+          reasoning: { effort: 'high' },
+          plugins: [{ id: 'web' }],
+        },
+      },
       messages: [
         {
           role: 'user',
-          content:
-            'What are the top 3 news headlines today? Search the web for the latest news.',
+          content: 'What are the top 3 news headlines today?',
         },
       ],
     });
@@ -72,31 +75,27 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     expect(text.length).toBeGreaterThan(0);
   });
 
-  it('should include URL citation annotations in response', async () => {
+  it('should handle part number search queries without 502 errors', async () => {
+    // From Dec 7 comment: user reported 502 errors with "Malformed function call"
+    // when searching for part numbers like "602-3973-01 part number"
     const response = await generateText({
       model,
+      providerOptions: {
+        openrouter: {
+          reasoning: { effort: 'high' },
+          plugins: [{ id: 'web' }],
+        },
+      },
       messages: [
         {
           role: 'user',
-          content:
-            'What is the population of Tokyo? Search the web for the latest data.',
+          content: 'Search for information about part number 602-3973-01',
         },
       ],
     });
 
     expect(response.text).toBeDefined();
     expect(response.text.length).toBeGreaterThan(0);
-
-    // Check for URL citation annotations in provider metadata
-    const metadata = response.providerMetadata?.openrouter as
-      | { annotations?: Array<{ type: string }> }
-      | undefined;
-    const annotations = metadata?.annotations;
-
-    // Web search should include URL citations
-    if (annotations && annotations.length > 0) {
-      const hasUrlCitation = annotations.some((a) => a.type === 'url_citation');
-      expect(hasUrlCitation).toBe(true);
-    }
+    expect(response.finishReason).toBeDefined();
   });
 });
