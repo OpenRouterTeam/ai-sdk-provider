@@ -4,15 +4,12 @@
  *
  * Issue: "PDF Processing Fails on GPT-4.1 and GPT-5 Models via OpenRouter"
  *
- * Original error reported:
+ * Reported error:
  *   AI_RetryError: Failed after 3 attempts. Last error: Provider returned error
  *
- * Error details from comments (502 from OpenAI):
- *   {"error":{"message":"Provider returned error","code":502,"metadata":{...}}}
- *
- * Root cause: OpenAI models don't natively support PDF file input. OpenRouter
- * automatically parses PDFs and sends extracted text to the model. The issue
- * was resolved by fixes to PDF handling and FileParserPlugin behavior.
+ * Error details from comments:
+ *   {"error":{"message":"Provider returned error","code":502,"metadata":{
+ *     "raw":"...server_error...","provider_name":"OpenAI"}}}
  *
  * This test verifies that PDF processing works with the exact models mentioned
  * in the issue (gpt-4.1 and gpt-5) using base64-encoded PDFs.
