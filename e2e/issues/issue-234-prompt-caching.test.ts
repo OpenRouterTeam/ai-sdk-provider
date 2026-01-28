@@ -160,7 +160,7 @@ Remember to be helpful and concise in your responses.`;
   describe('Kimi K2 automatic caching', () => {
     // Note: Kimi K2 caching behavior depends on upstream Groq/OpenRouter API
     // This test verifies the provider correctly handles whatever is returned
-    const model = openrouter('moonshotai/kimi-k2-instruct');
+    const model = openrouter('moonshotai/kimi-k2-thinking');
 
     it('should handle Kimi K2 responses with or without cached_tokens', async () => {
       const response = await generateText({
