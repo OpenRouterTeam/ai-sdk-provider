@@ -113,11 +113,10 @@ pnpm test:issues
  * Regression test for GitHub issue #{number}
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/{number}
  *
- * Issue: {brief description of the issue}
+ * Reported error: {exact error message from the issue}
+ * Model: {model ID if applicable}
  *
- * Root cause: {explanation of what caused the issue}
- *
- * This test verifies that {what the test checks}
+ * This test verifies that {what the test checks}.
  */
 import { ... } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -127,6 +126,8 @@ describe('Issue #{number}: {brief description}', () => {
   // Test cases that verify the issue is resolved
 });
 ```
+
+> **Note:** Only include known facts from the issue report (error message, model, SDK version). Do not include speculative root cause analysis.
 
 **When to add issue regression tests:**
 - Bug fixes that have a clear reproduction case

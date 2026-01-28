@@ -2,16 +2,10 @@
  * Regression test for GitHub issue #194
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/194
  *
- * Issue: "Can not use grok 4 fast" - AI_APICallError: Invalid JSON response
+ * Reported error: "AI_APICallError: Invalid JSON response"
+ * Model: x-ai/grok-4-fast
  *
- * Root cause: Early Grok 4 Fast API instability (model was only 11 days old
- * when the issue was reported on September 30, 2025). Multiple API-side fixes
- * were deployed after the issue was reported.
- *
- * This test verifies that Grok 4 Fast works correctly with the SDK:
- * - doGenerate returns valid JSON responses
- * - doStream returns valid streaming responses
- * - Tool calls work correctly
+ * This test verifies that Grok 4 Fast works correctly with the SDK.
  */
 import { generateText, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
