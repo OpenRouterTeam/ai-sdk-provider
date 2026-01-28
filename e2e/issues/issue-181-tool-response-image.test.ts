@@ -159,4 +159,47 @@ describe('Issue #181: Tool response for image not working', () => {
       '{"temperature":72,"unit":"F","location":"San Francisco"}',
     );
   });
+
+  it('should stringify tool result with image-data type (matches original issue format)', () => {
+    // This test uses image-data type which is closer to the original issue's "media" type
+    // The original issue used { type: "media", mediaType: "image/jpeg", data: ... }
+    // In AI SDK v3, this is represented as image-data type
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-original-issue',
+            toolName: 'webFetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  // image-data is the AI SDK v3 equivalent of the issue's "media" type
+                  type: 'image-data',
+                  data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBg==', // truncated JPEG
+                  mediaType: 'image/jpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'tool',
+      tool_call_id: 'call-original-issue',
+    });
+
+    // Content is stringified, not converted to image_url format
+    expect(typeof result[0]?.content).toBe('string');
+
+    const content = result[0]?.content as string;
+    expect(content).toContain('"type":"image-data"');
+    expect(content).toContain('"mediaType":"image/jpeg"');
+    expect(content).toContain('/9j/4AAQSkZJRgABAQAAAQABAAD'); // JPEG magic bytes
+  });
 });
