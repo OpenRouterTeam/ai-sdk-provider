@@ -125,12 +125,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
 
-      // standardized settings:
-      max_tokens: maxOutputTokens,
-      temperature,
-      top_p: topP,
-      frequency_penalty: frequencyPenalty,
-      presence_penalty: presencePenalty,
+      // standardized settings (call-level options override model-level settings):
+      max_tokens: maxOutputTokens ?? this.settings.maxTokens,
+      temperature: temperature ?? this.settings.temperature,
+      top_p: topP ?? this.settings.topP,
+      frequency_penalty: frequencyPenalty ?? this.settings.frequencyPenalty,
+      presence_penalty: presencePenalty ?? this.settings.presencePenalty,
       seed,
 
       stop: stopSequences,
@@ -150,7 +150,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               }
             : { type: 'json_object' }
           : undefined,
-      top_k: topK,
+      top_k: topK ?? this.settings.topK,
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
