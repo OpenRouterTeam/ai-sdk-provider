@@ -50,6 +50,46 @@ export type OpenRouterSharedSettings = OpenRouterProviderOptions & {
      */
     include: boolean;
   };
+
+  /**
+   * Default temperature for model calls. Controls randomness in the output.
+   * Can be overridden at call time via generateText/streamText options.
+   * Range: 0 to 2, where 0 is deterministic and higher values are more random.
+   */
+  temperature?: number;
+
+  /**
+   * Default top-p (nucleus sampling) for model calls.
+   * Can be overridden at call time via generateText/streamText options.
+   * Range: 0 to 1.
+   */
+  topP?: number;
+
+  /**
+   * Default top-k sampling for model calls.
+   * Can be overridden at call time via generateText/streamText options.
+   */
+  topK?: number;
+
+  /**
+   * Default frequency penalty for model calls.
+   * Can be overridden at call time via generateText/streamText options.
+   * Range: -2 to 2.
+   */
+  frequencyPenalty?: number;
+
+  /**
+   * Default presence penalty for model calls.
+   * Can be overridden at call time via generateText/streamText options.
+   * Range: -2 to 2.
+   */
+  presencePenalty?: number;
+
+  /**
+   * Default maximum number of tokens to generate.
+   * Can be overridden at call time via generateText/streamText options.
+   */
+  maxTokens?: number;
 };
 
 /**

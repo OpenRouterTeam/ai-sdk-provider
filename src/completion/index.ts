@@ -121,17 +121,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       suffix: this.settings.suffix,
       user: this.settings.user,
 
-      // standardized settings:
-      max_tokens: maxOutputTokens,
-      temperature,
-      top_p: topP,
-      frequency_penalty: frequencyPenalty,
-      presence_penalty: presencePenalty,
+      // standardized settings (call-level options override model-level settings):
+      max_tokens: maxOutputTokens ?? this.settings.maxTokens,
+      temperature: temperature ?? this.settings.temperature,
+      top_p: topP ?? this.settings.topP,
+      frequency_penalty: frequencyPenalty ?? this.settings.frequencyPenalty,
+      presence_penalty: presencePenalty ?? this.settings.presencePenalty,
       seed,
 
       stop: stopSequences,
       response_format: responseFormat,
-      top_k: topK,
+      top_k: topK ?? this.settings.topK,
 
       // prompt:
       prompt: completionPrompt,
