@@ -2308,6 +2308,98 @@ describe('doStream', () => {
     expect(openrouterMetadata?.annotations?.[0]?.file.hash).toBe('hash1');
     expect(openrouterMetadata?.annotations?.[1]?.file.hash).toBe('hash2');
   });
+
+  it('should include accumulated reasoning_details with signature in reasoning-end providerMetadata for text-only responses', async () => {
+    // This test reproduces the Anthropic multi-turn signature bug:
+    // When streaming a text-only response (no tool calls), the signature arrives
+    // in the LAST reasoning delta. The reasoning-start event gets the FIRST delta's
+    // metadata (no signature). The AI SDK uses reasoning-end's providerMetadata to
+    // update the reasoning part's providerMetadata. So the provider MUST include
+    // the accumulated reasoning_details (with signature) in the reasoning-end event.
+    // Without this fix, the saved reasoning part has no signature, and the next turn
+    // fails with "Invalid signature in thinking block".
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning starts, NO signature yet
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think about this","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: more reasoning text, still no signature
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" step by step.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: last reasoning delta WITH signature
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" Done.","index":0,"format":"anthropic-claude-v1","signature":"erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Fourth chunk: text content starts (reasoning ends)
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"Hello! How can I help?"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-sig-test","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-opus-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find reasoning-end event
+    const reasoningEnd = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
+    );
+
+    expect(reasoningEnd).toBeDefined();
+
+    // The reasoning-end event MUST have providerMetadata with the full accumulated
+    // reasoning_details including the signature from the last delta.
+    // This is critical because the AI SDK updates the reasoning part's providerMetadata
+    // from reasoning-end, and the signature is needed for multi-turn conversations.
+    expect(reasoningEnd?.providerMetadata).toBeDefined();
+
+    const reasoningDetails = (reasoningEnd?.providerMetadata?.openrouter as {
+      reasoning_details: ReasoningDetailUnion[];
+    })?.reasoning_details;
+
+    expect(reasoningDetails).toBeDefined();
+    expect(reasoningDetails).toHaveLength(1);
+    expect(reasoningDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Let me think about this step by step. Done.',
+      signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
+      format: 'anthropic-claude-v1',
+    });
+
+    // Also verify that the finish event has the same accumulated data
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+
+    const finishReasoningDetails = (finishEvent?.providerMetadata?.openrouter as {
+      reasoning_details: ReasoningDetailUnion[];
+    })?.reasoning_details;
+
+    expect(finishReasoningDetails).toHaveLength(1);
+    expect(finishReasoningDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Let me think about this step by step. Done.',
+      signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
+    });
+  });
 });
 
 describe('debug settings', () => {
