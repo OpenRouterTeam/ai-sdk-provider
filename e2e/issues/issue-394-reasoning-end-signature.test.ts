@@ -72,7 +72,9 @@ describe('Issue #394: reasoning-end should include accumulated reasoning_details
     expect(reasoningDetails).toBeDefined();
     expect(reasoningDetails!.length).toBeGreaterThan(0);
 
-    const textDetail = reasoningDetails!.find((d) => d.type === 'reasoning.text');
+    const textDetail = reasoningDetails!.find(
+      (d) => d.type === 'reasoning.text',
+    );
     expect(textDetail).toBeDefined();
     expect(textDetail!.signature).toBeDefined();
     expect(typeof textDetail!.signature).toBe('string');
