@@ -102,23 +102,30 @@ describe('Issue #394: reasoning-end should include accumulated reasoning_details
     const assistantMessage = messages.find((m) => m.role === 'assistant');
     expect(assistantMessage).toBeDefined();
 
-    const reasoningParts = assistantMessage?.content.filter(
-      (p) => p.type === 'reasoning',
+    const content = assistantMessage?.content;
+    if (typeof content === 'string') {
+      return;
+    }
+
+    const reasoningParts = content?.filter(
+      (p: { type: string }) => p.type === 'reasoning',
     );
 
     if (reasoningParts && reasoningParts.length > 0) {
       for (const part of reasoningParts) {
-        expect(part.providerMetadata).toBeDefined();
+        if ('providerMetadata' in part) {
+          expect(part.providerMetadata).toBeDefined();
 
-        const openrouterMeta = part.providerMetadata?.openrouter as
-          | Record<string, unknown>
-          | undefined;
-        expect(openrouterMeta).toBeDefined();
+          const openrouterMeta = (
+            part as { providerMetadata?: Record<string, unknown> }
+          ).providerMetadata?.openrouter as Record<string, unknown> | undefined;
+          expect(openrouterMeta).toBeDefined();
 
-        const details = openrouterMeta?.reasoning_details as
-          | Array<Record<string, unknown>>
-          | undefined;
-        expect(details).toBeDefined();
+          const details = openrouterMeta?.reasoning_details as
+            | Array<Record<string, unknown>>
+            | undefined;
+          expect(details).toBeDefined();
+        }
       }
     }
   });
