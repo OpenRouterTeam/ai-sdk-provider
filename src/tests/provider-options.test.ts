@@ -69,4 +69,103 @@ describe('providerOptions', () => {
       stream: true,
     });
   });
+
+  it('should pass effort xhigh to API body', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: 'test',
+    });
+    const model = openrouter('openai/o3');
+
+    await streamText({
+      model: model,
+      messages: TEST_MESSAGES,
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'xhigh',
+          },
+        },
+      },
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+      messages: [
+        {
+          content: 'Hello',
+          role: 'user',
+        },
+      ],
+      reasoning: {
+        effort: 'xhigh',
+      },
+      model: 'openai/o3',
+      stream: true,
+    });
+  });
+
+  it('should pass effort minimal to API body', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: 'test',
+    });
+    const model = openrouter('openai/o3');
+
+    await streamText({
+      model: model,
+      messages: TEST_MESSAGES,
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'minimal',
+          },
+        },
+      },
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+      messages: [
+        {
+          content: 'Hello',
+          role: 'user',
+        },
+      ],
+      reasoning: {
+        effort: 'minimal',
+      },
+      model: 'openai/o3',
+      stream: true,
+    });
+  });
+
+  it('should pass effort none to API body', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: 'test',
+    });
+    const model = openrouter('openai/o3');
+
+    await streamText({
+      model: model,
+      messages: TEST_MESSAGES,
+      providerOptions: {
+        openrouter: {
+          reasoning: {
+            effort: 'none',
+          },
+        },
+      },
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+      messages: [
+        {
+          content: 'Hello',
+          role: 'user',
+        },
+      ],
+      reasoning: {
+        effort: 'none',
+      },
+      model: 'openai/o3',
+      stream: true,
+    });
+  });
 });
