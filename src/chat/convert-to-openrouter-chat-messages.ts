@@ -49,15 +49,13 @@ export function convertToOpenRouterChatMessages(
         const cacheControl = getCacheControl(providerOptions);
         messages.push({
           role: 'system',
-          content: cacheControl
-            ? [
-                {
-                  type: 'text' as const,
-                  text: content,
-                  cache_control: cacheControl,
-                },
-              ]
-            : content,
+          content: [
+            {
+              type: 'text' as const,
+              text: content,
+              ...(cacheControl && { cache_control: cacheControl }),
+            },
+          ],
         });
         break;
       }

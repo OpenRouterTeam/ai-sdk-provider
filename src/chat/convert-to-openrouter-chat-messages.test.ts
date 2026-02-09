@@ -259,7 +259,7 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should keep system message as string when no cache control is present', () => {
+  it('should convert system message to array content even without cache control', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'system',
@@ -270,7 +270,12 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'system',
-        content: 'System prompt',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+          },
+        ],
       },
     ]);
   });
@@ -760,7 +765,12 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'system',
-        content: 'System prompt',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+          },
+        ],
       },
       {
         role: 'user',
