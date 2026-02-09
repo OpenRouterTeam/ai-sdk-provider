@@ -2358,7 +2358,9 @@ describe('doStream', () => {
 
     // Find reasoning-end event
     const reasoningEnd = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+      (
+        el,
+      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
         el.type === 'reasoning-end',
     );
 
@@ -2370,9 +2372,11 @@ describe('doStream', () => {
     // from reasoning-end, and the signature is needed for multi-turn conversations.
     expect(reasoningEnd?.providerMetadata).toBeDefined();
 
-    const reasoningDetails = (reasoningEnd?.providerMetadata?.openrouter as {
-      reasoning_details: ReasoningDetailUnion[];
-    })?.reasoning_details;
+    const reasoningDetails = (
+      reasoningEnd?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
 
     expect(reasoningDetails).toBeDefined();
     expect(reasoningDetails).toHaveLength(1);
@@ -2389,9 +2393,11 @@ describe('doStream', () => {
         el.type === 'finish',
     );
 
-    const finishReasoningDetails = (finishEvent?.providerMetadata?.openrouter as {
-      reasoning_details: ReasoningDetailUnion[];
-    })?.reasoning_details;
+    const finishReasoningDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
 
     expect(finishReasoningDetails).toHaveLength(1);
     expect(finishReasoningDetails[0]).toMatchObject({
