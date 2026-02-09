@@ -232,7 +232,7 @@ describe('user messages', () => {
 });
 
 describe('cache control', () => {
-  it('should pass cache control from system message provider metadata', () => {
+  it('should convert system message to array content with block-level cache control', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'system',
@@ -248,8 +248,56 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'system',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should keep system message as string when no cache control is present', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
         content: 'System prompt',
-        cache_control: { type: 'ephemeral' },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: 'System prompt',
+      },
+    ]);
+  });
+
+  it('should convert system message to array content with openrouter namespace cache control', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
+        content: 'System prompt',
+        providerOptions: {
+          openrouter: {
+            cacheControl: { type: 'ephemeral' },
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
@@ -677,8 +725,13 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'system',
-        content: 'System prompt',
-        cache_control: { type: 'ephemeral' },
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
