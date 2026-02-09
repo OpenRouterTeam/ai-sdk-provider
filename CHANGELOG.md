@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 2.1.2
+
+### Patch Changes
+
+- [#395](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/395) [`23f02f1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/23f02f1b7d87cbe9a1fa99d34dcc261ae989c154) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: include accumulated reasoning_details with signature in reasoning-end stream event
+
+  When streaming a text-only response (no tool calls) with reasoning enabled, the reasoning-end event now includes the accumulated reasoning_details (with signature) in providerMetadata. This fixes multi-turn conversation failures with Anthropic models where the signature was lost, causing "Invalid signature in thinking block" errors on subsequent turns.
+
 ## 2.1.1
 
 ### Patch Changes
