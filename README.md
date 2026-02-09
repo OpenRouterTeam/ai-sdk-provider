@@ -19,13 +19,13 @@ yarn add @openrouter/ai-sdk-provider
 
 ```bash
 # For pnpm
-pnpm add @openrouter/ai-sdk-provider@ai-sdk-v5
+pnpm add @openrouter/ai-sdk-provider@1.5.4
 
 # For npm
-npm install @openrouter/ai-sdk-provider@ai-sdk-v5
+npm install @openrouter/ai-sdk-provider@1.5.4
 
 # For yarn
-yarn add @openrouter/ai-sdk-provider@ai-sdk-v5
+yarn add @openrouter/ai-sdk-provider@1.5.4
 ```
 
 ## Provider Instance
