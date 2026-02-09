@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.1.3
+
+### Patch Changes
+
+- [#398](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/398) [`50c932c`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/50c932c48d0c4b238a9454e2ba95618495b61810) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add support for reasoning effort values 'xhigh', 'minimal', and 'none' in the reasoning configuration type. Previously only 'high', 'medium', and 'low' were accepted.
+
 ## 2.1.2
 
 ### Patch Changes
