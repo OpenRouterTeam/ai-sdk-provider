@@ -36,6 +36,13 @@ export type IdModeration = 'moderation';
 export type IdResponseHealing = 'response-healing';
 
 /**
+ * Plugin identifier for auto-router model selection.
+ * Configures allowed models when using the openrouter/auto model.
+ * @see https://openrouter.ai/docs/guides/routing/routers/auto-router
+ */
+export type IdAutoRouter = 'auto-router';
+
+/**
  * Search engine options for web search.
  * Open enum - accepts known values or any string for forward compatibility.
  */

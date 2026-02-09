@@ -2,6 +2,7 @@ import type { OpenRouterSharedSettings } from '..';
 import type {
   DataCollection,
   Engine,
+  IdAutoRouter,
   IdFileParser,
   IdModeration,
   IdResponseHealing,
@@ -86,6 +87,18 @@ monitor and detect abuse. Learn more.
          * @see https://openrouter.ai/docs/guides/features/plugins/response-healing
          */
         id: IdResponseHealing;
+      }
+    | {
+        /**
+         * Auto-router plugin - configures allowed models when using `openrouter/auto`.
+         *
+         * Use wildcard patterns to restrict which models the auto router can select from.
+         * When no `allowed_models` are specified, the auto router uses all supported models.
+         *
+         * @see https://openrouter.ai/docs/guides/routing/routers/auto-router
+         */
+        id: IdAutoRouter;
+        allowed_models?: string[];
       }
   >;
 

@@ -818,6 +818,76 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should pass auto-router plugin with allowed_models in request payload', async () => {
+    prepareJsonResponse({ content: 'Hello from auto-selected model' });
+
+    const autoModel = provider.chat('openrouter/auto', {
+      plugins: [
+        {
+          id: 'auto-router',
+          allowed_models: ['anthropic/*', 'openai/gpt-5.1'],
+        },
+      ],
+    });
+
+    await autoModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openrouter/auto',
+      messages: [{ role: 'user', content: 'Hello' }],
+      plugins: [
+        {
+          id: 'auto-router',
+          allowed_models: ['anthropic/*', 'openai/gpt-5.1'],
+        },
+      ],
+    });
+  });
+
+  it('should pass auto-router plugin without allowed_models in request payload', async () => {
+    prepareJsonResponse({ content: 'Hello from auto-selected model' });
+
+    const autoModel = provider.chat('openrouter/auto', {
+      plugins: [{ id: 'auto-router' }],
+    });
+
+    await autoModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openrouter/auto',
+      messages: [{ role: 'user', content: 'Hello' }],
+      plugins: [{ id: 'auto-router' }],
+    });
+  });
+
+  it('should pass auto-router plugin combined with other plugins', async () => {
+    prepareJsonResponse({ content: 'Hello from auto-selected model' });
+
+    const autoModel = provider.chat('openrouter/auto', {
+      plugins: [
+        { id: 'auto-router', allowed_models: ['anthropic/*'] },
+        { id: 'web' },
+      ],
+    });
+
+    await autoModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openrouter/auto',
+      messages: [{ role: 'user', content: 'Hello' }],
+      plugins: [
+        { id: 'auto-router', allowed_models: ['anthropic/*'] },
+        { id: 'web' },
+      ],
+    });
+  });
+
   it('should pass images', async () => {
     prepareJsonResponse({
       content: '',
