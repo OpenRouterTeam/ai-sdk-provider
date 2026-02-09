@@ -1,5 +1,5 @@
 ---
-"@openrouter/ai-sdk-provider": patch
+"@openrouter/ai-sdk-provider": minor
 ---
 
 Fix system message cache control to use block-level format
