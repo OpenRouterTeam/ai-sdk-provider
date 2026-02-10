@@ -17,11 +17,10 @@ import {
 } from '@ai-sdk/provider';
 import {
   combineHeaders,
-  convertUint8ArrayToBase64,
   createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { getBase64FromDataUrl } from '../chat/file-url-utils';
+import { buildFileDataUrl, getBase64FromDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterImageResponseSchema } from './schemas';
 
@@ -191,6 +190,8 @@ export class OpenRouterImageModel implements ImageModelV3 {
   }
 }
 
+const DEFAULT_IMAGE_MEDIA_TYPE = 'image/png';
+
 function convertImageFileToContentPart(
   file: ImageModelV3File,
 ): Record<string, unknown> {
@@ -201,12 +202,11 @@ function convertImageFileToContentPart(
     };
   }
 
-  const url =
-    file.data instanceof Uint8Array
-      ? `data:${file.mediaType};base64,${convertUint8ArrayToBase64(file.data)}`
-      : file.data.startsWith('data:')
-        ? file.data
-        : `data:${file.mediaType};base64,${file.data}`;
+  const url = buildFileDataUrl({
+    data: file.data,
+    mediaType: file.mediaType,
+    defaultMediaType: DEFAULT_IMAGE_MEDIA_TYPE,
+  });
 
   return {
     type: 'image_url',

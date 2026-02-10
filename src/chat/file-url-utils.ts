@@ -5,6 +5,36 @@ import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
 import { OPENROUTER_AUDIO_FORMATS } from '../types/openrouter-chat-completions-input';
 import { isUrl } from './is-url';
 
+export function buildFileDataUrl({
+  data,
+  mediaType,
+  defaultMediaType,
+}: {
+  data: string | Uint8Array;
+  mediaType?: string;
+  defaultMediaType: string;
+}): string {
+  if (data instanceof Uint8Array) {
+    const base64 = convertUint8ArrayToBase64(data);
+    return `data:${mediaType ?? defaultMediaType};base64,${base64}`;
+  }
+
+  const stringData = data.toString();
+
+  if (
+    isUrl({
+      url: stringData,
+      protocols: new Set(['http:', 'https:'] as const),
+    })
+  ) {
+    return stringData;
+  }
+
+  return stringData.startsWith('data:')
+    ? stringData
+    : `data:${mediaType ?? defaultMediaType};base64,${stringData}`;
+}
+
 export function getFileUrl({
   part,
   defaultMediaType,
@@ -12,25 +42,13 @@ export function getFileUrl({
   part: LanguageModelV3FilePart;
   defaultMediaType: string;
 }) {
-  if (part.data instanceof Uint8Array) {
-    const base64 = convertUint8ArrayToBase64(part.data);
-    return `data:${part.mediaType ?? defaultMediaType};base64,${base64}`;
-  }
-
-  const stringUrl = part.data.toString();
-
-  if (
-    isUrl({
-      url: stringUrl,
-      protocols: new Set(['http:', 'https:'] as const),
-    })
-  ) {
-    return stringUrl;
-  }
-
-  return stringUrl.startsWith('data:')
-    ? stringUrl
-    : `data:${part.mediaType ?? defaultMediaType};base64,${stringUrl}`;
+  const data =
+    part.data instanceof URL ? part.data.toString() : part.data;
+  return buildFileDataUrl({
+    data,
+    mediaType: part.mediaType,
+    defaultMediaType,
+  });
 }
 
 export function getMediaType(
