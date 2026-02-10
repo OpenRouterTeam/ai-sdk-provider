@@ -28,6 +28,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
+import { computeTokenUsage, emptyUsage } from '../utils/compute-token-usage';
 import {
   createFinishReason,
   mapOpenRouterFinishReason,
@@ -203,47 +204,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         },
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      usage: response.usage
-        ? (() => {
-            const promptTokens = response.usage.prompt_tokens ?? 0;
-            const completionTokens = response.usage.completion_tokens ?? 0;
-            const cacheReadTokens =
-              response.usage.prompt_tokens_details?.cached_tokens ?? 0;
-            const cacheWriteTokens =
-              response.usage.prompt_tokens_details?.cache_write_tokens ??
-              undefined;
-            const reasoningTokens =
-              response.usage.completion_tokens_details?.reasoning_tokens ?? 0;
-
-            return {
-              inputTokens: {
-                total: promptTokens,
-                noCache: promptTokens - cacheReadTokens,
-                cacheRead: cacheReadTokens,
-                cacheWrite: cacheWriteTokens,
-              },
-              outputTokens: {
-                total: completionTokens,
-                text: completionTokens - reasoningTokens,
-                reasoning: reasoningTokens,
-              },
-              raw: response.usage as JSONObject,
-            };
-          })()
-        : {
-            inputTokens: {
-              total: 0,
-              noCache: undefined,
-              cacheRead: undefined,
-              cacheWrite: undefined,
-            },
-            outputTokens: {
-              total: 0,
-              text: undefined,
-              reasoning: undefined,
-            },
-            raw: undefined,
-          },
+      usage: response.usage ? computeTokenUsage(response.usage) : emptyUsage(),
       warnings: [],
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
@@ -381,38 +342,28 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
             }
 
             if (value.usage != null) {
-              const promptTokens = value.usage.prompt_tokens ?? 0;
-              const completionTokens = value.usage.completion_tokens ?? 0;
-              const cacheReadTokens =
-                value.usage.prompt_tokens_details?.cached_tokens ?? 0;
-              const cacheWriteTokens =
-                value.usage.prompt_tokens_details?.cache_write_tokens ??
-                undefined;
-              const reasoningTokens =
-                value.usage.completion_tokens_details?.reasoning_tokens ?? 0;
-
-              usage.inputTokens.total = promptTokens;
-              usage.inputTokens.noCache = promptTokens - cacheReadTokens;
-              usage.inputTokens.cacheRead = cacheReadTokens;
-              usage.inputTokens.cacheWrite = cacheWriteTokens;
-              usage.outputTokens.total = completionTokens;
-              usage.outputTokens.text = completionTokens - reasoningTokens;
-              usage.outputTokens.reasoning = reasoningTokens;
+              const computed = computeTokenUsage(value.usage);
+              Object.assign(usage.inputTokens, computed.inputTokens);
+              Object.assign(usage.outputTokens, computed.outputTokens);
 
               rawUsage = value.usage as JSONObject;
 
+              const promptTokens = value.usage.prompt_tokens ?? 0;
+              const completionTokens = value.usage.completion_tokens ?? 0;
               openrouterUsage.promptTokens = promptTokens;
 
               if (value.usage.prompt_tokens_details) {
                 openrouterUsage.promptTokensDetails = {
-                  cachedTokens: cacheReadTokens,
+                  cachedTokens:
+                    value.usage.prompt_tokens_details.cached_tokens ?? 0,
                 };
               }
 
               openrouterUsage.completionTokens = completionTokens;
               if (value.usage.completion_tokens_details) {
                 openrouterUsage.completionTokensDetails = {
-                  reasoningTokens,
+                  reasoningTokens:
+                    value.usage.completion_tokens_details.reasoning_tokens ?? 0,
                 };
               }
 
