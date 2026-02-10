@@ -11,8 +11,8 @@
  *   that are supported by the AI SDK's `generateImage` function through
  *   `prompt.images`
  */
-import { generateImage } from 'ai';
 import { deflateSync } from 'node:zlib';
+import { generateImage } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
