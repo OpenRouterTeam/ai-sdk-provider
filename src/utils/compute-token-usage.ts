@@ -33,20 +33,20 @@ export function computeTokenUsage(usage: UsageData): LanguageModelV3Usage {
       text: completionTokens - reasoningTokens,
       reasoning: reasoningTokens,
     },
-    raw: usage as unknown as JSONObject,
+    raw: usage as JSONObject,
   };
 }
 
 export function emptyUsage(): LanguageModelV3Usage {
   return {
     inputTokens: {
-      total: 0,
+      total: undefined,
       noCache: undefined,
       cacheRead: undefined,
       cacheWrite: undefined,
     },
     outputTokens: {
-      total: 0,
+      total: undefined,
       text: undefined,
       reasoning: undefined,
     },

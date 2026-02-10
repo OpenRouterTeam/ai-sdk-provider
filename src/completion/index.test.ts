@@ -159,6 +159,35 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should compute noCache and text from detail fields in doGenerate', async () => {
+    prepareJsonResponse({
+      content: 'Hello',
+      usage: {
+        prompt_tokens: 100,
+        total_tokens: 150,
+        completion_tokens: 50,
+        prompt_tokens_details: { cached_tokens: 20 },
+        completion_tokens_details: { reasoning_tokens: 10 },
+      },
+    });
+
+    const { usage } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(usage.inputTokens).toStrictEqual({
+      total: 100,
+      noCache: 80,
+      cacheRead: 20,
+      cacheWrite: undefined,
+    });
+    expect(usage.outputTokens).toStrictEqual({
+      total: 50,
+      text: 40,
+      reasoning: 10,
+    });
+  });
+
   it('should return providerMetadata with usage and provider', async () => {
     prepareJsonResponse({
       content: 'Hello',
@@ -520,6 +549,45 @@ describe('doStream', () => {
         },
       },
     ]);
+  });
+
+  it('should compute noCache and text from detail fields in doStream', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 100,
+        total_tokens: 150,
+        completion_tokens: 50,
+        prompt_tokens_details: { cached_tokens: 20 },
+        completion_tokens_details: { reasoning_tokens: 10 },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV3StreamPart[];
+    const finishChunk = elements.find(
+      (
+        element,
+      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        element.type === 'finish',
+    );
+
+    expect(finishChunk?.usage?.inputTokens).toStrictEqual({
+      total: 100,
+      noCache: 80,
+      cacheRead: 20,
+      cacheWrite: undefined,
+    });
+    expect(finishChunk?.usage?.outputTokens).toStrictEqual({
+      total: 50,
+      text: 40,
+      reasoning: 10,
+    });
   });
 
   it('should include upstream inference cost when provided', async () => {
