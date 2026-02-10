@@ -164,13 +164,13 @@ describe('emptyUsage', () => {
     const result = emptyUsage();
 
     expect(result.inputTokens).toStrictEqual({
-      total: undefined,
+      total: 0,
       noCache: undefined,
       cacheRead: undefined,
       cacheWrite: undefined,
     });
     expect(result.outputTokens).toStrictEqual({
-      total: undefined,
+      total: 0,
       text: undefined,
       reasoning: undefined,
     });

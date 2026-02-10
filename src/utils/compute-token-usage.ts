@@ -40,13 +40,13 @@ export function computeTokenUsage(usage: UsageData): LanguageModelV3Usage {
 export function emptyUsage(): LanguageModelV3Usage {
   return {
     inputTokens: {
-      total: undefined,
+      total: 0,
       noCache: undefined,
       cacheRead: undefined,
       cacheWrite: undefined,
     },
     outputTokens: {
-      total: undefined,
+      total: 0,
       text: undefined,
       reasoning: undefined,
     },
