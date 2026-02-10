@@ -101,9 +101,7 @@ describe('Issue #407: Token usage detail fields should not be undefined', () => 
       const usage = await response.usage;
 
       expect(usage.inputTokens).toEqual(expect.any(Number));
-      expect(usage.inputTokenDetails.noCacheTokens).toEqual(
-        expect.any(Number),
-      );
+      expect(usage.inputTokenDetails.noCacheTokens).toEqual(expect.any(Number));
       expect(usage.outputTokens).toEqual(expect.any(Number));
       expect(usage.outputTokenDetails.textTokens).toEqual(expect.any(Number));
 
