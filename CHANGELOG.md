@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.2.2
+
+### Patch Changes
+
+- [#405](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/405) [`f7139f1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f7139f180803e24858a12559b3389cd16c64c40e) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Support `files` parameter in image generation for image editing and image-to-image use cases
+
 ## 2.2.1
 
 ### Patch Changes
