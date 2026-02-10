@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.2.1
+
+### Patch Changes
+
+- [#403](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/403) [`e3908c6`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/e3908c65484a110e6ff6be7fe5669ec68269c1e3) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add support for `auto-router` plugin to configure allowed models when using `openrouter/auto`
+
 ## 2.2.0
 
 ### Minor Changes
