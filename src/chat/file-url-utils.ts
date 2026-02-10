@@ -42,8 +42,7 @@ export function getFileUrl({
   part: LanguageModelV3FilePart;
   defaultMediaType: string;
 }) {
-  const data =
-    part.data instanceof URL ? part.data.toString() : part.data;
+  const data = part.data instanceof URL ? part.data.toString() : part.data;
   return buildFileDataUrl({
     data,
     mediaType: part.mediaType,
