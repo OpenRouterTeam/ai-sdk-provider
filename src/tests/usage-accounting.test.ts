@@ -372,6 +372,160 @@ describe('OpenRouter Usage Accounting', () => {
     });
   });
 
+  it('should compute inputTokens.noCache and outputTokens.text from detail fields', async () => {
+    prepareJsonResponse();
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      {},
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+    });
+
+    expect(result.usage.inputTokens).toStrictEqual({
+      total: 10,
+      noCache: 5,
+      cacheRead: 5,
+      cacheWrite: undefined,
+    });
+    expect(result.usage.outputTokens).toStrictEqual({
+      total: 20,
+      text: 12,
+      reasoning: 8,
+    });
+  });
+
+  it('should set noCache equal to total and cacheRead to 0 when no detail fields present', async () => {
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'test-id',
+        model: 'test-model',
+        choices: [
+          {
+            message: { role: 'assistant', content: 'Hello' },
+            index: 0,
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 15,
+          completion_tokens: 25,
+          total_tokens: 40,
+        },
+      },
+    };
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      {},
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+    });
+
+    expect(result.usage.inputTokens).toStrictEqual({
+      total: 15,
+      noCache: 15,
+      cacheRead: 0,
+      cacheWrite: undefined,
+    });
+    expect(result.usage.outputTokens).toStrictEqual({
+      total: 25,
+      text: 25,
+      reasoning: 0,
+    });
+  });
+
+  it('should pass through cache_write_tokens when present in response', async () => {
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'test-id',
+        model: 'test-model',
+        choices: [
+          {
+            message: { role: 'assistant', content: 'Hello' },
+            index: 0,
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          prompt_tokens_details: {
+            cached_tokens: 20,
+            cache_write_tokens: 30,
+          },
+          completion_tokens: 50,
+          completion_tokens_details: {
+            reasoning_tokens: 10,
+          },
+          total_tokens: 150,
+        },
+      },
+    };
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      {},
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+    });
+
+    expect(result.usage.inputTokens).toStrictEqual({
+      total: 100,
+      noCache: 80,
+      cacheRead: 20,
+      cacheWrite: 30,
+    });
+    expect(result.usage.outputTokens).toStrictEqual({
+      total: 50,
+      text: 40,
+      reasoning: 10,
+    });
+  });
+
   it('should set usage.raw to undefined when no usage data in response', async () => {
     prepareJsonResponse(false);
 

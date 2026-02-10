@@ -142,14 +142,14 @@ describe('doGenerate', () => {
     expect(usage).toStrictEqual({
       inputTokens: {
         total: 20,
-        noCache: undefined,
-        cacheRead: undefined,
+        noCache: 20,
+        cacheRead: 0,
         cacheWrite: undefined,
       },
       outputTokens: {
         total: 5,
-        text: undefined,
-        reasoning: undefined,
+        text: 5,
+        reasoning: 0,
       },
       raw: {
         prompt_tokens: 20,
@@ -503,14 +503,14 @@ describe('doStream', () => {
         usage: {
           inputTokens: {
             total: 10,
-            noCache: undefined,
-            cacheRead: undefined,
+            noCache: 10,
+            cacheRead: 0,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: 362,
-            text: undefined,
-            reasoning: undefined,
+            text: 362,
+            reasoning: 0,
           },
           raw: {
             prompt_tokens: 10,

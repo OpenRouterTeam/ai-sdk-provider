@@ -257,14 +257,14 @@ describe('doGenerate', () => {
     expect(usage).toStrictEqual({
       inputTokens: {
         total: 20,
-        noCache: undefined,
-        cacheRead: undefined,
+        noCache: 20,
+        cacheRead: 0,
         cacheWrite: undefined,
       },
       outputTokens: {
         total: 5,
-        text: undefined,
-        reasoning: undefined,
+        text: 5,
+        reasoning: 0,
       },
       raw: {
         prompt_tokens: 20,
@@ -1072,14 +1072,14 @@ describe('doStream', () => {
         usage: {
           inputTokens: {
             total: 17,
-            noCache: undefined,
-            cacheRead: undefined,
+            noCache: 17,
+            cacheRead: 0,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: 227,
-            text: undefined,
-            reasoning: undefined,
+            text: 227,
+            reasoning: 0,
           },
           raw: {
             prompt_tokens: 17,
@@ -1668,14 +1668,14 @@ describe('doStream', () => {
         usage: {
           inputTokens: {
             total: 53,
-            noCache: undefined,
-            cacheRead: undefined,
+            noCache: 53,
+            cacheRead: 0,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: 17,
-            text: undefined,
-            reasoning: undefined,
+            text: 17,
+            reasoning: 0,
           },
           raw: {
             prompt_tokens: 53,
@@ -1786,14 +1786,14 @@ describe('doStream', () => {
         usage: {
           inputTokens: {
             total: 53,
-            noCache: undefined,
-            cacheRead: undefined,
+            noCache: 53,
+            cacheRead: 0,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: 17,
-            text: undefined,
-            reasoning: undefined,
+            text: 17,
+            reasoning: 0,
           },
           raw: {
             prompt_tokens: 53,
@@ -1923,14 +1923,14 @@ describe('doStream', () => {
         usage: {
           inputTokens: {
             total: 53,
-            noCache: undefined,
-            cacheRead: undefined,
+            noCache: 53,
+            cacheRead: 0,
             cacheWrite: undefined,
           },
           outputTokens: {
             total: 17,
-            text: undefined,
-            reasoning: undefined,
+            text: 17,
+            reasoning: 0,
           },
           raw: {
             prompt_tokens: 53,
