@@ -203,32 +203,47 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
         },
       ],
       finishReason: mapOpenRouterFinishReason(choice.finish_reason),
-      usage: (() => {
-        const promptTokens = response.usage?.prompt_tokens ?? 0;
-        const completionTokens = response.usage?.completion_tokens ?? 0;
-        const cacheReadTokens =
-          response.usage?.prompt_tokens_details?.cached_tokens ?? 0;
-        const cacheWriteTokens =
-          response.usage?.prompt_tokens_details?.cache_write_tokens ??
-          undefined;
-        const reasoningTokens =
-          response.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
+      usage: response.usage
+        ? (() => {
+            const promptTokens = response.usage.prompt_tokens ?? 0;
+            const completionTokens = response.usage.completion_tokens ?? 0;
+            const cacheReadTokens =
+              response.usage.prompt_tokens_details?.cached_tokens ?? 0;
+            const cacheWriteTokens =
+              response.usage.prompt_tokens_details?.cache_write_tokens ??
+              undefined;
+            const reasoningTokens =
+              response.usage.completion_tokens_details?.reasoning_tokens ?? 0;
 
-        return {
-          inputTokens: {
-            total: promptTokens,
-            noCache: promptTokens - cacheReadTokens,
-            cacheRead: cacheReadTokens,
-            cacheWrite: cacheWriteTokens,
+            return {
+              inputTokens: {
+                total: promptTokens,
+                noCache: promptTokens - cacheReadTokens,
+                cacheRead: cacheReadTokens,
+                cacheWrite: cacheWriteTokens,
+              },
+              outputTokens: {
+                total: completionTokens,
+                text: completionTokens - reasoningTokens,
+                reasoning: reasoningTokens,
+              },
+              raw: response.usage as JSONObject,
+            };
+          })()
+        : {
+            inputTokens: {
+              total: 0,
+              noCache: undefined,
+              cacheRead: undefined,
+              cacheWrite: undefined,
+            },
+            outputTokens: {
+              total: 0,
+              text: undefined,
+              reasoning: undefined,
+            },
+            raw: undefined,
           },
-          outputTokens: {
-            total: completionTokens,
-            text: completionTokens - reasoningTokens,
-            reasoning: reasoningTokens,
-          },
-          raw: (response.usage as JSONObject) ?? undefined,
-        };
-      })(),
       warnings: [],
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
