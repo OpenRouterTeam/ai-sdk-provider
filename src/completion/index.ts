@@ -33,6 +33,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -287,6 +288,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       fetch: this.config.fetch,
     });
 
+    let streamError: unknown;
+    const safeResponse = withStreamErrorHandling(response, (err) => {
+      streamError = err;
+    });
+
     let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
     const usage: LanguageModelV3Usage = {
       inputTokens: {
@@ -310,7 +316,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
     let rawUsage: JSONObject | undefined;
 
     return {
-      stream: response.pipeThrough(
+      stream: safeResponse.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
           LanguageModelV3StreamPart
@@ -396,6 +402,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
           },
 
           flush(controller) {
+            if (streamError != null) {
+              finishReason = createFinishReason('error');
+              controller.enqueue({ type: 'error', error: streamError });
+            }
+
             // Set raw usage before emitting finish event
             usage.raw = rawUsage;
 
