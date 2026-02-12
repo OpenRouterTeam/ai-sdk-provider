@@ -1627,6 +1627,10 @@ describe('doStream', () => {
         delta: '"}',
       },
       {
+        type: 'tool-input-end',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+      },
+      {
         type: 'tool-call',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
