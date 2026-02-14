@@ -72,6 +72,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i,
     ],
+    'video/*': [/^data:video\//, /^https?:\/\/.+$/],
+    'audio/*': [/^data:audio\//, /^https?:\/\/.+$/],
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
     'application/*': [/^data:application\//, /^https?:\/\/.+$/],
   };
