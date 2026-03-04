@@ -133,8 +133,8 @@ A JSON object to send as the request body to access OpenRouter features & upstre
   api_keys?: Record<string, string>;
 
   /**
-   * Your app's display name. Sets the `X-Title` header on every request,
-   * which is shown on the openrouter.ai dashboard.
+   * Your app's display name. Sets the `X-OpenRouter-Title` header on
+   * every request for app attribution on the openrouter.ai dashboard.
    */
   appName?: string;
 
@@ -166,7 +166,7 @@ export function createOpenRouter(
           environmentVariableName: 'OPENROUTER_API_KEY',
           description: 'OpenRouter',
         })}`,
-        ...(options.appName && { 'X-Title': options.appName }),
+        ...(options.appName && { 'X-OpenRouter-Title': options.appName }),
         ...(options.appUrl && { 'HTTP-Referer': options.appUrl }),
         ...options.headers,
         ...(options.api_keys &&
