@@ -536,6 +536,43 @@ describe('doGenerate', () => {
     );
   });
 
+  it('should infer tool-calls finishReason when finish_reason is unknown but tool calls are present in doGenerate (#420)', async () => {
+    // Simulate Kimi K2.5 behavior: provider returns an unrecognized finish_reason
+    // with tool calls, which mapOpenRouterFinishReason maps to 'other'
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_kimi_001',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+      ],
+      finish_reason: 'some_unknown_reason',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // Should infer 'tool-calls' when tool calls are present but finish_reason maps to 'other'
+    expect(result.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: 'some_unknown_reason',
+    });
+
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call_kimi_001',
+        toolName: 'get_weather',
+      }),
+    );
+  });
+
   it('should default to empty JSON object when tool call arguments field is missing', async () => {
     prepareJsonResponse({
       content: '',
@@ -1866,6 +1903,92 @@ describe('doStream', () => {
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
     expect(toolCallEvent?.toolCallId).toBe('call_gemini3_123');
+  });
+
+  it('should infer tool-calls finishReason when finish_reason is missing but tool calls are present (#420)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call chunk with no finish_reason set (simulates Kimi K2.5 behavior)
+        `data: {"id":"chatcmpl-kimi","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.5",` +
+          `"system_fingerprint":"fp_kimi","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_kimi_001","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Tokyo\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Final chunk with no finish_reason (provider returns null)
+        `data: {"id":"chatcmpl-kimi","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.5",` +
+          `"system_fingerprint":"fp_kimi","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-kimi","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.5",` +
+          `"system_fingerprint":"fp_kimi","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":25,"total_tokens":125}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+            required: ['city'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // finishReason should be inferred as 'tool-calls' even though provider returned null
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: undefined,
+    });
+
+    const toolCallEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+    expect(toolCallEvent?.toolName).toBe('get_weather');
+  });
+
+  it('should populate usage from openrouterUsage when standard usage is empty (#419)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Text content chunk
+        `data: {"id":"chatcmpl-kilo","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_kilo","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Final chunk with finish_reason but NO usage chunk
+        `data: {"id":"chatcmpl-kilo","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_kilo","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // When no usage chunk is sent, standard usage should have undefined totals
+    expect(finishEvent?.usage.inputTokens.total).toBeUndefined();
+    expect(finishEvent?.usage.outputTokens.total).toBeUndefined();
   });
 
   it('should stream images', async () => {
