@@ -1055,33 +1055,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               finishReason = createFinishReason('tool-calls', finishReason.raw);
             }
 
-            // Fix for #419: When the standard usage object is still unpopulated but
-            // openrouterUsage has data (e.g. from custom endpoints like Kilo Gateway),
-            // populate usage from openrouterUsage as a fallback.
-            if (
-              usage.inputTokens.total === undefined &&
-              openrouterUsage.promptTokens != null
-            ) {
-              const promptTokens = openrouterUsage.promptTokens;
-              const completionTokens = openrouterUsage.completionTokens ?? 0;
-              const cachedTokens =
-                openrouterUsage.promptTokensDetails?.cachedTokens ?? 0;
-              const reasoningTokens =
-                openrouterUsage.completionTokensDetails?.reasoningTokens ?? 0;
-
-              usage.inputTokens = {
-                total: promptTokens,
-                noCache: promptTokens - cachedTokens,
-                cacheRead: cachedTokens,
-                cacheWrite: undefined,
-              };
-              usage.outputTokens = {
-                total: completionTokens,
-                text: completionTokens - reasoningTokens,
-                reasoning: reasoningTokens,
-              };
-            }
-
             // Forward any unsent tool calls if finish reason is 'tool-calls'
             if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {

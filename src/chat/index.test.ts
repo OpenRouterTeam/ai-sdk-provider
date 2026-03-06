@@ -1991,61 +1991,6 @@ describe('doStream', () => {
     expect(finishEvent?.usage.outputTokens.total).toBeUndefined();
   });
 
-  it('should fallback to openrouterUsage for standard usage when usage arrives only in providerMetadata format (#419)', async () => {
-    // Simulate a gateway that populates openrouterUsage but not standard usage fields
-    // This tests the flush() fallback path
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        // Text content chunk
-        `data: {"id":"chatcmpl-kilo2","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_kilo","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
-          `"logprobs":null,"finish_reason":null}]}\n\n`,
-        // Finish chunk
-        `data: {"id":"chatcmpl-kilo2","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_kilo","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
-        // Usage chunk with full data (this populates both standard usage and openrouterUsage)
-        `data: {"id":"chatcmpl-kilo2","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_kilo","choices":[],"usage":{"prompt_tokens":500,"completion_tokens":40,"total_tokens":540,` +
-          `"prompt_tokens_details":{"cached_tokens":100},"completion_tokens_details":{"reasoning_tokens":10}}}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
-    const elements = await convertReadableStreamToArray(stream);
-
-    const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
-        el.type === 'finish',
-    );
-
-    // Standard usage should be populated from the usage chunk
-    expect(finishEvent?.usage.inputTokens).toStrictEqual({
-      total: 500,
-      noCache: 400,
-      cacheRead: 100,
-      cacheWrite: undefined,
-    });
-    expect(finishEvent?.usage.outputTokens).toStrictEqual({
-      total: 40,
-      text: 30,
-      reasoning: 10,
-    });
-
-    // openrouterUsage should also be populated
-    expect(finishEvent?.providerMetadata?.openrouter?.usage).toStrictEqual({
-      promptTokens: 500,
-      completionTokens: 40,
-      totalTokens: 540,
-      promptTokensDetails: { cachedTokens: 100 },
-      completionTokensDetails: { reasoningTokens: 10 },
-    });
-  });
-
   it('should stream images', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
