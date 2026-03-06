@@ -2,13 +2,11 @@
  * Regression test for GitHub Issue #422
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/422
  *
- * Reported: When an API error occurs, streamText returns a generic
- * "Provider returned error" message. The actual error details are
- * buried in error.metadata.raw and not surfaced to the user.
- * Users had to add console.log in the library source to see the
- * real error cause.
- *
+ * Reported error: "Provider returned error" - generic message without upstream details
  * Model: any (error handling is model-agnostic)
+ *
+ * This test verifies that API errors surface detailed error information
+ * from metadata.raw instead of generic messages.
  */
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -37,12 +35,12 @@ describe('Issue #422: API errors should surface detailed error information', () 
     } catch (error: unknown) {
       const err = error as Error;
       // The error message should contain more detail than just "Provider returned error"
-      // It should surface the actual error reason from the API response
+      // With the fix, invalid API key errors should mention the key issue
       expect(err.message).toBeDefined();
       expect(err.message.length).toBeGreaterThan(0);
-      // The message should NOT be a completely generic uninformative string
-      // when the API provides additional detail in metadata.raw
-      expect(err.message).not.toBe('');
+      // The message should NOT be just the generic "Provider returned error"
+      // It should contain actual details from the API response
+      expect(err.message).not.toBe('Provider returned error');
     }
   });
 });
