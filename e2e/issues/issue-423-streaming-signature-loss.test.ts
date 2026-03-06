@@ -118,7 +118,7 @@ describe('Issue #423: streaming signature should not be lost during multi-turn c
     let turn2Text = '';
     for await (const chunk of turn2.fullStream) {
       if (chunk.type === 'text-delta') {
-        turn2Text += chunk.textDelta;
+        turn2Text += chunk.text;
       }
     }
 
