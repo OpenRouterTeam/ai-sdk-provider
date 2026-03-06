@@ -104,7 +104,10 @@ describe('Issue #423: streaming signature should not be lost during multi-turn c
     const turn2 = streamText({
       model,
       messages: [
-        { role: 'user', content: 'What is the capital of France? Think about it.' },
+        {
+          role: 'user',
+          content: 'What is the capital of France? Think about it.',
+        },
         ...turn1Messages,
         { role: 'user', content: 'And what about Germany?' },
       ],
