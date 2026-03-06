@@ -672,6 +672,62 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should omit response_format from request body when tools are present', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+        name: 'AnswerResponse',
+      },
+      tools: [
+        {
+          type: 'function',
+          name: 'lookup-email',
+          description: 'Look up information about an email address',
+          inputSchema: {
+            type: 'object',
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+    });
+
+    const body = await server.calls[0]!.requestBodyJson;
+
+    // response_format should NOT be in the request body when tools are present
+    expect(body).not.toHaveProperty('response_format');
+
+    // tools should still be present
+    expect(body).toHaveProperty('tools');
+    expect((body as Record<string, unknown>).tools).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'lookup-email',
+          description: 'Look up information about an email address',
+          parameters: {
+            type: 'object',
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      },
+    ]);
+  });
+
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -2146,7 +2202,7 @@ describe('doStream', () => {
     });
   });
 
-  it('should pass responseFormat AND tools together', async () => {
+  it('should omit response_format when tools are present to prevent tool args leaking as text', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
     const testSchema: JSONSchema7 = {
@@ -2187,20 +2243,16 @@ describe('doStream', () => {
       },
     });
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const body = await server.calls[0]!.requestBodyJson;
+
+    // response_format should be omitted when tools are present
+    expect(body).not.toHaveProperty('response_format');
+
+    expect(body).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          schema: testSchema,
-          strict: true,
-          name: 'PersonResponse',
-          description: 'A person object',
-        },
-      },
       tools: [
         {
           type: 'function',
