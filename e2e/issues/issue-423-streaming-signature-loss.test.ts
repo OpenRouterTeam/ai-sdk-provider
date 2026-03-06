@@ -2,14 +2,11 @@
  * Regression test for GitHub Issue #423
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423
  *
- * Reported: Anthropic thinking block signature lost during streaming,
- * causing "Invalid signature in thinking block" errors on multi-turn
- * conversations. The signature arrives in a signature-only delta
- * (no text, just signature) which was silently dropped. Additionally,
- * per-delta providerMetadata only carried the current delta's
- * reasoning_details instead of the accumulated snapshot.
- *
+ * Reported error: "Invalid signature in thinking block" errors on multi-turn conversations
  * Model: anthropic/claude-sonnet-4.5
+ *
+ * This test verifies that the thinking block signature is preserved during
+ * streaming and multi-turn conversations work without signature errors.
  */
 import { streamText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
