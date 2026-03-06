@@ -169,6 +169,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       // Debug settings:
       debug: this.settings.debug,
 
+      // Anthropic automatic caching:
+      cache_control: this.settings.cache_control,
+
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
@@ -223,9 +226,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    // Normalize camelCase providerOptions to snake_case for the API
+    const { cacheControl, ...restOpenrouterOptions } = openrouterOptions as {
+      cacheControl?: { type: string };
+      [key: string]: unknown;
+    };
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      // Support both cacheControl (camelCase) and cache_control (snake_case)
+      // from providerOptions, in addition to settings.cache_control
+      ...(cacheControl && !restOpenrouterOptions.cache_control
+        ? { cache_control: cacheControl }
+        : {}),
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
@@ -508,9 +522,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    // Normalize camelCase providerOptions to snake_case for the API
+    const { cacheControl, ...restOpenrouterOptions } = openrouterOptions as {
+      cacheControl?: { type: string };
+      [key: string]: unknown;
+    };
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      // Support both cacheControl (camelCase) and cache_control (snake_case)
+      // from providerOptions, in addition to settings.cache_control
+      ...(cacheControl && !restOpenrouterOptions.cache_control
+        ? { cache_control: cacheControl }
+        : {}),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({

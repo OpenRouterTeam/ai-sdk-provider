@@ -888,6 +888,62 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should pass cache_control from model settings in request payload (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    const cachedModel = provider.chat('anthropic/claude-sonnet-4', {
+      cache_control: { type: 'ephemeral' },
+    });
+
+    await cachedModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-sonnet-4',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
+    });
+  });
+
+  it('should pass cache_control from providerOptions.openrouter (snake_case) in request payload (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      providerOptions: {
+        openrouter: {
+          cache_control: { type: 'ephemeral' },
+        },
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
+    });
+  });
+
+  it('should normalize cacheControl (camelCase) from providerOptions to cache_control (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      providerOptions: {
+        openrouter: {
+          cacheControl: { type: 'ephemeral' },
+        },
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
+    });
+  });
+
   it('should pass images', async () => {
     prepareJsonResponse({
       content: '',

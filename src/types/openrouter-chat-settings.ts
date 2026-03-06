@@ -125,6 +125,20 @@ monitor and detect abuse. Learn more.
   };
 
   /**
+   * Enable Anthropic automatic prompt caching by setting a top-level cache_control
+   * directive on the request body. When set to `{ type: 'ephemeral' }`, Anthropic
+   * will automatically cache eligible content in your prompts.
+   *
+   * Only works with Anthropic models through OpenRouter.
+   *
+   * @see https://platform.claude.com/docs/en/build-with-claude/prompt-caching#automatic-caching
+   * @see https://openrouter.ai/docs
+   */
+  cache_control?: {
+    type: 'ephemeral';
+  };
+
+  /**
    * Debug options for troubleshooting API requests.
    * Only works with streaming requests.
    * @see https://openrouter.ai/docs/api-reference/debugging
