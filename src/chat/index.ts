@@ -1060,13 +1060,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                       id: toolCall.id,
                       toolName: toolCall.function.name,
                     });
-                  }
 
-                  controller.enqueue({
-                    type: 'tool-input-delta',
-                    id: toolCall.id,
-                    delta: toolInput,
-                  });
+                    controller.enqueue({
+                      type: 'tool-input-delta',
+                      id: toolCall.id,
+                      delta: toolInput,
+                    });
+                  }
 
                   controller.enqueue({
                     type: 'tool-input-end',
