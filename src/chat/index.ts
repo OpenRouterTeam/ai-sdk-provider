@@ -226,18 +226,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
-    // Normalize camelCase providerOptions to snake_case for the API
-    const { cacheControl, ...restOpenrouterOptions } = openrouterOptions as {
-      cacheControl?: { type: string };
-      [key: string]: unknown;
-    };
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
       // Support both cacheControl (camelCase) and cache_control (snake_case)
       // from providerOptions, in addition to settings.cache_control
-      ...(cacheControl && !restOpenrouterOptions.cache_control
+      ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
     };
@@ -522,18 +520,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
-    // Normalize camelCase providerOptions to snake_case for the API
-    const { cacheControl, ...restOpenrouterOptions } = openrouterOptions as {
-      cacheControl?: { type: string };
-      [key: string]: unknown;
-    };
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
       // Support both cacheControl (camelCase) and cache_control (snake_case)
       // from providerOptions, in addition to settings.cache_control
-      ...(cacheControl && !restOpenrouterOptions.cache_control
+      ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
     };
