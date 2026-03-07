@@ -190,15 +190,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           },
         }));
 
-      // Omit response_format when tools are present to prevent models from
-      // dumping tool call arguments as plain text instead of structured
-      // tool_calls. Sending both response_format (e.g. json_schema) and
-      // tools creates conflicting instructions for the model.
-      const { response_format: _omitted, ...argsWithoutResponseFormat } =
-        baseArgs;
-
       return {
-        ...argsWithoutResponseFormat,
+        ...baseArgs,
         tools: mappedTools,
         tool_choice: toolChoice
           ? getChatCompletionToolChoice(toolChoice)

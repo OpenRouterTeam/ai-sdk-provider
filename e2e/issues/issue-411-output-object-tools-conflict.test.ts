@@ -6,8 +6,9 @@
  * the model returns tool call arguments as plain text instead of structured
  * tool_calls.
  *
- * This test verifies that response_format is omitted when tools are present,
- * allowing the model to produce structured tool_calls instead of plain text.
+ * This test verifies that both response_format and tools are sent together
+ * in the request (matching @ai-sdk/openai behavior), and that models can
+ * produce structured tool_calls alongside Output.object().
  */
 import { generateText, Output, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';

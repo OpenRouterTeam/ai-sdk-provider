@@ -672,7 +672,7 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should omit response_format from request body when tools are present', async () => {
+  it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 
     await model.doGenerate({
@@ -705,11 +705,22 @@ describe('doGenerate', () => {
 
     const body = await server.calls[0]!.requestBodyJson;
 
-    // response_format should NOT be in the request body when tools are present
-    expect(body).not.toHaveProperty('response_format');
-
-    // tools should still be present
+    // Both response_format and tools should be present (matching @ai-sdk/openai behavior)
+    expect(body).toHaveProperty('response_format');
     expect(body).toHaveProperty('tools');
+    expect((body as Record<string, unknown>).response_format).toEqual({
+      type: 'json_schema',
+      json_schema: {
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+        strict: true,
+        name: 'AnswerResponse',
+      },
+    });
     expect((body as Record<string, unknown>).tools).toEqual([
       {
         type: 'function',
@@ -2202,7 +2213,7 @@ describe('doStream', () => {
     });
   });
 
-  it('should omit response_format when tools are present to prevent tool args leaking as text', async () => {
+  it('should send both response_format and tools when both are present in streaming', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
     const testSchema: JSONSchema7 = {
@@ -2245,14 +2256,24 @@ describe('doStream', () => {
 
     const body = await server.calls[0]!.requestBodyJson;
 
-    // response_format should be omitted when tools are present
-    expect(body).not.toHaveProperty('response_format');
+    // Both response_format and tools should be present (matching @ai-sdk/openai behavior)
+    expect(body).toHaveProperty('response_format');
+    expect(body).toHaveProperty('tools');
 
     expect(body).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',
       messages: [{ role: 'user', content: 'Hello' }],
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          schema: testSchema,
+          strict: true,
+          name: 'PersonResponse',
+          description: 'A person object',
+        },
+      },
       tools: [
         {
           type: 'function',
