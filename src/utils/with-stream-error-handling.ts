@@ -14,6 +14,7 @@ export function withStreamErrorHandling<T>(
         }
       } catch (err) {
         onError(err);
+        reader.cancel().catch(() => {});
         controller.close();
       }
     },
