@@ -1,5 +1,5 @@
 ---
-'@openrouter/ai-sdk-provider': patch
+'@openrouter/ai-sdk-provider': minor
 ---
 
 feat: add explicit cache_control support for Anthropic automatic prompt caching (#424)
