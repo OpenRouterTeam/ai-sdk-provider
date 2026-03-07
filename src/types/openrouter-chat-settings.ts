@@ -136,6 +136,12 @@ monitor and detect abuse. Learn more.
    */
   cache_control?: {
     type: 'ephemeral';
+    /**
+     * Optional time-to-live for the cache entry.
+     * - `'5m'` — 5 minutes (default when omitted)
+     * - `'1h'` — 1 hour
+     */
+    ttl?: '5m' | '1h';
   };
 
   /**
