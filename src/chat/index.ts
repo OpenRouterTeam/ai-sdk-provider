@@ -996,6 +996,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   toolCall.function?.arguments != null &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
+                  controller.enqueue({
+                    type: 'tool-input-end',
+                    id: toolCall.id,
+                  });
+
                   // Only attach reasoning_details to the first tool call to avoid
                   // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
