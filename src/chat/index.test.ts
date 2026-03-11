@@ -1328,10 +1328,15 @@ describe('doStream', () => {
       },
     });
 
-    // Second and third deltas should have reasoning_details from second chunk
+    // Second and third deltas should have accumulated reasoning_details (snapshot)
+    // including the first text detail plus the second chunk's details
     expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
           {
             type: ReasoningDetailType.Summary,
             summary: 'User wants a greeting',
@@ -1347,6 +1352,10 @@ describe('doStream', () => {
     expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
           {
             type: ReasoningDetailType.Summary,
             summary: 'User wants a greeting',
@@ -1416,9 +1425,14 @@ describe('doStream', () => {
       },
     });
 
+    // Second delta has accumulated snapshot: text + summary
     expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
           {
             type: ReasoningDetailType.Summary,
             summary: 'Summary reasoning',
@@ -1427,9 +1441,18 @@ describe('doStream', () => {
       },
     });
 
+    // Third delta has accumulated snapshot: text + summary + encrypted
     expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Summary reasoning',
+          },
           {
             type: ReasoningDetailType.Encrypted,
             data: 'encrypted_data',

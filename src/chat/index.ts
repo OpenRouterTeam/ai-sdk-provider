@@ -743,20 +743,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 }
               }
 
-              // Emit reasoning_details in providerMetadata for each delta chunk
-              // so users can accumulate them on their end before sending back
+              // Emit a snapshot of accumulated reasoning_details in providerMetadata
+              // so downstream consumers always see the full reasoning history
+              // (including signatures that arrive in later deltas).
               const reasoningMetadata: SharedV3ProviderMetadata = {
                 openrouter: {
-                  reasoning_details: delta.reasoning_details,
+                  reasoning_details: accumulatedReasoningDetails.map((d) => ({
+                    ...d,
+                  })),
                 },
               };
 
               for (const detail of delta.reasoning_details) {
                 switch (detail.type) {
                   case ReasoningDetailType.Text: {
-                    if (detail.text) {
-                      emitReasoningChunk(detail.text, reasoningMetadata);
-                    }
+                    // Emit even when detail.text is empty/undefined — a signature-only
+                    // delta (no text, just signature) must still be emitted so that
+                    // the signature propagates to the reasoning part's providerMetadata.
+                    emitReasoningChunk(detail.text || '', reasoningMetadata);
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
