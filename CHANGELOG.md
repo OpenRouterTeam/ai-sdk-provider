@@ -1,5 +1,29 @@
 # @openrouter/ai-sdk-provider
 
+## 2.2.5
+
+### Patch Changes
+
+- [#428](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/428) [`6e2ff61`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/6e2ff61c4d2441ff9bfe1a96350417dfe4f225a0) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Surface detailed error information from provider metadata in error messages
+
+  When OpenRouter returns an error, the top-level `error.message` is often generic (e.g. "Provider returned error"). The actual error details from the upstream provider are in `error.metadata.raw` but were not being surfaced to users.
+
+  Now `extractErrorMessage` recursively extracts meaningful error messages from `metadata.raw` (which can be a string, JSON string, or nested object) and includes the provider name when available. For example, instead of just "Provider returned error", users will now see "[Anthropic] Your credit balance is too low".
+
+## 2.2.4
+
+### Patch Changes
+
+- [#427](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/427) [`34b1c27`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/34b1c275b9c474659deb2ad8d3e3c8800b0524c3) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: preserve thinking block signature in streaming reasoning deltas
+
+  Fixed two bugs causing Anthropic thinking block signatures to be lost during streaming:
+
+  1. Signature-only deltas (containing a signature but no text) were silently dropped by the `if (detail.text)` guard in the reasoning delta handler. These deltas are now emitted with an empty string text, ensuring the signature propagates to downstream consumers.
+
+  2. Per-delta `providerMetadata.reasoning_details` only contained the current chunk's details instead of an accumulated snapshot. This meant the signature (which arrives in a later delta) was never visible in earlier deltas' metadata. Now each reasoning delta carries a snapshot of all accumulated reasoning details.
+
+  These fixes prevent "Invalid signature in thinking block" errors in multi-turn conversations with Anthropic models.
+
 ## 2.2.3
 
 ### Patch Changes
