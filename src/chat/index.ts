@@ -103,6 +103,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     tools,
     toolChoice,
   }: LanguageModelV3CallOptions) {
+    // Determine the correct token parameter name based on model and provider routing
+    const isGpt5Model = this.modelId.includes('gpt-5');
+    const isAzureOnlyRouting = this.settings.provider?.only?.includes('azure');
+    const shouldUseMaxCompletionTokens = isGpt5Model && isAzureOnlyRouting;
+    
+    const tokenParam = shouldUseMaxCompletionTokens 
+      ? { max_completion_tokens: maxOutputTokens }
+      : { max_tokens: maxOutputTokens };
+
     const baseArgs = {
       // model id:
       model: this.modelId,
@@ -127,7 +136,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       parallel_tool_calls: this.settings.parallelToolCalls,
 
       // standardized settings:
-      max_tokens: maxOutputTokens,
+      ...tokenParam,
       temperature,
       top_p: topP,
       frequency_penalty: frequencyPenalty,
