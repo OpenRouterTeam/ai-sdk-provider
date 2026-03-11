@@ -1,5 +1,15 @@
 # @openrouter/ai-sdk-provider
 
+## 2.3.0
+
+### Minor Changes
+
+- [#431](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/431) [`f488f97`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f488f9756859b85c89970f069c03531f4ecda174) Thanks [@robert-j-y](https://github.com/robert-j-y)! - feat: add explicit cache_control support for Anthropic automatic prompt caching (#424)
+
+  - Added `cache_control` field to `OpenRouterChatSettings` for typed, discoverable configuration
+  - Supports both `cache_control` (snake_case) and `cacheControl` (camelCase) in `providerOptions.openrouter`
+  - Enables Anthropic automatic caching via top-level request body directive
+
 ## 2.2.5
 
 ### Patch Changes
