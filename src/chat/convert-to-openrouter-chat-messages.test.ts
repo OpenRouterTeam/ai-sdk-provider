@@ -954,7 +954,7 @@ describe('reasoning_details accumulation', () => {
     ]);
   });
 
-  it('should not include reasoning_details when not present in providerOptions', () => {
+  it('should not include reasoning or reasoning_details when not present in providerOptions', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -977,8 +977,11 @@ describe('reasoning_details accumulation', () => {
       {
         role: 'assistant',
         content: 'Response',
-        reasoning: 'Reasoning text',
-        // reasoning_details should be undefined when not preserved
+        // Both reasoning and reasoning_details should be undefined when
+        // providerMetadata is not preserved. Sending reasoning without
+        // reasoning_details causes "Invalid signature in thinking block"
+        // errors on Anthropic models (issue #423).
+        reasoning: undefined,
         reasoning_details: undefined,
       },
     ]);
@@ -1620,6 +1623,137 @@ describe('multi-turn reasoning_details deduplication (issue #254)', () => {
           type: ReasoningDetailType.Text,
           text: 'Thinking step 2',
           signature: 'sig-2',
+        },
+      ],
+    });
+  });
+});
+
+describe('issue #423: strip reasoning without valid signatures', () => {
+  it('should strip reasoning text when providerOptions exist but reasoning_details are empty', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                // reasoning_details is empty — data was lost
+                reasoning_details: [],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    // reasoning text should be stripped because no reasoning_details exist
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should preserve reasoning_details text entries that have valid signatures', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Let me think about this...',
+                    signature: 'eyJhbGciOiJSUzI1NiJ9...',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: 'Let me think about this...',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Let me think about this...',
+          signature: 'eyJhbGciOiJSUzI1NiJ9...',
+        },
+      ],
+    });
+  });
+
+  it('should strip reasoning text when providerOptions are completely absent', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            // No providerOptions at all — providerMetadata was lost
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // reasoning text should be stripped because no reasoning_details exist
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Result.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should preserve non-text reasoning_details even without signatures', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: '[REDACTED]',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data-here',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // Encrypted entries don't need signatures — should be preserved
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      reasoning: '[REDACTED]',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-data-here',
         },
       ],
     });
