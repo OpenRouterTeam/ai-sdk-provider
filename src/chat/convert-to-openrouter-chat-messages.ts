@@ -266,11 +266,23 @@ export function convertToOpenRouterChatMessages(
             uniqueDetails.length > 0 ? uniqueDetails : undefined;
         }
 
+        // Only include reasoning text if we have valid reasoning_details.
+        // When providerMetadata is lost during message serialization or
+        // custom pruning (e.g., stripping providerOptions from reasoning
+        // parts), or when switching between models mid-conversation,
+        // reasoning text may exist without corresponding reasoning_details.
+        // Sending reasoning without reasoning_details causes the API to
+        // construct thinking blocks without valid signatures, which
+        // Anthropic rejects with "Invalid signature in thinking block"
+        // (issue #423).
+        const effectiveReasoning =
+          reasoning && finalReasoningDetails ? reasoning : undefined;
+
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-          reasoning: reasoning || undefined,
+          reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
           annotations: messageAnnotations,
           cache_control: getCacheControl(providerOptions),
