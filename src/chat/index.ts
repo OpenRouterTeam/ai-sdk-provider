@@ -43,6 +43,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -564,6 +565,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       fetch: this.config.fetch,
     });
 
+    let streamError: unknown;
+    const safeResponse = withStreamErrorHandling(response, (err) => {
+      streamError = err;
+    });
+
     const toolCalls: Array<{
       id: string;
       type: 'function';
@@ -616,7 +622,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     let provider: string | undefined;
 
     return {
-      stream: response.pipeThrough(
+      stream: safeResponse.pipeThrough(
         new TransformStream<
           ParseResult<
             z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
@@ -1051,6 +1057,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           },
 
           flush(controller) {
+            if (streamError != null) {
+              finishReason = createFinishReason('error');
+              controller.enqueue({ type: 'error', error: streamError });
+            }
+
             // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
             // reasoning (thoughtSignature), the model returns 'stop' but expects continuation.
             // Override to 'tool-calls' so the SDK knows to continue the conversation.
