@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.3.1
+
+### Patch Changes
+
+- [#442](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/442) [`a921eb7`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a921eb78ecc99f5d7ee9dc0ddebd5cbf0a1f5149) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: strip reasoning text when reasoning_details are missing to prevent "Invalid signature in thinking block" errors (#423)
+
 ## 2.3.0
 
 ### Minor Changes
