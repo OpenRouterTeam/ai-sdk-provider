@@ -128,6 +128,21 @@ export function convertToOpenRouterChatMessages(
                   };
                 }
 
+                // Handle video files for video_url format
+                if (part.mediaType?.startsWith('video/')) {
+                  const url = getFileUrl({
+                    part,
+                    defaultMediaType: 'video/mp4',
+                  });
+                  return {
+                    type: 'video_url' as const,
+                    video_url: {
+                      url,
+                    },
+                    ...(cacheControl && { cache_control: cacheControl }),
+                  };
+                }
+
                 // Handle audio files for input_audio format
                 if (part.mediaType?.startsWith('audio/')) {
                   return {
