@@ -1706,6 +1706,10 @@ describe('doStream', () => {
         delta: '"}',
       },
       {
+        type: 'tool-input-end',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+      },
+      {
         type: 'tool-call',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
@@ -1881,6 +1885,66 @@ describe('doStream', () => {
           },
         },
       },
+    ]);
+  });
+
+  it('should emit tool-input-end without duplicate delta when partially-streamed tool call is flushed', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_flush_test","type":"function","function":{"name":"test-tool","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"val"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const types = elements.map((el) => el.type);
+
+    expect(types).toContain('tool-input-start');
+    expect(types).toContain('tool-input-delta');
+    expect(types).toContain('tool-input-end');
+    expect(types).toContain('tool-call');
+
+    const toolInputEndIndex = types.indexOf('tool-input-end');
+    const toolCallIndex = types.indexOf('tool-call');
+    expect(toolInputEndIndex).toBeLessThan(toolCallIndex);
+
+    const toolInputDeltas = elements.filter(
+      (el) => el.type === 'tool-input-delta',
+    );
+    expect(toolInputDeltas).toStrictEqual([
+      { type: 'tool-input-delta', id: 'call_flush_test', delta: '{"' },
+      { type: 'tool-input-delta', id: 'call_flush_test', delta: 'val' },
     ]);
   });
 

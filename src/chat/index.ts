@@ -1017,6 +1017,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   toolCall.function?.arguments != null &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
+                  controller.enqueue({
+                    type: 'tool-input-end',
+                    id: toolCall.id,
+                  });
+
                   // Only attach reasoning_details to the first tool call to avoid
                   // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
@@ -1070,16 +1075,36 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {
                 if (toolCall && !toolCall.sent) {
+                  const toolInput = isParsableJson(toolCall.function.arguments)
+                    ? toolCall.function.arguments
+                    : '{}';
+
+                  if (!toolCall.inputStarted) {
+                    controller.enqueue({
+                      type: 'tool-input-start',
+                      id: toolCall.id,
+                      toolName: toolCall.function.name,
+                    });
+
+                    controller.enqueue({
+                      type: 'tool-input-delta',
+                      id: toolCall.id,
+                      delta: toolInput,
+                    });
+                  }
+
+                  controller.enqueue({
+                    type: 'tool-input-end',
+                    id: toolCall.id,
+                  });
+
                   // Only attach reasoning_details to the first tool call to avoid
                   // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
                     type: 'tool-call',
                     toolCallId: toolCall.id ?? generateId(),
                     toolName: toolCall.function.name,
-                    // Coerce invalid arguments to an empty JSON object
-                    input: isParsableJson(toolCall.function.arguments)
-                      ? toolCall.function.arguments
-                      : '{}',
+                    input: toolInput,
                     providerMetadata: !reasoningDetailsAttachedToToolCall
                       ? {
                           openrouter: {
