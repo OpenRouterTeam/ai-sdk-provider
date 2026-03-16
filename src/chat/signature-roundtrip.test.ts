@@ -535,4 +535,148 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
     expect(assistantMsg!.reasoning_details).toBeUndefined();
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
+
+  // === SCHEMA RESILIENCE TESTS ===
+
+  it('should gracefully handle reasoning_details with unknown format values in providerOptions', () => {
+    // If the server adds a new format (e.g., azure-openai-responses-v1) that the SDK
+    // doesn't know about yet, the SDK should NOT silently drop ALL reasoning_details.
+    // Valid entries should survive even if one entry has an unknown format.
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Step 1. Step 2.',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Step 1.',
+                    signature: FAKE_SIGNATURE,
+                    format: 'anthropic-claude-v1',
+                    index: 0,
+                  },
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Step 2.',
+                    signature: FAKE_SIGNATURE,
+                    // Unknown format — should be individually dropped, not kill the array
+                    format: 'azure-openai-responses-v1',
+                    index: 1,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Done.' },
+        ],
+      },
+    ]);
+
+    const assistantMsg = result.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    // The valid Anthropic entry should survive; the unknown-format entry may be dropped
+    // but should NOT cause the entire array to fail
+    expect(assistantMsg!.reasoning_details).toBeDefined();
+    expect(assistantMsg!.reasoning_details!.length).toBeGreaterThanOrEqual(1);
+    expect(assistantMsg!.reasoning_details![0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Step 1.',
+      signature: FAKE_SIGNATURE,
+    });
+  });
+
+  it('should handle message-level providerOptions with unknown format values', () => {
+    // Same as above but for message-level providerOptions (the other parse path)
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'reasoning', text: 'Thinking.' },
+          { type: 'text', text: 'Hi.' },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Thinking.',
+                signature: FAKE_SIGNATURE,
+                format: 'anthropic-claude-v1',
+                index: 0,
+              },
+              {
+                type: ReasoningDetailType.Text,
+                text: 'Azure reasoning.',
+                signature: FAKE_SIGNATURE,
+                format: 'azure-openai-responses-v1',
+                index: 1,
+              },
+            ],
+          },
+        },
+      },
+    ]);
+
+    const assistantMsg = result.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    // Should NOT silently drop everything — valid entries should survive
+    expect(assistantMsg!.reasoning_details).toBeDefined();
+    expect(assistantMsg!.reasoning_details!.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('should preserve Azure OpenAI format reasoning_details', () => {
+    // azure-openai-responses-v1 exists in the server but was missing from SDK enum.
+    // It should be treated as non-Anthropic (no signature required).
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Azure thinking.',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Azure thinking.',
+                    format: 'azure-openai-responses-v1',
+                    index: 0,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Response.' },
+        ],
+      },
+    ]);
+
+    const assistantMsg = result.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    // Azure format doesn't use signatures — should be preserved like Gemini/OpenAI
+    expect(assistantMsg!.reasoning).toBe('Azure thinking.');
+    expect(assistantMsg!.reasoning_details).toHaveLength(1);
+    expect(assistantMsg!.reasoning_details![0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Azure thinking.',
+      format: 'azure-openai-responses-v1',
+    });
+  });
 });
