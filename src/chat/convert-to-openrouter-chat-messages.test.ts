@@ -843,6 +843,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'First reasoning chunk',
+                    signature: 'sig-chunk-1',
                   },
                 ],
               },
@@ -857,6 +858,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Second reasoning chunk',
+                    signature: 'sig-chunk-2',
                   },
                 ],
               },
@@ -873,10 +875,12 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'First reasoning chunk',
+                signature: 'sig-chunk-1',
               },
               {
                 type: ReasoningDetailType.Text,
                 text: 'Second reasoning chunk',
+                signature: 'sig-chunk-2',
               },
             ],
           },
@@ -893,10 +897,12 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'First reasoning chunk',
+            signature: 'sig-chunk-1',
           },
           {
             type: ReasoningDetailType.Text,
             text: 'Second reasoning chunk',
+            signature: 'sig-chunk-2',
           },
         ],
       },
@@ -924,6 +930,7 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'Preserved reasoning detail',
+                signature: 'valid-sig-1',
               },
               {
                 type: ReasoningDetailType.Summary,
@@ -944,6 +951,7 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'Preserved reasoning detail',
+            signature: 'valid-sig-1',
           },
           {
             type: ReasoningDetailType.Summary,
@@ -1001,6 +1009,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'First chunk',
+                    signature: 'valid-sig-chunk',
                   },
                 ],
               },
@@ -1022,6 +1031,7 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'First chunk',
+                signature: 'valid-sig-chunk',
               },
             ],
           },
@@ -1038,6 +1048,7 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'First chunk',
+            signature: 'valid-sig-chunk',
           },
         ],
       },
@@ -1062,6 +1073,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full reasoning text',
+                    signature: 'valid-sig-tool',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1082,6 +1094,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full reasoning text',
+                    signature: 'valid-sig-tool',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1106,6 +1119,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Full reasoning text',
+          signature: 'valid-sig-tool',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1131,6 +1145,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Reasoning for weather call',
+                    signature: 'valid-sig-single',
                   },
                 ],
               },
@@ -1146,6 +1161,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Reasoning for weather call',
+          signature: 'valid-sig-single',
         },
       ],
     });
@@ -1167,6 +1183,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Tool call reasoning',
+                    signature: 'tool-sig',
                   },
                 ],
               },
@@ -1179,6 +1196,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'Message-level reasoning',
+                signature: 'msg-sig',
               },
               {
                 type: ReasoningDetailType.Encrypted,
@@ -1196,6 +1214,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Message-level reasoning',
+          signature: 'msg-sig',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1219,6 +1238,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Delta reasoning only',
+                    signature: 'delta-sig',
                   },
                 ],
               },
@@ -1235,6 +1255,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full accumulated reasoning',
+                    signature: 'full-sig',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1255,6 +1276,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Full accumulated reasoning',
+          signature: 'full-sig',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1309,6 +1331,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Reasoning from part',
+                    signature: 'valid-sig-fallback',
                   },
                 ],
               },
@@ -1331,6 +1354,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Reasoning from part',
+          signature: 'valid-sig-fallback',
         },
       ],
     });
@@ -1719,6 +1743,133 @@ describe('issue #423: strip reasoning without valid signatures', () => {
       content: 'Result.',
       reasoning: undefined,
       reasoning_details: undefined,
+    });
+  });
+
+  it('should strip reasoning.text entries that have no signature (issue #439)', () => {
+    // This reproduces the exact bug from #439: reasoning_details exist but
+    // reasoning.text entries lost their signature during custom pruning or
+    // DB serialization. Sending these causes Anthropic to reject with
+    // "Invalid signature in thinking block".
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Let me think about this...',
+                    // signature is missing — lost during pruning/serialization
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    // reasoning.text without signature should be stripped, and since no
+    // valid reasoning_details remain, reasoning text should also be stripped
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should strip reasoning.text with null signature (issue #439)', () => {
+    // signature explicitly set to null — can happen after JSON round-trip
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Thinking...',
+                    signature: null,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Done.' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Done.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should keep valid entries and strip signatureless ones in mixed reasoning_details (issue #439)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'No signature here',
+                    // missing signature
+                  },
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data',
+                  },
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Has valid signature',
+                    signature: 'valid-sig',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // Only the signatureless reasoning.text should be stripped;
+    // encrypted and signed text entries are preserved
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Result.',
+      reasoning: 'Some thinking...',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-data',
+        },
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Has valid signature',
+          signature: 'valid-sig',
+        },
+      ],
     });
   });
 

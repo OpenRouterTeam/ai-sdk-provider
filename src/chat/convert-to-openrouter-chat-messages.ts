@@ -12,6 +12,7 @@ import type {
 } from '../types/openrouter-chat-completions-input';
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import { getFileUrl, getInputAudioData } from './file-url-utils';
 import { isUrl } from './is-url';
@@ -264,6 +265,23 @@ export function convertToOpenRouterChatMessages(
           }
           finalReasoningDetails =
             uniqueDetails.length > 0 ? uniqueDetails : undefined;
+        }
+
+        // Strip reasoning.text entries that lack a valid signature.
+        // When providerMetadata is partially lost during message serialization,
+        // custom pruning, or DB storage (e.g., null/undefined fields dropped),
+        // reasoning_details may exist but reasoning.text entries may lack their
+        // signature. Sending these to the API causes Anthropic to reject with
+        // "Invalid signature in thinking block" (issue #423/#439).
+        // Non-text detail types (encrypted, summary) don't require signatures.
+        if (finalReasoningDetails) {
+          finalReasoningDetails = finalReasoningDetails.filter(
+            (detail) =>
+              detail.type !== ReasoningDetailType.Text || !!detail.signature,
+          );
+          if (finalReasoningDetails.length === 0) {
+            finalReasoningDetails = undefined;
+          }
         }
 
         // Only include reasoning text if we have valid reasoning_details.
