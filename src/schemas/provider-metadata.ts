@@ -81,8 +81,8 @@ export const OpenRouterProviderOptionsSchema = z
       .object({
         // Use ReasoningDetailArraySchema (with unknown fallback) instead of
         // z.array(ReasoningDetailUnionSchema) so that a single malformed entry
-        // (e.g., unknown format like 'azure-openai-responses-v1') is individually
-        // dropped rather than causing the entire array to fail parsing.
+        // (e.g., a future format not yet in the enum) is individually dropped
+        // rather than causing the entire array to fail parsing.
         reasoning_details: ReasoningDetailArraySchema.optional(),
         annotations: z.array(FileAnnotationSchema).optional(),
       })

@@ -252,22 +252,6 @@ export function convertToOpenRouterChatMessages(
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
-        // Deduplicate reasoning_details across all messages to prevent
-        // "Duplicate item found with id" errors in multi-turn conversations.
-        // upsert() returns true only for NEW details (not seen before and has valid key).
-        // Details without valid keys or duplicates are skipped.
-        let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
-        if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
-          const uniqueDetails: ReasoningDetailUnion[] = [];
-          for (const detail of candidateReasoningDetails) {
-            if (reasoningDetailsTracker.upsert(detail)) {
-              uniqueDetails.push(detail);
-            }
-          }
-          finalReasoningDetails =
-            uniqueDetails.length > 0 ? uniqueDetails : undefined;
-        }
-
         // Strip Anthropic-format reasoning.text entries that lack a valid
         // signature. When providerMetadata is partially lost during message
         // serialization, custom pruning, or DB storage (e.g., null/undefined
@@ -278,8 +262,13 @@ export function convertToOpenRouterChatMessages(
         //
         // Only Anthropic-format text entries cause this error — other formats
         // and non-text detail types pass through unchanged.
-        if (finalReasoningDetails) {
-          finalReasoningDetails = finalReasoningDetails.filter((detail) => {
+        //
+        // This runs BEFORE deduplication so that signatureless entries are
+        // never registered in the tracker — otherwise a signatureless entry
+        // in an earlier turn would suppress a valid signed copy in a later turn.
+        let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
+        if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+          const validDetails = candidateReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
               return true;
             }
@@ -289,9 +278,19 @@ export function convertToOpenRouterChatMessages(
             }
             return !!detail.signature;
           });
-          if (finalReasoningDetails.length === 0) {
-            finalReasoningDetails = undefined;
+
+          // Deduplicate reasoning_details across all messages to prevent
+          // "Duplicate item found with id" errors in multi-turn conversations.
+          // upsert() returns true only for NEW details (not seen before and has valid key).
+          // Details without valid keys or duplicates are skipped.
+          const uniqueDetails: ReasoningDetailUnion[] = [];
+          for (const detail of validDetails) {
+            if (reasoningDetailsTracker.upsert(detail)) {
+              uniqueDetails.push(detail);
+            }
           }
+          finalReasoningDetails =
+            uniqueDetails.length > 0 ? uniqueDetails : undefined;
         }
 
         // Only include reasoning text if we have valid reasoning_details.
@@ -378,12 +377,15 @@ function findFirstReasoningDetails(
   // First, try tool calls - they have complete accumulated reasoning_details
   for (const part of content) {
     if (part.type === 'tool-call') {
-      const openrouter = part.providerOptions?.openrouter as
-        | Record<string, unknown>
-        | undefined;
-      const details = openrouter?.reasoning_details;
-      if (Array.isArray(details) && details.length > 0) {
-        return details as ReasoningDetailUnion[];
+      const parsed = OpenRouterProviderOptionsSchema.safeParse(
+        part.providerOptions,
+      );
+      if (
+        parsed.success &&
+        parsed.data?.openrouter?.reasoning_details &&
+        parsed.data.openrouter.reasoning_details.length > 0
+      ) {
+        return parsed.data.openrouter.reasoning_details;
       }
     }
   }
