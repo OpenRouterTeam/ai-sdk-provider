@@ -1797,8 +1797,7 @@ describe('multimodal tool result content (issue #181)', () => {
 
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Here is the screenshot:' },
       {
         type: 'image_url',
@@ -1839,8 +1838,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Generated image:' },
       {
         type: 'image_url',
@@ -1876,8 +1874,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       {
         type: 'image_url',
         image_url: { url: 'data:image/jpeg;base64,AAECAw==' },
@@ -1917,8 +1914,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Document contents:' },
       {
         type: 'file',
@@ -1956,8 +1952,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       {
         type: 'image_url',
         image_url: { url: 'https://example.com/photo.jpg' },
@@ -1995,14 +1990,14 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toHaveLength(2);
-    expect(content[0]).toEqual({ type: 'text', text: 'Here is the file:' });
-    // Unknown type falls back to stringified text
-    expect(content[1]).toEqual({
-      type: 'text',
-      text: JSON.stringify({ type: 'file-id', fileId: 'file-abc-123' }),
-    });
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the file:' },
+      // Unknown type falls back to stringified text
+      {
+        type: 'text',
+        text: JSON.stringify({ type: 'file-id', fileId: 'file-abc-123' }),
+      },
+    ]);
   });
 
   it('should convert text-only content parts to structured array', () => {
@@ -2031,8 +2026,9 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([{ type: 'text', text: 'Just some text output' }]);
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Just some text output' },
+    ]);
   });
 
   it('should still return string for text output type', () => {
@@ -2108,8 +2104,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       {
         type: 'file',
         file: {
@@ -2155,8 +2150,7 @@ describe('multimodal tool result content (issue #181)', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Screenshots captured:' },
       {
         type: 'image_url',
