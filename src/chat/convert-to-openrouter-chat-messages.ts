@@ -16,8 +16,10 @@ import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import {
   buildFileDataUrl,
+  getBase64FromDataUrl,
   getFileUrl,
   getInputAudioData,
+  MIME_TO_FORMAT,
 } from './file-url-utils';
 import { isUrl } from './is-url';
 
@@ -385,6 +387,20 @@ function mapToolResultContentParts(
             type: 'image_url',
             image_url: { url: dataUrl },
           };
+        }
+
+        if (part.mediaType?.startsWith('audio/')) {
+          const rawFormat = part.mediaType.replace('audio/', '');
+          const format = MIME_TO_FORMAT[rawFormat];
+          if (format !== undefined) {
+            return {
+              type: 'input_audio',
+              input_audio: {
+                data: getBase64FromDataUrl(dataUrl),
+                format,
+              },
+            };
+          }
         }
 
         return {

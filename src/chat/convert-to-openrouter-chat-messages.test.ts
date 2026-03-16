@@ -2189,6 +2189,44 @@ describe('multimodal tool result content (issue #181)', () => {
     ]);
   });
 
+  it('should convert tool result with file-data (audio mediaType) to input_audio part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-audio',
+            toolName: 'audio_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'YXVkaW9fZGF0YQ==',
+                  mediaType: 'audio/mpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'input_audio',
+        input_audio: {
+          data: 'YXVkaW9fZGF0YQ==',
+          format: 'mp3',
+        },
+      },
+    ]);
+  });
+
   it('should handle mixed text and multiple images in tool result content', () => {
     const result = convertToOpenRouterChatMessages([
       {
