@@ -1990,7 +1990,7 @@ describe('multimodal tool result content (issue #181)', () => {
       {
         type: 'file',
         file: {
-          filename: '',
+          filename: 'report.pdf',
           file_data: 'https://example.com/report.pdf',
         },
       },

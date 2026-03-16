@@ -409,7 +409,7 @@ function mapToolResultContentParts(
         return {
           type: 'file',
           file: {
-            filename: '',
+            filename: filenameFromUrl(part.url),
             file_data: part.url,
           },
         };
@@ -449,6 +449,16 @@ function looksLikeImageUrl(url: string): boolean {
     return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
   } catch {
     return false;
+  }
+}
+
+function filenameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const last = pathname.split('/').pop();
+    return last?.includes('.') ? last : '';
+  } catch {
+    return '';
   }
 }
 
