@@ -402,8 +402,15 @@ function mapToolResultContentParts(
           image_url: { url: part.url },
         };
 
-      default:
+      case 'file-id':
+      case 'image-file-id':
+      case 'custom':
         return { type: 'text', text: JSON.stringify(part) };
+
+      default: {
+        const _exhaustiveCheck: never = part;
+        return { type: 'text', text: JSON.stringify(_exhaustiveCheck) };
+      }
     }
   });
 }
