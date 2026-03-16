@@ -50,8 +50,7 @@ describe('Issue #181: Tool response for image not working', () => {
 
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Here is the screenshot:' },
       {
         type: 'image_url',
@@ -92,8 +91,7 @@ describe('Issue #181: Tool response for image not working', () => {
     expect(result).toHaveLength(1);
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Generated image:' },
       {
         type: 'image_url',
@@ -152,8 +150,7 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-abc',
     });
 
-    const content = result[0]?.content as string;
-    expect(content).toBe(
+    expect(result[0]?.content).toBe(
       '{"temperature":72,"unit":"F","location":"San Francisco"}',
     );
   });
@@ -190,8 +187,7 @@ describe('Issue #181: Tool response for image not working', () => {
 
     expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as Array<unknown>;
-    expect(content).toEqual([
+    expect(result[0]?.content).toEqual([
       {
         type: 'image_url',
         image_url: {
