@@ -11,6 +11,7 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
+import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
@@ -267,18 +268,26 @@ export function convertToOpenRouterChatMessages(
             uniqueDetails.length > 0 ? uniqueDetails : undefined;
         }
 
-        // Strip reasoning.text entries that lack a valid signature.
+        // Strip Anthropic reasoning.text entries that lack a valid signature.
         // When providerMetadata is partially lost during message serialization,
         // custom pruning, or DB storage (e.g., null/undefined fields dropped),
         // reasoning_details may exist but reasoning.text entries may lack their
         // signature. Sending these to the API causes Anthropic to reject with
         // "Invalid signature in thinking block" (issue #423/#439).
-        // Non-text detail types (encrypted, summary) don't require signatures.
+        // Only Anthropic-format entries require signatures; other formats
+        // (Google Gemini, OpenAI, xAI) don't use signatures and are preserved.
+        // Non-text detail types (encrypted, summary) also don't require signatures.
         if (finalReasoningDetails) {
-          finalReasoningDetails = finalReasoningDetails.filter(
-            (detail) =>
-              detail.type !== ReasoningDetailType.Text || !!detail.signature,
-          );
+          finalReasoningDetails = finalReasoningDetails.filter((detail) => {
+            if (detail.type !== ReasoningDetailType.Text) {
+              return true;
+            }
+            const format = detail.format ?? DEFAULT_REASONING_FORMAT;
+            if (format !== ReasoningFormat.AnthropicClaudeV1) {
+              return true;
+            }
+            return !!detail.signature;
+          });
           if (finalReasoningDetails.length === 0) {
             finalReasoningDetails = undefined;
           }
