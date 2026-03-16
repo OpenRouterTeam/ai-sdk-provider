@@ -278,8 +278,10 @@ export function convertToOpenRouterChatMessages(
         // thinking blocks with `signature: ''`, which Anthropic rejects with
         // "Invalid signature in thinking block" (issue #423/#439).
         //
-        // Only Anthropic-format text entries are affected — other formats and
-        // non-text detail types (encrypted, summary) pass through unchanged.
+        // Only Anthropic-format text entries cause this error. Other formats
+        // handle missing signatures gracefully (e.g., OpenAI omits the field,
+        // Gemini uses a bypass token), so they are preserved. Non-text detail
+        // types (encrypted, summary) also pass through unchanged.
         if (finalReasoningDetails) {
           finalReasoningDetails = finalReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
