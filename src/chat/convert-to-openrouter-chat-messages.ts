@@ -380,7 +380,7 @@ function mapToolResultContentParts(
           defaultMediaType: 'application/octet-stream',
         });
 
-        if (part.mediaType.startsWith('image/')) {
+        if (part.mediaType?.startsWith('image/')) {
           return {
             type: 'image_url',
             image_url: { url: dataUrl },
@@ -396,6 +396,10 @@ function mapToolResultContentParts(
         };
       }
 
+      // file-url parts lack a mediaType field in the SDK, so we cannot
+      // distinguish image URLs from non-image URLs. Default to image_url
+      // since that is the most common tool-result use case (screenshots,
+      // fetched images) and the OpenRouter API handles it for all URL types.
       case 'file-url':
         return {
           type: 'image_url',
