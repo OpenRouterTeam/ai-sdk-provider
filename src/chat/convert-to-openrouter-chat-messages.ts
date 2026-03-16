@@ -13,7 +13,11 @@ import type {
 
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
-import { getFileUrl, getInputAudioData } from './file-url-utils';
+import {
+  buildFileDataUrl,
+  getFileUrl,
+  getInputAudioData,
+} from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -320,18 +324,84 @@ export function convertToOpenRouterChatMessages(
   return messages;
 }
 
-function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
+function getToolResultContent(
+  input: LanguageModelV3ToolResultPart,
+): string | ChatCompletionContentPart[] {
   switch (input.output.type) {
     case 'text':
     case 'error-text':
       return input.output.value;
     case 'json':
     case 'error-json':
-    case 'content':
       return JSON.stringify(input.output.value);
+    case 'content':
+      return mapToolResultContentParts(input.output.value);
     case 'execution-denied':
       return input.output.reason ?? 'Tool execution denied';
   }
+}
+
+function mapToolResultContentParts(
+  parts: ReadonlyArray<Record<string, unknown>>,
+): ChatCompletionContentPart[] {
+  return parts.map((part): ChatCompletionContentPart => {
+    switch (part.type) {
+      case 'text':
+        return { type: 'text', text: part.text as string };
+
+      case 'image-data':
+        return {
+          type: 'image_url',
+          image_url: {
+            url: buildFileDataUrl({
+              data: part.data as string,
+              mediaType: part.mediaType as string,
+              defaultMediaType: 'image/jpeg',
+            }),
+          },
+        };
+
+      case 'image-url':
+        return {
+          type: 'image_url',
+          image_url: { url: part.url as string },
+        };
+
+      case 'file-data': {
+        const mediaType = part.mediaType as string;
+        const data = part.data as string;
+        const dataUrl = buildFileDataUrl({
+          data,
+          mediaType,
+          defaultMediaType: 'application/octet-stream',
+        });
+
+        if (mediaType.startsWith('image/')) {
+          return {
+            type: 'image_url',
+            image_url: { url: dataUrl },
+          };
+        }
+
+        return {
+          type: 'file',
+          file: {
+            filename: (part.filename as string) ?? '',
+            file_data: dataUrl,
+          },
+        };
+      }
+
+      case 'file-url':
+        return {
+          type: 'image_url',
+          image_url: { url: part.url as string },
+        };
+
+      default:
+        return { type: 'text', text: JSON.stringify(part) };
+    }
+  });
 }
 
 /**
