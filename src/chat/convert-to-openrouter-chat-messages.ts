@@ -396,15 +396,24 @@ function mapToolResultContentParts(
         };
       }
 
-      // file-url parts lack a mediaType field in the SDK, so we cannot
-      // distinguish image URLs from non-image URLs. Default to image_url
-      // since that is the most common tool-result use case (screenshots,
-      // fetched images) and the OpenRouter API handles it for all URL types.
-      case 'file-url':
+      case 'file-url': {
+        // file-url parts don't carry a mediaType field in the SDK,
+        // so we infer from the URL path extension to route correctly.
+        if (looksLikeImageUrl(part.url)) {
+          return {
+            type: 'image_url',
+            image_url: { url: part.url },
+          };
+        }
+
         return {
-          type: 'image_url',
-          image_url: { url: part.url },
+          type: 'file',
+          file: {
+            filename: '',
+            file_data: part.url,
+          },
         };
+      }
 
       case 'file-id':
       case 'image-file-id':
@@ -417,6 +426,30 @@ function mapToolResultContentParts(
       }
     }
   });
+}
+
+const IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'svg',
+  'bmp',
+  'ico',
+  'tif',
+  'tiff',
+  'avif',
+]);
+
+function looksLikeImageUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split('.').pop()?.toLowerCase();
+    return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
+  } catch {
+    return false;
+  }
 }
 
 /**

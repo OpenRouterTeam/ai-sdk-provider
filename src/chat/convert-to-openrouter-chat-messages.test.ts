@@ -1926,7 +1926,7 @@ describe('multimodal tool result content (issue #181)', () => {
     ]);
   });
 
-  it('should convert tool result with file-url to image_url part', () => {
+  it('should convert tool result with file-url (image extension) to image_url part', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -1956,6 +1956,80 @@ describe('multimodal tool result content (issue #181)', () => {
       {
         type: 'image_url',
         image_url: { url: 'https://example.com/photo.jpg' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (non-image extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def2',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://example.com/report.pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'https://example.com/report.pdf',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (no extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def3',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://api.example.com/files/123',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'https://api.example.com/files/123',
+        },
       },
     ]);
   });
