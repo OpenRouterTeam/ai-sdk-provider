@@ -55,10 +55,15 @@ describe('Issue #423/#439: multi-turn should succeed even when signatures are st
     for (const msg of stored) {
       for (const part of msg.parts) {
         if (part.type === 'reasoning' && part.providerMetadata) {
-          const openrouter = part.providerMetadata.openrouter as
-            | Record<string, unknown>
-            | undefined;
-          const details = openrouter?.reasoning_details;
+          const openrouter = part.providerMetadata.openrouter;
+          if (
+            typeof openrouter !== 'object' ||
+            openrouter === null ||
+            !('reasoning_details' in openrouter)
+          ) {
+            continue;
+          }
+          const details = openrouter.reasoning_details;
           if (Array.isArray(details)) {
             for (const detail of details) {
               if (
@@ -67,7 +72,7 @@ describe('Issue #423/#439: multi-turn should succeed even when signatures are st
                 'signature' in detail
               ) {
                 // Simulate signature being lost during serialization
-                delete (detail as Record<string, unknown>).signature;
+                delete detail.signature;
               }
             }
           }
