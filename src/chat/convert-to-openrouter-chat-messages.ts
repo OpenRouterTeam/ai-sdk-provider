@@ -268,15 +268,20 @@ export function convertToOpenRouterChatMessages(
             uniqueDetails.length > 0 ? uniqueDetails : undefined;
         }
 
-        // Strip Anthropic reasoning.text entries that lack a valid signature.
+        // Strip reasoning.text entries that lack a valid signature when the
+        // entry's format is Anthropic (`anthropic-claude-v1`).
+        //
         // When providerMetadata is partially lost during message serialization,
         // custom pruning, or DB storage (e.g., null/undefined fields dropped),
-        // reasoning_details may exist but reasoning.text entries may lack their
-        // signature. Sending these to the API causes Anthropic to reject with
+        // reasoning_details may survive but their reasoning.text entries may
+        // lose the `signature` field. The server converts these to Anthropic
+        // thinking blocks with `signature: ''`, which Anthropic rejects with
         // "Invalid signature in thinking block" (issue #423/#439).
-        // Only Anthropic-format entries require signatures; other formats
-        // (Google Gemini, OpenAI, xAI) don't use signatures and are preserved.
-        // Non-text detail types (encrypted, summary) also don't require signatures.
+        //
+        // Non-Anthropic formats (Google Gemini, OpenAI, xAI, Azure OpenAI)
+        // never use signatures and are always preserved. Non-text detail types
+        // (encrypted → redacted_thinking, summary → discarded by server) are
+        // also passed through since they don't involve signature validation.
         if (finalReasoningDetails) {
           finalReasoningDetails = finalReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
