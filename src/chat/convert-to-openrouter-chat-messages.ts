@@ -2,6 +2,7 @@ import type {
   LanguageModelV3FilePart,
   LanguageModelV3Prompt,
   LanguageModelV3TextPart,
+  LanguageModelV3ToolResultOutput,
   LanguageModelV3ToolResultPart,
   SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
@@ -341,21 +342,26 @@ function getToolResultContent(
   }
 }
 
+type ToolResultContentPart = Extract<
+  LanguageModelV3ToolResultOutput,
+  { type: 'content' }
+>['value'][number];
+
 function mapToolResultContentParts(
-  parts: ReadonlyArray<Record<string, unknown>>,
+  parts: ReadonlyArray<ToolResultContentPart>,
 ): ChatCompletionContentPart[] {
   return parts.map((part): ChatCompletionContentPart => {
     switch (part.type) {
       case 'text':
-        return { type: 'text', text: part.text as string };
+        return { type: 'text', text: part.text };
 
       case 'image-data':
         return {
           type: 'image_url',
           image_url: {
             url: buildFileDataUrl({
-              data: part.data as string,
-              mediaType: part.mediaType as string,
+              data: part.data,
+              mediaType: part.mediaType,
               defaultMediaType: 'image/jpeg',
             }),
           },
@@ -364,19 +370,17 @@ function mapToolResultContentParts(
       case 'image-url':
         return {
           type: 'image_url',
-          image_url: { url: part.url as string },
+          image_url: { url: part.url },
         };
 
       case 'file-data': {
-        const mediaType = part.mediaType as string;
-        const data = part.data as string;
         const dataUrl = buildFileDataUrl({
-          data,
-          mediaType,
+          data: part.data,
+          mediaType: part.mediaType,
           defaultMediaType: 'application/octet-stream',
         });
 
-        if (mediaType.startsWith('image/')) {
+        if (part.mediaType.startsWith('image/')) {
           return {
             type: 'image_url',
             image_url: { url: dataUrl },
@@ -386,7 +390,7 @@ function mapToolResultContentParts(
         return {
           type: 'file',
           file: {
-            filename: (part.filename as string) ?? '',
+            filename: part.filename ?? '',
             file_data: dataUrl,
           },
         };
@@ -395,7 +399,7 @@ function mapToolResultContentParts(
       case 'file-url':
         return {
           type: 'image_url',
-          image_url: { url: part.url as string },
+          image_url: { url: part.url },
         };
 
       default:

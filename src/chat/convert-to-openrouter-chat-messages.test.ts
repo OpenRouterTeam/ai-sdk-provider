@@ -1,5 +1,3 @@
-import type { LanguageModelV3ToolResultPart } from '@ai-sdk/provider';
-
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { MIME_TO_FORMAT } from './file-url-utils';
@@ -1976,8 +1974,6 @@ describe('multimodal tool result content (issue #181)', () => {
             type: 'tool-result',
             toolCallId: 'call-ghi',
             toolName: 'file_tool',
-            // Cast needed: file-id is not a known content part type,
-            // used to test graceful fallback for unknown types
             output: {
               type: 'content',
               value: [
@@ -1990,7 +1986,7 @@ describe('multimodal tool result content (issue #181)', () => {
                   fileId: 'file-abc-123',
                 },
               ],
-            } as unknown as LanguageModelV3ToolResultPart['output'],
+            },
           },
         ],
       },
