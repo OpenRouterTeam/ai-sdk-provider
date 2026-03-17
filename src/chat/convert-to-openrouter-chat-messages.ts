@@ -2,6 +2,7 @@ import type {
   LanguageModelV3FilePart,
   LanguageModelV3Prompt,
   LanguageModelV3TextPart,
+  LanguageModelV3ToolResultOutput,
   LanguageModelV3ToolResultPart,
   SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
@@ -15,7 +16,13 @@ import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
-import { getFileUrl, getInputAudioData } from './file-url-utils';
+import {
+  buildFileDataUrl,
+  getBase64FromDataUrl,
+  getFileUrl,
+  getInputAudioData,
+  MIME_TO_FORMAT,
+} from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -347,17 +354,154 @@ export function convertToOpenRouterChatMessages(
   return messages;
 }
 
-function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
+function getToolResultContent(
+  input: LanguageModelV3ToolResultPart,
+): string | ChatCompletionContentPart[] {
   switch (input.output.type) {
     case 'text':
     case 'error-text':
       return input.output.value;
     case 'json':
     case 'error-json':
-    case 'content':
       return JSON.stringify(input.output.value);
+    case 'content':
+      return mapToolResultContentParts(input.output.value);
     case 'execution-denied':
       return input.output.reason ?? 'Tool execution denied';
+  }
+}
+
+type ToolResultContentPart = Extract<
+  LanguageModelV3ToolResultOutput,
+  { type: 'content' }
+>['value'][number];
+
+function mapToolResultContentParts(
+  parts: ReadonlyArray<ToolResultContentPart>,
+): ChatCompletionContentPart[] {
+  return parts.map((part): ChatCompletionContentPart => {
+    switch (part.type) {
+      case 'text':
+        return { type: 'text', text: part.text };
+
+      case 'image-data':
+        return {
+          type: 'image_url',
+          image_url: {
+            url: buildFileDataUrl({
+              data: part.data,
+              mediaType: part.mediaType,
+              defaultMediaType: 'image/jpeg',
+            }),
+          },
+        };
+
+      case 'image-url':
+        return {
+          type: 'image_url',
+          image_url: { url: part.url },
+        };
+
+      case 'file-data': {
+        const dataUrl = buildFileDataUrl({
+          data: part.data,
+          mediaType: part.mediaType,
+          defaultMediaType: 'application/octet-stream',
+        });
+
+        if (part.mediaType?.startsWith('image/')) {
+          return {
+            type: 'image_url',
+            image_url: { url: dataUrl },
+          };
+        }
+
+        if (part.mediaType?.startsWith('audio/')) {
+          const rawFormat = part.mediaType.replace('audio/', '');
+          const format = MIME_TO_FORMAT[rawFormat];
+          if (format !== undefined) {
+            return {
+              type: 'input_audio',
+              input_audio: {
+                data: getBase64FromDataUrl(dataUrl),
+                format,
+              },
+            };
+          }
+        }
+
+        return {
+          type: 'file',
+          file: {
+            filename: part.filename ?? '',
+            file_data: dataUrl,
+          },
+        };
+      }
+
+      case 'file-url': {
+        // file-url parts don't carry a mediaType field in the SDK,
+        // so we infer from the URL path extension to route correctly.
+        if (looksLikeImageUrl(part.url)) {
+          return {
+            type: 'image_url',
+            image_url: { url: part.url },
+          };
+        }
+
+        return {
+          type: 'file',
+          file: {
+            filename: filenameFromUrl(part.url),
+            file_data: part.url,
+          },
+        };
+      }
+
+      case 'file-id':
+      case 'image-file-id':
+      case 'custom':
+        return { type: 'text', text: JSON.stringify(part) };
+
+      default: {
+        const _exhaustiveCheck: never = part;
+        return { type: 'text', text: JSON.stringify(_exhaustiveCheck) };
+      }
+    }
+  });
+}
+
+const IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'svg',
+  'bmp',
+  'ico',
+  'tif',
+  'tiff',
+  'avif',
+]);
+
+function looksLikeImageUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split('.').pop()?.toLowerCase();
+    return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
+  } catch {
+    return false;
+  }
+}
+
+function filenameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const last = pathname.split('/').pop();
+    return last?.includes('.') ? last : '';
+  } catch {
+    return '';
   }
 }
 

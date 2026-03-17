@@ -7,13 +7,14 @@
  * Reported behavior: When a tool returns an image in its response using the AI SDK's
  * toModelOutput with multimodal content, the model cannot view or interpret the image.
  *
- * Observed behavior: Tool results with multimodal content (images) are JSON.stringified.
+ * Fix: Tool results with output.type === 'content' now return structured
+ * ChatCompletionContentPart arrays instead of JSON.stringify-ing the value.
  */
 import { describe, expect, it } from 'vitest';
 import { convertToOpenRouterChatMessages } from '@/src/chat/convert-to-openrouter-chat-messages';
 
 describe('Issue #181: Tool response for image not working', () => {
-  it('should stringify tool result with content type containing image', () => {
+  it('should preserve structured content with text + image in tool result', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -47,15 +48,20 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-123',
     });
 
-    expect(typeof result[0]?.content).toBe('string');
+    expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as string;
-    expect(content).toContain('"type":"text"');
-    expect(content).toContain('"type":"file-data"');
-    expect(content).toContain('iVBORw0KGgo'); // Base64 image data
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the screenshot:' },
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        },
+      },
+    ]);
   });
 
-  it('should stringify tool result with content type containing image URL', () => {
+  it('should preserve structured content with text + file-url in tool result', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -83,11 +89,15 @@ describe('Issue #181: Tool response for image not working', () => {
     ]);
 
     expect(result).toHaveLength(1);
-    expect(typeof result[0]?.content).toBe('string');
+    expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as string;
-    expect(content).toContain('"type":"file-url"');
-    expect(content).toContain('https://example.com/generated-image.png');
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Generated image:' },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/generated-image.png' },
+      },
+    ]);
   });
 
   it('should handle text-only tool results normally', () => {
@@ -140,14 +150,12 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-abc',
     });
 
-    const content = result[0]?.content as string;
-    expect(content).toBe(
+    expect(result[0]?.content).toBe(
       '{"temperature":72,"unit":"F","location":"San Francisco"}',
     );
   });
 
-  it('should stringify tool result with file-data type (reproduces issue #181)', () => {
-    // Reproduces issue #181 using AI SDK v3 format (file-data instead of V2's media type)
+  it('should convert file-data image to structured image_url part (reproduces issue #181)', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -162,7 +170,6 @@ describe('Issue #181: Tool response for image not working', () => {
                 {
                   type: 'file-data',
                   mediaType: 'image/jpeg',
-                  // Truncated JPEG from the original issue
                   data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
                 },
               ],
@@ -178,11 +185,15 @@ describe('Issue #181: Tool response for image not working', () => {
       tool_call_id: 'call-original-issue',
     });
 
-    expect(typeof result[0]?.content).toBe('string');
+    expect(Array.isArray(result[0]?.content)).toBe(true);
 
-    const content = result[0]?.content as string;
-    expect(content).toContain('"type":"file-data"');
-    expect(content).toContain('"mediaType":"image/jpeg"');
-    expect(content).toContain('/9j/4AAQSkZJRgABAQAAAQABAAD'); // JPEG magic bytes
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
+        },
+      },
+    ]);
   });
 });
