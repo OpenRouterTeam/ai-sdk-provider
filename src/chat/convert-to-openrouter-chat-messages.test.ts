@@ -1759,3 +1759,519 @@ describe('issue #423: strip reasoning without valid signatures', () => {
     });
   });
 });
+
+describe('multimodal tool result content (issue #181)', () => {
+  it('should convert tool result with text + image-data to structured content array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-123',
+            toolName: 'screenshot_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Here is the screenshot:',
+                },
+                {
+                  type: 'image-data',
+                  data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  mediaType: 'image/png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'tool',
+      tool_call_id: 'call-123',
+    });
+
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the screenshot:' },
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with text + image-url to structured content array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-456',
+            toolName: 'image_generator',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Generated image:',
+                },
+                {
+                  type: 'image-url',
+                  url: 'https://example.com/generated-image.png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Generated image:' },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/generated-image.png' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (image mediaType) to image_url', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-789',
+            toolName: 'screenshot_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'AAECAw==',
+                  mediaType: 'image/jpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/jpeg;base64,AAECAw==' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (non-image mediaType) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-abc',
+            toolName: 'pdf_reader',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Document contents:',
+                },
+                {
+                  type: 'file-data',
+                  data: 'ZmlsZSBjb250ZW50',
+                  mediaType: 'application/pdf',
+                  filename: 'report.pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Document contents:' },
+      {
+        type: 'file',
+        file: {
+          filename: 'report.pdf',
+          file_data: 'data:application/pdf;base64,ZmlsZSBjb250ZW50',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (image extension) to image_url part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://example.com/photo.jpg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/photo.jpg' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (non-image extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def2',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://example.com/report.pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: 'report.pdf',
+          file_data: 'https://example.com/report.pdf',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (no extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def3',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://api.example.com/files/123',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'https://api.example.com/files/123',
+        },
+      },
+    ]);
+  });
+
+  it('should fallback to stringified text part for unknown content part types', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-ghi',
+            toolName: 'file_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Here is the file:',
+                },
+                {
+                  type: 'file-id',
+                  fileId: 'file-abc-123',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the file:' },
+      // Unknown type falls back to stringified text
+      {
+        type: 'text',
+        text: JSON.stringify({ type: 'file-id', fileId: 'file-abc-123' }),
+      },
+    ]);
+  });
+
+  it('should convert text-only content parts to structured array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-jkl',
+            toolName: 'text_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Just some text output',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Just some text output' },
+    ]);
+  });
+
+  it('should still return string for text output type', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-mno',
+            toolName: 'calculator',
+            output: {
+              type: 'text',
+              value: 'The result is 42',
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(typeof result[0]?.content).toBe('string');
+    expect(result[0]?.content).toBe('The result is 42');
+  });
+
+  it('should still return string for json output type', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-pqr',
+            toolName: 'weather_api',
+            output: {
+              type: 'json',
+              value: { temperature: 72 },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(typeof result[0]?.content).toBe('string');
+    expect(result[0]?.content).toBe('{"temperature":72}');
+  });
+
+  it('should convert tool result with file-data (no filename) to file part with empty filename', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-stu',
+            toolName: 'pdf_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'ZmlsZSBjb250ZW50',
+                  mediaType: 'application/pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'data:application/pdf;base64,ZmlsZSBjb250ZW50',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (audio mediaType) to input_audio part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-audio',
+            toolName: 'audio_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'YXVkaW9fZGF0YQ==',
+                  mediaType: 'audio/mpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'input_audio',
+        input_audio: {
+          data: 'YXVkaW9fZGF0YQ==',
+          format: 'mp3',
+        },
+      },
+    ]);
+  });
+
+  it('should handle mixed text and multiple images in tool result content', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-vwx',
+            toolName: 'multi_screenshot',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Screenshots captured:',
+                },
+                {
+                  type: 'image-data',
+                  data: 'AAECAw==',
+                  mediaType: 'image/png',
+                },
+                {
+                  type: 'image-url',
+                  url: 'https://example.com/screenshot2.png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Screenshots captured:' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,AAECAw==' },
+      },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/screenshot2.png' },
+      },
+    ]);
+  });
+});
