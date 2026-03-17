@@ -1,5 +1,20 @@
 # @openrouter/ai-sdk-provider
 
+## 2.3.2
+
+### Patch Changes
+
+- [#446](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/446) [`b1ccc53`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b1ccc53512b797a5a9b3d638f9a1ce07cd6e30bf) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix multimodal tool results being flattened to strings
+
+  When a tool returns `output.type = "content"` with structured multimodal parts (text + images), those parts were being JSON.stringified instead of preserved as structured content parts. This prevented models from using vision on images in tool results.
+
+  Changes:
+
+  - `getToolResultContent()` now maps each content part to the appropriate OpenRouter format (text, image_url, file) instead of stringifying
+  - `ChatCompletionToolMessageParam.content` type updated to accept `string | Array<ChatCompletionContentPart>`
+
+  Fixes #181
+
 ## 2.3.1
 
 ### Patch Changes
