@@ -294,9 +294,7 @@ export function convertToOpenRouterChatMessages(
           if (strippedCount.value > 0) {
             // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
             console.warn(
-              `[openrouter] Removed ${strippedCount.value} thinking block(s) with ` +
-                `missing signatures from previous messages. To avoid this, make ` +
-                `sure reasoning signatures are saved when storing messages.`,
+              `[openrouter] Removed ${strippedCount.value} thinking block(s) missing signatures.`,
             );
           }
 
