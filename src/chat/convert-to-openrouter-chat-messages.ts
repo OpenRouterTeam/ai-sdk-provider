@@ -12,7 +12,9 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
+import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import {
   buildFileDataUrl,
@@ -257,14 +259,46 @@ export function convertToOpenRouterChatMessages(
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
-        // Deduplicate reasoning_details across all messages to prevent
-        // "Duplicate item found with id" errors in multi-turn conversations.
-        // upsert() returns true only for NEW details (not seen before and has valid key).
-        // Details without valid keys or duplicates are skipped.
+        // Strip Anthropic-format reasoning.text entries that lack a valid
+        // signature. When providerMetadata is partially lost during message
+        // serialization, custom pruning, or DB storage (e.g., null/undefined
+        // fields dropped), reasoning_details may survive but their text
+        // entries may lose the `signature` field. Sending these back causes
+        // Anthropic to reject with "Invalid signature in thinking block"
+        // (issue #423/#439).
+        //
+        // Only Anthropic-format text entries cause this error — other formats
+        // and non-text detail types pass through unchanged.
+        //
+        // This runs BEFORE deduplication so that signatureless entries are
+        // never registered in the tracker — otherwise a signatureless entry
+        // in an earlier turn would suppress a valid signed copy in a later turn.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+          const validDetails = candidateReasoningDetails.filter((detail) => {
+            if (detail.type !== ReasoningDetailType.Text) {
+              return true;
+            }
+            const format = detail.format ?? DEFAULT_REASONING_FORMAT;
+            if (format !== ReasoningFormat.AnthropicClaudeV1) {
+              return true;
+            }
+            return !!detail.signature;
+          });
+
+          if (validDetails.length < candidateReasoningDetails.length) {
+            // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
+            console.warn(
+              '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 for more details.',
+            );
+          }
+
+          // Deduplicate reasoning_details across all messages to prevent
+          // "Duplicate item found with id" errors in multi-turn conversations.
+          // upsert() returns true only for NEW details (not seen before and has valid key).
+          // Details without valid keys or duplicates are skipped.
           const uniqueDetails: ReasoningDetailUnion[] = [];
-          for (const detail of candidateReasoningDetails) {
+          for (const detail of validDetails) {
             if (reasoningDetailsTracker.upsert(detail)) {
               uniqueDetails.push(detail);
             }
@@ -494,12 +528,15 @@ function findFirstReasoningDetails(
   // First, try tool calls - they have complete accumulated reasoning_details
   for (const part of content) {
     if (part.type === 'tool-call') {
-      const openrouter = part.providerOptions?.openrouter as
-        | Record<string, unknown>
-        | undefined;
-      const details = openrouter?.reasoning_details;
-      if (Array.isArray(details) && details.length > 0) {
-        return details as ReasoningDetailUnion[];
+      const parsed = OpenRouterProviderOptionsSchema.safeParse(
+        part.providerOptions,
+      );
+      if (
+        parsed.success &&
+        parsed.data?.openrouter?.reasoning_details &&
+        parsed.data.openrouter.reasoning_details.length > 0
+      ) {
+        return parsed.data.openrouter.reasoning_details;
       }
     }
   }

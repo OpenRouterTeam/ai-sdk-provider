@@ -1,5 +1,8 @@
 import { z } from 'zod/v4';
-import { ReasoningDetailUnionSchema } from './reasoning-details';
+import {
+  ReasoningDetailArraySchema,
+  ReasoningDetailUnionSchema,
+} from './reasoning-details';
 
 /**
  * Schema for file annotations from FileParserPlugin
@@ -76,7 +79,11 @@ export const OpenRouterProviderOptionsSchema = z
   .object({
     openrouter: z
       .object({
-        reasoning_details: z.array(ReasoningDetailUnionSchema).optional(),
+        // Use ReasoningDetailArraySchema (with unknown fallback) instead of
+        // z.array(ReasoningDetailUnionSchema) so that a single malformed entry
+        // (e.g., a future format not yet in the enum) is individually dropped
+        // rather than causing the entire array to fail parsing.
+        reasoning_details: ReasoningDetailArraySchema.optional(),
         annotations: z.array(FileAnnotationSchema).optional(),
       })
       .optional(),
