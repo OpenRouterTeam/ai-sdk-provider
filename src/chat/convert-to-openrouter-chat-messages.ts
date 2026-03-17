@@ -289,7 +289,7 @@ export function convertToOpenRouterChatMessages(
           if (validDetails.length < candidateReasoningDetails.length) {
             // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
             console.warn(
-              '[openrouter] Some reasoning_details entries were removed because they were missing signatures.',
+              '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 for more details.',
             );
           }
 
