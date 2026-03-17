@@ -268,6 +268,7 @@ export function convertToOpenRouterChatMessages(
         // in an earlier turn would suppress a valid signed copy in a later turn.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+          const strippedCount = { value: 0 };
           const validDetails = candidateReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
               return true;
@@ -276,8 +277,21 @@ export function convertToOpenRouterChatMessages(
             if (format !== ReasoningFormat.AnthropicClaudeV1) {
               return true;
             }
-            return !!detail.signature;
+            if (!detail.signature) {
+              strippedCount.value++;
+              return false;
+            }
+            return true;
           });
+
+          if (strippedCount.value > 0) {
+            // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
+            console.warn(
+              `[openrouter] Stripped ${strippedCount.value} Anthropic reasoning.text ` +
+                `entry/entries missing a valid signature. Ensure providerMetadata ` +
+                `is preserved during message serialization.`,
+            );
+          }
 
           // Deduplicate reasoning_details across all messages to prevent
           // "Duplicate item found with id" errors in multi-turn conversations.
