@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 2.3.3
+
+### Patch Changes
+
+- [#445](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/445) [`16db454`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/16db454f904bb231dedcbe3b821d88443f03d7df) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: strip reasoning.text entries without valid signatures (#423/#439)
+
+  When reasoning_details exist but reasoning.text entries lack a signature (lost during custom pruning, DB serialization, or model switching), Anthropic rejects with "Invalid signature in thinking block". This adds validation to filter out signatureless reasoning.text entries before sending to the API.
+
 ## 2.3.2
 
 ### Patch Changes
