@@ -275,7 +275,7 @@ export function convertToOpenRouterChatMessages(
         // in an earlier turn would suppress a valid signed copy in a later turn.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
-          const strippedCount = { value: 0 };
+          let strippedCount = 0;
           const validDetails = candidateReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
               return true;
@@ -285,16 +285,16 @@ export function convertToOpenRouterChatMessages(
               return true;
             }
             if (!detail.signature) {
-              strippedCount.value++;
+              strippedCount++;
               return false;
             }
             return true;
           });
 
-          if (strippedCount.value > 0) {
+          if (strippedCount > 0) {
             // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
             console.warn(
-              `[openrouter] Removed ${strippedCount.value} thinking block(s) missing signatures.`,
+              `[openrouter] Removed ${strippedCount} thinking block(s) missing signatures.`,
             );
           }
 
