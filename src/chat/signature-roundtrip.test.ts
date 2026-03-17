@@ -539,8 +539,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
   // === SCHEMA RESILIENCE TESTS ===
 
   it('should gracefully handle reasoning_details with unknown format values in providerOptions', () => {
-    // If the server adds a new format (e.g., azure-openai-responses-v1) that the SDK
-    // doesn't know about yet, the SDK should NOT silently drop ALL reasoning_details.
+    // If the server adds a new format that the SDK doesn't know about yet,
+    // the SDK should NOT silently drop ALL reasoning_details.
     // Valid entries should survive even if one entry has an unknown format.
     const result = convertToOpenRouterChatMessages([
       {
@@ -568,7 +568,7 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
                     text: 'Step 2.',
                     signature: FAKE_SIGNATURE,
                     // Unknown format — should be individually dropped, not kill the array
-                    format: 'azure-openai-responses-v1',
+                    format: 'some-future-provider-v1' as 'anthropic-claude-v1',
                     index: 1,
                   },
                 ],
@@ -618,9 +618,9 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
               },
               {
                 type: ReasoningDetailType.Text,
-                text: 'Azure reasoning.',
+                text: 'Future provider reasoning.',
                 signature: FAKE_SIGNATURE,
-                format: 'azure-openai-responses-v1',
+                format: 'some-future-provider-v1' as 'anthropic-claude-v1',
                 index: 1,
               },
             ],
