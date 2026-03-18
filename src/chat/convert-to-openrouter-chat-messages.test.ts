@@ -709,6 +709,7 @@ describe('cache control', () => {
         role: 'tool',
         tool_call_id: 'call-123',
         content: JSON.stringify({ answer: 42 }),
+        name: 'calculator',
         cache_control: { type: 'ephemeral' },
       },
     ]);
@@ -2422,6 +2423,79 @@ describe('multimodal tool result content (issue #181)', () => {
       {
         type: 'image_url',
         image_url: { url: 'https://example.com/screenshot2.png' },
+      },
+    ]);
+  });
+});
+
+describe('tool messages', () => {
+  it('should include tool name from toolName', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-456',
+            toolName: 'get_weather',
+            output: {
+              type: 'text',
+              value: 'Sunny, 72°F',
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-456',
+        content: 'Sunny, 72°F',
+        name: 'get_weather',
+      },
+    ]);
+  });
+
+  it('should include tool name for each tool result in a multi-tool response', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            output: {
+              type: 'text',
+              value: 'Sunny',
+            },
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            output: {
+              type: 'json',
+              value: { time: '12:00' },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-1',
+        content: 'Sunny',
+        name: 'get_weather',
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call-2',
+        content: JSON.stringify({ time: '12:00' }),
+        name: 'get_time',
       },
     ]);
   });

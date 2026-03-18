@@ -344,6 +344,7 @@ export function convertToOpenRouterChatMessages(
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content,
+            name: toolResponse.toolName,
             cache_control:
               getCacheControl(providerOptions) ??
               getCacheControl(toolResponse.providerOptions),
