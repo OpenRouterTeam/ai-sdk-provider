@@ -101,5 +101,6 @@ export interface ChatCompletionToolMessageParam {
   role: 'tool';
   content: string | Array<ChatCompletionContentPart>;
   tool_call_id: string;
+  name?: string;
   cache_control?: OpenRouterCacheControl;
 }
