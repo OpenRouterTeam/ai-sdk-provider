@@ -1691,6 +1691,79 @@ describe('doStream', () => {
     ]);
   });
 
+  it('should emit initial chunk arguments as delta in multi-chunk tool call', async () => {
+    // Regression test: when the first chunk includes non-empty but non-parsable-JSON
+    // arguments (e.g., '{"val'), those initial arguments must be emitted as a
+    // tool-input-delta when tool-input-start fires on the second chunk.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: tool call start with non-empty initial arguments '{"val'
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_init_args","type":"function","function":{"name":"test-tool","arguments":"{\\"val"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: merge path with remaining arguments
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"ue\\":\\"test\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":53,"completion_tokens":17,"total_tokens":70}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Verify that initial arguments from the first chunk are emitted as a delta
+    const toolInputDeltas = elements.filter(
+      (el) => el.type === 'tool-input-delta',
+    );
+    expect(toolInputDeltas).toStrictEqual([
+      // Initial arguments from the first chunk
+      { type: 'tool-input-delta', id: 'call_init_args', delta: '{"val' },
+      // Merge chunk arguments
+      {
+        type: 'tool-input-delta',
+        id: 'call_init_args',
+        delta: 'ue":"test"}',
+      },
+    ]);
+
+    // Verify complete event ordering
+    const types = elements.map((el) => el.type);
+    expect(types).toContain('tool-input-start');
+    expect(types).toContain('tool-input-end');
+    expect(types).toContain('tool-call');
+
+    const startIndex = types.indexOf('tool-input-start');
+    const firstDeltaIndex = types.indexOf('tool-input-delta');
+    const endIndex = types.indexOf('tool-input-end');
+    const callIndex = types.indexOf('tool-call');
+    expect(startIndex).toBeLessThan(firstDeltaIndex);
+    expect(firstDeltaIndex).toBeLessThan(endIndex);
+    expect(endIndex).toBeLessThan(callIndex);
+  });
+
   it('should stream tool call that is sent in one chunk', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',

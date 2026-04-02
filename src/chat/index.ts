@@ -972,6 +972,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     id: toolCall.id,
                     toolName: toolCall.function.name,
                   });
+
+                  // Emit any initial arguments from the first chunk that were
+                  // stored but not yet emitted as a delta
+                  if (toolCall.function.arguments) {
+                    controller.enqueue({
+                      type: 'tool-input-delta',
+                      id: toolCall.id,
+                      delta: toolCall.function.arguments,
+                    });
+                  }
                 }
 
                 if (toolCallDelta.function?.arguments != null) {
