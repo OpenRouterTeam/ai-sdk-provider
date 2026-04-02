@@ -446,9 +446,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const shouldOverrideFinishReason =
       hasToolCalls && hasEncryptedReasoning && choice.finish_reason === 'stop';
 
-    const effectiveFinishReason = shouldOverrideFinishReason
+    const mappedFinishReason = shouldOverrideFinishReason
       ? createFinishReason('tool-calls', choice.finish_reason ?? undefined)
       : mapOpenRouterFinishReason(choice.finish_reason);
+
+    // Fix for #420: When finishReason is 'other' (unknown/missing) but tool calls
+    // were made, infer 'tool-calls' so agentic loops continue correctly.
+    const effectiveFinishReason =
+      hasToolCalls && mappedFinishReason.unified === 'other'
+        ? createFinishReason('tool-calls', mappedFinishReason.raw)
+        : mappedFinishReason;
 
     return {
       content,
@@ -1057,6 +1064,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           },
 
           flush(controller) {
+            const hasToolCalls = toolCalls.length > 0;
+
             if (streamError != null) {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: streamError });
@@ -1065,7 +1074,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
             // reasoning (thoughtSignature), the model returns 'stop' but expects continuation.
             // Override to 'tool-calls' so the SDK knows to continue the conversation.
-            const hasToolCalls = toolCalls.length > 0;
             const hasEncryptedReasoning = accumulatedReasoningDetails.some(
               (d) => d.type === ReasoningDetailType.Encrypted && d.data,
             );
@@ -1074,6 +1082,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               hasEncryptedReasoning &&
               finishReason.unified === 'stop'
             ) {
+              finishReason = createFinishReason('tool-calls', finishReason.raw);
+            }
+
+            // Fix for #420: When finishReason is 'other' (unknown/missing) but tool calls
+            // were made, infer 'tool-calls' so agentic loops continue correctly.
+            if (hasToolCalls && finishReason.unified === 'other') {
               finishReason = createFinishReason('tool-calls', finishReason.raw);
             }
 
