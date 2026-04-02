@@ -43,6 +43,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -169,6 +170,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       // Debug settings:
       debug: this.settings.debug,
 
+      // Anthropic automatic caching:
+      cache_control: this.settings.cache_control,
+
       // extra body:
       ...this.config.extraBody,
       ...this.settings.extraBody,
@@ -223,9 +227,18 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      // Support both cacheControl (camelCase) and cache_control (snake_case)
+      // from providerOptions, in addition to settings.cache_control
+      ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
+        ? { cache_control: cacheControl }
+        : {}),
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
@@ -515,9 +528,18 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      // Support both cacheControl (camelCase) and cache_control (snake_case)
+      // from providerOptions, in addition to settings.cache_control
+      ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
+        ? { cache_control: cacheControl }
+        : {}),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -548,6 +570,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       ),
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
+    });
+
+    let streamError: unknown;
+    const safeResponse = withStreamErrorHandling(response, (err) => {
+      streamError = err;
     });
 
     const toolCalls: Array<{
@@ -602,7 +629,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     let provider: string | undefined;
 
     return {
-      stream: response.pipeThrough(
+      stream: safeResponse.pipeThrough(
         new TransformStream<
           ParseResult<
             z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
@@ -1038,6 +1065,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
           flush(controller) {
             const hasToolCalls = toolCalls.length > 0;
+
+            if (streamError != null) {
+              finishReason = createFinishReason('error');
+              controller.enqueue({ type: 'error', error: streamError });
+            }
 
             // Fix for Gemini 3 thoughtSignature: when there are tool calls with encrypted
             // reasoning (thoughtSignature), the model returns 'stop' but expects continuation.

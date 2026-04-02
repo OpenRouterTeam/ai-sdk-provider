@@ -709,6 +709,73 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should send both response_format and tools when both are present', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      responseFormat: {
+        type: 'json',
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+        name: 'AnswerResponse',
+      },
+      tools: [
+        {
+          type: 'function',
+          name: 'lookup-email',
+          description: 'Look up information about an email address',
+          inputSchema: {
+            type: 'object',
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+    });
+
+    const body = await server.calls[0]!.requestBodyJson;
+
+    // Both response_format and tools should be present (matching @ai-sdk/openai behavior)
+    expect(body).toHaveProperty('response_format');
+    expect(body).toHaveProperty('tools');
+    expect((body as Record<string, unknown>).response_format).toEqual({
+      type: 'json_schema',
+      json_schema: {
+        schema: {
+          type: 'object',
+          properties: { answer: { type: 'string' } },
+          required: ['answer'],
+          additionalProperties: false,
+        },
+        strict: true,
+        name: 'AnswerResponse',
+      },
+    });
+    expect((body as Record<string, unknown>).tools).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'lookup-email',
+          description: 'Look up information about an email address',
+          parameters: {
+            type: 'object',
+            properties: { email: { type: 'string' } },
+            required: ['email'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      },
+    ]);
+  });
+
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -922,6 +989,62 @@ describe('doGenerate', () => {
         { id: 'auto-router', allowed_models: ['anthropic/*'] },
         { id: 'web' },
       ],
+    });
+  });
+
+  it('should pass cache_control from model settings in request payload (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    const cachedModel = provider.chat('anthropic/claude-sonnet-4', {
+      cache_control: { type: 'ephemeral' },
+    });
+
+    await cachedModel.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-sonnet-4',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
+    });
+  });
+
+  it('should pass cache_control from providerOptions.openrouter (snake_case) in request payload (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      providerOptions: {
+        openrouter: {
+          cache_control: { type: 'ephemeral' },
+        },
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
+    });
+  });
+
+  it('should normalize cacheControl (camelCase) from providerOptions to cache_control (#424)', async () => {
+    prepareJsonResponse({ content: 'Cached response' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      providerOptions: {
+        openrouter: {
+          cacheControl: { type: 'ephemeral' },
+        },
+      },
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      cache_control: { type: 'ephemeral' },
     });
   });
 
@@ -2292,7 +2415,7 @@ describe('doStream', () => {
     });
   });
 
-  it('should pass responseFormat AND tools together', async () => {
+  it('should send both response_format and tools when both are present in streaming', async () => {
     prepareStreamResponse({ content: ['{"name": "John", "age": 30}'] });
 
     const testSchema: JSONSchema7 = {
@@ -2333,7 +2456,13 @@ describe('doStream', () => {
       },
     });
 
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+    const body = await server.calls[0]!.requestBodyJson;
+
+    // Both response_format and tools should be present (matching @ai-sdk/openai behavior)
+    expect(body).toHaveProperty('response_format');
+    expect(body).toHaveProperty('tools');
+
+    expect(body).toStrictEqual({
       stream: true,
       stream_options: { include_usage: true },
       model: 'anthropic/claude-3.5-sonnet',

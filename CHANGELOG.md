@@ -1,5 +1,44 @@
 # @openrouter/ai-sdk-provider
 
+## 2.3.3
+
+### Patch Changes
+
+- [#445](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/445) [`16db454`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/16db454f904bb231dedcbe3b821d88443f03d7df) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: strip reasoning.text entries without valid signatures (#423/#439)
+
+  When reasoning_details exist but reasoning.text entries lack a signature (lost during custom pruning, DB serialization, or model switching), Anthropic rejects with "Invalid signature in thinking block". This adds validation to filter out signatureless reasoning.text entries before sending to the API.
+
+## 2.3.2
+
+### Patch Changes
+
+- [#446](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/446) [`b1ccc53`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b1ccc53512b797a5a9b3d638f9a1ce07cd6e30bf) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix multimodal tool results being flattened to strings
+
+  When a tool returns `output.type = "content"` with structured multimodal parts (text + images), those parts were being JSON.stringified instead of preserved as structured content parts. This prevented models from using vision on images in tool results.
+
+  Changes:
+
+  - `getToolResultContent()` now maps each content part to the appropriate OpenRouter format (text, image_url, file) instead of stringifying
+  - `ChatCompletionToolMessageParam.content` type updated to accept `string | Array<ChatCompletionContentPart>`
+
+  Fixes #181
+
+## 2.3.1
+
+### Patch Changes
+
+- [#442](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/442) [`a921eb7`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a921eb78ecc99f5d7ee9dc0ddebd5cbf0a1f5149) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: strip reasoning text when reasoning_details are missing to prevent "Invalid signature in thinking block" errors (#423)
+
+## 2.3.0
+
+### Minor Changes
+
+- [#431](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/431) [`f488f97`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f488f9756859b85c89970f069c03531f4ecda174) Thanks [@robert-j-y](https://github.com/robert-j-y)! - feat: add explicit cache_control support for Anthropic automatic prompt caching (#424)
+
+  - Added `cache_control` field to `OpenRouterChatSettings` for typed, discoverable configuration
+  - Supports both `cache_control` (snake_case) and `cacheControl` (camelCase) in `providerOptions.openrouter`
+  - Enables Anthropic automatic caching via top-level request body directive
+
 ## 2.2.5
 
 ### Patch Changes

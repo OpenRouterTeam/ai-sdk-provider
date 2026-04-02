@@ -131,6 +131,18 @@ A JSON object to send as the request body to access OpenRouter features & upstre
    * Maps provider slugs (e.g. "anthropic", "openai") to their respective API keys.
    */
   api_keys?: Record<string, string>;
+
+  /**
+   * Your app's display name. Sets the `X-OpenRouter-Title` header on
+   * every request for app attribution on the openrouter.ai dashboard.
+   */
+  appName?: string;
+
+  /**
+   * Your app's URL or identifier. Sets the `HTTP-Referer` header on every request,
+   * used to identify your app on the openrouter.ai dashboard.
+   */
+  appUrl?: string;
 }
 
 /**
@@ -154,6 +166,8 @@ export function createOpenRouter(
           environmentVariableName: 'OPENROUTER_API_KEY',
           description: 'OpenRouter',
         })}`,
+        ...(options.appName && { 'X-OpenRouter-Title': options.appName }),
+        ...(options.appUrl && { 'HTTP-Referer': options.appUrl }),
         ...options.headers,
         ...(options.api_keys &&
           Object.keys(options.api_keys).length > 0 && {

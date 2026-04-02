@@ -2,6 +2,7 @@ import type {
   LanguageModelV3FilePart,
   LanguageModelV3Prompt,
   LanguageModelV3TextPart,
+  LanguageModelV3ToolResultOutput,
   LanguageModelV3ToolResultPart,
   SharedV3ProviderMetadata,
 } from '@ai-sdk/provider';
@@ -11,9 +12,17 @@ import type {
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
+import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
+import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
-import { getFileUrl, getInputAudioData } from './file-url-utils';
+import {
+  buildFileDataUrl,
+  getBase64FromDataUrl,
+  getFileUrl,
+  getInputAudioData,
+  MIME_TO_FORMAT,
+} from './file-url-utils';
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
@@ -250,14 +259,46 @@ export function convertToOpenRouterChatMessages(
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
-        // Deduplicate reasoning_details across all messages to prevent
-        // "Duplicate item found with id" errors in multi-turn conversations.
-        // upsert() returns true only for NEW details (not seen before and has valid key).
-        // Details without valid keys or duplicates are skipped.
+        // Strip Anthropic-format reasoning.text entries that lack a valid
+        // signature. When providerMetadata is partially lost during message
+        // serialization, custom pruning, or DB storage (e.g., null/undefined
+        // fields dropped), reasoning_details may survive but their text
+        // entries may lose the `signature` field. Sending these back causes
+        // Anthropic to reject with "Invalid signature in thinking block"
+        // (issue #423/#439).
+        //
+        // Only Anthropic-format text entries cause this error — other formats
+        // and non-text detail types pass through unchanged.
+        //
+        // This runs BEFORE deduplication so that signatureless entries are
+        // never registered in the tracker — otherwise a signatureless entry
+        // in an earlier turn would suppress a valid signed copy in a later turn.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
         if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+          const validDetails = candidateReasoningDetails.filter((detail) => {
+            if (detail.type !== ReasoningDetailType.Text) {
+              return true;
+            }
+            const format = detail.format ?? DEFAULT_REASONING_FORMAT;
+            if (format !== ReasoningFormat.AnthropicClaudeV1) {
+              return true;
+            }
+            return !!detail.signature;
+          });
+
+          if (validDetails.length < candidateReasoningDetails.length) {
+            // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
+            console.warn(
+              '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 for more details.',
+            );
+          }
+
+          // Deduplicate reasoning_details across all messages to prevent
+          // "Duplicate item found with id" errors in multi-turn conversations.
+          // upsert() returns true only for NEW details (not seen before and has valid key).
+          // Details without valid keys or duplicates are skipped.
           const uniqueDetails: ReasoningDetailUnion[] = [];
-          for (const detail of candidateReasoningDetails) {
+          for (const detail of validDetails) {
             if (reasoningDetailsTracker.upsert(detail)) {
               uniqueDetails.push(detail);
             }
@@ -266,11 +307,23 @@ export function convertToOpenRouterChatMessages(
             uniqueDetails.length > 0 ? uniqueDetails : undefined;
         }
 
+        // Only include reasoning text if we have valid reasoning_details.
+        // When providerMetadata is lost during message serialization or
+        // custom pruning (e.g., stripping providerOptions from reasoning
+        // parts), or when switching between models mid-conversation,
+        // reasoning text may exist without corresponding reasoning_details.
+        // Sending reasoning without reasoning_details causes the API to
+        // construct thinking blocks without valid signatures, which
+        // Anthropic rejects with "Invalid signature in thinking block"
+        // (issue #423).
+        const effectiveReasoning =
+          reasoning && finalReasoningDetails ? reasoning : undefined;
+
         messages.push({
           role: 'assistant',
           content: text,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-          reasoning: reasoning || undefined,
+          reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
           annotations: messageAnnotations,
           cache_control: getCacheControl(providerOptions),
@@ -291,6 +344,7 @@ export function convertToOpenRouterChatMessages(
             role: 'tool',
             tool_call_id: toolResponse.toolCallId,
             content,
+            name: toolResponse.toolName,
             cache_control:
               getCacheControl(providerOptions) ??
               getCacheControl(toolResponse.providerOptions),
@@ -308,17 +362,154 @@ export function convertToOpenRouterChatMessages(
   return messages;
 }
 
-function getToolResultContent(input: LanguageModelV3ToolResultPart): string {
+function getToolResultContent(
+  input: LanguageModelV3ToolResultPart,
+): string | ChatCompletionContentPart[] {
   switch (input.output.type) {
     case 'text':
     case 'error-text':
       return input.output.value;
     case 'json':
     case 'error-json':
-    case 'content':
       return JSON.stringify(input.output.value);
+    case 'content':
+      return mapToolResultContentParts(input.output.value);
     case 'execution-denied':
       return input.output.reason ?? 'Tool execution denied';
+  }
+}
+
+type ToolResultContentPart = Extract<
+  LanguageModelV3ToolResultOutput,
+  { type: 'content' }
+>['value'][number];
+
+function mapToolResultContentParts(
+  parts: ReadonlyArray<ToolResultContentPart>,
+): ChatCompletionContentPart[] {
+  return parts.map((part): ChatCompletionContentPart => {
+    switch (part.type) {
+      case 'text':
+        return { type: 'text', text: part.text };
+
+      case 'image-data':
+        return {
+          type: 'image_url',
+          image_url: {
+            url: buildFileDataUrl({
+              data: part.data,
+              mediaType: part.mediaType,
+              defaultMediaType: 'image/jpeg',
+            }),
+          },
+        };
+
+      case 'image-url':
+        return {
+          type: 'image_url',
+          image_url: { url: part.url },
+        };
+
+      case 'file-data': {
+        const dataUrl = buildFileDataUrl({
+          data: part.data,
+          mediaType: part.mediaType,
+          defaultMediaType: 'application/octet-stream',
+        });
+
+        if (part.mediaType?.startsWith('image/')) {
+          return {
+            type: 'image_url',
+            image_url: { url: dataUrl },
+          };
+        }
+
+        if (part.mediaType?.startsWith('audio/')) {
+          const rawFormat = part.mediaType.replace('audio/', '');
+          const format = MIME_TO_FORMAT[rawFormat];
+          if (format !== undefined) {
+            return {
+              type: 'input_audio',
+              input_audio: {
+                data: getBase64FromDataUrl(dataUrl),
+                format,
+              },
+            };
+          }
+        }
+
+        return {
+          type: 'file',
+          file: {
+            filename: part.filename ?? '',
+            file_data: dataUrl,
+          },
+        };
+      }
+
+      case 'file-url': {
+        // file-url parts don't carry a mediaType field in the SDK,
+        // so we infer from the URL path extension to route correctly.
+        if (looksLikeImageUrl(part.url)) {
+          return {
+            type: 'image_url',
+            image_url: { url: part.url },
+          };
+        }
+
+        return {
+          type: 'file',
+          file: {
+            filename: filenameFromUrl(part.url),
+            file_data: part.url,
+          },
+        };
+      }
+
+      case 'file-id':
+      case 'image-file-id':
+      case 'custom':
+        return { type: 'text', text: JSON.stringify(part) };
+
+      default: {
+        const _exhaustiveCheck: never = part;
+        return { type: 'text', text: JSON.stringify(_exhaustiveCheck) };
+      }
+    }
+  });
+}
+
+const IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'svg',
+  'bmp',
+  'ico',
+  'tif',
+  'tiff',
+  'avif',
+]);
+
+function looksLikeImageUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split('.').pop()?.toLowerCase();
+    return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
+  } catch {
+    return false;
+  }
+}
+
+function filenameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const last = pathname.split('/').pop();
+    return last?.includes('.') ? last : '';
+  } catch {
+    return '';
   }
 }
 
@@ -338,12 +529,15 @@ function findFirstReasoningDetails(
   // First, try tool calls - they have complete accumulated reasoning_details
   for (const part of content) {
     if (part.type === 'tool-call') {
-      const openrouter = part.providerOptions?.openrouter as
-        | Record<string, unknown>
-        | undefined;
-      const details = openrouter?.reasoning_details;
-      if (Array.isArray(details) && details.length > 0) {
-        return details as ReasoningDetailUnion[];
+      const parsed = OpenRouterProviderOptionsSchema.safeParse(
+        part.providerOptions,
+      );
+      if (
+        parsed.success &&
+        parsed.data?.openrouter?.reasoning_details &&
+        parsed.data.openrouter.reasoning_details.length > 0
+      ) {
+        return parsed.data.openrouter.reasoning_details;
       }
     }
   }

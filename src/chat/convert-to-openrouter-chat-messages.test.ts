@@ -709,6 +709,7 @@ describe('cache control', () => {
         role: 'tool',
         tool_call_id: 'call-123',
         content: JSON.stringify({ answer: 42 }),
+        name: 'calculator',
         cache_control: { type: 'ephemeral' },
       },
     ]);
@@ -843,6 +844,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'First reasoning chunk',
+                    signature: 'sig-chunk-1',
                   },
                 ],
               },
@@ -857,6 +859,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Second reasoning chunk',
+                    signature: 'sig-chunk-2',
                   },
                 ],
               },
@@ -873,10 +876,12 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'First reasoning chunk',
+                signature: 'sig-chunk-1',
               },
               {
                 type: ReasoningDetailType.Text,
                 text: 'Second reasoning chunk',
+                signature: 'sig-chunk-2',
               },
             ],
           },
@@ -893,10 +898,12 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'First reasoning chunk',
+            signature: 'sig-chunk-1',
           },
           {
             type: ReasoningDetailType.Text,
             text: 'Second reasoning chunk',
+            signature: 'sig-chunk-2',
           },
         ],
       },
@@ -924,6 +931,7 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'Preserved reasoning detail',
+                signature: 'valid-sig-1',
               },
               {
                 type: ReasoningDetailType.Summary,
@@ -944,6 +952,7 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'Preserved reasoning detail',
+            signature: 'valid-sig-1',
           },
           {
             type: ReasoningDetailType.Summary,
@@ -954,7 +963,7 @@ describe('reasoning_details accumulation', () => {
     ]);
   });
 
-  it('should not include reasoning_details when not present in providerOptions', () => {
+  it('should not include reasoning or reasoning_details when not present in providerOptions', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -977,8 +986,11 @@ describe('reasoning_details accumulation', () => {
       {
         role: 'assistant',
         content: 'Response',
-        reasoning: 'Reasoning text',
-        // reasoning_details should be undefined when not preserved
+        // Both reasoning and reasoning_details should be undefined when
+        // providerMetadata is not preserved. Sending reasoning without
+        // reasoning_details causes "Invalid signature in thinking block"
+        // errors on Anthropic models (issue #423).
+        reasoning: undefined,
         reasoning_details: undefined,
       },
     ]);
@@ -998,6 +1010,7 @@ describe('reasoning_details accumulation', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'First chunk',
+                    signature: 'valid-sig-chunk',
                   },
                 ],
               },
@@ -1019,6 +1032,7 @@ describe('reasoning_details accumulation', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'First chunk',
+                signature: 'valid-sig-chunk',
               },
             ],
           },
@@ -1035,6 +1049,7 @@ describe('reasoning_details accumulation', () => {
           {
             type: ReasoningDetailType.Text,
             text: 'First chunk',
+            signature: 'valid-sig-chunk',
           },
         ],
       },
@@ -1059,6 +1074,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full reasoning text',
+                    signature: 'valid-sig-tool',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1079,6 +1095,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full reasoning text',
+                    signature: 'valid-sig-tool',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1103,6 +1120,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Full reasoning text',
+          signature: 'valid-sig-tool',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1128,6 +1146,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Reasoning for weather call',
+                    signature: 'valid-sig-single',
                   },
                 ],
               },
@@ -1143,6 +1162,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Reasoning for weather call',
+          signature: 'valid-sig-single',
         },
       ],
     });
@@ -1164,6 +1184,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Tool call reasoning',
+                    signature: 'tool-sig',
                   },
                 ],
               },
@@ -1176,6 +1197,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
               {
                 type: ReasoningDetailType.Text,
                 text: 'Message-level reasoning',
+                signature: 'msg-sig',
               },
               {
                 type: ReasoningDetailType.Encrypted,
@@ -1193,6 +1215,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Message-level reasoning',
+          signature: 'msg-sig',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1216,6 +1239,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Delta reasoning only',
+                    signature: 'delta-sig',
                   },
                 ],
               },
@@ -1232,6 +1256,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Full accumulated reasoning',
+                    signature: 'full-sig',
                   },
                   {
                     type: ReasoningDetailType.Encrypted,
@@ -1252,6 +1277,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Full accumulated reasoning',
+          signature: 'full-sig',
         },
         {
           type: ReasoningDetailType.Encrypted,
@@ -1306,6 +1332,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Reasoning from part',
+                    signature: 'valid-sig-fallback',
                   },
                 ],
               },
@@ -1328,6 +1355,7 @@ describe('parallel tool calls reasoning_details deduplication', () => {
         {
           type: ReasoningDetailType.Text,
           text: 'Reasoning from part',
+          signature: 'valid-sig-fallback',
         },
       ],
     });
@@ -1623,5 +1651,852 @@ describe('multi-turn reasoning_details deduplication (issue #254)', () => {
         },
       ],
     });
+  });
+});
+
+describe('issue #423: strip reasoning without valid signatures', () => {
+  it('should strip reasoning text when providerOptions exist but reasoning_details are empty', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                // reasoning_details is empty — data was lost
+                reasoning_details: [],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    // reasoning text should be stripped because no reasoning_details exist
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should preserve reasoning_details text entries that have valid signatures', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Let me think about this...',
+                    signature: 'eyJhbGciOiJSUzI1NiJ9...',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: 'Let me think about this...',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Let me think about this...',
+          signature: 'eyJhbGciOiJSUzI1NiJ9...',
+        },
+      ],
+    });
+  });
+
+  it('should strip reasoning text when providerOptions are completely absent', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            // No providerOptions at all — providerMetadata was lost
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // reasoning text should be stripped because no reasoning_details exist
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Result.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should strip reasoning.text entries that have no signature (issue #439)', () => {
+    // This reproduces the exact bug from #439: reasoning_details exist but
+    // reasoning.text entries lost their signature during custom pruning or
+    // DB serialization. Sending these causes Anthropic to reject with
+    // "Invalid signature in thinking block".
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Let me think about this...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Let me think about this...',
+                    // signature is missing — lost during pruning/serialization
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    // reasoning.text without signature should be stripped, and since no
+    // valid reasoning_details remain, reasoning text should also be stripped
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'The answer is 4.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should strip reasoning.text with null signature (issue #439)', () => {
+    // signature explicitly set to null — can happen after JSON round-trip
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Thinking...',
+                    signature: null,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Done.' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Done.',
+      reasoning: undefined,
+      reasoning_details: undefined,
+    });
+  });
+
+  it('should keep valid entries and strip signatureless ones in mixed reasoning_details (issue #439)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'No signature here',
+                    // missing signature
+                  },
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data',
+                  },
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Has valid signature',
+                    signature: 'valid-sig',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // Only the signatureless reasoning.text should be stripped;
+    // encrypted and signed text entries are preserved
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Result.',
+      reasoning: 'Some thinking...',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-data',
+        },
+        {
+          type: ReasoningDetailType.Text,
+          text: 'Has valid signature',
+          signature: 'valid-sig',
+        },
+      ],
+    });
+  });
+
+  it('should preserve non-text reasoning_details even without signatures', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: '[REDACTED]',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Encrypted,
+                    data: 'encrypted-data-here',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // Encrypted entries don't need signatures — should be preserved
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      reasoning: '[REDACTED]',
+      reasoning_details: [
+        {
+          type: ReasoningDetailType.Encrypted,
+          data: 'encrypted-data-here',
+        },
+      ],
+    });
+  });
+});
+
+describe('multimodal tool result content (issue #181)', () => {
+  it('should convert tool result with text + image-data to structured content array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-123',
+            toolName: 'screenshot_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Here is the screenshot:',
+                },
+                {
+                  type: 'image-data',
+                  data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  mediaType: 'image/png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'tool',
+      tool_call_id: 'call-123',
+    });
+
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the screenshot:' },
+      {
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with text + image-url to structured content array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-456',
+            toolName: 'image_generator',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Generated image:',
+                },
+                {
+                  type: 'image-url',
+                  url: 'https://example.com/generated-image.png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Generated image:' },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/generated-image.png' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (image mediaType) to image_url', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-789',
+            toolName: 'screenshot_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'AAECAw==',
+                  mediaType: 'image/jpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/jpeg;base64,AAECAw==' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (non-image mediaType) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-abc',
+            toolName: 'pdf_reader',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Document contents:',
+                },
+                {
+                  type: 'file-data',
+                  data: 'ZmlsZSBjb250ZW50',
+                  mediaType: 'application/pdf',
+                  filename: 'report.pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Document contents:' },
+      {
+        type: 'file',
+        file: {
+          filename: 'report.pdf',
+          file_data: 'data:application/pdf;base64,ZmlsZSBjb250ZW50',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (image extension) to image_url part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://example.com/photo.jpg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/photo.jpg' },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (non-image extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def2',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://example.com/report.pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: 'report.pdf',
+          file_data: 'https://example.com/report.pdf',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-url (no extension) to file part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-def3',
+            toolName: 'web_fetch',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-url',
+                  url: 'https://api.example.com/files/123',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'https://api.example.com/files/123',
+        },
+      },
+    ]);
+  });
+
+  it('should fallback to stringified text part for unknown content part types', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-ghi',
+            toolName: 'file_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Here is the file:',
+                },
+                {
+                  type: 'file-id',
+                  fileId: 'file-abc-123',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Here is the file:' },
+      // Unknown type falls back to stringified text
+      {
+        type: 'text',
+        text: JSON.stringify({ type: 'file-id', fileId: 'file-abc-123' }),
+      },
+    ]);
+  });
+
+  it('should convert text-only content parts to structured array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-jkl',
+            toolName: 'text_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Just some text output',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Just some text output' },
+    ]);
+  });
+
+  it('should still return string for text output type', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-mno',
+            toolName: 'calculator',
+            output: {
+              type: 'text',
+              value: 'The result is 42',
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(typeof result[0]?.content).toBe('string');
+    expect(result[0]?.content).toBe('The result is 42');
+  });
+
+  it('should still return string for json output type', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-pqr',
+            toolName: 'weather_api',
+            output: {
+              type: 'json',
+              value: { temperature: 72 },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(typeof result[0]?.content).toBe('string');
+    expect(result[0]?.content).toBe('{"temperature":72}');
+  });
+
+  it('should convert tool result with file-data (no filename) to file part with empty filename', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-stu',
+            toolName: 'pdf_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'ZmlsZSBjb250ZW50',
+                  mediaType: 'application/pdf',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: {
+          filename: '',
+          file_data: 'data:application/pdf;base64,ZmlsZSBjb250ZW50',
+        },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (audio mediaType) to input_audio part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-audio',
+            toolName: 'audio_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'YXVkaW9fZGF0YQ==',
+                  mediaType: 'audio/mpeg',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'input_audio',
+        input_audio: {
+          data: 'YXVkaW9fZGF0YQ==',
+          format: 'mp3',
+        },
+      },
+    ]);
+  });
+
+  it('should handle mixed text and multiple images in tool result content', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-vwx',
+            toolName: 'multi_screenshot',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'text',
+                  text: 'Screenshots captured:',
+                },
+                {
+                  type: 'image-data',
+                  data: 'AAECAw==',
+                  mediaType: 'image/png',
+                },
+                {
+                  type: 'image-url',
+                  url: 'https://example.com/screenshot2.png',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      { type: 'text', text: 'Screenshots captured:' },
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/png;base64,AAECAw==' },
+      },
+      {
+        type: 'image_url',
+        image_url: { url: 'https://example.com/screenshot2.png' },
+      },
+    ]);
+  });
+});
+
+describe('tool messages', () => {
+  it('should include tool name from toolName', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-456',
+            toolName: 'get_weather',
+            output: {
+              type: 'text',
+              value: 'Sunny, 72°F',
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-456',
+        content: 'Sunny, 72°F',
+        name: 'get_weather',
+      },
+    ]);
+  });
+
+  it('should include tool name for each tool result in a multi-tool response', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            output: {
+              type: 'text',
+              value: 'Sunny',
+            },
+          },
+          {
+            type: 'tool-result',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            output: {
+              type: 'json',
+              value: { time: '12:00' },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-1',
+        content: 'Sunny',
+        name: 'get_weather',
+      },
+      {
+        role: 'tool',
+        tool_call_id: 'call-2',
+        content: JSON.stringify({ time: '12:00' }),
+        name: 'get_time',
+      },
+    ]);
   });
 });
