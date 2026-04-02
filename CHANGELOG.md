@@ -1,5 +1,20 @@
 # @openrouter/ai-sdk-provider
 
+## 2.4.0
+
+### Minor Changes
+
+- [#425](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/425) [`495d4cb`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/495d4cb0b76d660de3f8f90440310608e9c8233e) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add `appName` and `appUrl` options to `createOpenRouter()` for setting app identification headers (`X-OpenRouter-Title` and `HTTP-Referer`) on every request. This provides a clean, developer-friendly alternative to manually setting headers.
+
+### Patch Changes
+
+- [#430](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/430) [`3b31872`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/3b31872b84431c82a8992d0df7c1bb499585ba15) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: infer tool-calls finishReason when tool calls present but finish_reason is unknown (#420)
+
+  - When finishReason is 'other' (unknown/missing) but tool calls are present, infer 'tool-calls' so agentic loops continue correctly
+  - Fixes both streaming (doStream) and non-streaming (doGenerate) paths
+
+- [#416](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/416) [`fece5d0`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/fece5d0397a5fec1b0159735ea4c9149bb237ad0) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix mid-stream socket termination (TypeError: terminated) to emit structured error and finish events instead of throwing a raw TypeError
+
 ## 2.3.3
 
 ### Patch Changes
