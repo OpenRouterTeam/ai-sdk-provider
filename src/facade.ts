@@ -44,6 +44,16 @@ Custom headers to include in the requests.
   readonly api_keys?: Record<string, string>;
 
   /**
+   * App display name for the `X-OpenRouter-Title` header.
+   */
+  readonly appName?: string;
+
+  /**
+   * App URL for the `HTTP-Referer` header.
+   */
+  readonly appUrl?: string;
+
+  /**
    * Creates a new OpenRouter provider instance.
    */
   constructor(options: OpenRouterProviderSettings = {}) {
@@ -53,6 +63,8 @@ Custom headers to include in the requests.
     this.apiKey = options.apiKey;
     this.headers = options.headers;
     this.api_keys = options.api_keys;
+    this.appName = options.appName;
+    this.appUrl = options.appUrl;
   }
 
   private get baseConfig() {
@@ -64,6 +76,8 @@ Custom headers to include in the requests.
           environmentVariableName: 'OPENROUTER_API_KEY',
           description: 'OpenRouter',
         })}`,
+        ...(this.appName && { 'X-OpenRouter-Title': this.appName }),
+        ...(this.appUrl && { 'HTTP-Referer': this.appUrl }),
         ...this.headers,
         ...(this.api_keys &&
           Object.keys(this.api_keys).length > 0 && {
