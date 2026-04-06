@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.4.1
+
+### Patch Changes
+
+- [#454](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/454) [`b4c3c8f`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b4c3c8f1794ec5f70b1118a952ed7451d412f53d) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Stop emitting `[REDACTED]` as visible reasoning text for encrypted reasoning details. Encrypted reasoning blobs are opaque data used for multi-turn conversation roundtripping and are already preserved in `providerMetadata.openrouter.reasoning_details`. Previously, the SDK created confusing `[REDACTED]` reasoning content parts for these details; they are now silently skipped while remaining fully available in provider metadata.
+
 ## 2.4.0
 
 ### Minor Changes
