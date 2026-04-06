@@ -40,16 +40,10 @@ describe('Issue #438: Gemini reasoning should not emit [REDACTED]', () => {
     });
 
     const reasoningDeltas: string[] = [];
-    let finishProviderMetadata: Record<string, unknown> | undefined;
 
     for await (const chunk of result.fullStream) {
       if (chunk.type === 'reasoning-delta') {
         reasoningDeltas.push(chunk.text);
-      }
-      if (chunk.type === 'finish') {
-        finishProviderMetadata = chunk.providerMetadata as
-          | Record<string, unknown>
-          | undefined;
       }
     }
 
@@ -58,7 +52,8 @@ describe('Issue #438: Gemini reasoning should not emit [REDACTED]', () => {
     expect(allReasoningText).not.toContain('[REDACTED]');
 
     // Encrypted reasoning data should still be preserved in providerMetadata
-    const openrouterMeta = finishProviderMetadata?.openrouter as
+    const providerMetadata = await result.providerMetadata;
+    const openrouterMeta = providerMetadata?.openrouter as
       | Record<string, unknown>
       | undefined;
     expect(openrouterMeta).toBeDefined();
