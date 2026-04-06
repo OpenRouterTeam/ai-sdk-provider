@@ -1701,6 +1701,49 @@ describe('doStream', () => {
     expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
+  it('should use different IDs for reasoning and text streams', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"Let me think..."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: content starts
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const reasoningStart = elements.find((el) => el.type === 'reasoning-start');
+    const textStart = elements.find((el) => el.type === 'text-start');
+
+    // Both events should exist
+    expect(reasoningStart).toBeDefined();
+    expect(textStart).toBeDefined();
+
+    // IDs must be different to avoid confusing downstream consumers
+    // that correlate events by ID
+    expect((reasoningStart as { id: string }).id).not.toBe(
+      (textStart as { id: string }).id,
+    );
+  });
+
   it('should stream tool deltas', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
@@ -2801,6 +2844,188 @@ describe('doStream', () => {
       text: 'Let me think about this step by step. Done.',
       signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
     });
+  });
+
+  it('should emit exactly one reasoning-start and one reasoning-end when API sends both reasoning and reasoning_details across multiple chunks', async () => {
+    // Verification test: proves that our if/else if guard (line 752/818) prevents
+    // duplicate reasoning emission even when every chunk has both fields.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Chunk 1: both reasoning_details AND reasoning
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning":"IGNORED-1",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Used-1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 2: both reasoning_details AND reasoning again
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"IGNORED-2",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Used-2"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 3: both reasoning_details AND reasoning yet again
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"IGNORED-3",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Used-3"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content starts
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-dedup","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Count reasoning lifecycle events
+    const reasoningStarts = elements.filter(
+      (el) => el.type === 'reasoning-start',
+    );
+    const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+
+    // EXACTLY one reasoning-start and one reasoning-end
+    expect(reasoningStarts).toHaveLength(1);
+    expect(reasoningEnds).toHaveLength(1);
+
+    // 3 deltas — one per chunk, from reasoning_details only
+    expect(reasoningDeltas).toHaveLength(3);
+
+    // All delta content comes from reasoning_details, NOT reasoning field
+    const deltaTexts = reasoningDeltas.map((el) => el.delta);
+    expect(deltaTexts).toEqual(['Used-1', 'Used-2', 'Used-3']);
+
+    // None of the ignored reasoning field content appears
+    expect(deltaTexts).not.toContain('IGNORED-1');
+    expect(deltaTexts).not.toContain('IGNORED-2');
+    expect(deltaTexts).not.toContain('IGNORED-3');
+
+    // Also verify text events — exactly one text block
+    const textStarts = elements.filter((el) => el.type === 'text-start');
+    const textEnds = elements.filter((el) => el.type === 'text-end');
+    expect(textStarts).toHaveLength(1);
+    expect(textEnds).toHaveLength(1);
+  });
+
+  it('should emit no duplicate reasoning when reasoning_details switches to reasoning-only mid-stream', async () => {
+    // Simulates a stream where early chunks have reasoning_details (prioritized)
+    // and later chunks only have reasoning (fallback). Verifies the single
+    // reasoning block spans both without creating a second start/end pair.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Chunk 1: reasoning_details (prioritized)
+        `data: {"id":"chatcmpl-mixed","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Detailed thought"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 2: only reasoning field (fallback path)
+        `data: {"id":"chatcmpl-mixed","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":" continued thought"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 3: content
+        `data: {"id":"chatcmpl-mixed","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Result"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-mixed","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-mixed","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Still exactly one reasoning block
+    const reasoningStarts = elements.filter(
+      (el) => el.type === 'reasoning-start',
+    );
+    const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
+    expect(reasoningStarts).toHaveLength(1);
+    expect(reasoningEnds).toHaveLength(1);
+
+    // Two deltas: one from reasoning_details, one from reasoning fallback
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(2);
+    expect(reasoningDeltas.map((el) => el.delta)).toEqual([
+      'Detailed thought',
+      ' continued thought',
+    ]);
+
+    // Reasoning block ordering: start < all deltas < end < text-start
+    const types = elements.map((el) => el.type);
+    const startIdx = types.indexOf('reasoning-start');
+    const endIdx = types.indexOf('reasoning-end');
+    const textStartIdx = types.indexOf('text-start');
+    expect(startIdx).toBeLessThan(endIdx);
+    expect(endIdx).toBeLessThan(textStartIdx);
+  });
+
+  it('should not emit reasoning events from the reasoning field when reasoning_details is an empty array', async () => {
+    // Edge case: reasoning_details is present but empty. The if branch
+    // checks length > 0, so the else-if reasoning path should activate.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Chunk with empty reasoning_details AND reasoning field
+        `data: {"id":"chatcmpl-empty","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant",` +
+          `"reasoning":"Fallback text",` +
+          `"reasoning_details":[]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content
+        `data: {"id":"chatcmpl-empty","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Done"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-empty","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-empty","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Empty reasoning_details falls through to else-if, so reasoning field is used
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(1);
+    expect(reasoningDeltas[0]?.delta).toBe('Fallback text');
+
+    // Still exactly one reasoning block
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      1,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      1,
+    );
   });
 });
 

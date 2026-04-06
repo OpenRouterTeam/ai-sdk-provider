@@ -1,3 +1,4 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { MIME_TO_FORMAT } from './file-url-utils';
@@ -1909,6 +1910,144 @@ describe('issue #423: strip reasoning without valid signatures', () => {
         },
       ],
     });
+  });
+});
+
+describe('signature stripping warning respects AI_SDK_LOG_WARNINGS', () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+    delete (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS;
+  });
+
+  it('should suppress console.warn when AI_SDK_LOG_WARNINGS is false', () => {
+    (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = false;
+
+    convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Some thinking...',
+                    // missing signature — triggers warning
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('should emit console.warn when AI_SDK_LOG_WARNINGS is not set', () => {
+    convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Some thinking...',
+                    // missing signature — triggers warning
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('reasoning_details entries were removed'),
+    );
+  });
+
+  it('should suppress console.warn when AI_SDK_LOG_WARNINGS is a function', () => {
+    const customLogger = vi.fn();
+    (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = customLogger;
+
+    convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Some thinking...',
+                    // missing signature — triggers warning
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // When a custom function logger is set, console.warn is suppressed.
+    // We don't call the function because it expects the AI SDK's
+    // structured { warnings, provider, model } format, not a string.
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('should emit console.warn when AI_SDK_LOG_WARNINGS is true', () => {
+    (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = true;
+
+    convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Some thinking...',
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('reasoning_details entries were removed'),
+    );
   });
 });
 

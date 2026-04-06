@@ -725,7 +725,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               providerMetadata?: SharedV3ProviderMetadata,
             ) => {
               if (!reasoningStarted) {
-                reasoningId = openrouterResponseId || generateId();
+                reasoningId = generateId();
                 controller.enqueue({
                   providerMetadata,
                   type: 'reasoning-start',
