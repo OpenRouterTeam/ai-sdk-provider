@@ -1904,6 +1904,10 @@ describe('doStream', () => {
         delta: '"}',
       },
       {
+        type: 'tool-input-end',
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+      },
+      {
         type: 'tool-call',
         toolCallId: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
@@ -3429,7 +3433,7 @@ describe('doStream', () => {
         // Tool call arguments
         `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
           `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
-          `"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":\"SF\"}"}}]},` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"city\\":\\"SF\\"}"}}]},` +
           `"logprobs":null,"finish_reason":null}]}\n\n`,
         // Finish with tool_calls reason
         `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
@@ -4075,6 +4079,254 @@ describe('includeRawChunks', () => {
 
     // Should have raw chunks for: initial, Hello, World, finish_reason, usage
     expect(rawChunks.length).toBe(5);
+  });
+
+  it('should emit tool-input-end before tool-call in multi-chunk streaming path', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: tool call start with empty arguments
+        `data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_multi","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_multi_001","type":"function","function":{"name":"get_weather","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: partial arguments
+        `data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_multi","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"city"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Third chunk: completes the JSON
+        `data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_multi","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"\\":\\"Tokyo\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_multi","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-multi","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_multi","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+            required: ['city'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Extract just tool-related events in order
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // tool-input-end MUST appear before tool-call
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+  });
+
+  it('should emit tool-input-start, tool-input-delta, and tool-input-end in flush path for unsent tool calls', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call arrives but arguments are not valid JSON (incomplete)
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_flush","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_flush_001","type":"function","function":{"name":"search","arguments":"{\\"q\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Stream ends with tool_calls finish_reason but JSON never completed during streaming
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_flush","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-flush","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_flush","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'search',
+          inputSchema: {
+            type: 'object',
+            properties: { q: { type: 'string' } },
+            required: ['q'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // Flush path should emit the full tool-input lifecycle before tool-call
+    // The tool call had incomplete JSON so it was never sent during streaming,
+    // so flush should emit: tool-input-start → tool-input-delta → tool-input-end → tool-call
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+
+    // The tool-call should have coerced the invalid JSON to '{}'
+    const toolCall = toolEvents.find((e) => e.type === 'tool-call');
+    expect(toolCall).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 'call_flush_001',
+      toolName: 'search',
+      input: '{}',
+    });
+  });
+
+  it('should emit only tool-input-end in flush path when tool call was partially streamed', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: tool call start with empty arguments
+        `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_partial","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_partial_001","type":"function","function":{"name":"search","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: partial arguments (triggers inputStarted via merge path)
+        `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_partial","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"q\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Stream ends with tool_calls but JSON never completed
+        `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_partial","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_partial","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'search',
+          inputSchema: {
+            type: 'object',
+            properties: { q: { type: 'string' } },
+            required: ['q'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // Since merge path already emitted tool-input-start + tool-input-delta,
+    // flush should only add tool-input-end (no duplicate delta) + tool-call
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+  });
+
+  it('should emit initial chunk arguments as tool-input-delta in multi-chunk merge path', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: tool call start with partial (non-empty, non-parsable) arguments
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_initargs","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_initargs_001","type":"function","function":{"name":"search","arguments":"{\\"q"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: completes the JSON
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_initargs","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"\\":\\"hello\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_initargs","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-initargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_initargs","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'search',
+          inputSchema: {
+            type: 'object',
+            properties: { q: { type: 'string' } },
+            required: ['q'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolInputDeltas = elements.filter(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-delta' } =>
+        el.type === 'tool-input-delta',
+    );
+
+    // Both the initial chunk's arguments AND the merge chunk's arguments
+    // should appear as separate deltas
+    expect(toolInputDeltas).toHaveLength(2);
+    expect(toolInputDeltas.at(0)?.delta).toBe('{"q');
+    expect(toolInputDeltas.at(1)?.delta).toBe('":"hello"}');
   });
 
   it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
