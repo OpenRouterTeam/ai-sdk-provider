@@ -60,9 +60,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
   afterAll(() => server.server.stop());
 
   it('should emit tool-input-end before tool-call when arguments stream across multiple chunks', async () => {
-    server.urls[
-      'https://openrouter.ai/api/v1/chat/completions'
-    ]!.response = {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"id":"chatcmpl-413","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_413_001","type":"function","function":{"name":"get_weather","arguments":""}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
@@ -97,9 +95,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
   });
 
   it('should emit full tool-input lifecycle in flush path for unsent tool calls', async () => {
-    server.urls[
-      'https://openrouter.ai/api/v1/chat/completions'
-    ]!.response = {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         `data: {"id":"chatcmpl-413b","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_413_002","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"London\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
@@ -133,9 +129,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
   });
 
   it('should emit tool-input-end in flush path when tool call was partially streamed but not completed', async () => {
-    server.urls[
-      'https://openrouter.ai/api/v1/chat/completions'
-    ]!.response = {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         // Tool call start with empty arguments
