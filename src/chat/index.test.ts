@@ -1549,6 +1549,77 @@ describe('doStream', () => {
     });
   });
 
+  it('should not emit reasoning events when only encrypted details arrive in stream', async () => {
+    // Edge case: stream contains ONLY encrypted reasoning details (no text/summary).
+    // No reasoning-start/reasoning-delta/reasoning-end events should be emitted,
+    // but the encrypted data must still be preserved in the finish event's providerMetadata.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: only encrypted reasoning detail
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"opaque_blob_1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: another encrypted detail
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"opaque_blob_2"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content chunk
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // No reasoning events should be emitted
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltaElements).toHaveLength(0);
+
+    const reasoningStart = elements.find(isReasoningStartPart);
+    expect(reasoningStart).toBeUndefined();
+
+    const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
+    expect(reasoningEnd).toBeUndefined();
+
+    // Text content should still work
+    const textDeltas = elements.filter(isTextDeltaPart);
+    expect(textDeltas).toHaveLength(1);
+
+    // Encrypted data must still be preserved in finish event's providerMetadata
+    const finishEvent = elements.find((el) => el.type === 'finish');
+    expect(finishEvent?.providerMetadata).toEqual(
+      expect.objectContaining({
+        openrouter: expect.objectContaining({
+          reasoning_details: [
+            {
+              type: ReasoningDetailType.Encrypted,
+              data: 'opaque_blob_1',
+            },
+            {
+              type: ReasoningDetailType.Encrypted,
+              data: 'opaque_blob_2',
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
     // This test reproduces the issue where reasoning appears first but then gets "pushed down"
     // by content that comes later in the stream
