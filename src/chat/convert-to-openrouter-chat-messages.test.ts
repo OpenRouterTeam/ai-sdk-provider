@@ -1985,6 +1985,40 @@ describe('signature stripping warning respects AI_SDK_LOG_WARNINGS', () => {
     );
   });
 
+  it('should suppress console.warn when AI_SDK_LOG_WARNINGS is a function', () => {
+    const customLogger = vi.fn();
+    (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = customLogger;
+
+    convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Some thinking...',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Some thinking...',
+                    // missing signature — triggers warning
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Result.' },
+        ],
+      },
+    ]);
+
+    // When a custom function logger is set, console.warn is suppressed.
+    // We don't call the function because it expects the AI SDK's
+    // structured { warnings, provider, model } format, not a string.
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
   it('should emit console.warn when AI_SDK_LOG_WARNINGS is true', () => {
     (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS = true;
 

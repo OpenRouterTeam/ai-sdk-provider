@@ -287,9 +287,13 @@ export function convertToOpenRouterChatMessages(
           });
 
           if (validDetails.length < candidateReasoningDetails.length) {
-            // Respect AI SDK's warning suppression flag so that this
-            // warning does not bleed through TUI or worker threads.
-            if (globalThis.AI_SDK_LOG_WARNINGS !== false) {
+            // Respect the AI SDK's warning suppression system.
+            // When false, warnings are fully suppressed.
+            // When a function, the app has a custom handler — suppress
+            // console output since our plain-text warning doesn't match
+            // the structured format the handler expects.
+            const logger = globalThis.AI_SDK_LOG_WARNINGS;
+            if (logger !== false && typeof logger !== 'function') {
               // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
               console.warn(
                 '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 for more details.',
