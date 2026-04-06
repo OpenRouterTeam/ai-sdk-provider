@@ -326,18 +326,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   break;
                 }
                 case ReasoningDetailType.Encrypted: {
-                  // For encrypted reasoning, we include a redacted placeholder
-                  if (detail.data) {
-                    return {
-                      type: 'reasoning' as const,
-                      text: '[REDACTED]',
-                      providerMetadata: {
-                        openrouter: {
-                          reasoning_details: [detail],
-                        },
-                      },
-                    };
-                  }
+                  // Encrypted reasoning is an opaque blob for multi-turn
+                  // roundtripping. It is preserved in response-level
+                  // providerMetadata.openrouter.reasoning_details and does
+                  // not produce a visible reasoning content part.
                   break;
                 }
                 default: {
@@ -798,9 +790,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     break;
                   }
                   case ReasoningDetailType.Encrypted: {
-                    if (detail.data) {
-                      emitReasoningChunk('[REDACTED]', reasoningMetadata);
-                    }
+                    // Encrypted reasoning is an opaque blob for multi-turn
+                    // roundtripping. It is accumulated in
+                    // accumulatedReasoningDetails but does not produce a
+                    // visible reasoning delta.
                     break;
                   }
                   case ReasoningDetailType.Summary: {
