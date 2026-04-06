@@ -1650,6 +1650,49 @@ describe('doStream', () => {
     expect(textDeltas).toEqual(['Hello! ', 'How can I help you today?']);
   });
 
+  it('should use different IDs for reasoning and text streams', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: reasoning
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning":"Let me think..."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: content starts
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-id-test","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const reasoningStart = elements.find((el) => el.type === 'reasoning-start');
+    const textStart = elements.find((el) => el.type === 'text-start');
+
+    // Both events should exist
+    expect(reasoningStart).toBeDefined();
+    expect(textStart).toBeDefined();
+
+    // IDs must be different to avoid confusing downstream consumers
+    // that correlate events by ID
+    expect((reasoningStart as { id: string }).id).not.toBe(
+      (textStart as { id: string }).id,
+    );
+  });
+
   it('should stream tool deltas', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
