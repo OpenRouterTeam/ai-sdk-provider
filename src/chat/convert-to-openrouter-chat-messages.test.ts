@@ -1922,7 +1922,6 @@ describe('signature stripping warning respects AI_SDK_LOG_WARNINGS', () => {
 
   afterEach(() => {
     warnSpy.mockRestore();
-    // biome-ignore lint/performance/noDelete: need to fully remove for test isolation
     delete (globalThis as Record<string, unknown>).AI_SDK_LOG_WARNINGS;
   });
 
