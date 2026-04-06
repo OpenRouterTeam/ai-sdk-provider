@@ -3027,6 +3027,117 @@ describe('doStream', () => {
       1,
     );
   });
+
+  it('should not emit a second reasoning block when signature-only reasoning_details arrive after text has started', async () => {
+    // Reproduces the exact scenario reported by vacavaca in issue #423:
+    // 1. Reasoning deltas arrive (no signature)
+    // 2. Text content starts (reasoning-end emitted, reasoningStarted reset)
+    // 3. A late signature-only reasoning_details delta arrives
+    // Without the fix, step 3 starts a NEW reasoning block because
+    // reasoningStarted was reset to false. This creates duplicate
+    // reasoning parts in the UIMessage.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Chunk 1: reasoning text, no signature
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 2: more reasoning text, still no signature
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" about this.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 3: text content starts (triggers reasoning-end)
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 4: more text
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":" How can I help?"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 5: LATE signature-only reasoning_details (arrives after text started)
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // EXACTLY one reasoning block — the late signature must NOT create a second
+    const reasoningStarts = elements.filter(
+      (el) => el.type === 'reasoning-start',
+    );
+    const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
+    expect(reasoningStarts).toHaveLength(1);
+    expect(reasoningEnds).toHaveLength(1);
+
+    // Only 2 reasoning deltas (from the text chunks), NOT 3
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(2);
+    expect(reasoningDeltas.map((el) => el.delta)).toEqual([
+      'Let me think',
+      ' about this.',
+    ]);
+
+    // Text block is also exactly one
+    const textStarts = elements.filter((el) => el.type === 'text-start');
+    const textEnds = elements.filter((el) => el.type === 'text-end');
+    expect(textStarts).toHaveLength(1);
+    expect(textEnds).toHaveLength(1);
+
+    // Verify event ordering: reasoning before text, no interleaving
+    const types = elements.map((el) => el.type);
+    const reasoningEndIdx = types.indexOf('reasoning-end');
+    const textStartIdx = types.indexOf('text-start');
+    expect(reasoningEndIdx).toBeLessThan(textStartIdx);
+
+    // The late signature MUST still be accumulated in accumulatedReasoningDetails
+    // and appear in the finish event's providerMetadata for multi-turn roundtrip
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+
+    const finishReasoningDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(finishReasoningDetails).toHaveLength(1);
+    expect(finishReasoningDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Let me think about this.',
+      signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
+      format: 'anthropic-claude-v1',
+    });
+
+    // The reasoning-end providerMetadata should have the details as they
+    // were when reasoning ended (before the late signature arrived)
+    const reasoningEnd = elements.find(
+      (
+        el,
+      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
+    );
+
+    expect(reasoningEnd?.providerMetadata).toBeDefined();
+  });
 });
 
 describe('debug settings', () => {
