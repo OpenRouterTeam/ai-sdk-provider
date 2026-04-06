@@ -394,7 +394,7 @@ describe('doGenerate', () => {
     ]);
   });
 
-  it('should handle encrypted reasoning details', async () => {
+  it('should not emit reasoning content for encrypted reasoning details', async () => {
     prepareJsonResponse({
       content: 'Hello!',
       reasoning_details: [
@@ -409,26 +409,23 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
+    // Encrypted reasoning should not produce a reasoning content part.
+    // The encrypted data is preserved in response-level providerMetadata
+    // for multi-turn conversation continuity.
     expect(result.content).toStrictEqual([
-      {
-        type: 'reasoning',
-        text: '[REDACTED]',
-        providerMetadata: {
-          openrouter: {
-            reasoning_details: [
-              {
-                type: 'reasoning.encrypted',
-                data: 'encrypted_reasoning_data_here',
-              },
-            ],
-          },
-        },
-      },
       {
         type: 'text',
         text: 'Hello!',
       },
     ]);
+
+    // Verify encrypted data is still in response-level providerMetadata
+    expect(
+      result.providerMetadata?.openrouter?.reasoning_details,
+    ).toContainEqual({
+      type: 'reasoning.encrypted',
+      data: 'encrypted_reasoning_data_here',
+    });
   });
 
   it('should prioritize reasoning_details over reasoning when both are present', async () => {
@@ -1387,8 +1384,8 @@ describe('doStream', () => {
     // console.log('Reasoning element types:', reasoningElements.map(el => el.type));
 
     // We should get reasoning content from reasoning_details when present, not reasoning field
-    // start + 4 deltas (text, summary, encrypted, reasoning-only) + end = 6
-    expect(reasoningElements).toHaveLength(6);
+    // start + 3 deltas (text, summary, reasoning-only; encrypted is skipped) + end = 5
+    expect(reasoningElements).toHaveLength(5);
 
     // Verify the content comes from reasoning_details, not reasoning field
     const reasoningDeltas = reasoningElements
@@ -1398,7 +1395,7 @@ describe('doStream', () => {
     expect(reasoningDeltas).toEqual([
       'Let me think about this...', // from reasoning_details text
       'User wants a greeting', // from reasoning_details summary
-      '[REDACTED]', // from reasoning_details encrypted
+      // encrypted reasoning details are silently skipped (no [REDACTED])
       'This reasoning is used', // from reasoning field (no reasoning_details)
     ]);
 
@@ -1421,8 +1418,8 @@ describe('doStream', () => {
       },
     });
 
-    // Second and third deltas should have accumulated reasoning_details (snapshot)
-    // including the first text detail plus the second chunk's details
+    // Second delta (summary) has accumulated snapshot including encrypted
+    // (encrypted is accumulated but doesn't produce a delta)
     expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
@@ -1442,27 +1439,8 @@ describe('doStream', () => {
       },
     });
 
-    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Let me think about this...',
-          },
-          {
-            type: ReasoningDetailType.Summary,
-            summary: 'User wants a greeting',
-          },
-          {
-            type: ReasoningDetailType.Encrypted,
-            data: 'secret',
-          },
-        ],
-      },
-    });
-
-    // Fourth delta (from reasoning field only) should not have providerMetadata
-    expect(reasoningDeltaElements[3]?.providerMetadata).toBeUndefined();
+    // Third delta (from reasoning field only) should not have providerMetadata
+    expect(reasoningDeltaElements[2]?.providerMetadata).toBeUndefined();
   });
 
   it('should emit reasoning_details in providerMetadata for all reasoning delta chunks', async () => {
@@ -1504,7 +1482,8 @@ describe('doStream', () => {
 
     const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
 
-    expect(reasoningDeltaElements).toHaveLength(3);
+    // Only 2 deltas: text + summary. Encrypted details don't produce deltas.
+    expect(reasoningDeltaElements).toHaveLength(2);
 
     // Verify each delta has the correct reasoning_details in providerMetadata
     expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
@@ -1534,8 +1513,9 @@ describe('doStream', () => {
       },
     });
 
-    // Third delta has accumulated snapshot: text + summary + encrypted
-    expect(reasoningDeltaElements[2]?.providerMetadata).toEqual({
+    // Encrypted data is still accumulated and available in reasoning-end
+    const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
+    expect(reasoningEnd?.providerMetadata).toEqual({
       openrouter: {
         reasoning_details: [
           {
@@ -1567,6 +1547,77 @@ describe('doStream', () => {
         ],
       },
     });
+  });
+
+  it('should not emit reasoning events when only encrypted details arrive in stream', async () => {
+    // Edge case: stream contains ONLY encrypted reasoning details (no text/summary).
+    // No reasoning-start/reasoning-delta/reasoning-end events should be emitted,
+    // but the encrypted data must still be preserved in the finish event's providerMetadata.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: only encrypted reasoning detail
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"opaque_blob_1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: another encrypted detail
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"opaque_blob_2"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Content chunk
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish chunk
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-encrypted-only","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_3bc1b5746c","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // No reasoning events should be emitted
+    const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltaElements).toHaveLength(0);
+
+    const reasoningStart = elements.find(isReasoningStartPart);
+    expect(reasoningStart).toBeUndefined();
+
+    const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
+    expect(reasoningEnd).toBeUndefined();
+
+    // Text content should still work
+    const textDeltas = elements.filter(isTextDeltaPart);
+    expect(textDeltas).toHaveLength(1);
+
+    // Encrypted data must still be preserved in finish event's providerMetadata
+    const finishEvent = elements.find((el) => el.type === 'finish');
+    expect(finishEvent?.providerMetadata).toEqual(
+      expect.objectContaining({
+        openrouter: expect.objectContaining({
+          reasoning_details: [
+            {
+              type: ReasoningDetailType.Encrypted,
+              data: 'opaque_blob_1',
+            },
+            {
+              type: ReasoningDetailType.Encrypted,
+              data: 'opaque_blob_2',
+            },
+          ],
+        }),
+      }),
+    );
   });
 
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
