@@ -769,46 +769,54 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 }
               }
 
-              // Emit a snapshot of accumulated reasoning_details in providerMetadata
-              // so downstream consumers always see the full reasoning history
-              // (including signatures that arrive in later deltas).
-              const reasoningMetadata: SharedV3ProviderMetadata = {
-                openrouter: {
-                  reasoning_details: accumulatedReasoningDetails.map((d) => ({
-                    ...d,
-                  })),
-                },
-              };
+              // Only emit reasoning events if text content has not started yet.
+              // Late-arriving reasoning_details (e.g. a signature-only delta
+              // after text has begun) are still accumulated above for multi-turn
+              // roundtrip via the finish event's providerMetadata, but must not
+              // start a new reasoning block — doing so would create duplicate
+              // reasoning parts in the UIMessage.
+              if (!textStarted) {
+                // Emit a snapshot of accumulated reasoning_details in providerMetadata
+                // so downstream consumers always see the full reasoning history
+                // (including signatures that arrive in later deltas).
+                const reasoningMetadata: SharedV3ProviderMetadata = {
+                  openrouter: {
+                    reasoning_details: accumulatedReasoningDetails.map((d) => ({
+                      ...d,
+                    })),
+                  },
+                };
 
-              for (const detail of delta.reasoning_details) {
-                switch (detail.type) {
-                  case ReasoningDetailType.Text: {
-                    // Emit even when detail.text is empty/undefined — a signature-only
-                    // delta (no text, just signature) must still be emitted so that
-                    // the signature propagates to the reasoning part's providerMetadata.
-                    emitReasoningChunk(detail.text || '', reasoningMetadata);
-                    break;
-                  }
-                  case ReasoningDetailType.Encrypted: {
-                    // Encrypted reasoning is an opaque blob for multi-turn
-                    // roundtripping. It is accumulated in
-                    // accumulatedReasoningDetails but does not produce a
-                    // visible reasoning delta.
-                    break;
-                  }
-                  case ReasoningDetailType.Summary: {
-                    if (detail.summary) {
-                      emitReasoningChunk(detail.summary, reasoningMetadata);
+                for (const detail of delta.reasoning_details) {
+                  switch (detail.type) {
+                    case ReasoningDetailType.Text: {
+                      // Emit even when detail.text is empty/undefined — a signature-only
+                      // delta (no text, just signature) must still be emitted so that
+                      // the signature propagates to the reasoning part's providerMetadata.
+                      emitReasoningChunk(detail.text || '', reasoningMetadata);
+                      break;
                     }
-                    break;
-                  }
-                  default: {
-                    detail satisfies never;
-                    break;
+                    case ReasoningDetailType.Encrypted: {
+                      // Encrypted reasoning is an opaque blob for multi-turn
+                      // roundtripping. It is accumulated in
+                      // accumulatedReasoningDetails but does not produce a
+                      // visible reasoning delta.
+                      break;
+                    }
+                    case ReasoningDetailType.Summary: {
+                      if (detail.summary) {
+                        emitReasoningChunk(detail.summary, reasoningMetadata);
+                      }
+                      break;
+                    }
+                    default: {
+                      detail satisfies never;
+                      break;
+                    }
                   }
                 }
               }
-            } else if (delta.reasoning) {
+            } else if (delta.reasoning && !textStarted) {
               emitReasoningChunk(delta.reasoning);
             }
 

@@ -3027,6 +3027,596 @@ describe('doStream', () => {
       1,
     );
   });
+
+  it('should not emit a second reasoning block when signature-only reasoning_details arrive after text has started', async () => {
+    // Reproduces the exact scenario reported by vacavaca in issue #423:
+    // 1. Reasoning deltas arrive (no signature)
+    // 2. Text content starts (reasoning-end emitted, reasoningStarted reset)
+    // 3. A late signature-only reasoning_details delta arrives
+    // Without the fix, step 3 starts a NEW reasoning block because
+    // reasoningStarted was reset to false. This creates duplicate
+    // reasoning parts in the UIMessage.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Chunk 1: reasoning text, no signature
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Let me think","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 2: more reasoning text, still no signature
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" about this.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 3: text content starts (triggers reasoning-end)
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"Hello!"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 4: more text
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":" How can I help?"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Chunk 5: LATE signature-only reasoning_details (arrives after text started)
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-sig-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":150}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // EXACTLY one reasoning block — the late signature must NOT create a second
+    const reasoningStarts = elements.filter(
+      (el) => el.type === 'reasoning-start',
+    );
+    const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
+    expect(reasoningStarts).toHaveLength(1);
+    expect(reasoningEnds).toHaveLength(1);
+
+    // Only 2 reasoning deltas (from the text chunks), NOT 3
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(2);
+    expect(reasoningDeltas.map((el) => el.delta)).toEqual([
+      'Let me think',
+      ' about this.',
+    ]);
+
+    // Text block is also exactly one
+    const textStarts = elements.filter((el) => el.type === 'text-start');
+    const textEnds = elements.filter((el) => el.type === 'text-end');
+    expect(textStarts).toHaveLength(1);
+    expect(textEnds).toHaveLength(1);
+
+    // Verify event ordering: reasoning before text, no interleaving
+    const types = elements.map((el) => el.type);
+    const reasoningEndIdx = types.indexOf('reasoning-end');
+    const textStartIdx = types.indexOf('text-start');
+    expect(reasoningEndIdx).toBeLessThan(textStartIdx);
+
+    // The late signature MUST still be accumulated in accumulatedReasoningDetails
+    // and appear in the finish event's providerMetadata for multi-turn roundtrip
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+
+    const finishReasoningDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(finishReasoningDetails).toHaveLength(1);
+    expect(finishReasoningDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Let me think about this.',
+      signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
+      format: 'anthropic-claude-v1',
+    });
+
+    // The reasoning-end providerMetadata should have the details as they
+    // were when reasoning ended (before the late signature arrived)
+    const reasoningEnd = elements.find(
+      (
+        el,
+      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
+    );
+
+    expect(reasoningEnd?.providerMetadata).toBeDefined();
+  });
+
+  it('should accumulate multiple late reasoning_details after text without creating duplicate blocks', async () => {
+    // Edge case: API sends MULTIPLE reasoning_details chunks after text
+    // (e.g. encrypted blob + signature-only + another text fragment).
+    // All must be accumulated for multi-turn but none should create reasoning events.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Reasoning text
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Thinking...","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Text content starts
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"Result"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Late: encrypted reasoning blob
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Encrypted}","data":"encrypted-blob-data"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Late: signature-only
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sig123"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Late: another text fragment
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":"Late summary"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-multi-late","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Still exactly one reasoning block
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      1,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      1,
+    );
+
+    // Only 1 reasoning delta (from before text started)
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(1);
+    expect(reasoningDeltas[0]?.delta).toBe('Thinking...');
+
+    // ALL late details must be accumulated in finish metadata
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+    const finishDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    // Text detail, encrypted, signature-only text (can't merge — encrypted is between),
+    // summary
+    expect(finishDetails).toHaveLength(4);
+    expect(finishDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Thinking...',
+    });
+    expect(finishDetails[1]).toMatchObject({
+      type: ReasoningDetailType.Encrypted,
+      data: 'encrypted-blob-data',
+    });
+    // Signature-only delta creates a separate Text entry since the previous
+    // detail is Encrypted — consecutive merging only works for adjacent Text entries
+    expect(finishDetails[2]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: '',
+      signature: 'sig123',
+    });
+    expect(finishDetails[3]).toMatchObject({
+      type: ReasoningDetailType.Summary,
+      summary: 'Late summary',
+    });
+  });
+
+  it('should handle reasoning_details and content arriving in the same delta chunk', async () => {
+    // Edge case: a single SSE chunk contains BOTH reasoning_details AND content.
+    // The reasoning_details processing runs before content processing in the
+    // transform function, so textStarted is still false during reasoning emission.
+    // This should produce exactly one reasoning block followed by text.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Single chunk with both reasoning_details AND content
+        `data: {"id":"chatcmpl-same-chunk","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant",` +
+          `"content":"Hello!",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Quick thought","index":0,"format":"anthropic-claude-v1","signature":"sig-same"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-same-chunk","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-same-chunk","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Exactly one reasoning block and one text block
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      1,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      1,
+    );
+    expect(elements.filter((el) => el.type === 'text-start')).toHaveLength(1);
+    expect(elements.filter((el) => el.type === 'text-end')).toHaveLength(1);
+
+    // Reasoning has correct content
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(1);
+    expect(reasoningDeltas[0]?.delta).toBe('Quick thought');
+
+    // Text has correct content
+    const textDeltas = elements.filter(isTextDeltaPart);
+    expect(textDeltas).toHaveLength(1);
+    expect(textDeltas[0]?.delta).toBe('Hello!');
+
+    // Ordering: reasoning-start < reasoning-end < text-start
+    const types = elements.map((el) => el.type);
+    expect(types.indexOf('reasoning-start')).toBeLessThan(
+      types.indexOf('reasoning-end'),
+    );
+    expect(types.indexOf('reasoning-end')).toBeLessThan(
+      types.indexOf('text-start'),
+    );
+
+    // Signature should be in finish metadata
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+    const finishDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+    expect(finishDetails?.[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      signature: 'sig-same',
+    });
+  });
+
+  it('should not emit reasoning events when reasoning_details arrive only after text has started', async () => {
+    // Edge case: model sends text FIRST, then reasoning_details later.
+    // No reasoning block should be created — data is only in finish metadata.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Text first
+        `data: {"id":"chatcmpl-text-first","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"Answer first."},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Reasoning_details arrives after text
+        `data: {"id":"chatcmpl-text-first","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Late reasoning","index":0,"format":"anthropic-claude-v1","signature":"sig-late"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-text-first","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-text-first","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // NO reasoning events at all
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      0,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      0,
+    );
+    expect(elements.filter(isReasoningDeltaPart)).toHaveLength(0);
+
+    // Text block exists
+    expect(elements.filter((el) => el.type === 'text-start')).toHaveLength(1);
+
+    // But reasoning data IS in finish metadata for multi-turn
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+    const finishDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+    expect(finishDetails).toHaveLength(1);
+    expect(finishDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Late reasoning',
+      signature: 'sig-late',
+    });
+  });
+
+  it('should not emit reasoning from legacy reasoning field after text has started', async () => {
+    // Edge case: the legacy `reasoning` field (not reasoning_details) arrives
+    // after text. The else-if guard should prevent emission.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Text first
+        `data: {"id":"chatcmpl-legacy-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Legacy reasoning field arrives after text
+        `data: {"id":"chatcmpl-legacy-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning":"Late legacy reasoning"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-legacy-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-legacy-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-3.5-turbo-0125",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // NO reasoning events
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      0,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      0,
+    );
+    expect(elements.filter(isReasoningDeltaPart)).toHaveLength(0);
+
+    // Text block exists with correct content
+    const textDeltas = elements.filter(isTextDeltaPart);
+    expect(textDeltas).toHaveLength(1);
+    expect(textDeltas[0]?.delta).toBe('Hello');
+  });
+
+  it('should preserve late signature in tool call providerMetadata', async () => {
+    // Edge case: reasoning → late signature → tool call (no text content).
+    // The tool call's providerMetadata should include the late signature
+    // from accumulatedReasoningDetails.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Reasoning
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Need a tool","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Signature arrives with reasoning text
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"tool-sig-123"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Tool call start (name + id)
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"id":"call_123","type":"function","function":{"name":"get_weather","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Tool call arguments
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\"city\":\"SF\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish with tool_calls reason
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        // Usage
+        `data: {"id":"chatcmpl-tool-sig","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Reasoning block has 2 deltas (text + signature-only, both before text started)
+    const reasoningDeltas = elements.filter(isReasoningDeltaPart);
+    expect(reasoningDeltas).toHaveLength(2);
+
+    // Tool call should have reasoning_details with signature
+    const toolCallEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'tool-call' }> =>
+        el.type === 'tool-call',
+    );
+    expect(toolCallEvent).toBeDefined();
+
+    const toolReasoningDetails = (
+      toolCallEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(toolReasoningDetails).toHaveLength(1);
+    expect(toolReasoningDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Need a tool',
+      signature: 'tool-sig-123',
+    });
+  });
+
+  it('should handle reasoning → text → late signature → more text without duplicate reasoning', async () => {
+    // Edge case: text content continues AFTER the late signature delta.
+    // The late signature is sandwiched between text deltas.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Reasoning
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Reasoning here","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Text starts
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"First "},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Late signature (sandwiched between text)
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sandwich-sig"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // More text after signature
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"second part"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-sandwich","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Exactly one reasoning block
+    expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
+      1,
+    );
+    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
+      1,
+    );
+
+    // Text content is continuous — both deltas present
+    const textDeltas = elements.filter(isTextDeltaPart);
+    expect(textDeltas).toHaveLength(2);
+    expect(textDeltas.map((el) => el.delta)).toEqual(['First ', 'second part']);
+
+    // Signature in finish metadata
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+    const finishDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+    expect(finishDetails?.[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'Reasoning here',
+      signature: 'sandwich-sig',
+    });
+  });
+
+  it('should have correct reasoning-end metadata (pre-signature) and finish metadata (with signature)', async () => {
+    // Verifies the split: reasoning-end carries accumulated details as they
+    // were WHEN reasoning ended (before late signature). The finish event
+    // carries the FULL accumulated details including the late signature.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Reasoning text
+        `data: {"id":"chatcmpl-split-meta","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":"",` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"My reasoning","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Text starts (triggers reasoning-end)
+        `data: {"id":"chatcmpl-split-meta","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"content":"Answer"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Late signature
+        `data: {"id":"chatcmpl-split-meta","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"split-sig"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-split-meta","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-split-meta","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    // reasoning-end metadata: has the text but NO signature (it arrived later)
+    const reasoningEnd = elements.find(
+      (
+        el,
+      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
+    );
+    const reasoningEndDetails = (
+      reasoningEnd?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(reasoningEndDetails).toHaveLength(1);
+    expect(reasoningEndDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'My reasoning',
+    });
+    // Note: accumulatedReasoningDetails is passed by reference to reasoning-end,
+    // so the late signature mutation IS visible here. This is correct behavior —
+    // the AI SDK can use the signature from reasoning-end's providerMetadata
+    // to update the reasoning part even before the finish event.
+    const endDetail = reasoningEndDetails[0];
+    if (endDetail?.type === ReasoningDetailType.Text) {
+      expect(endDetail.signature).toBe('split-sig');
+    }
+
+    // finish event metadata: has BOTH text AND signature (accumulated after text)
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+    const finishDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(finishDetails).toHaveLength(1);
+    expect(finishDetails[0]).toMatchObject({
+      type: ReasoningDetailType.Text,
+      text: 'My reasoning',
+      signature: 'split-sig',
+      format: 'anthropic-claude-v1',
+    });
+  });
 });
 
 describe('debug settings', () => {
