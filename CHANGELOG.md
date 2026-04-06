@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 2.4.2
+
+### Patch Changes
+
+- [#456](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/456) [`cb7f6c1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/cb7f6c1a2f632917b56c133ce479716d02e93fc6) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix console.warn for signature stripping to respect `AI_SDK_LOG_WARNINGS=false`, preventing warnings from bleeding through TUI and worker threads. Also generate unique IDs for reasoning and text stream events to avoid downstream ID collisions.
+
+- [#458](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/458) [`cea746a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/cea746a71ec1e5d41b3289a7eac75e47a436a468) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fixed duplicate reasoning blocks when signature-only reasoning_details arrive after text content has started. Late-arriving signatures are still accumulated for multi-turn roundtrip via the finish event's providerMetadata, but no longer start a new reasoning block.
+
 ## 2.4.1
 
 ### Patch Changes
