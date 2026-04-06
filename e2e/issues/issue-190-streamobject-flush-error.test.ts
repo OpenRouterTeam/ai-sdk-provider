@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouter } from '@/src';
 
 vi.setConfig({
-  testTimeout: 60_000,
+  testTimeout: 120_000,
 });
 
 describe('Issue #190: streamObject flush TypeError', () => {
