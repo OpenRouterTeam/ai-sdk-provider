@@ -284,6 +284,23 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should include raw response body in doGenerate result', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.response?.body).toBeDefined();
+    expect(result.response?.body).toMatchObject({
+      id: 'chatcmpl-95ZTZkhr0mHNKqerQfiwkuox3PHAd',
+      object: 'chat.completion',
+      model: 'gpt-3.5-turbo-0125',
+      choices: expect.any(Array),
+      usage: expect.any(Object),
+    });
+  });
+
   it('should extract finish reason', async () => {
     prepareJsonResponse({
       content: '',
