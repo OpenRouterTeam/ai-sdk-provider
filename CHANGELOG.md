@@ -1,5 +1,15 @@
 # @openrouter/ai-sdk-provider
 
+## 2.5.0
+
+### Minor Changes
+
+- [#463](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/463) [`6ad5a9b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/6ad5a9bee62c3e494edc89aaf6f43c64874e919d) Thanks [@robert-j-y](https://github.com/robert-j-y)! - feat: include raw response body in doGenerate and add video URL support
+
+  **Issue #432**: `doGenerate()` now includes the raw API response body in `response.body`, matching the behavior of other AI SDK providers (OpenAI, Anthropic). This gives access to OpenRouter-specific fields like `provider`, `cost_details`, `is_byok`, and `native_finish_reason`.
+
+  **Issue #383**: Video files (`video/mp4`, `video/mpeg`, `video/mov`, `video/webm`) are now correctly converted to `video_url` content parts instead of being treated as generic files. This fixes "File is not a PDF" errors when sending videos to Gemini and other video-capable models.
+
 ## 2.4.3
 
 ### Patch Changes
