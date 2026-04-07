@@ -1957,17 +1957,17 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        toolName: 'test-tool',
+        type: 'tool-input-start',
+      },
+      {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolName: 'test-tool',
-        type: 'tool-input-start',
       },
       {
         type: 'tool-input-delta',
@@ -2053,6 +2053,22 @@ describe('doStream', () => {
         delta: '"}',
       },
       {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-input-end',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
       },
@@ -2066,22 +2082,6 @@ describe('doStream', () => {
             reasoning_details: [],
           },
         },
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',
@@ -2171,6 +2171,22 @@ describe('doStream', () => {
         delta: '{"value":"Sparkle Day"}',
       },
       {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-input-end',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
       },
@@ -2184,22 +2200,6 @@ describe('doStream', () => {
             reasoning_details: [],
           },
         },
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',
@@ -4591,13 +4591,14 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // The tool-call should have coerced the invalid JSON to '{}'
+    // Raw arguments pass through (not coerced to '{}') to enable
+    // the AI SDK's experimental_repairToolCall callback (#74)
     const toolCall = toolEvents.find((e) => e.type === 'tool-call');
     expect(toolCall).toMatchObject({
       type: 'tool-call',
       toolCallId: 'call_flush_001',
       toolName: 'search',
-      input: '{}',
+      input: '{"q"',
     });
   });
 
@@ -5095,12 +5096,13 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Both should have coerced input to '{}'
+    // Raw arguments pass through (not coerced to '{}') to enable
+    // the AI SDK's experimental_repairToolCall callback (#74)
     expect(tool0Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"x',
     });
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"y',
     });
   });
 
@@ -5186,9 +5188,9 @@ describe('includeRawChunks', () => {
       'tool-input-end',
       'tool-call',
     ]);
-    // Slow tool had invalid JSON → coerced to '{}'
+    // Slow tool had invalid JSON → raw args pass through for repair (#74)
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"b"',
     });
   });
 
@@ -5763,9 +5765,9 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Invalid JSON coerced to '{}'
+    // Raw arguments pass through (not coerced to '{}') to enable repair (#74)
     expect(toolEvents.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"z"',
     });
 
     // Finish reason should be overridden to tool-calls
@@ -5866,6 +5868,123 @@ describe('includeRawChunks', () => {
     expect(toolCallEvent?.toolCallId).toBe('call_unique_abc');
   });
 
+  it('should not finalize tool call prematurely on parsable partial JSON (security)', async () => {
+    // Regression test: streaming tool call arguments like {"query":"test","limit":10}
+    // arrive in chunks. The first chunk {"query":"test"} is valid JSON on its own.
+    // With isParsableJson, the tool call would be finalized early with truncated args.
+    // After the fix, finalization only happens in flush() with the complete arguments.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: tool call starts with partial JSON that happens to be valid on its own
+        `data: {"id":"chatcmpl-security","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_sec_001","type":"function","function":{"name":"search","arguments":"{\\"query\\":\\"test\\""}}]},` +
+          `"finish_reason":null}]}\n\n`,
+        // Second chunk: more arguments arrive
+        `data: {"id":"chatcmpl-security","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":",\\"limit\\":10}"}}]},` +
+          `"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-security","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-security","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'search',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              query: { type: 'string' },
+              limit: { type: 'number' },
+            },
+            required: ['query', 'limit'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Find the tool-call event
+    const toolCallEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+
+    // The tool call MUST contain the complete arguments, not the truncated partial JSON
+    expect(toolCallEvent).toBeDefined();
+    expect(toolCallEvent?.input).toBe('{"query":"test","limit":10}');
+
+    // Verify the tool call was NOT emitted during streaming (only in flush)
+    // by checking that tool-input-end comes after the last response-metadata
+    const toolInputEndIdx = elements.findIndex(
+      (el) => el.type === 'tool-input-end',
+    );
+    const lastResponseMetaIdx = elements.reduce(
+      (acc, el, idx) => (el.type === 'response-metadata' ? idx : acc),
+      -1,
+    );
+    expect(toolInputEndIdx).toBeGreaterThan(lastResponseMetaIdx);
+  });
+
+  it('should pass through invalid JSON tool call arguments for repair (#74)', async () => {
+    // When a model generates malformed JSON for tool arguments, the raw
+    // arguments should be passed through (not coerced to '{}') so that
+    // the AI SDK's experimental_repairToolCall callback can attempt repair.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-repair","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_repair_001","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\": \\"Tokyo"}}]},` +
+          `"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-repair","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-repair","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+            required: ['city'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolCallEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+
+    // The raw invalid JSON should be passed through, NOT coerced to '{}'
+    expect(toolCallEvent).toBeDefined();
+    expect(toolCallEvent?.input).toBe('{"city": "Tokyo');
+  });
   it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
