@@ -61,8 +61,6 @@ describe('Issue #74: Tool call repair not triggered', () => {
   });
 
   it('should invoke experimental_repairToolCall when tool args fail validation', async () => {
-    let repairCallbackInvoked = false;
-
     // Define a tool with a strict schema that requires specific format
     const searchDatabase = tool({
       description:
@@ -92,20 +90,18 @@ describe('Issue #74: Tool call repair not triggered', () => {
       prompt: 'Find papers about transformers',
       tools: { searchDatabase },
       toolChoice: 'required',
-      experimental_repairToolCall: async ({
-        toolCall,
-        tools,
-        parameterSchema,
-        error,
-      }) => {
-        repairCallbackInvoked = true;
-        // Return null to indicate repair failed (test just verifies callback is reachable)
+      experimental_repairToolCall: async (repairArgs) => {
+        // repairArgs contains: toolCall, tools, inputSchema, error
+        // The callback being reachable (not blocked by '{}' coercion) is the fix
+        expect(repairArgs.toolCall).toBeDefined();
+        expect(repairArgs.error).toBeDefined();
+        // Return null to indicate repair failed
         return null;
       },
     });
 
     // The important assertion is that the flow completes without throwing.
-    // Whether repairCallbackInvoked is true depends on the model's output -
+    // Whether the repair callback is invoked depends on the model's output -
     // if the model generates valid args, repair won't be called (which is correct).
     // The fix ensures that IF args are invalid, repair WILL be called instead
     // of silently coercing to '{}'.
