@@ -27,7 +27,8 @@ export type ChatCompletionContentPart =
   | ChatCompletionContentPartText
   | ChatCompletionContentPartImage
   | ChatCompletionContentPartFile
-  | ChatCompletionContentPartInputAudio;
+  | ChatCompletionContentPartInputAudio
+  | ChatCompletionContentPartVideo;
 
 export interface ChatCompletionContentPartFile {
   type: 'file';
@@ -51,6 +52,15 @@ export interface ChatCompletionContentPartText {
   type: 'text';
   text: string;
   reasoning?: string | null;
+  cache_control?: OpenRouterCacheControl;
+}
+
+/** https://openrouter.ai/docs/guides/overview/multimodal/videos */
+export interface ChatCompletionContentPartVideo {
+  type: 'video_url';
+  video_url: {
+    url: string;
+  };
   cache_control?: OpenRouterCacheControl;
 }
 

@@ -504,6 +504,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         id: response.id,
         modelId: response.model,
         headers: responseHeaders,
+        body: response,
       },
     };
   }

@@ -214,6 +214,123 @@ describe('user messages', () => {
     ).toThrow(/Audio files cannot be provided as URLs/);
   });
 
+  it('should convert video URL to video_url content part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this video' },
+          {
+            type: 'file',
+            data: 'https://example.com/video.mp4',
+            mediaType: 'video/mp4',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Describe this video' },
+          {
+            type: 'video_url',
+            video_url: { url: 'https://example.com/video.mp4' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert base64 video to video_url content part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is in this video?' },
+          {
+            type: 'file',
+            data: 'data:video/mp4;base64,AAECAw==',
+            mediaType: 'video/mp4',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'What is in this video?' },
+          {
+            type: 'video_url',
+            video_url: { url: 'data:video/mp4;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should convert video Uint8Array to video_url with data URL', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'video/webm',
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'video_url',
+            video_url: { url: 'data:video/webm;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it.each([
+    'video/mp4',
+    'video/mpeg',
+    'video/mov',
+    'video/webm',
+  ])('should handle %s media type as video_url', (mediaType) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'https://example.com/sample',
+            mediaType,
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'video_url',
+            video_url: { url: 'https://example.com/sample' },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should throw error for unsupported audio formats', async () => {
     expect(() =>
       convertToOpenRouterChatMessages([
@@ -2514,6 +2631,41 @@ describe('multimodal tool result content (issue #181)', () => {
           data: 'YXVkaW9fZGF0YQ==',
           format: 'mp3',
         },
+      },
+    ]);
+  });
+
+  it('should convert tool result with file-data (video mediaType) to video_url part', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-video',
+            toolName: 'video_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file-data',
+                  data: 'dmlkZW9fZGF0YQ==',
+                  mediaType: 'video/mp4',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(Array.isArray(result[0]?.content)).toBe(true);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'video_url',
+        video_url: { url: 'data:video/mp4;base64,dmlkZW9fZGF0YQ==' },
       },
     ]);
   });
