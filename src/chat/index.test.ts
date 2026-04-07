@@ -4805,6 +4805,589 @@ describe('includeRawChunks', () => {
     });
   });
 
+  it('should use consistent IDs across tool-input-start, all deltas, tool-input-end, and tool-call', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-idcheck","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_id","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_id_001","type":"function","function":{"name":"lookup","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-idcheck","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_id","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"k"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-idcheck","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_id","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"\\":\\"v\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-idcheck","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_id","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-idcheck","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_id","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'lookup',
+          inputSchema: {
+            type: 'object',
+            properties: { k: { type: 'string' } },
+            required: ['k'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // Every tool-input-* event should use the same id
+    const expectedId = 'call_id_001';
+    for (const event of toolEvents) {
+      if (event.type === 'tool-call') {
+        expect(event.toolCallId).toBe(expectedId);
+      } else if (
+        event.type === 'tool-input-start' ||
+        event.type === 'tool-input-delta' ||
+        event.type === 'tool-input-end'
+      ) {
+        expect(event.id).toBe(expectedId);
+      }
+    }
+  });
+
+  it('should emit all tool lifecycle events before the finish event', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-order","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ord","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_ord_001","type":"function","function":{"name":"ping","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-order","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ord","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"x\\":\\"1\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-order","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ord","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-order","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ord","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'ping',
+          inputSchema: {
+            type: 'object',
+            properties: { x: { type: 'string' } },
+            required: ['x'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishIndex = elements.findIndex((el) => el.type === 'finish');
+    const lastToolCallIndex = elements.findIndex(
+      (el) => el.type === 'tool-call',
+    );
+    const lastToolInputEndIndex = elements.findIndex(
+      (el) => el.type === 'tool-input-end',
+    );
+
+    // All tool events must precede the finish event
+    expect(finishIndex).toBeGreaterThan(-1);
+    expect(lastToolCallIndex).toBeGreaterThan(-1);
+    expect(lastToolInputEndIndex).toBeGreaterThan(-1);
+    expect(lastToolCallIndex).toBeLessThan(finishIndex);
+    expect(lastToolInputEndIndex).toBeLessThan(finishIndex);
+  });
+
+  it('should not emit tool-input-end without a preceding tool-input-start', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-orphan","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_orph","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_orph_001","type":"function","function":{"name":"noop","arguments":"{\\"a\\":\\"b\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-orphan","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_orph","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-orphan","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_orph","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'noop',
+          inputSchema: {
+            type: 'object',
+            properties: { a: { type: 'string' } },
+            required: ['a'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // For every tool-input-end, there must be a preceding tool-input-start with the same id
+    const ends = elements.filter(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-end' } =>
+        el.type === 'tool-input-end',
+    );
+    const starts = elements.filter(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-start' } =>
+        el.type === 'tool-input-start',
+    );
+
+    for (const end of ends) {
+      const matchingStart = starts.find((s) => s.id === end.id);
+      expect(matchingStart).toBeDefined();
+
+      // start must come before end
+      const startIdx = elements.indexOf(matchingStart!);
+      const endIdx = elements.indexOf(end);
+      expect(startIdx).toBeLessThan(endIdx);
+    }
+  });
+
+  it('should handle tool call with minimal empty-object arguments {}', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-minimal","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_min","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_min_001","type":"function","function":{"name":"no_args","arguments":"{}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-minimal","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_min","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-minimal","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_min","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'no_args',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // Single-chunk path with minimal args should still get full lifecycle
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+
+    const delta = toolEvents.find((e) => e.type === 'tool-input-delta');
+    expect(delta).toMatchObject({ delta: '{}' });
+
+    const call = toolEvents.find((e) => e.type === 'tool-call');
+    expect(call).toMatchObject({ input: '{}' });
+  });
+
+  it('should handle three parallel tool calls with correct independent lifecycles', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Three tool calls start simultaneously
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[` +
+          `{"index":0,"id":"call_tri_001","type":"function","function":{"name":"alpha","arguments":""}},` +
+          `{"index":1,"id":"call_tri_002","type":"function","function":{"name":"beta","arguments":""}},` +
+          `{"index":2,"id":"call_tri_003","type":"function","function":{"name":"gamma","arguments":""}}` +
+          `]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Args for tool 0
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"a\\":\\"1\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Args for tool 1
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":1,"function":{"arguments":"{\\"b\\":\\"2\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Args for tool 2
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":2,"function":{"arguments":"{\\"c\\":\\"3\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-tri","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tri","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'alpha',
+          inputSchema: {
+            type: 'object',
+            properties: { a: { type: 'string' } },
+            required: ['a'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+        {
+          type: 'function',
+          name: 'beta',
+          inputSchema: {
+            type: 'object',
+            properties: { b: { type: 'string' } },
+            required: ['b'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+        {
+          type: 'function',
+          name: 'gamma',
+          inputSchema: {
+            type: 'object',
+            properties: { c: { type: 'string' } },
+            required: ['c'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const filterById = (id: string) =>
+      elements.filter(
+        (el) =>
+          (('id' in el && el.id === id) ||
+            ('toolCallId' in el && el.toolCallId === id)) &&
+          el.type !== 'response-metadata',
+      );
+
+    for (const [id, expectedInput] of [
+      ['call_tri_001', '{"a":"1"}'],
+      ['call_tri_002', '{"b":"2"}'],
+      ['call_tri_003', '{"c":"3"}'],
+    ] as const) {
+      const events = filterById(id);
+      expect(events.map((e) => e.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ]);
+      expect(events.find((e) => e.type === 'tool-call')).toMatchObject({
+        input: expectedInput,
+      });
+    }
+  });
+
+  it('should not double-emit tool-call in flush when tool was already sent during streaming', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call arrives with complete JSON in one chunk — sent during streaming
+        `data: {"id":"chatcmpl-nosend","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ns","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_ns_001","type":"function","function":{"name":"done","arguments":"{\\"ok\\":true}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-nosend","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ns","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-nosend","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_ns","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'done',
+          inputSchema: {
+            type: 'object',
+            properties: { ok: { type: 'boolean' } },
+            required: ['ok'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // There should be exactly ONE tool-call and ONE tool-input-end
+    const toolCalls = elements.filter((el) => el.type === 'tool-call');
+    const toolEnds = elements.filter((el) => el.type === 'tool-input-end');
+    expect(toolCalls).toHaveLength(1);
+    expect(toolEnds).toHaveLength(1);
+  });
+
+  it('should not interfere tool lifecycle when text content precedes tool calls', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First: text content
+        `data: {"id":"chatcmpl-textool","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tt","choices":[{"index":0,"delta":{"role":"assistant","content":"Let me check"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Then: tool call
+        `data: {"id":"chatcmpl-textool","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tt","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"id":"call_tt_001","type":"function","function":{"name":"fetch","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-textool","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tt","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"url\\":\\"https://example.com\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-textool","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tt","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-textool","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_tt","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'fetch',
+          inputSchema: {
+            type: 'object',
+            properties: { url: { type: 'string' } },
+            required: ['url'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // Text events should be present
+    const textDeltas = elements.filter((el) => el.type === 'text-delta');
+    expect(textDeltas.length).toBeGreaterThan(0);
+
+    // Tool lifecycle should still be complete
+    const toolEvents = elements.filter(
+      (el) =>
+        ('id' in el && el.id === 'call_tt_001') ||
+        ('toolCallId' in el && el.toolCallId === 'call_tt_001'),
+    );
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+
+    expect(toolEvents.find((e) => e.type === 'tool-call')).toMatchObject({
+      input: '{"url":"https://example.com"}',
+    });
+
+    // Text events should come before tool events
+    const firstTextIdx = elements.findIndex((el) => el.type === 'text-delta');
+    const firstToolIdx = elements.findIndex(
+      (el) => el.type === 'tool-input-start',
+    );
+    expect(firstTextIdx).toBeLessThan(firstToolIdx);
+  });
+
+  it('should attach reasoning_details providerMetadata only to the first tool-call in parallel calls', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Reasoning chunk first
+        `data: {"id":"chatcmpl-reason","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_rsn","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"reasoning_details":[{"type":"reasoning.text","text":"Let me think..."}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Two tool calls
+        `data: {"id":"chatcmpl-reason","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_rsn","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[` +
+          `{"index":0,"id":"call_rsn_001","type":"function","function":{"name":"tool_x","arguments":"{\\"x\\":1}"}},` +
+          `{"index":1,"id":"call_rsn_002","type":"function","function":{"name":"tool_y","arguments":"{\\"y\\":2}"}}` +
+          `]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-reason","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_rsn","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-reason","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_rsn","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":10,"total_tokens":20}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'tool_x',
+          inputSchema: {
+            type: 'object',
+            properties: { x: { type: 'number' } },
+            required: ['x'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+        {
+          type: 'function',
+          name: 'tool_y',
+          inputSchema: {
+            type: 'object',
+            properties: { y: { type: 'number' } },
+            required: ['y'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const toolCallEvents = elements.filter((el) => el.type === 'tool-call');
+    expect(toolCallEvents).toHaveLength(2);
+
+    // First tool-call should have reasoning_details in providerMetadata
+    expect(
+      toolCallEvents[0]?.providerMetadata?.openrouter?.reasoning_details,
+    ).toBeDefined();
+    expect(
+      toolCallEvents[0]?.providerMetadata?.openrouter?.reasoning_details,
+    ).toHaveLength(1);
+
+    // Second tool-call should NOT have providerMetadata (avoids duplication)
+    expect(toolCallEvents[1]?.providerMetadata).toBeUndefined();
+  });
+
+  it('should trigger flush path when finish_reason is "other" with unsent tool calls', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call with incomplete JSON
+        `data: {"id":"chatcmpl-other","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_oth","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_oth_001","type":"function","function":{"name":"action","arguments":"{\\"z\\""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // finish_reason is "other" (unknown) — the #420 fix overrides to "tool-calls"
+        `data: {"id":"chatcmpl-other","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_oth","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"other"}]}\n\n`,
+        `data: {"id":"chatcmpl-other","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_oth","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":5,"total_tokens":10}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'action',
+          inputSchema: {
+            type: 'object',
+            properties: { z: { type: 'string' } },
+            required: ['z'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // Should get full lifecycle even though finish_reason was "other"
+    expect(toolEvents.map((e) => e.type)).toStrictEqual([
+      'tool-input-start',
+      'tool-input-delta',
+      'tool-input-end',
+      'tool-call',
+    ]);
+
+    // Invalid JSON coerced to '{}'
+    expect(toolEvents.find((e) => e.type === 'tool-call')).toMatchObject({
+      input: '{}',
+    });
+
+    // Finish reason should be overridden to tool-calls
+    const finishEvent = elements.find((el) => el.type === 'finish');
+    expect(finishEvent).toMatchObject({
+      finishReason: { unified: 'tool-calls' },
+    });
+  });
+
   it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
