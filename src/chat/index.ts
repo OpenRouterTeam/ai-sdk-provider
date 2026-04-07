@@ -182,6 +182,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
       for (const tool of tools) {
         if (tool.type === 'function') {
+          const openrouterOptions = tool.providerOptions?.openrouter as
+            | Record<string, unknown>
+            | undefined;
+          const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
+
           mappedTools.push({
             type: 'function' as const,
             function: {
@@ -189,6 +194,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               description: tool.description,
               parameters: tool.inputSchema,
             },
+            ...(eagerInputStreaming != null && {
+              eager_input_streaming: eagerInputStreaming,
+            }),
           });
         } else if (tool.type === 'provider') {
           mappedTools.push(mapProviderTool(tool));
