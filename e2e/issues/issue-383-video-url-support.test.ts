@@ -32,7 +32,7 @@ describe('Issue #383: video URL support', () => {
 
     try {
       const result = streamText({
-        model: openrouter('google/gemini-2.5-flash-preview'),
+        model: openrouter('google/gemini-2.5-flash'),
         messages: [
           {
             role: 'user',
@@ -79,7 +79,7 @@ describe('Issue #383: video URL support', () => {
 
     try {
       const result = streamText({
-        model: openrouter('google/gemini-2.5-flash-preview'),
+        model: openrouter('google/gemini-2.5-flash'),
         messages: [
           {
             role: 'user',

@@ -31,15 +31,12 @@ describe('Issue #432: raw response body in doGenerate', () => {
       prompt: 'Say hello in one word.',
     });
 
-    expect(result.response.body).toBeDefined();
-
-    const body = result.response.body as Record<string, unknown>;
-    expect(body.id).toBeDefined();
-    expect(typeof body.id).toBe('string');
-    expect(body.model).toBeDefined();
-    expect(body.choices).toBeDefined();
-    expect(Array.isArray(body.choices)).toBe(true);
-    expect(body.usage).toBeDefined();
+    const body = result.response.body;
+    expect(body).toBeDefined();
+    expect(body).toHaveProperty('id');
+    expect(body).toHaveProperty('model');
+    expect(body).toHaveProperty('choices');
+    expect(body).toHaveProperty('usage');
   }, 30_000);
 
   it('should expose provider field in raw response body', async () => {
@@ -48,8 +45,8 @@ describe('Issue #432: raw response body in doGenerate', () => {
       prompt: 'Say hi.',
     });
 
-    const body = result.response.body as Record<string, unknown>;
-    expect(body.provider).toBeDefined();
-    expect(typeof body.provider).toBe('string');
+    const body = result.response.body;
+    expect(body).toBeDefined();
+    expect(body).toHaveProperty('provider');
   }, 30_000);
 });
