@@ -247,9 +247,10 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
   // === ADVERSARIAL EDGE CASES ===
 
-  it('should preserve Google Gemini reasoning.text without signatures (non-Anthropic models do not use signatures)', () => {
-    // Google Gemini reasoning doesn't use signatures at all.
-    // The filter must NOT strip non-Anthropic reasoning.text entries.
+  it('should strip Google Gemini reasoning.text without signatures (issue #418)', () => {
+    // Google Gemini extended thinking uses signed thought tokens.
+    // When signatures are lost during serialization (DB storage, JSON round-trip),
+    // sending them back causes Google to reject with "Corrupted thought signature".
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -281,12 +282,51 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // Google Gemini reasoning.text should be preserved even without a signature
+    // Gemini reasoning.text without signature should be stripped to prevent
+    // "Corrupted thought signature" errors
+    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    expect(assistantMsg!.reasoning).toBeUndefined();
+  });
+
+  it('should preserve Google Gemini reasoning.text when signature is present', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'What is 2+2?' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Simple arithmetic.',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Simple arithmetic.',
+                    signature: FAKE_SIGNATURE,
+                    format: 'google-gemini-v1',
+                    index: 0,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'The answer is 4.' },
+        ],
+      },
+    ]);
+
+    const assistantMsg = result.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
     expect(assistantMsg!.reasoning).toBe('Simple arithmetic.');
     expect(assistantMsg!.reasoning_details).toHaveLength(1);
     expect(assistantMsg!.reasoning_details![0]).toMatchObject({
       type: ReasoningDetailType.Text,
       text: 'Simple arithmetic.',
+      signature: FAKE_SIGNATURE,
       format: 'google-gemini-v1',
     });
   });
@@ -371,9 +411,10 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
     });
   });
 
-  it('should strip Anthropic reasoning.text without signature but keep Gemini reasoning.text in mixed array', () => {
+  it('should strip both Anthropic and Gemini reasoning.text without signatures in mixed array', () => {
     // Edge case: mixed-format reasoning_details in one message.
-    // This could happen if a conversation switches models mid-stream.
+    // Both Anthropic and Gemini use signed thought tokens —
+    // entries without signatures should be stripped for both formats.
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -398,7 +439,7 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Gemini thinking.',
-                    // No signature — Gemini format, should be KEPT
+                    // No signature — Gemini format, should also be stripped
                     format: 'google-gemini-v1',
                     index: 1,
                   },
@@ -413,12 +454,58 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // The Anthropic entry should be stripped, the Gemini entry preserved
+    // Both entries should be stripped — neither has a valid signature
+    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    expect(assistantMsg!.reasoning).toBeUndefined();
+  });
+
+  it('should keep signed entries and strip unsigned ones in mixed Anthropic/Gemini array', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+      },
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Anthropic thinking. Gemini thinking.',
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Anthropic thinking.',
+                    signature: FAKE_SIGNATURE,
+                    format: 'anthropic-claude-v1',
+                    index: 0,
+                  },
+                  {
+                    type: ReasoningDetailType.Text,
+                    text: 'Gemini thinking.',
+                    // No signature — should be stripped
+                    format: 'google-gemini-v1',
+                    index: 1,
+                  },
+                ],
+              },
+            },
+          },
+          { type: 'text', text: 'Done.' },
+        ],
+      },
+    ]);
+
+    const assistantMsg = result.find((m) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    // Only the signed Anthropic entry should survive
     expect(assistantMsg!.reasoning_details).toHaveLength(1);
     expect(assistantMsg!.reasoning_details![0]).toMatchObject({
       type: ReasoningDetailType.Text,
-      text: 'Gemini thinking.',
-      format: 'google-gemini-v1',
+      text: 'Anthropic thinking.',
+      signature: FAKE_SIGNATURE,
+      format: 'anthropic-claude-v1',
     });
   });
 
