@@ -274,18 +274,25 @@ export function convertToOpenRouterChatMessages(
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
-        // Strip reasoning.text entries that lack a valid signature for
-        // formats that use signed thought tokens. When providerMetadata is
-        // partially lost during message serialization, custom pruning, or
-        // DB storage (e.g., null/undefined fields dropped),
-        // reasoning_details may survive but their text entries may lose the
-        // `signature` field. Sending these back causes the upstream provider
-        // to reject:
-        //   - Anthropic: "Invalid signature in thinking block" (issue #423)
-        //   - Google Gemini: "Corrupted thought signature" (issue #418)
+        // Strip reasoning.text entries that would cause signature errors
+        // when sent back to the upstream provider.
         //
-        // Formats that use signatures: Anthropic Claude and Google Gemini.
-        // Other formats and non-text detail types pass through unchanged.
+        // Anthropic (issue #423): Uses an explicit `signature` field on
+        // reasoning.text entries. When the signature is lost during message
+        // serialization, custom pruning, or DB storage, sending the entry
+        // back causes "Invalid signature in thinking block".
+        //
+        // Google Gemini (issue #418): Does NOT use the SDK `signature`
+        // field, but Google internally signs thought tokens. When
+        // reasoning text is modified during roundtripping (serialization,
+        // encoding changes, field reordering), Google rejects with
+        // "Corrupted thought signature". Since the SDK cannot verify
+        // whether the text is intact, Gemini reasoning.text entries are
+        // always stripped on roundtrip — the encrypted reasoning blob
+        // (reasoning.encrypted) handles multi-turn continuity instead.
+        //
+        // Other formats (OpenAI, xAI, Azure) and non-text detail types
+        // pass through unchanged.
         //
         // This runs BEFORE deduplication so that signatureless entries are
         // never registered in the tracker — otherwise a signatureless entry

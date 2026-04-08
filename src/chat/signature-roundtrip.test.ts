@@ -247,10 +247,13 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
   // === ADVERSARIAL EDGE CASES ===
 
-  it('should strip Google Gemini reasoning.text without signatures (issue #418)', () => {
-    // Google Gemini extended thinking uses signed thought tokens.
-    // When signatures are lost during serialization (DB storage, JSON round-trip),
-    // sending them back causes Google to reject with "Corrupted thought signature".
+  it('should strip Google Gemini reasoning.text on roundtrip (issue #418)', () => {
+    // Google Gemini does NOT use the SDK `signature` field, but Google
+    // internally signs thought tokens. Any modification during roundtripping
+    // causes "Corrupted thought signature" (INVALID_ARGUMENT 400).
+    // Since the SDK cannot verify text integrity, Gemini reasoning.text
+    // entries are always stripped. Multi-turn continuity uses
+    // reasoning.encrypted instead.
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -282,13 +285,15 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // Gemini reasoning.text without signature should be stripped to prevent
-    // "Corrupted thought signature" errors
+    // Gemini reasoning.text is always stripped to prevent
+    // "Corrupted thought signature" errors on roundtrip
     expect(assistantMsg!.reasoning_details).toBeUndefined();
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
-  it('should preserve Google Gemini reasoning.text when signature is present', () => {
+  it('should preserve Google Gemini reasoning.text if it has an explicit signature', () => {
+    // Hypothetical future case: if Gemini ever adds SDK-level signatures,
+    // entries with valid signatures should be preserved.
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',
@@ -413,8 +418,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
   it('should strip both Anthropic and Gemini reasoning.text without signatures in mixed array', () => {
     // Edge case: mixed-format reasoning_details in one message.
-    // Both Anthropic and Gemini use signed thought tokens —
-    // entries without signatures should be stripped for both formats.
+    // Anthropic entries without signatures are stripped (lost during serialization).
+    // Gemini entries are always stripped (no SDK signature field).
     const result = convertToOpenRouterChatMessages([
       {
         role: 'user',

@@ -4,13 +4,15 @@
  *
  * Reported error: Multi-turn conversations with Gemini extended thinking
  * intermittently fail with "Corrupted thought signature" (INVALID_ARGUMENT 400).
- * Google signs the thought tokens in the response, and if those signatures are
- * lost or corrupted during message roundtripping (DB storage, JSON serialization,
- * field-level pruning), the SDK sends them back as-is and Google rejects.
+ * Google internally signs thought tokens — unlike Anthropic, the SDK `signature`
+ * field is NOT used. Any modification during roundtripping (DB storage, JSON
+ * serialization, field reordering, encoding changes) can corrupt the internal
+ * signing, and Google rejects with INVALID_ARGUMENT.
  *
- * The fix: extend the signature validation (previously Anthropic-only) to also
- * cover google-gemini-v1 format — strip reasoning.text entries that lack a valid
- * signature before sending them back to the API.
+ * The fix: add google-gemini-v1 to the signature-required format check. Since
+ * Gemini reasoning.text entries never have an SDK `signature` field, they are
+ * always stripped on roundtrip. This is intentional defensive behavior — the
+ * SDK cannot verify whether the text survived roundtripping intact.
  */
 import type { UIMessage } from 'ai';
 
