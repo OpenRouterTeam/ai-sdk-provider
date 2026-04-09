@@ -15,6 +15,7 @@ import type {
 import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
+import { deterministicStringify } from '../utils/deterministic-stringify';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import {
   buildFileDataUrl,
@@ -237,7 +238,7 @@ export function convertToOpenRouterChatMessages(
                 type: 'function',
                 function: {
                   name: part.toolName,
-                  arguments: JSON.stringify(part.input),
+                  arguments: deterministicStringify(part.input),
                 },
               });
               break;
