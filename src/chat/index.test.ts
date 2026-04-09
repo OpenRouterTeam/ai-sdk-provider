@@ -1,4 +1,5 @@
 import type {
+  LanguageModelV3Content,
   LanguageModelV3Prompt,
   LanguageModelV3StreamPart,
 } from '@ai-sdk/provider';
@@ -1085,6 +1086,116 @@ describe('doGenerate', () => {
         data: TEST_IMAGE_BASE64,
       },
     ]);
+  });
+
+  it('should generate unique toolCallIds when provider returns duplicate IDs', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_0',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+        {
+          id: 'call_0',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"London"}',
+          },
+        },
+      ],
+      finish_reason: 'tool_calls',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const toolCalls = result.content.filter(
+      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+        c.type === 'tool-call',
+    );
+
+    expect(toolCalls).toHaveLength(2);
+    // All toolCallIds must be unique
+    const ids = toolCalls.map((tc) => tc.toolCallId);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('should generate unique toolCallIds when provider returns empty string IDs', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: '',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+        {
+          id: '',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"London"}',
+          },
+        },
+      ],
+      finish_reason: 'tool_calls',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const toolCalls = result.content.filter(
+      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+        c.type === 'tool-call',
+    );
+
+    expect(toolCalls).toHaveLength(2);
+    // Empty string IDs should be replaced with generated unique IDs
+    const ids = toolCalls.map((tc) => tc.toolCallId);
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(id).not.toBe('');
+    }
+  });
+
+  it('should preserve valid unique tool call IDs from the provider', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_abc123',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+      ],
+      finish_reason: 'tool_calls',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    const toolCalls = result.content.filter(
+      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+        c.type === 'tool-call',
+    );
+
+    expect(toolCalls).toHaveLength(1);
+    expect(toolCalls[0]!.toolCallId).toBe('call_abc123');
   });
 });
 
@@ -5403,6 +5514,97 @@ describe('includeRawChunks', () => {
     expect(finishEvent).toMatchObject({
       finishReason: { unified: 'tool-calls' },
     });
+  });
+
+  it('should generate unique toolCallIds when streaming provider returns duplicate IDs for parallel tool calls', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Two tool calls with the same id "call_0"
+        `data: {"id":"chatcmpl-160a","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_0","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Tokyo\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-160a","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"call_0","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"London\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-160a","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-160a","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolCallEvents = elements.filter(
+      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+    );
+
+    expect(toolCallEvents).toHaveLength(2);
+    // All toolCallIds must be unique even though the provider returned duplicates
+    const ids = toolCallEvents.map((e) => {
+      if (e.type === 'tool-call') {
+        return e.toolCallId;
+      }
+      return undefined;
+    });
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  it('should generate unique toolCallIds when streaming provider returns empty string IDs', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Two tool calls with empty string ids
+        `data: {"id":"chatcmpl-160b","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Tokyo\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-160b","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"tool_calls":[{"index":1,"id":"","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"London\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-160b","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-160b","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolCallEvents = elements.filter(
+      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+    );
+
+    expect(toolCallEvents).toHaveLength(2);
+    const ids = toolCallEvents.map((e) => {
+      if (e.type === 'tool-call') {
+        return e.toolCallId;
+      }
+      return undefined;
+    });
+    // Empty string IDs should be replaced with generated unique IDs
+    expect(new Set(ids).size).toBe(2);
+    for (const id of ids) {
+      expect(id).not.toBe('');
+    }
+  });
+
+  it('should preserve valid unique tool call IDs in streaming responses', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-160c","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{"role":"assistant","content":null,"tool_calls":[{"index":0,"id":"call_unique_abc","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Tokyo\\"}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-160c","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-160c","object":"chat.completion.chunk","created":1711357598,"model":"gemini-2.0","system_fingerprint":"fp_test","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":15,"total_tokens":25}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolCallEvents = elements.filter(
+      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+    );
+
+    expect(toolCallEvents).toHaveLength(1);
+    const toolCallEvent = toolCallEvents.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+    expect(toolCallEvent?.toolCallId).toBe('call_unique_abc');
   });
 
   it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
