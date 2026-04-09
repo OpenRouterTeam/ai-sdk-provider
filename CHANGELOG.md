@@ -1,5 +1,13 @@
 # @openrouter/ai-sdk-provider
 
+## 2.5.1
+
+### Patch Changes
+
+- [#468](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/468) [`aa7b8c6`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/aa7b8c60124db6ed763d4350400a08172b72381d) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix Gemini "Corrupted thought signature" error in multi-turn conversations (issue #418)
+
+  Extend signature validation to also cover google-gemini-v1 format. Previously, only Anthropic-format reasoning entries were validated for signatures. Gemini extended thinking also uses signed thought tokens, and corrupted/missing signatures now get stripped before being sent back to the API.
+
 ## 2.5.0
 
 ### Minor Changes
