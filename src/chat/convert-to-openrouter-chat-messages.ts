@@ -274,16 +274,25 @@ export function convertToOpenRouterChatMessages(
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
-        // Strip Anthropic-format reasoning.text entries that lack a valid
-        // signature. When providerMetadata is partially lost during message
-        // serialization, custom pruning, or DB storage (e.g., null/undefined
-        // fields dropped), reasoning_details may survive but their text
-        // entries may lose the `signature` field. Sending these back causes
-        // Anthropic to reject with "Invalid signature in thinking block"
-        // (issue #423/#439).
+        // Strip reasoning.text entries that would cause signature errors
+        // when sent back to the upstream provider.
         //
-        // Only Anthropic-format text entries cause this error — other formats
-        // and non-text detail types pass through unchanged.
+        // Anthropic (issue #423): Uses an explicit `signature` field on
+        // reasoning.text entries. When the signature is lost during message
+        // serialization, custom pruning, or DB storage, sending the entry
+        // back causes "Invalid signature in thinking block".
+        //
+        // Google Gemini (issue #418): Does NOT use the SDK `signature`
+        // field, but Google internally signs thought tokens. When
+        // reasoning text is modified during roundtripping (serialization,
+        // encoding changes, field reordering), Google rejects with
+        // "Corrupted thought signature". Since the SDK cannot verify
+        // whether the text is intact, Gemini reasoning.text entries are
+        // always stripped on roundtrip — the encrypted reasoning blob
+        // (reasoning.encrypted) handles multi-turn continuity instead.
+        //
+        // Other formats (OpenAI, xAI, Azure) and non-text detail types
+        // pass through unchanged.
         //
         // This runs BEFORE deduplication so that signatureless entries are
         // never registered in the tracker — otherwise a signatureless entry
@@ -295,7 +304,10 @@ export function convertToOpenRouterChatMessages(
               return true;
             }
             const format = detail.format ?? DEFAULT_REASONING_FORMAT;
-            if (format !== ReasoningFormat.AnthropicClaudeV1) {
+            if (
+              format !== ReasoningFormat.AnthropicClaudeV1 &&
+              format !== ReasoningFormat.GoogleGeminiV1
+            ) {
               return true;
             }
             return !!detail.signature;
@@ -311,7 +323,7 @@ export function convertToOpenRouterChatMessages(
             if (logger !== false && typeof logger !== 'function') {
               // biome-ignore lint/suspicious/noConsole: intentional warning for stripped reasoning data
               console.warn(
-                '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 for more details.',
+                '[openrouter] Some reasoning_details entries were removed because they were missing signatures. See https://github.com/OpenRouterTeam/ai-sdk-provider/issues/423 and https://github.com/OpenRouterTeam/ai-sdk-provider/issues/418 for more details.',
               );
             }
           }
