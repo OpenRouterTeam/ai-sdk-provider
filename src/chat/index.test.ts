@@ -587,6 +587,89 @@ describe('doGenerate', () => {
     );
   });
 
+  it('should infer tool-calls finishReason when finish_reason is null and tool calls are present in doGenerate (#166)', async () => {
+    // Simulate the exact #166 scenario: provider returns null finish_reason
+    // with tool calls. mapOpenRouterFinishReason maps null to 'other'.
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_166_001',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+      ],
+      // @ts-expect-error — testing null finish_reason from API
+      finish_reason: null,
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.finishReason).toStrictEqual({
+      unified: 'tool-calls',
+      raw: undefined,
+    });
+
+    expect(result.content).toContainEqual(
+      expect.objectContaining({
+        type: 'tool-call',
+        toolCallId: 'call_166_001',
+        toolName: 'get_weather',
+      }),
+    );
+  });
+
+  it('should keep finishReason as other when finish_reason is null and no tool calls are present (#166)', async () => {
+    prepareJsonResponse({
+      content: 'Hello!',
+      // @ts-expect-error — testing null finish_reason from API
+      finish_reason: null,
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // Without tool calls, null finish_reason should remain 'other'
+    expect(result.finishReason).toStrictEqual({
+      unified: 'other',
+      raw: undefined,
+    });
+  });
+
+  it('should not override stop finishReason to tool-calls when tool calls present but no encrypted reasoning (#166)', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_stop_001',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Berlin"}',
+          },
+        },
+      ],
+      finish_reason: 'stop',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // 'stop' with tool calls but without encrypted reasoning should NOT be
+    // overridden — only 'other' (null/unknown) triggers the fallback
+    expect(result.finishReason).toStrictEqual({
+      unified: 'stop',
+      raw: 'stop',
+    });
+  });
+
   it('should default to empty JSON object when tool call arguments field is missing', async () => {
     prepareJsonResponse({
       content: '',
@@ -2219,6 +2302,89 @@ describe('doStream', () => {
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
+  });
+
+  it('should keep finishReason as other when finish_reason is null and no tool calls are present in streaming (#166)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-166-notools","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-166-notools","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-166-notools","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Without tool calls, null finish_reason should remain 'other'
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'other',
+      raw: undefined,
+    });
+  });
+
+  it('should not override stop finishReason to tool-calls in streaming when tool calls present but no encrypted reasoning (#166)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call chunk
+        `data: {"id":"chatcmpl-166-stop","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_166_stop","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Paris\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Final chunk: finish_reason is "stop" with NO encrypted reasoning
+        `data: {"id":"chatcmpl-166-stop","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-166-stop","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_166","choices":[],"usage":{"prompt_tokens":50,"completion_tokens":15,"total_tokens":65}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+            required: ['city'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // 'stop' with tool calls but without encrypted reasoning should NOT be
+    // overridden — only 'other' (null/unknown) triggers the fallback
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'stop',
+      raw: 'stop',
+    });
   });
 
   it('should populate usage from openrouterUsage when standard usage is empty (#419)', async () => {
