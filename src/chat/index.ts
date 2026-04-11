@@ -4,7 +4,7 @@ import type {
   LanguageModelV3CallOptions,
   LanguageModelV3Content,
   LanguageModelV3FinishReason,
-  LanguageModelV3FunctionTool,
+  LanguageModelV3ProviderTool,
   LanguageModelV3ResponseMetadata,
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
@@ -179,20 +179,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     };
 
     if (tools && tools.length > 0) {
-      // TODO: support built-in tools
-      const mappedTools = tools
-        .filter(
-          (tool): tool is LanguageModelV3FunctionTool =>
-            tool.type === 'function',
-        )
-        .map((tool) => ({
-          type: 'function' as const,
-          function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.inputSchema,
-          },
-        }));
+      const mappedTools: Array<Record<string, unknown>> = [];
+
+      for (const tool of tools) {
+        if (tool.type === 'function') {
+          mappedTools.push({
+            type: 'function' as const,
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.inputSchema,
+            },
+          });
+        } else if (tool.type === 'provider') {
+          mappedTools.push(mapProviderTool(tool));
+        }
+      }
 
       return {
         ...baseArgs,
@@ -1230,4 +1232,39 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       response: { headers: responseHeaders },
     };
   }
+}
+
+/**
+ * Maps a provider-defined tool to the OpenRouter API server tool format.
+ *
+ * Provider tool IDs follow the format `openrouter.<tool_name>`, which maps
+ * to `openrouter:<tool_name>` in the API request tools array.
+ */
+function mapProviderTool(
+  tool: LanguageModelV3ProviderTool,
+): Record<string, unknown> {
+  // Convert provider tool ID format (openrouter.web_search)
+  // to OpenRouter API format (openrouter:web_search)
+  const [provider, toolName] = tool.id.split('.');
+  const apiToolType = `${provider}:${toolName}`;
+
+  // Map camelCase args to snake_case for the API
+  const mappedArgs: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(tool.args)) {
+    if (value !== undefined) {
+      mappedArgs[camelToSnake(key)] = value;
+    }
+  }
+
+  return {
+    type: apiToolType,
+    ...mappedArgs,
+  };
+}
+
+/**
+ * Converts a camelCase string to snake_case.
+ */
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }

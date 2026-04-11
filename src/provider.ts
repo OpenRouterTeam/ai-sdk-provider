@@ -1,4 +1,6 @@
 import type { ProviderV3 } from '@ai-sdk/provider';
+import type { ProviderToolFactory } from '@ai-sdk/provider-utils';
+import type { Engine } from './types/openrouter-api-types';
 import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
@@ -21,8 +23,22 @@ import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
 import { OpenRouterImageModel } from './image';
+import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
+
+/**
+ * Configuration args for the web search provider tool.
+ * These are mapped to snake_case in the API request.
+ */
+type WebSearchToolArgs = {
+  /** Maximum number of search results to include */
+  maxResults?: number;
+  /** Custom search prompt to guide the search query */
+  searchPrompt?: string;
+  /** Search engine to use: 'auto', 'native', or 'exa' */
+  engine?: 'auto' | Engine;
+};
 
 export type { OpenRouterChatSettings, OpenRouterCompletionSettings };
 
@@ -85,6 +101,18 @@ Creates an OpenRouter image model for image generation.
     modelId: OpenRouterImageModelId,
     settings?: OpenRouterImageSettings,
   ): OpenRouterImageModel;
+
+  /**
+   * Provider-defined tools for OpenRouter server tools.
+   */
+  readonly tools: {
+    /**
+     * Creates an OpenRouter web search server tool.
+     *
+     * @see https://openrouter.ai/docs/guides/features/server-tools/web-search
+     */
+    webSearch: ProviderToolFactory<unknown, WebSearchToolArgs>;
+  };
 }
 
 export interface OpenRouterProviderSettings {
@@ -258,6 +286,9 @@ export function createOpenRouter(
   provider.textEmbeddingModel = createEmbeddingModel;
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
+  provider.tools = {
+    webSearch: webSearch,
+  };
 
   return provider as OpenRouterProvider;
 }
