@@ -366,10 +366,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       // Only attach reasoning_details to the first tool call to avoid
       // duplicating thinking blocks for parallel tool calls (Claude)
       let reasoningDetailsAttachedToToolCall = false;
+
+      // Track seen tool call IDs to ensure uniqueness. Some providers
+      // return empty, null, or duplicate IDs for parallel tool calls.
+      const seenToolCallIds = new Set<string>();
+
       for (const toolCall of choice.message.tool_calls) {
+        let toolCallId = toolCall.id;
+
+        if (!toolCallId || seenToolCallIds.has(toolCallId)) {
+          toolCallId = generateId();
+        }
+
+        seenToolCallIds.add(toolCallId);
+
         content.push({
           type: 'tool-call' as const,
-          toolCallId: toolCall.id ?? generateId(),
+          toolCallId,
           toolName: toolCall.function.name,
           input: toolCall.function.arguments ?? '{}',
           providerMetadata: !reasoningDetailsAttachedToToolCall
@@ -582,6 +595,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       inputStarted: boolean;
       sent: boolean;
     }> = [];
+
+    // Track seen tool call IDs to ensure uniqueness. Some providers
+    // return empty, null, or duplicate IDs for parallel tool calls.
+    const seenToolCallIds = new Set<string>();
 
     let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
     const usage: LanguageModelV3Usage = {
@@ -909,13 +926,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     });
                   }
 
-                  if (toolCallDelta.id == null) {
-                    throw new InvalidResponseDataError({
-                      data: toolCallDelta,
-                      message: `Expected 'id' to be a string.`,
-                    });
-                  }
-
                   if (toolCallDelta.function?.name == null) {
                     throw new InvalidResponseDataError({
                       data: toolCallDelta,
@@ -923,8 +933,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     });
                   }
 
+                  // Ensure the tool call ID is non-empty and unique.
+                  // Some providers return empty, null, or duplicate IDs
+                  // for parallel tool calls.
+                  let toolCallId = toolCallDelta.id ?? '';
+                  if (!toolCallId || seenToolCallIds.has(toolCallId)) {
+                    toolCallId = generateId();
+                  }
+                  seenToolCallIds.add(toolCallId);
+
                   toolCalls[index] = {
-                    id: toolCallDelta.id,
+                    id: toolCallId,
                     type: 'function',
                     function: {
                       name: toolCallDelta.function.name,
@@ -1055,7 +1074,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
                     type: 'tool-call',
-                    toolCallId: toolCall.id ?? generateId(),
+                    toolCallId: toolCall.id,
                     toolName: toolCall.function.name,
                     input: toolCall.function.arguments,
                     providerMetadata: !reasoningDetailsAttachedToToolCall
@@ -1147,7 +1166,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   // duplicating thinking blocks for parallel tool calls (Claude)
                   controller.enqueue({
                     type: 'tool-call',
-                    toolCallId: toolCall.id ?? generateId(),
+                    toolCallId: toolCall.id,
                     toolName: toolCall.function.name,
                     input,
                     providerMetadata: !reasoningDetailsAttachedToToolCall
