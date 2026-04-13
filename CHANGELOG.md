@@ -1,5 +1,38 @@
 # @openrouter/ai-sdk-provider
 
+## 2.6.0
+
+### Minor Changes
+
+- [#475](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/475) [`5b8fa40`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/5b8fa406715a0607ac23f93472a382e32ae24c58) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add `openrouter.tools.webSearch()` provider-defined tool for server-side web search
+
+  - New `src/tool/web-search.ts` — web search tool factory using `createProviderToolFactory`
+  - Updated `OpenRouterProvider` interface with `tools.webSearch` property
+  - Updated `getArgs()` to map `LanguageModelV3ProviderTool` to OpenRouter API server tool format (`openrouter:web_search`)
+  - Supports optional args: `maxResults`, `searchPrompt`, `engine` ('auto' | 'native' | 'exa')
+
+  Usage:
+
+  ```ts
+  import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+  import { generateText } from "ai";
+
+  const openrouter = createOpenRouter();
+  const result = await generateText({
+    model: openrouter("openai/gpt-4o"),
+    tools: {
+      web_search: openrouter.tools.webSearch({ maxResults: 5 }),
+    },
+    prompt: "What are the latest news?",
+  });
+  ```
+
+### Patch Changes
+
+- [#472](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/472) [`44ba7ec`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/44ba7ecc288b4bf3045a5ecd96cbc871507ae0f3) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix non-deterministic JSON serialization of tool call arguments that broke prompt caching
+
+  When the AI SDK deserializes and re-serializes tool call arguments across turns, the key insertion order may change. `JSON.stringify()` follows insertion order, so semantically identical objects could produce different strings, causing cache misses. This adds a recursive key-sorting utility (`deterministicStringify`) to ensure consistent serialization regardless of key order.
+
 ## 2.5.1
 
 ### Patch Changes
