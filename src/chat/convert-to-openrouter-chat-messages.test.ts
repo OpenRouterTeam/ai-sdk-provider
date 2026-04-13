@@ -2791,3 +2791,250 @@ describe('tool messages', () => {
     ]);
   });
 });
+
+describe('deterministic tool call argument serialization', () => {
+  it('should produce identical serialized arguments regardless of key insertion order', () => {
+    // Simulate the same tool call arguments with different key insertion orders,
+    // as happens when the AI SDK deserializes and re-serializes across turns
+    const inputABC = { city: 'Tokyo', unit: 'celsius', country: 'Japan' };
+
+    // Create object with reversed key order (simulates re-serialization)
+    const inputCBA: Record<string, string> = {};
+    inputCBA.country = 'Japan';
+    inputCBA.unit = 'celsius';
+    inputCBA.city = 'Tokyo';
+
+    const resultA = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: inputABC,
+          },
+        ],
+      },
+    ]);
+
+    const resultB = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: inputCBA,
+          },
+        ],
+      },
+    ]);
+
+    // Both should produce the exact same output for cache consistency
+    expect(resultA).toEqual(resultB);
+    // Keys should be sorted alphabetically
+    expect(resultA).toEqual([
+      {
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get_weather',
+              arguments: '{"city":"Tokyo","country":"Japan","unit":"celsius"}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_details: undefined,
+        annotations: undefined,
+        cache_control: undefined,
+      },
+    ]);
+  });
+
+  it('should sort keys in nested objects deterministically', () => {
+    const input = {
+      location: { country: 'Japan', city: 'Tokyo' },
+      options: { format: 'json', verbose: true },
+    };
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'search',
+            input,
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      tool_calls: [
+        {
+          function: {
+            arguments:
+              '{"location":{"city":"Tokyo","country":"Japan"},"options":{"format":"json","verbose":true}}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should preserve array element order while sorting object keys within arrays', () => {
+    const input = {
+      items: [
+        { name: 'B', id: 2 },
+        { name: 'A', id: 1 },
+      ],
+    };
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'process',
+            input,
+          },
+        ],
+      },
+    ]);
+
+    // Array order preserved, but keys within each object sorted
+    expect(result[0]).toMatchObject({
+      tool_calls: [
+        {
+          function: {
+            arguments: '{"items":[{"id":2,"name":"B"},{"id":1,"name":"A"}]}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should handle empty objects', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'ping',
+            input: {},
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      tool_calls: [{ function: { arguments: '{}' } }],
+    });
+  });
+
+  it('should handle null and primitive values within objects', () => {
+    const input = {
+      z_string: 'hello',
+      a_null: null,
+      m_number: 42,
+      b_boolean: false,
+    };
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'test',
+            input,
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      tool_calls: [
+        {
+          function: {
+            arguments:
+              '{"a_null":null,"b_boolean":false,"m_number":42,"z_string":"hello"}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should handle deeply nested structures with mixed types', () => {
+    const input = {
+      config: {
+        rules: [
+          {
+            pattern: '*.ts',
+            options: { strict: true, level: 'error' },
+          },
+        ],
+        metadata: { version: 1, name: 'default' },
+      },
+    };
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'configure',
+            input,
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      tool_calls: [
+        {
+          function: {
+            arguments:
+              '{"config":{"metadata":{"name":"default","version":1},"rules":[{"options":{"level":"error","strict":true},"pattern":"*.ts"}]}}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should handle already-sorted keys without changing output', () => {
+    const input = { a: 1, b: 2, c: 3 };
+
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'test',
+            input,
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      tool_calls: [{ function: { arguments: '{"a":1,"b":2,"c":3}' } }],
+    });
+  });
+});
