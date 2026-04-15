@@ -79,9 +79,6 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       providerOptions,
     } = options;
 
-    const openrouterOptions =
-      (providerOptions?.openrouter as Record<string, unknown>) || {};
-
     const warnings: SharedV3Warning[] = [];
 
     if (n > 1) {
@@ -107,7 +104,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       }),
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      ...openrouterOptions,
+      ...providerOptions.openrouter,
     };
 
     const mergedHeaders = combineHeaders(this.config.headers(), headers);
