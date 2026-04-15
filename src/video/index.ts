@@ -217,7 +217,12 @@ export class OpenRouterVideoModel implements VideoModelV3 {
         };
       }
 
-      if (pollResponse.status === 'failed' || pollResponse.status === 'dead' || pollResponse.status === 'cancelled' || pollResponse.status === 'expired') {
+      if (
+        pollResponse.status === 'failed' ||
+        pollResponse.status === 'dead' ||
+        pollResponse.status === 'cancelled' ||
+        pollResponse.status === 'expired'
+      ) {
         throw new APICallError({
           message:
             pollResponse.error ??
