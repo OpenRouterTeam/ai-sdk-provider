@@ -6,3 +6,5 @@ export * from '../types';
 export * from '../types/openrouter-chat-settings';
 export * from '../types/openrouter-completion-settings';
 export * from '../types/openrouter-image-settings';
+export * from '../types/openrouter-video-settings';
+export * from '../video';

@@ -17,6 +17,10 @@ import type {
   OpenRouterImageModelId,
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
+import type {
+  OpenRouterVideoModelId,
+  OpenRouterVideoSettings,
+} from './types/openrouter-video-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
@@ -26,6 +30,7 @@ import { OpenRouterImageModel } from './image';
 import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
+import { OpenRouterVideoModel } from './video';
 
 /**
  * Configuration args for the web search provider tool.
@@ -101,6 +106,14 @@ Creates an OpenRouter image model for image generation.
     modelId: OpenRouterImageModelId,
     settings?: OpenRouterImageSettings,
   ): OpenRouterImageModel;
+
+  /**
+Creates an OpenRouter video model for video generation.
+   */
+  videoModel(
+    modelId: OpenRouterVideoModelId,
+    settings?: OpenRouterVideoSettings,
+  ): OpenRouterVideoModel;
 
   /**
    * Provider-defined tools for OpenRouter server tools.
@@ -255,6 +268,18 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createVideoModel = (
+    modelId: OpenRouterVideoModelId,
+    settings: OpenRouterVideoSettings = {},
+  ) =>
+    new OpenRouterVideoModel(modelId, settings, {
+      provider: 'openrouter.video',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
@@ -286,6 +311,7 @@ export function createOpenRouter(
   provider.textEmbeddingModel = createEmbeddingModel;
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
+  provider.videoModel = createVideoModel;
   provider.tools = {
     webSearch: webSearch,
   };

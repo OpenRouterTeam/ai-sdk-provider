@@ -17,8 +17,8 @@ importers:
         version: 4.3.5
     devDependencies:
       '@ai-sdk/provider':
-        specifier: 3.0.0
-        version: 3.0.0
+        specifier: 3.0.8
+        version: 3.0.8
       '@ai-sdk/provider-utils':
         specifier: 4.0.1
         version: 4.0.1(zod@4.3.5)
@@ -81,6 +81,10 @@ packages:
 
   '@ai-sdk/provider@3.0.0':
     resolution: {integrity: sha512-m9ka3ptkPQbaHHZHqDXDF9C9B5/Mav0KTdky1k2HZ3/nrW2t1AgObxIVPyGDWQNS9FXT/FS6PIoSjpcP/No8rQ==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/provider@3.0.8':
+    resolution: {integrity: sha512-oGMAgGoQdBXbZqNG0Ze56CHjDZ1IDYOwGYxYjO5KLSlz5HiNQ9udIXsPZ61VWaHGZ5XW/jyjmr6t2xz2jGVwbQ==}
     engines: {node: '>=18'}
 
   '@ai-sdk/test-server@1.0.3':
@@ -1665,6 +1669,10 @@ snapshots:
       zod: 4.3.5
 
   '@ai-sdk/provider@3.0.0':
+    dependencies:
+      json-schema: 0.4.0
+
+  '@ai-sdk/provider@3.0.8':
     dependencies:
       json-schema: 0.4.0
 

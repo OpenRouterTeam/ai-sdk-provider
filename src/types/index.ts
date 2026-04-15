@@ -4,6 +4,7 @@ export type { LanguageModelV3, LanguageModelV3Prompt };
 
 export * from './openrouter-embedding-settings';
 export * from './openrouter-image-settings';
+export * from './openrouter-video-settings';
 
 export type OpenRouterProviderOptions = {
   models?: string[];
