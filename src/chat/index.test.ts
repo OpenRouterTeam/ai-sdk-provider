@@ -1614,43 +1614,13 @@ describe('doStream', () => {
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
 
-    // Verify that reasoning-delta chunks include providerMetadata with reasoning_details
+    // reasoning-delta events should NOT carry providerMetadata (fix for #413
+    // payload bloat). The full accumulated reasoning_details are available on
+    // reasoning-end, tool-call, and finish events instead.
     const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
 
-    // First delta should have reasoning_details from first chunk
-    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Let me think about this...',
-          },
-        ],
-      },
-    });
-
-    // Second delta (summary) has accumulated snapshot including encrypted
-    // (encrypted is accumulated but doesn't produce a delta)
-    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'Let me think about this...',
-          },
-          {
-            type: ReasoningDetailType.Summary,
-            summary: 'User wants a greeting',
-          },
-          {
-            type: ReasoningDetailType.Encrypted,
-            data: 'secret',
-          },
-        ],
-      },
-    });
-
-    // Third delta (from reasoning field only) should not have providerMetadata
+    expect(reasoningDeltaElements[0]?.providerMetadata).toBeUndefined();
+    expect(reasoningDeltaElements[1]?.providerMetadata).toBeUndefined();
     expect(reasoningDeltaElements[2]?.providerMetadata).toBeUndefined();
   });
 
@@ -1696,33 +1666,11 @@ describe('doStream', () => {
     // Only 2 deltas: text + summary. Encrypted details don't produce deltas.
     expect(reasoningDeltaElements).toHaveLength(2);
 
-    // Verify each delta has the correct reasoning_details in providerMetadata
-    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'First reasoning chunk',
-          },
-        ],
-      },
-    });
-
-    // Second delta has accumulated snapshot: text + summary
-    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'First reasoning chunk',
-          },
-          {
-            type: ReasoningDetailType.Summary,
-            summary: 'Summary reasoning',
-          },
-        ],
-      },
-    });
+    // reasoning-delta events should NOT carry providerMetadata (fix for #413
+    // payload bloat). The full accumulated reasoning_details are available on
+    // reasoning-end and finish events instead.
+    expect(reasoningDeltaElements[0]?.providerMetadata).toBeUndefined();
+    expect(reasoningDeltaElements[1]?.providerMetadata).toBeUndefined();
 
     // Encrypted data is still accumulated and available in reasoning-end
     const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
@@ -1745,19 +1693,9 @@ describe('doStream', () => {
       },
     });
 
-    // Verify reasoning-start also has providerMetadata when first delta includes it
+    // reasoning-start should NOT carry providerMetadata (fix for #413 payload bloat)
     const reasoningStart = elements.find(isReasoningStartPart);
-
-    expect(reasoningStart?.providerMetadata).toEqual({
-      openrouter: {
-        reasoning_details: [
-          {
-            type: ReasoningDetailType.Text,
-            text: 'First reasoning chunk',
-          },
-        ],
-      },
-    });
+    expect(reasoningStart?.providerMetadata).toBeUndefined();
   });
 
   it('should not emit reasoning events when only encrypted details arrive in stream', async () => {
