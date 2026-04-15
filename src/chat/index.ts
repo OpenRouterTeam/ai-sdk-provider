@@ -1215,6 +1215,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               openrouterMetadata.annotations = accumulatedFileAnnotations;
             }
 
+            // Fix for #419: When standard usage totals are still undefined but
+            // openrouterUsage has valid token data, copy values as a fallback.
+            // Some providers may deliver usage in a format where the standard
+            // usage fields don't get populated through computeTokenUsage().
+            if (
+              usage.inputTokens.total === undefined &&
+              openrouterUsage.promptTokens !== undefined
+            ) {
+              usage.inputTokens.total = openrouterUsage.promptTokens;
+            }
+            if (
+              usage.outputTokens.total === undefined &&
+              openrouterUsage.completionTokens !== undefined
+            ) {
+              usage.outputTokens.total = openrouterUsage.completionTokens;
+            }
+
             // Set raw usage before emitting finish event
             usage.raw = rawUsage;
 

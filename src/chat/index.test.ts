@@ -2467,6 +2467,161 @@ describe('doStream', () => {
     expect(finishEvent?.usage.outputTokens.total).toBeUndefined();
   });
 
+  it('should fallback usage from openrouterUsage when usage chunk has data but standard usage totals are undefined (#419)', async () => {
+    // Simulate a provider that sends usage data in the chunk but where the
+    // standard usage object ends up with undefined totals (e.g., due to
+    // non-standard chunk structure). The openrouterUsage should be used
+    // as a fallback to populate the standard usage fields.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Text content chunk
+        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish reason chunk
+        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        // Usage chunk with valid data
+        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Standard usage should be populated
+    expect(finishEvent?.usage.inputTokens.total).toBe(10);
+    expect(finishEvent?.usage.outputTokens.total).toBe(20);
+
+    // openrouterUsage should also be populated
+    const openrouterMeta = finishEvent?.providerMetadata?.openrouter as {
+      usage: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
+    };
+    expect(openrouterMeta.usage.promptTokens).toBe(10);
+    expect(openrouterMeta.usage.completionTokens).toBe(20);
+    expect(openrouterMeta.usage.totalTokens).toBe(30);
+  });
+
+  it('should fallback usage.inputTokens.total from openrouterUsage.promptTokens when only standard total is undefined (#419)', async () => {
+    // This tests the defensive fallback: if for any reason the standard usage
+    // total fields end up undefined but openrouterUsage has valid data,
+    // the flush handler should copy values from openrouterUsage.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-419b","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419b","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        // Usage chunk with zero tokens (valid edge case)
+        `data: {"id":"chatcmpl-419b","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419b","choices":[],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Even with zero tokens, usage totals should be numbers (not undefined)
+    expect(finishEvent?.usage.inputTokens.total).toBe(0);
+    expect(finishEvent?.usage.outputTokens.total).toBe(0);
+  });
+
+  it('should handle usage with detailed token breakdown in streaming (#419)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-419c","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet",` +
+          `"system_fingerprint":"fp_419c","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-419c","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet",` +
+          `"system_fingerprint":"fp_419c","choices":[],"usage":{"prompt_tokens":50,"completion_tokens":30,"total_tokens":80,` +
+          `"prompt_tokens_details":{"cached_tokens":10},"completion_tokens_details":{"reasoning_tokens":5}}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Verify detailed token breakdown is preserved
+    expect(finishEvent?.usage.inputTokens).toStrictEqual({
+      total: 50,
+      noCache: 40, // 50 - 10 cached
+      cacheRead: 10,
+      cacheWrite: undefined,
+    });
+    expect(finishEvent?.usage.outputTokens).toStrictEqual({
+      total: 30,
+      text: 25, // 30 - 5 reasoning
+      reasoning: 5,
+    });
+  });
+
+  it('should handle usage arriving in multiple chunks by using last values (#419)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419d","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // First usage chunk with partial data
+        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419d","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}\n\n`,
+        // Second usage chunk with updated data (should overwrite)
+        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
+          `"system_fingerprint":"fp_419d","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":15,"completion_tokens":10,"total_tokens":25}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    // Should use the last usage values
+    expect(finishEvent?.usage.inputTokens.total).toBe(15);
+    expect(finishEvent?.usage.outputTokens.total).toBe(10);
+  });
+
   it('should stream images', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
