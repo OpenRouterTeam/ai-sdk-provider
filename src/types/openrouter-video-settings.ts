@@ -1,4 +1,3 @@
-// https://openrouter.ai/api/v1/models
 export type OpenRouterVideoModelId = string;
 
 export type OpenRouterVideoSettings = {

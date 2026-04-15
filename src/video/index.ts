@@ -15,9 +15,11 @@ import { APICallError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createJsonResponseHandler,
+  delay,
   getFromApi,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
+import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import {
   VideoGenerationPollResponseSchema,
@@ -36,7 +38,7 @@ const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_MAX_POLL_TIME_MS = 600_000;
 
 export class OpenRouterVideoModel implements VideoModelV3 {
-  readonly specificationVersion = 'v3' as const;
+  readonly specificationVersion = 'v3';
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterVideoModelId;
   readonly settings: OpenRouterVideoSettings;
@@ -164,7 +166,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       response: {
         timestamp: new Date(),
         modelId: this.modelId,
-        headers: responseHeaders as Record<string, string> | undefined,
+        headers: responseHeaders,
       },
     };
   }
@@ -262,28 +264,15 @@ function convertImageToFrameImage(
     };
   }
 
-  const data =
-    file.data instanceof Uint8Array ? uint8ArrayToBase64(file.data) : file.data;
-
-  const mediaType = file.mediaType ?? 'image/png';
-  const isDataUrl = typeof data === 'string' && data.startsWith('data:');
-  const url = isDataUrl ? data : `data:${mediaType};base64,${data}`;
+  const url = buildFileDataUrl({
+    data: file.data,
+    mediaType: file.mediaType,
+    defaultMediaType: 'image/png',
+  });
 
   return {
     type: 'image_url',
     image_url: { url },
     frame_type: 'first_frame',
   };
-}
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  return btoa(binary);
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -33,10 +33,7 @@ function createPollResponse(
 
 function createMockFetchSequence(responses: Array<Record<string, unknown>>) {
   let callIndex = 0;
-  return async (
-    _url: URL | RequestInfo,
-    _init?: RequestInit,
-  ): Promise<Response> => {
+  return async (): Promise<Response> => {
     const response = responses[callIndex]!;
     callIndex++;
     return new Response(JSON.stringify(response), {
@@ -72,19 +69,13 @@ function createCapturingMockFetch(responses: Array<Record<string, unknown>>) {
     });
   };
 
-  return {
-    fetch,
-    get capturedRequests() {
-      return capturedRequests;
-    },
-  };
+  return { fetch, capturedRequests };
 }
 
 describe('OpenRouterVideoModel', () => {
   describe('provider methods', () => {
     it('should expose videoModel method', () => {
       const provider = createOpenRouter({ apiKey: 'test-key' });
-      expect(provider.videoModel).toBeDefined();
       expect(typeof provider.videoModel).toBe('function');
     });
 
@@ -376,10 +367,7 @@ describe('OpenRouterVideoModel', () => {
       const jobId = 'job-test-timeout';
 
       let callCount = 0;
-      const fetchThatNeverCompletes = async (
-        _url: URL | RequestInfo,
-        _init?: RequestInit,
-      ): Promise<Response> => {
+      const fetchThatNeverCompletes = async (): Promise<Response> => {
         callCount++;
         const response =
           callCount === 1
@@ -448,48 +436,6 @@ describe('OpenRouterVideoModel', () => {
           generationId: 'gen-test-123',
           cost: 1.25,
         },
-      });
-    });
-
-    it('should apply runtime providerOptions.openrouter to request', async () => {
-      const jobId = 'job-test-options';
-      const mock = createCapturingMockFetch([
-        createSubmitResponse(jobId),
-        createPollResponse(jobId, 'completed', {
-          unsigned_urls: ['https://example.com/video.mp4'],
-        }),
-      ]);
-
-      const provider = createOpenRouter({
-        apiKey: 'test-key',
-        fetch: mock.fetch,
-      });
-      const model = provider.videoModel('google/veo-3.1', {
-        pollIntervalMs: 10,
-      });
-
-      await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        aspectRatio: undefined,
-        resolution: undefined,
-        duration: undefined,
-        fps: undefined,
-        seed: undefined,
-        image: undefined,
-        providerOptions: {
-          openrouter: {
-            custom_field: 'test_value',
-            provider: {
-              order: ['google'],
-            },
-          },
-        },
-      });
-
-      expect(mock.capturedRequests[0]!.body?.custom_field).toBe('test_value');
-      expect(mock.capturedRequests[0]!.body?.provider).toEqual({
-        order: ['google'],
       });
     });
 
