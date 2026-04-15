@@ -9,7 +9,6 @@ import type {
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
   SharedV3Headers,
-  SharedV3ProviderMetadata,
   SharedV3Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -740,21 +739,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
             const delta = choice.delta;
 
-            const emitReasoningChunk = (
-              chunkText: string,
-              providerMetadata?: SharedV3ProviderMetadata,
-            ) => {
+            const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = generateId();
                 controller.enqueue({
-                  providerMetadata,
                   type: 'reasoning-start',
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
-                providerMetadata,
                 type: 'reasoning-delta',
                 delta: chunkText,
                 id: reasoningId || generateId(),
@@ -796,24 +790,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               // start a new reasoning block — doing so would create duplicate
               // reasoning parts in the UIMessage.
               if (!textStarted) {
-                // Emit a snapshot of accumulated reasoning_details in providerMetadata
-                // so downstream consumers always see the full reasoning history
-                // (including signatures that arrive in later deltas).
-                const reasoningMetadata: SharedV3ProviderMetadata = {
-                  openrouter: {
-                    reasoning_details: accumulatedReasoningDetails.map((d) => ({
-                      ...d,
-                    })),
-                  },
-                };
-
                 for (const detail of delta.reasoning_details) {
                   switch (detail.type) {
                     case ReasoningDetailType.Text: {
                       // Emit even when detail.text is empty/undefined — a signature-only
                       // delta (no text, just signature) must still be emitted so that
                       // the signature propagates to the reasoning part's providerMetadata.
-                      emitReasoningChunk(detail.text || '', reasoningMetadata);
+                      emitReasoningChunk(detail.text || '');
                       break;
                     }
                     case ReasoningDetailType.Encrypted: {
@@ -825,7 +808,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     }
                     case ReasoningDetailType.Summary: {
                       if (detail.summary) {
-                        emitReasoningChunk(detail.summary, reasoningMetadata);
+                        emitReasoningChunk(detail.summary);
                       }
                       break;
                     }
