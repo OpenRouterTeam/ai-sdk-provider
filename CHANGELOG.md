@@ -1,5 +1,35 @@
 # @openrouter/ai-sdk-provider
 
+## 2.7.0
+
+### Minor Changes
+
+- [#465](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/465) [`d32823e`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d32823ee71a6387b0e3022d5c7c9b59e77aa8510) Thanks [@robert-j-y](https://github.com/robert-j-y)! - feat: support Anthropic eager_input_streaming parameter via tool providerOptions
+
+  Tools can now pass `eager_input_streaming: true` through `providerOptions.openrouter.eager_input_streaming` to enable Anthropic's fine-grained tool streaming, reducing latency for large tool outputs.
+
+### Patch Changes
+
+- [#477](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/477) [`918d564`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/918d564a999b5bab52bc414cb967cd989ebd8323) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: stop attaching accumulated reasoning_details to reasoning-delta events (#413)
+
+  Previously, each reasoning-delta chunk carried a full snapshot of all
+  accumulatedReasoningDetails in its providerMetadata. For N reasoning
+  chunks, this caused O(N²) total payload size.
+
+  reasoning-start and reasoning-delta events no longer carry providerMetadata.
+  The full accumulated reasoning_details are still available on reasoning-end,
+  tool-call, and finish events (unchanged).
+
+- [#473](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/473) [`839f9b0`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/839f9b0d6dd774adb0e196eb78f4d5707f02b2ba) Thanks [@robert-j-y](https://github.com/robert-j-y)! - fix: add defensive usage fallback in streaming flush handler (#419)
+
+  When the standard usage object has undefined totals but openrouterUsage
+  has valid token data, the flush handler now copies values from
+  openrouterUsage as a fallback. This ensures usage.inputTokens.total and
+  usage.outputTokens.total are populated even when providers deliver usage
+  data in non-standard chunk formats.
+
+- [#388](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/388) [`916c4c1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/916c4c1710318f5c09c3f8d3ad6ae9aad920c552) Thanks [@robert-j-y](https://github.com/robert-j-y)! - feat: add temperature and other common settings to model-level configuration
+
 ## 2.6.0
 
 ### Minor Changes
