@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.8.0
+
+### Minor Changes
+
+- [#479](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/479) [`e381895`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/e381895d7f6189d14f5ef34df36f6ac190fb8410) Thanks [@abhinav-pola](https://github.com/abhinav-pola)! - Add video generation support via `provider.videoModel()` implementing the `Experimental_VideoModelV3` interface. Supports text-to-video and image-to-video generation with configurable aspect ratio, resolution, duration, seed, audio generation, and provider options passthrough.
+
 ## 2.7.0
 
 ### Minor Changes
