@@ -159,6 +159,26 @@ monitor and detect abuse. Learn more.
   };
 
   /**
+   * Structured-output options forwarded to OpenRouter's
+   * `response_format.json_schema` payload.
+   *
+   * Use this to opt out of strict mode for models whose providers don't
+   * advertise support for it (e.g. open-source models routed through
+   * non-OpenAI-compatible providers). When `strict` is left unset, the
+   * SDK defaults to `true` for backward compatibility.
+   *
+   * Only applies when a `responseFormat` with a `schema` is provided on
+   * the call site. Has no effect for `json_object` or text responses.
+   */
+  structuredOutputs?: {
+    /**
+     * Whether to set `response_format.json_schema.strict` on the outbound
+     * request. Defaults to `true` when omitted.
+     */
+    strict?: boolean;
+  };
+
+  /**
    * Provider routing preferences to control request routing behavior
    */
   provider?: {
