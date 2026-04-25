@@ -807,132 +807,6 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should pass eager_input_streaming from tool providerOptions to request body', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'get-weather',
-          description: 'Get the weather',
-          inputSchema: {
-            type: 'object',
-            properties: { location: { type: 'string' } },
-            required: ['location'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-          providerOptions: {
-            openrouter: {
-              eager_input_streaming: true,
-            },
-          },
-        },
-      ],
-    });
-
-    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-      model: 'anthropic/claude-3.5-sonnet',
-      messages: [{ role: 'user', content: 'Hello' }],
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'get-weather',
-            description: 'Get the weather',
-            parameters: {
-              type: 'object',
-              properties: { location: { type: 'string' } },
-              required: ['location'],
-              additionalProperties: false,
-              $schema: 'http://json-schema.org/draft-07/schema#',
-            },
-          },
-          eager_input_streaming: true,
-        },
-      ],
-    });
-  });
-
-  it('should not include eager_input_streaming when not set in tool providerOptions', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'test-tool',
-          description: 'Test tool',
-          inputSchema: {
-            type: 'object',
-            properties: { value: { type: 'string' } },
-            required: ['value'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools[0]).not.toHaveProperty('eager_input_streaming');
-  });
-
-  it('should handle mixed tools with and without eager_input_streaming', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'eager-tool',
-          description: 'Tool with eager streaming',
-          inputSchema: {
-            type: 'object',
-            properties: { query: { type: 'string' } },
-            required: ['query'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-          providerOptions: {
-            openrouter: {
-              eager_input_streaming: true,
-            },
-          },
-        },
-        {
-          type: 'function',
-          name: 'normal-tool',
-          description: 'Tool without eager streaming',
-          inputSchema: {
-            type: 'object',
-            properties: { id: { type: 'number' } },
-            required: ['id'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools).toHaveLength(2);
-    expect(tools[0]).toHaveProperty('eager_input_streaming', true);
-    expect(tools[1]).not.toHaveProperty('eager_input_streaming');
-  });
-
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -1556,6 +1430,7 @@ describe('doStream', () => {
 
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 227,
               promptTokens: 17,
@@ -1740,13 +1615,43 @@ describe('doStream', () => {
     expect(reasoningDeltas).not.toContain('This should be ignored...');
     expect(reasoningDeltas).not.toContain('Also ignored');
 
-    // reasoning-delta events should NOT carry providerMetadata (fix for #413
-    // payload bloat). The full accumulated reasoning_details are available on
-    // reasoning-end, tool-call, and finish events instead.
+    // Verify that reasoning-delta chunks include providerMetadata with reasoning_details
     const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
 
-    expect(reasoningDeltaElements[0]?.providerMetadata).toBeUndefined();
-    expect(reasoningDeltaElements[1]?.providerMetadata).toBeUndefined();
+    // First delta should have reasoning_details from first chunk
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
+        ],
+      },
+    });
+
+    // Second delta (summary) has accumulated snapshot including encrypted
+    // (encrypted is accumulated but doesn't produce a delta)
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'Let me think about this...',
+          },
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'User wants a greeting',
+          },
+          {
+            type: ReasoningDetailType.Encrypted,
+            data: 'secret',
+          },
+        ],
+      },
+    });
+
+    // Third delta (from reasoning field only) should not have providerMetadata
     expect(reasoningDeltaElements[2]?.providerMetadata).toBeUndefined();
   });
 
@@ -1792,11 +1697,33 @@ describe('doStream', () => {
     // Only 2 deltas: text + summary. Encrypted details don't produce deltas.
     expect(reasoningDeltaElements).toHaveLength(2);
 
-    // reasoning-delta events should NOT carry providerMetadata (fix for #413
-    // payload bloat). The full accumulated reasoning_details are available on
-    // reasoning-end and finish events instead.
-    expect(reasoningDeltaElements[0]?.providerMetadata).toBeUndefined();
-    expect(reasoningDeltaElements[1]?.providerMetadata).toBeUndefined();
+    // Verify each delta has the correct reasoning_details in providerMetadata
+    expect(reasoningDeltaElements[0]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
+
+    // Second delta has accumulated snapshot: text + summary
+    expect(reasoningDeltaElements[1]?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+          {
+            type: ReasoningDetailType.Summary,
+            summary: 'Summary reasoning',
+          },
+        ],
+      },
+    });
 
     // Encrypted data is still accumulated and available in reasoning-end
     const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
@@ -1819,9 +1746,19 @@ describe('doStream', () => {
       },
     });
 
-    // reasoning-start should NOT carry providerMetadata (fix for #413 payload bloat)
+    // Verify reasoning-start also has providerMetadata when first delta includes it
     const reasoningStart = elements.find(isReasoningStartPart);
-    expect(reasoningStart?.providerMetadata).toBeUndefined();
+
+    expect(reasoningStart?.providerMetadata).toEqual({
+      openrouter: {
+        reasoning_details: [
+          {
+            type: ReasoningDetailType.Text,
+            text: 'First reasoning chunk',
+          },
+        ],
+      },
+    });
   });
 
   it('should not emit reasoning events when only encrypted details arrive in stream', async () => {
@@ -2214,6 +2151,7 @@ describe('doStream', () => {
         finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2332,6 +2270,7 @@ describe('doStream', () => {
         finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2593,161 +2532,6 @@ describe('doStream', () => {
     expect(finishEvent?.usage.outputTokens.total).toBeUndefined();
   });
 
-  it('should fallback usage from openrouterUsage when usage chunk has data but standard usage totals are undefined (#419)', async () => {
-    // Simulate a provider that sends usage data in the chunk but where the
-    // standard usage object ends up with undefined totals (e.g., due to
-    // non-standard chunk structure). The openrouterUsage should be used
-    // as a fallback to populate the standard usage fields.
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        // Text content chunk
-        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
-          `"logprobs":null,"finish_reason":null}]}\n\n`,
-        // Finish reason chunk
-        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"stop"}]}\n\n`,
-        // Usage chunk with valid data
-        `data: {"id":"chatcmpl-419","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
-    const elements = await convertReadableStreamToArray(stream);
-
-    const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
-        el.type === 'finish',
-    );
-
-    // Standard usage should be populated
-    expect(finishEvent?.usage.inputTokens.total).toBe(10);
-    expect(finishEvent?.usage.outputTokens.total).toBe(20);
-
-    // openrouterUsage should also be populated
-    const openrouterMeta = finishEvent?.providerMetadata?.openrouter as {
-      usage: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-      };
-    };
-    expect(openrouterMeta.usage.promptTokens).toBe(10);
-    expect(openrouterMeta.usage.completionTokens).toBe(20);
-    expect(openrouterMeta.usage.totalTokens).toBe(30);
-  });
-
-  it('should fallback usage.inputTokens.total from openrouterUsage.promptTokens when only standard total is undefined (#419)', async () => {
-    // This tests the defensive fallback: if for any reason the standard usage
-    // total fields end up undefined but openrouterUsage has valid data,
-    // the flush handler should copy values from openrouterUsage.
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        `data: {"id":"chatcmpl-419b","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419b","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},` +
-          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
-        // Usage chunk with zero tokens (valid edge case)
-        `data: {"id":"chatcmpl-419b","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419b","choices":[],"usage":{"prompt_tokens":0,"completion_tokens":0,"total_tokens":0}}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
-    const elements = await convertReadableStreamToArray(stream);
-
-    const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
-        el.type === 'finish',
-    );
-
-    // Even with zero tokens, usage totals should be numbers (not undefined)
-    expect(finishEvent?.usage.inputTokens.total).toBe(0);
-    expect(finishEvent?.usage.outputTokens.total).toBe(0);
-  });
-
-  it('should handle usage with detailed token breakdown in streaming (#419)', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        `data: {"id":"chatcmpl-419c","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet",` +
-          `"system_fingerprint":"fp_419c","choices":[{"index":0,"delta":{"role":"assistant","content":"Hello"},` +
-          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
-        `data: {"id":"chatcmpl-419c","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-3.5-sonnet",` +
-          `"system_fingerprint":"fp_419c","choices":[],"usage":{"prompt_tokens":50,"completion_tokens":30,"total_tokens":80,` +
-          `"prompt_tokens_details":{"cached_tokens":10},"completion_tokens_details":{"reasoning_tokens":5}}}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
-    const elements = await convertReadableStreamToArray(stream);
-
-    const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
-        el.type === 'finish',
-    );
-
-    // Verify detailed token breakdown is preserved
-    expect(finishEvent?.usage.inputTokens).toStrictEqual({
-      total: 50,
-      noCache: 40, // 50 - 10 cached
-      cacheRead: 10,
-      cacheWrite: undefined,
-    });
-    expect(finishEvent?.usage.outputTokens).toStrictEqual({
-      total: 30,
-      text: 25, // 30 - 5 reasoning
-      reasoning: 5,
-    });
-  });
-
-  it('should handle usage arriving in multiple chunks by using last values (#419)', async () => {
-    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419d","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},` +
-          `"logprobs":null,"finish_reason":null}]}\n\n`,
-        // First usage chunk with partial data
-        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419d","choices":[],"usage":{"prompt_tokens":5,"completion_tokens":3,"total_tokens":8}}\n\n`,
-        // Second usage chunk with updated data (should overwrite)
-        `data: {"id":"chatcmpl-419d","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5",` +
-          `"system_fingerprint":"fp_419d","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":15,"completion_tokens":10,"total_tokens":25}}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
-    const elements = await convertReadableStreamToArray(stream);
-
-    const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
-        el.type === 'finish',
-    );
-
-    // Should use the last usage values
-    expect(finishEvent?.usage.inputTokens.total).toBe(15);
-    expect(finishEvent?.usage.outputTokens.total).toBe(10);
-  });
-
   it('should stream images', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
@@ -2793,6 +2577,7 @@ describe('doStream', () => {
         finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2853,6 +2638,7 @@ describe('doStream', () => {
         finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {},
           },
         },
@@ -2895,6 +2681,7 @@ describe('doStream', () => {
       type: 'finish',
       providerMetadata: {
         openrouter: {
+          reasoning_details: [],
           usage: {},
         },
       },
