@@ -268,10 +268,15 @@ export function convertToOpenRouterChatMessages(
         // Use message-level reasoning_details if available, otherwise find from parts
         // Priority: message-level > first tool call > first reasoning part
         // This prevents duplicate thinking blocks when Claude makes parallel tool calls
+        //
+        // NOTE: treat an empty array as a meaningful signal — some providers (e.g.
+        // DeepSeek V4) return `reasoning_details: []` on turns where they produced no
+        // visible reasoning tokens, and they expect to receive that empty array back in
+        // subsequent turns to maintain the conversation state.  Falling back to
+        // `findFirstReasoningDetails` when the array exists-but-is-empty would silently
+        // drop this signal and cause those providers to error on follow-up requests.
         const candidateReasoningDetails =
-          messageReasoningDetails &&
-          Array.isArray(messageReasoningDetails) &&
-          messageReasoningDetails.length > 0
+          messageReasoningDetails && Array.isArray(messageReasoningDetails)
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
 
@@ -299,7 +304,7 @@ export function convertToOpenRouterChatMessages(
         // never registered in the tracker — otherwise a signatureless entry
         // in an earlier turn would suppress a valid signed copy in a later turn.
         let finalReasoningDetails: ReasoningDetailUnion[] | undefined;
-        if (candidateReasoningDetails && candidateReasoningDetails.length > 0) {
+        if (candidateReasoningDetails) {
           const validDetails = candidateReasoningDetails.filter((detail) => {
             if (detail.type !== ReasoningDetailType.Text) {
               return true;
@@ -339,11 +344,13 @@ export function convertToOpenRouterChatMessages(
               uniqueDetails.push(detail);
             }
           }
-          finalReasoningDetails =
-            uniqueDetails.length > 0 ? uniqueDetails : undefined;
+          // Preserve the empty-array signal: when candidateReasoningDetails existed but
+          // all entries were duplicate or signature-stripped, still emit [] so downstream
+          // providers that require the field (e.g. DeepSeek) receive it.
+          finalReasoningDetails = uniqueDetails;
         }
 
-        // Only include reasoning text if we have valid reasoning_details.
+        // Only include reasoning text if we have valid, non-empty reasoning_details.
         // When providerMetadata is lost during message serialization or
         // custom pruning (e.g., stripping providerOptions from reasoning
         // parts), or when switching between models mid-conversation,
@@ -352,8 +359,14 @@ export function convertToOpenRouterChatMessages(
         // construct thinking blocks without valid signatures, which
         // Anthropic rejects with "Invalid signature in thinking block"
         // (issue #423).
+        //
+        // Note: an empty finalReasoningDetails ([]) means the provider explicitly
+        // returned no reasoning tokens this turn — do not send reasoning text in
+        // that case either.
         const effectiveReasoning =
-          reasoning && finalReasoningDetails ? reasoning : undefined;
+          reasoning && finalReasoningDetails && finalReasoningDetails.length > 0
+            ? reasoning
+            : undefined;
 
         messages.push({
           role: 'assistant',
