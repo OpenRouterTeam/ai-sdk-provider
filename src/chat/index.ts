@@ -9,7 +9,6 @@ import type {
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
   SharedV3Headers,
-  SharedV3ProviderMetadata,
   SharedV3Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -127,12 +126,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
 
-      // standardized settings:
-      max_tokens: maxOutputTokens,
-      temperature,
-      top_p: topP,
-      frequency_penalty: frequencyPenalty,
-      presence_penalty: presencePenalty,
+      // standardized settings (call-level options override model-level settings):
+      max_tokens: maxOutputTokens ?? this.settings.maxTokens,
+      temperature: temperature ?? this.settings.temperature,
+      top_p: topP ?? this.settings.topP,
+      frequency_penalty: frequencyPenalty ?? this.settings.frequencyPenalty,
+      presence_penalty: presencePenalty ?? this.settings.presencePenalty,
       seed,
 
       stop: stopSequences,
@@ -152,7 +151,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               }
             : { type: 'json_object' }
           : undefined,
-      top_k: topK,
+      top_k: topK ?? this.settings.topK,
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
@@ -183,6 +182,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
       for (const tool of tools) {
         if (tool.type === 'function') {
+          const openrouterOptions = tool.providerOptions?.openrouter as
+            | Record<string, unknown>
+            | undefined;
+          const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
+
           mappedTools.push({
             type: 'function' as const,
             function: {
@@ -190,6 +194,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               description: tool.description,
               parameters: tool.inputSchema,
             },
+            ...(eagerInputStreaming != null && {
+              eager_input_streaming: eagerInputStreaming,
+            }),
           });
         } else if (tool.type === 'provider') {
           mappedTools.push(mapProviderTool(tool));
@@ -740,21 +747,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
             const delta = choice.delta;
 
-            const emitReasoningChunk = (
-              chunkText: string,
-              providerMetadata?: SharedV3ProviderMetadata,
-            ) => {
+            const emitReasoningChunk = (chunkText: string) => {
               if (!reasoningStarted) {
                 reasoningId = generateId();
                 controller.enqueue({
-                  providerMetadata,
                   type: 'reasoning-start',
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
-                providerMetadata,
                 type: 'reasoning-delta',
                 delta: chunkText,
                 id: reasoningId || generateId(),
@@ -796,24 +798,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               // start a new reasoning block — doing so would create duplicate
               // reasoning parts in the UIMessage.
               if (!textStarted) {
-                // Emit a snapshot of accumulated reasoning_details in providerMetadata
-                // so downstream consumers always see the full reasoning history
-                // (including signatures that arrive in later deltas).
-                const reasoningMetadata: SharedV3ProviderMetadata = {
-                  openrouter: {
-                    reasoning_details: accumulatedReasoningDetails.map((d) => ({
-                      ...d,
-                    })),
-                  },
-                };
-
                 for (const detail of delta.reasoning_details) {
                   switch (detail.type) {
                     case ReasoningDetailType.Text: {
                       // Emit even when detail.text is empty/undefined — a signature-only
                       // delta (no text, just signature) must still be emitted so that
                       // the signature propagates to the reasoning part's providerMetadata.
-                      emitReasoningChunk(detail.text || '', reasoningMetadata);
+                      emitReasoningChunk(detail.text || '');
                       break;
                     }
                     case ReasoningDetailType.Encrypted: {
@@ -825,7 +816,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     }
                     case ReasoningDetailType.Summary: {
                       if (detail.summary) {
-                        emitReasoningChunk(detail.summary, reasoningMetadata);
+                        emitReasoningChunk(detail.summary);
                       }
                       break;
                     }
@@ -1227,6 +1218,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             // Include accumulated file annotations if any were received
             if (accumulatedFileAnnotations.length > 0) {
               openrouterMetadata.annotations = accumulatedFileAnnotations;
+            }
+
+            // Fix for #419: When standard usage totals are still undefined but
+            // openrouterUsage has valid token data, copy values as a fallback.
+            // Some providers may deliver usage in a format where the standard
+            // usage fields don't get populated through computeTokenUsage().
+            if (
+              usage.inputTokens.total === undefined &&
+              openrouterUsage.promptTokens !== undefined
+            ) {
+              usage.inputTokens.total = openrouterUsage.promptTokens;
+            }
+            if (
+              usage.outputTokens.total === undefined &&
+              openrouterUsage.completionTokens !== undefined
+            ) {
+              usage.outputTokens.total = openrouterUsage.completionTokens;
             }
 
             // Set raw usage before emitting finish event
