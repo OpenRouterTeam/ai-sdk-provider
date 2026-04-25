@@ -9,6 +9,7 @@ import type {
   LanguageModelV3StreamPart,
   LanguageModelV3Usage,
   SharedV3Headers,
+  SharedV3ProviderMetadata,
   SharedV3Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
@@ -126,12 +127,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       user: this.settings.user,
       parallel_tool_calls: this.settings.parallelToolCalls,
 
-      // standardized settings (call-level options override model-level settings):
-      max_tokens: maxOutputTokens ?? this.settings.maxTokens,
-      temperature: temperature ?? this.settings.temperature,
-      top_p: topP ?? this.settings.topP,
-      frequency_penalty: frequencyPenalty ?? this.settings.frequencyPenalty,
-      presence_penalty: presencePenalty ?? this.settings.presencePenalty,
+      // standardized settings:
+      max_tokens: maxOutputTokens,
+      temperature,
+      top_p: topP,
+      frequency_penalty: frequencyPenalty,
+      presence_penalty: presencePenalty,
       seed,
 
       stop: stopSequences,
@@ -151,7 +152,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               }
             : { type: 'json_object' }
           : undefined,
-      top_k: topK ?? this.settings.topK,
+      top_k: topK,
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt),
@@ -182,11 +183,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
       for (const tool of tools) {
         if (tool.type === 'function') {
-          const openrouterOptions = tool.providerOptions?.openrouter as
-            | Record<string, unknown>
-            | undefined;
-          const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
-
           mappedTools.push({
             type: 'function' as const,
             function: {
@@ -194,9 +190,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               description: tool.description,
               parameters: tool.inputSchema,
             },
-            ...(eagerInputStreaming != null && {
-              eager_input_streaming: eagerInputStreaming,
-            }),
           });
         } else if (tool.type === 'provider') {
           mappedTools.push(mapProviderTool(tool));
@@ -747,16 +740,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
 
             const delta = choice.delta;
 
-            const emitReasoningChunk = (chunkText: string) => {
+            const emitReasoningChunk = (
+              chunkText: string,
+              providerMetadata?: SharedV3ProviderMetadata,
+            ) => {
               if (!reasoningStarted) {
                 reasoningId = generateId();
                 controller.enqueue({
+                  providerMetadata,
                   type: 'reasoning-start',
                   id: reasoningId,
                 });
                 reasoningStarted = true;
               }
               controller.enqueue({
+                providerMetadata,
                 type: 'reasoning-delta',
                 delta: chunkText,
                 id: reasoningId || generateId(),
@@ -798,13 +796,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               // start a new reasoning block — doing so would create duplicate
               // reasoning parts in the UIMessage.
               if (!textStarted) {
+                // Emit a snapshot of accumulated reasoning_details in providerMetadata
+                // so downstream consumers always see the full reasoning history
+                // (including signatures that arrive in later deltas).
+                const reasoningMetadata: SharedV3ProviderMetadata = {
+                  openrouter: {
+                    reasoning_details: accumulatedReasoningDetails.map((d) => ({
+                      ...d,
+                    })),
+                  },
+                };
+
                 for (const detail of delta.reasoning_details) {
                   switch (detail.type) {
                     case ReasoningDetailType.Text: {
                       // Emit even when detail.text is empty/undefined — a signature-only
                       // delta (no text, just signature) must still be emitted so that
                       // the signature propagates to the reasoning part's providerMetadata.
-                      emitReasoningChunk(detail.text || '');
+                      emitReasoningChunk(detail.text || '', reasoningMetadata);
                       break;
                     }
                     case ReasoningDetailType.Encrypted: {
@@ -816,7 +825,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                     }
                     case ReasoningDetailType.Summary: {
                       if (detail.summary) {
-                        emitReasoningChunk(detail.summary);
+                        emitReasoningChunk(detail.summary, reasoningMetadata);
                       }
                       break;
                     }
@@ -838,18 +847,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 controller.enqueue({
                   type: 'reasoning-end',
                   id: reasoningId || generateId(),
-                  // Include accumulated reasoning_details so the AI SDK can update
-                  // the reasoning part's providerMetadata with the correct signature.
-                  // The signature typically arrives in the last reasoning delta,
+                  // Always include accumulated reasoning_details so the AI SDK can
+                  // update the reasoning part's providerMetadata with the correct
+                  // signature.  The signature typically arrives in the last delta,
                   // but reasoning-start only carries the first delta's metadata.
-                  providerMetadata:
-                    accumulatedReasoningDetails.length > 0
-                      ? {
-                          openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
-                          },
-                        }
-                      : undefined,
+                  // An empty array is intentional — it signals the provider produced
+                  // no reasoning tokens this turn (e.g. DeepSeek V4).
+                  providerMetadata: {
+                    openrouter: {
+                      reasoning_details: accumulatedReasoningDetails,
+                    },
+                  },
                 });
                 reasoningStarted = false; // Mark as ended so we don't end it again in flush
               }
@@ -1179,16 +1187,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               controller.enqueue({
                 type: 'reasoning-end',
                 id: reasoningId || generateId(),
-                // Include accumulated reasoning_details so the AI SDK can update
-                // the reasoning part's providerMetadata with the correct signature.
-                providerMetadata:
-                  accumulatedReasoningDetails.length > 0
-                    ? {
-                        openrouter: {
-                          reasoning_details: accumulatedReasoningDetails,
-                        },
-                      }
-                    : undefined,
+                // Always include accumulated reasoning_details so the AI SDK can
+                // update the reasoning part's providerMetadata.  An empty array is
+                // intentional — it signals the provider produced no reasoning tokens.
+                providerMetadata: {
+                  openrouter: {
+                    reasoning_details: accumulatedReasoningDetails,
+                  },
+                },
               });
             }
             if (textStarted) {
@@ -1212,32 +1218,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               openrouterMetadata.provider = provider;
             }
 
-            // Include accumulated reasoning_details if any were received
-            if (accumulatedReasoningDetails.length > 0) {
-              openrouterMetadata.reasoning_details =
-                accumulatedReasoningDetails;
-            }
+            // Always include reasoning_details in finish metadata, even when empty.
+            // Some providers (e.g. DeepSeek V4) return reasoning_details: [] on turns
+            // where they produced no visible reasoning tokens, and they require the
+            // field to be sent back in subsequent turns to maintain conversation state.
+            openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
 
             // Include accumulated file annotations if any were received
             if (accumulatedFileAnnotations.length > 0) {
               openrouterMetadata.annotations = accumulatedFileAnnotations;
-            }
-
-            // Fix for #419: When standard usage totals are still undefined but
-            // openrouterUsage has valid token data, copy values as a fallback.
-            // Some providers may deliver usage in a format where the standard
-            // usage fields don't get populated through computeTokenUsage().
-            if (
-              usage.inputTokens.total === undefined &&
-              openrouterUsage.promptTokens !== undefined
-            ) {
-              usage.inputTokens.total = openrouterUsage.promptTokens;
-            }
-            if (
-              usage.outputTokens.total === undefined &&
-              openrouterUsage.completionTokens !== undefined
-            ) {
-              usage.outputTokens.total = openrouterUsage.completionTokens;
             }
 
             // Set raw usage before emitting finish event
