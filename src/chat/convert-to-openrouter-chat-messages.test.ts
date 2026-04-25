@@ -1081,6 +1081,39 @@ describe('reasoning_details accumulation', () => {
     ]);
   });
 
+  it('should preserve empty reasoning_details array from message-level providerOptions (DeepSeek V4)', () => {
+    // DeepSeek V4 returns reasoning_details: [] on turns where it produced no
+    // reasoning tokens, and expects the empty array to be sent back in subsequent
+    // turns. Without this, the conversation state breaks on follow-up requests.
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Response with no reasoning this turn',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [], // explicitly empty — NOT the same as absent
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Response with no reasoning this turn',
+        // reasoning text must be omitted (no valid details)
+        reasoning: undefined,
+        // reasoning_details must be [] (not undefined) — empty array is a meaningful signal
+        reasoning_details: [],
+      },
+    ]);
+  });
+
   it('should not include reasoning or reasoning_details when not present in providerOptions', () => {
     const result = convertToOpenRouterChatMessages([
       {
@@ -1554,10 +1587,11 @@ describe('multi-turn reasoning_details deduplication (issue #254)', () => {
       ],
     });
 
-    // Second assistant message should NOT have reasoning_details (duplicate ID)
+    // Second assistant message should have reasoning_details: [] (all entries were
+    // duplicate, but metadata was explicitly present — preserve empty array as signal)
     expect(result[2]).toMatchObject({
       role: 'assistant',
-      reasoning_details: undefined,
+      reasoning_details: [],
     });
   });
 
@@ -1694,11 +1728,12 @@ describe('multi-turn reasoning_details deduplication (issue #254)', () => {
       ],
     });
 
-    // Second assistant message should NOT have reasoning_details (duplicate)
+    // Second assistant message should have reasoning_details: [] (all entries were
+    // duplicate, but metadata was explicitly present — preserve empty array as signal)
     expect(result[2]).toMatchObject({
       role: 'assistant',
       content: 'Second response',
-      reasoning_details: undefined,
+      reasoning_details: [],
     });
   });
 
@@ -1894,13 +1929,15 @@ describe('issue #423: strip reasoning without valid signatures', () => {
       },
     ]);
 
-    // reasoning.text without signature should be stripped, and since no
-    // valid reasoning_details remain, reasoning text should also be stripped
+    // reasoning.text without signature should be stripped. reasoning_details is []
+    // (not undefined) because the metadata was explicitly present — the empty array
+    // preserves the signal that this provider uses reasoning_details even when empty.
+    // reasoning text is still omitted (no valid details to pair with).
     expect(result[0]).toMatchObject({
       role: 'assistant',
       content: 'The answer is 4.',
       reasoning: undefined,
-      reasoning_details: undefined,
+      reasoning_details: [],
     });
   });
 
@@ -1930,11 +1967,13 @@ describe('issue #423: strip reasoning without valid signatures', () => {
       },
     ]);
 
+    // reasoning_details is [] (not undefined): metadata was explicitly present, all
+    // entries had null signature and were stripped — preserve empty array as signal.
     expect(result[0]).toMatchObject({
       role: 'assistant',
       content: 'Done.',
       reasoning: undefined,
-      reasoning_details: undefined,
+      reasoning_details: [],
     });
   });
 
