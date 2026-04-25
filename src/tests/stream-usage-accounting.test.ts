@@ -171,9 +171,11 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     const finishChunk = chunks.find((chunk) => chunk.type === 'finish');
     expect(finishChunk).toBeDefined();
 
-    // Verify that provider metadata is not included
+    // Verify that provider metadata is as expected.
+    // reasoning_details is always present ([] when no reasoning was received).
     expect(finishChunk?.providerMetadata?.openrouter).toStrictEqual({
       usage: {},
+      reasoning_details: [],
     });
   });
 
