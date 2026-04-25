@@ -103,9 +103,9 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // reasoning_details and reasoning should both be stripped
-    // because the only reasoning.text entry has no signature
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // reasoning_details is [] (not undefined): metadata was present but all entries
+    // lacked signatures and were stripped. reasoning text is still omitted.
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -143,7 +143,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // [] not undefined: metadata was present, all entries had null signature → stripped
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -286,8 +287,9 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
     // Gemini reasoning.text is always stripped to prevent
-    // "Corrupted thought signature" errors on roundtrip
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // "Corrupted thought signature" errors on roundtrip.
+    // [] not undefined: metadata was present, entry stripped → preserve empty array.
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -459,8 +461,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // Both entries should be stripped — neither has a valid signature
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // Both entries stripped (neither has valid signature) → [] not undefined.
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -548,8 +550,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // Should be stripped — defaults to Anthropic format which requires signature
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // Defaults to Anthropic format which requires signature → stripped → [] not undefined
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -587,8 +589,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // Empty string signature is invalid — should be stripped
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // Empty string signature is invalid → stripped → [] not undefined
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
@@ -624,7 +626,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    expect(assistantMsg!.reasoning_details).toBeUndefined();
+    // [] not undefined: message-level metadata was present, all entries stripped
+    expect(assistantMsg!.reasoning_details).toEqual([]);
     expect(assistantMsg!.reasoning).toBeUndefined();
   });
 
