@@ -838,18 +838,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 controller.enqueue({
                   type: 'reasoning-end',
                   id: reasoningId || generateId(),
-                  // Include accumulated reasoning_details so the AI SDK can update
-                  // the reasoning part's providerMetadata with the correct signature.
-                  // The signature typically arrives in the last reasoning delta,
+                  // Always include accumulated reasoning_details so the AI SDK can
+                  // update the reasoning part's providerMetadata with the correct
+                  // signature.  The signature typically arrives in the last delta,
                   // but reasoning-start only carries the first delta's metadata.
-                  providerMetadata:
-                    accumulatedReasoningDetails.length > 0
-                      ? {
-                          openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
-                          },
-                        }
-                      : undefined,
+                  // An empty array is intentional — it signals the provider produced
+                  // no reasoning tokens this turn (e.g. DeepSeek V4).
+                  providerMetadata: {
+                    openrouter: {
+                      reasoning_details: accumulatedReasoningDetails,
+                    },
+                  },
                 });
                 reasoningStarted = false; // Mark as ended so we don't end it again in flush
               }
@@ -1179,16 +1178,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               controller.enqueue({
                 type: 'reasoning-end',
                 id: reasoningId || generateId(),
-                // Include accumulated reasoning_details so the AI SDK can update
-                // the reasoning part's providerMetadata with the correct signature.
-                providerMetadata:
-                  accumulatedReasoningDetails.length > 0
-                    ? {
-                        openrouter: {
-                          reasoning_details: accumulatedReasoningDetails,
-                        },
-                      }
-                    : undefined,
+                // Always include accumulated reasoning_details so the AI SDK can
+                // update the reasoning part's providerMetadata.  An empty array is
+                // intentional — it signals the provider produced no reasoning tokens.
+                providerMetadata: {
+                  openrouter: {
+                    reasoning_details: accumulatedReasoningDetails,
+                  },
+                },
               });
             }
             if (textStarted) {
@@ -1212,11 +1209,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               openrouterMetadata.provider = provider;
             }
 
-            // Include accumulated reasoning_details if any were received
-            if (accumulatedReasoningDetails.length > 0) {
-              openrouterMetadata.reasoning_details =
-                accumulatedReasoningDetails;
-            }
+            // Always include reasoning_details in finish metadata, even when empty.
+            // Some providers (e.g. DeepSeek V4) return reasoning_details: [] on turns
+            // where they produced no visible reasoning tokens, and they require the
+            // field to be sent back in subsequent turns to maintain conversation state.
+            openrouterMetadata.reasoning_details = accumulatedReasoningDetails;
 
             // Include accumulated file annotations if any were received
             if (accumulatedFileAnnotations.length > 0) {

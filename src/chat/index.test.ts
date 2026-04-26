@@ -1556,6 +1556,7 @@ describe('doStream', () => {
 
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 227,
               promptTokens: 17,
@@ -2214,6 +2215,7 @@ describe('doStream', () => {
         finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2332,6 +2334,7 @@ describe('doStream', () => {
         finishReason: { unified: 'tool-calls', raw: 'tool_calls' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2793,6 +2796,7 @@ describe('doStream', () => {
         finishReason: { unified: 'stop', raw: 'stop' },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {
               completionTokens: 17,
               promptTokens: 53,
@@ -2853,6 +2857,7 @@ describe('doStream', () => {
         finishReason: { unified: 'error', raw: undefined },
         providerMetadata: {
           openrouter: {
+            reasoning_details: [],
             usage: {},
           },
         },
@@ -2895,6 +2900,7 @@ describe('doStream', () => {
       type: 'finish',
       providerMetadata: {
         openrouter: {
+          reasoning_details: [],
           usage: {},
         },
       },
