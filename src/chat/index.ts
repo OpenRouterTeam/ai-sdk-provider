@@ -1047,8 +1047,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                   delta: toolCallDelta.function.arguments ?? '',
                 });
 
-                // check if tool call is complete
+                // check if tool call is complete. Skip if already sent so
+                // that trailing-whitespace or other no-op deltas after a
+                // complete tool call don't trigger a duplicate `tool-call`
+                // event with the same toolCallId. JSON.parse accepts trailing
+                // whitespace, so `'{...}'` and `'{...} '` are both parsable
+                // and the merge path would otherwise re-emit on each chunk.
                 if (
+                  !toolCall.sent &&
                   toolCall.function?.name != null &&
                   toolCall.function?.arguments != null &&
                   isParsableJson(toolCall.function.arguments)

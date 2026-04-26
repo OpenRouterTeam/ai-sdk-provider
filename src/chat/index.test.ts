@@ -4667,6 +4667,73 @@ describe('includeRawChunks', () => {
     ]);
   });
 
+  it('should emit only one tool-call when a trailing whitespace delta arrives after a complete tool call', async () => {
+    // Reproduces a duplicate-emission bug where the streaming merge path
+    // re-emits `tool-call` for any subsequent argument delta whose
+    // concatenation is still parsable JSON. JSON.parse accepts trailing
+    // whitespace, so a stray space/newline chunk after a complete tool call
+    // would otherwise produce a second `tool-call` event with the same
+    // toolCallId. Observed in production with moonshotai/kimi-k2.6.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // First chunk: complete tool call with parsable JSON arguments.
+        `data: {"id":"chatcmpl-dup","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.6",` +
+          `"system_fingerprint":"fp_dup","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"functions.send:0","type":"function","function":{"name":"send","arguments":"{\\"hello\\":\\"world\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Second chunk: trailing whitespace delta for the same tool call
+        // index. The accumulated arguments remain parsable JSON, but the
+        // tool call has already been emitted and must NOT be re-emitted.
+        `data: {"id":"chatcmpl-dup","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.6",` +
+          `"system_fingerprint":"fp_dup","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":" "}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Finish.
+        `data: {"id":"chatcmpl-dup","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.6",` +
+          `"system_fingerprint":"fp_dup","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-dup","object":"chat.completion.chunk","created":1711357598,"model":"moonshotai/kimi-k2.6",` +
+          `"system_fingerprint":"fp_dup","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'send',
+          inputSchema: {
+            type: 'object',
+            properties: { hello: { type: 'string' } },
+            required: ['hello'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolCallEvents = elements.filter(
+      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+        el.type === 'tool-call',
+    );
+
+    // Exactly one `tool-call` event must be emitted, even though the
+    // accumulated arguments are still parsable JSON after the trailing
+    // whitespace delta.
+    expect(toolCallEvents).toHaveLength(1);
+    expect(toolCallEvents[0]).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 'functions.send:0',
+      toolName: 'send',
+      input: '{"hello":"world"}',
+    });
+  });
+
   it('should emit tool-input-start, tool-input-delta, and tool-input-end in flush path for unsent tool calls', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
