@@ -1,6 +1,6 @@
 {
   "name": "@openrouter/ai-sdk-provider",
-  "version": "2.8.1",
+  "version": "2.9.0",
   "license": "Apache-2.0",
   "pnpm": {
     "overrides": {

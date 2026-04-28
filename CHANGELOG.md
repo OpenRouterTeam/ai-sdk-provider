@@ -1,5 +1,39 @@
 # @openrouter/ai-sdk-provider
 
+## 2.9.0
+
+### Minor Changes
+
+- [#486](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/486) [`82e8014`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/82e8014d2f82325db64e5eb6bf99a0cf781dafef) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add `structuredOutputs.strict` setting to opt out of `response_format.json_schema.strict` (issue #483).
+
+  Previously the SDK hardcoded `strict: true` whenever a JSON schema response format was used, which made it impossible to route requests to providers that don't advertise support for strict json_schema. Models like `moonshotai/kimi-k2.6` (routed through Parasail/Venice/Io Net) returned HTTP 404 "No endpoints available matching your guardrail restrictions and data policy" because the strict flag eliminated every eligible endpoint.
+
+  Users can now opt out per-model:
+
+  ```ts
+  const model = openrouter.chat("moonshotai/kimi-k2.6", {
+    structuredOutputs: { strict: false },
+  });
+  ```
+
+  The default remains `strict: true` for backward compatibility.
+
+### Patch Changes
+
+- [#485](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/485) [`bf664b1`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/bf664b188e773cbe78c12a3f674062e2f6d86082) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Fix `supportedUrls['image/*']` regex to accept image URLs with query strings or fragments (e.g. `https://cdn.example.com/photo.png?height=200`, `.../photo.webp#frag`). Previously the `$` anchor on the extension caused such URLs to be treated as unsupported, forcing the AI SDK runtime to download and base64-inline them, which bloated conversation history and inflated token usage.
+
+- [#489](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/489) [`bb2d4cb`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/bb2d4cb254c1d69dbafd615aba96ff28b2b4261f) Thanks [@0age](https://github.com/0age)! - fix: stop emitting duplicate `tool-call` events when a trailing-whitespace argument delta arrives after a complete tool call
+
+  In the streaming chat handler, the merge-into-existing-tool-call path enqueues a `tool-call` stream event whenever the accumulated `function.arguments` is parsable JSON. Because `JSON.parse` accepts trailing whitespace, any subsequent argument delta for the same tool-call `index` (e.g. a stray space, newline, or closing-token chunk) leaves the arguments parsable and would re-trigger the emit, producing a second `tool-call` event with the same `toolCallId`. Downstream tool runners (e.g. Vercel AI SDK `streamText`) then execute the tool twice. Observed in production with `moonshotai/kimi-k2.6` via OpenRouter, where the user-visible effect was every outbound message being delivered twice.
+
+  **`src/chat/index.ts`:**
+
+  - Merge-path `tool-call` emit is now gated on `!toolCall.sent`, mirroring the new-path behavior. The `sent` flag was already being set after the first emit but was never read on this path.
+
+  **`src/chat/index.test.ts`:**
+
+  - Adds a regression test that streams a complete tool call followed by a trailing-whitespace-only argument delta for the same `index` and asserts exactly one `tool-call` event is emitted.
+
 ## 2.8.1
 
 ### Patch Changes
