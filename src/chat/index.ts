@@ -142,7 +142,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 type: 'json_schema',
                 json_schema: {
                   schema: responseFormat.schema,
-                  strict: true,
+                  strict: this.settings.structuredOutputs?.strict ?? true,
                   name: responseFormat.name ?? 'response',
                   ...(responseFormat.description && {
                     description: responseFormat.description,
