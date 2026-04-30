@@ -98,6 +98,57 @@ OpenRouter supports various embedding models including:
 - `openai/text-embedding-ada-002`
 - And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
 
+## Reranking
+
+OpenRouter supports reranking models for relevance scoring, search result ordering, and RAG pipeline optimization.
+
+### Basic Usage
+
+```ts
+import { rerank } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { rerankedDocuments } = await rerank({
+  model: openrouter.rerankingModel('cohere/rerank-v3.5'),
+  query: 'What is the capital of France?',
+  documents: [
+    'Berlin is the capital of Germany.',
+    'Paris is the capital of France.',
+    'Madrid is the capital of Spain.',
+  ],
+});
+
+console.log(rerankedDocuments); // ['Paris is the capital of France.', ...]
+```
+
+### Limiting Results with topN
+
+```ts
+import { rerank } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { rerankedDocuments } = await rerank({
+  model: openrouter.rerankingModel('cohere/rerank-v3.5'),
+  query: 'Famous landmarks in Paris',
+  documents: [
+    'The Eiffel Tower is in Paris.',
+    'The Colosseum is in Rome.',
+    'The Sagrada Familia is in Barcelona.',
+    'Big Ben is in London.',
+  ],
+  topN: 2,
+});
+
+console.log(rerankedDocuments); // Top 2 most relevant documents
+```
+
+### Supported Reranking Models
+
+OpenRouter supports various reranking models including:
+
+- `cohere/rerank-v3.5`
+- And more available on [OpenRouter](https://openrouter.ai/models)
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:

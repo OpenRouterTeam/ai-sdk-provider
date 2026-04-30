@@ -18,6 +18,10 @@ import type {
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
 import type {
+  OpenRouterRerankModelId,
+  OpenRouterRerankSettings,
+} from './types/openrouter-rerank-settings';
+import type {
   OpenRouterVideoModelId,
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
@@ -27,6 +31,7 @@ import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
 import { OpenRouterImageModel } from './image';
+import { OpenRouterRerankingModel } from './rerank';
 import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
@@ -114,6 +119,22 @@ Creates an OpenRouter video model for video generation.
     modelId: OpenRouterVideoModelId,
     settings?: OpenRouterVideoSettings,
   ): OpenRouterVideoModel;
+
+  /**
+Creates an OpenRouter reranking model.
+   */
+  rerankingModel(
+    modelId: OpenRouterRerankModelId,
+    settings?: OpenRouterRerankSettings,
+  ): OpenRouterRerankingModel;
+
+  /**
+Creates an OpenRouter reranking model. Alias for rerankingModel.
+   */
+  reranking(
+    modelId: OpenRouterRerankModelId,
+    settings?: OpenRouterRerankSettings,
+  ): OpenRouterRerankingModel;
 
   /**
    * Provider-defined tools for OpenRouter server tools.
@@ -280,6 +301,17 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createRerankingModel = (
+    modelId: OpenRouterRerankModelId,
+    settings: OpenRouterRerankSettings = {},
+  ) =>
+    new OpenRouterRerankingModel(modelId, settings, {
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
@@ -312,6 +344,8 @@ export function createOpenRouter(
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
   provider.videoModel = createVideoModel;
+  provider.rerankingModel = createRerankingModel;
+  provider.reranking = createRerankingModel;
   provider.tools = {
     webSearch: webSearch,
   };
