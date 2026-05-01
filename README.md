@@ -147,7 +147,7 @@ console.log(rerankedDocuments); // Top 2 most relevant documents
 OpenRouter supports various reranking models including:
 
 - `cohere/rerank-v3.5`
-- And more available on [OpenRouter](https://openrouter.ai/models)
+- And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=rerank)
 
 ## Passing Extra Body to OpenRouter
 
