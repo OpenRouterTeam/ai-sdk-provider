@@ -357,7 +357,7 @@ export function convertToOpenRouterChatMessages(
 
         messages.push({
           role: 'assistant',
-          content: text,
+          content: text || null,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
