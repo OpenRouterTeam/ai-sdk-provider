@@ -2831,6 +2831,105 @@ describe('tool messages', () => {
   });
 });
 
+describe('assistant message content for tool-only turns', () => {
+  it('should send content as null when assistant turn has only tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"location":"San Francisco"}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should preserve text content when assistant turn has both text and tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me check the weather.' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'SF' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: 'Let me check the weather.',
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"location":"SF"}',
+          },
+        },
+      ],
+    });
+  });
+
+  it('should send content as null when assistant turn has multiple tool calls and no text', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'SF' },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: { timezone: 'PST' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        expect.objectContaining({ id: 'call-1' }),
+        expect.objectContaining({ id: 'call-2' }),
+      ],
+    });
+  });
+});
+
 describe('deterministic tool call argument serialization', () => {
   it('should produce identical serialized arguments regardless of key insertion order', () => {
     // Simulate the same tool call arguments with different key insertion orders,
@@ -2877,7 +2976,7 @@ describe('deterministic tool call argument serialization', () => {
     expect(resultA).toEqual([
       {
         role: 'assistant',
-        content: '',
+        content: null,
         tool_calls: [
           {
             id: 'call-1',
