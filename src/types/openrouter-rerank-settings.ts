@@ -1,6 +1,10 @@
 import type { OpenRouterSharedSettings } from '.';
 
-export type OpenRouterRerankModelId = 'cohere/rerank-v3.5' | 'cohere/rerank-4-fast' | 'cohere/rerank-4-pro' | (string & {});
+export type OpenRouterRerankModelId =
+  | 'cohere/rerank-v3.5'
+  | 'cohere/rerank-4-fast'
+  | 'cohere/rerank-4-pro'
+  | (string & {});
 
 /**
  * Provider-specific options for OpenRouter reranking models.
