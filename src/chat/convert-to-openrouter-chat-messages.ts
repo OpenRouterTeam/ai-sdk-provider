@@ -42,6 +42,21 @@ function getCacheControl(
     anthropic?.cache_control) as OpenRouterCacheControl | undefined;
 }
 
+function getImageDetail(
+  providerMetadata: SharedV3ProviderMetadata | undefined,
+): 'auto' | 'low' | 'high' | undefined {
+  const openrouterImageDetail = providerMetadata?.openrouter?.imageDetail;
+  const openaiImageDetail = providerMetadata?.openai?.imageDetail;
+  const detail =
+    openrouterImageDetail ??
+    openaiImageDetail ??
+    providerMetadata?.openrouter?.detail;
+
+  return detail === 'auto' || detail === 'low' || detail === 'high'
+    ? detail
+    : undefined;
+}
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV3Prompt,
 ): OpenRouterChatCompletionsInput {
@@ -129,10 +144,14 @@ export function convertToOpenRouterChatMessages(
                     part,
                     defaultMediaType: 'image/jpeg',
                   });
+                  const detail =
+                    getImageDetail(part.providerOptions) ??
+                    getImageDetail(providerOptions);
                   return {
                     type: 'image_url' as const,
                     image_url: {
                       url,
+                      ...(detail && { detail }),
                     },
                     ...(cacheControl && { cache_control: cacheControl }),
                   };
