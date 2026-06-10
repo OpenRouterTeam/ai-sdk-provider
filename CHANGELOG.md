@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 2.9.1
+
+### Patch Changes
+
+- [#506](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/506) [`e9cff3a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/e9cff3a79d262088bc4c6a29a9dd5cb0fc6de763) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Send `content: null` instead of `content: ""` for assistant messages that contain only tool calls. Fixes AWS Bedrock Nova rejecting requests with "The text field in the ContentBlock object is blank."
+
 ## 2.9.0
 
 ### Minor Changes
