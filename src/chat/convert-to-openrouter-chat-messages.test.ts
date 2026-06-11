@@ -2876,6 +2876,101 @@ describe('tool messages', () => {
   });
 });
 
+describe('tool-only assistant messages send null content (issue #443)', () => {
+  it('should send content: null for assistant messages with only tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      role: 'assistant',
+      content: null,
+      tool_calls: [
+        {
+          id: 'call-1',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: expect.any(String),
+          },
+        },
+      ],
+    });
+  });
+
+  it('should send content: null for assistant messages with multiple tool calls and no text', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'SF' },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-2',
+            toolName: 'get_time',
+            input: {},
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.content).toBeNull();
+    const msg = result[0] as { tool_calls?: unknown[] };
+    expect(msg.tool_calls).toHaveLength(2);
+  });
+
+  it('should preserve text content when assistant message has both text and tool calls', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me check the weather.' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get_weather',
+            input: { location: 'San Francisco' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.content).toBe('Let me check the weather.');
+    const msg = result[0] as { tool_calls?: unknown[] };
+    expect(msg.tool_calls).toHaveLength(1);
+  });
+
+  it('should preserve text content for text-only assistant messages', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Hello!' }],
+      },
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.content).toBe('Hello!');
+  });
+});
+
 describe('deterministic tool call argument serialization', () => {
   it('should produce identical serialized arguments regardless of key insertion order', () => {
     // Simulate the same tool call arguments with different key insertion orders,
@@ -2922,7 +3017,7 @@ describe('deterministic tool call argument serialization', () => {
     expect(resultA).toEqual([
       {
         role: 'assistant',
-        content: '',
+        content: null,
         tool_calls: [
           {
             id: 'call-1',
