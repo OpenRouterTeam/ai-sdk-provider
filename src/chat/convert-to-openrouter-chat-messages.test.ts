@@ -1114,6 +1114,53 @@ describe('reasoning_details accumulation', () => {
     ]);
   });
 
+  it('should include reasoning_content for DeepSeek tool-call turns with empty reasoning_details', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Need to call the time tool.',
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_time',
+            toolName: 'get_time',
+            input: { city: 'London' },
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            reasoning_details: [],
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: null,
+        annotations: undefined,
+        cache_control: undefined,
+        tool_calls: [
+          {
+            id: 'call_time',
+            type: 'function',
+            function: {
+              name: 'get_time',
+              arguments: '{"city":"London"}',
+            },
+          },
+        ],
+        reasoning: undefined,
+        reasoning_content: 'Need to call the time tool.',
+        reasoning_details: [],
+      },
+    ]);
+  });
+
   it('should not include reasoning or reasoning_details when not present in providerOptions', () => {
     const result = convertToOpenRouterChatMessages([
       {

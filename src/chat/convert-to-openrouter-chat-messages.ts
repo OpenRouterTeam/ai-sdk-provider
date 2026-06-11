@@ -261,6 +261,9 @@ export function convertToOpenRouterChatMessages(
         const messageReasoningDetails = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.reasoning_details
           : undefined;
+        const messageReasoningContent = parsedProviderOptions.success
+          ? parsedProviderOptions.data?.openrouter?.reasoning_content
+          : undefined;
         const messageAnnotations = parsedProviderOptions.success
           ? parsedProviderOptions.data?.openrouter?.annotations
           : undefined;
@@ -367,12 +370,21 @@ export function convertToOpenRouterChatMessages(
           reasoning && finalReasoningDetails && finalReasoningDetails.length > 0
             ? reasoning
             : undefined;
+        const effectiveReasoningContent =
+          messageReasoningContent ??
+          findFirstReasoningContent(content) ??
+          (toolCalls.length > 0 &&
+          candidateReasoningDetails &&
+          candidateReasoningDetails.length === 0
+            ? reasoning || ''
+            : undefined);
 
         messages.push({
           role: 'assistant',
           content: text || null,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: effectiveReasoning,
+          reasoning_content: effectiveReasoningContent,
           reasoning_details: finalReasoningDetails,
           annotations: messageAnnotations,
           cache_control: getCacheControl(providerOptions),
@@ -610,6 +622,34 @@ function findFirstReasoningDetails(
         parsed.data.openrouter.reasoning_details.length > 0
       ) {
         return parsed.data.openrouter.reasoning_details;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function findFirstReasoningContent(
+  content: Array<{
+    type: string;
+    providerOptions?: Record<string, unknown>;
+  }>,
+): string | undefined {
+  for (const partType of ['tool-call', 'reasoning']) {
+    for (const part of content) {
+      if (part.type !== partType) {
+        continue;
+      }
+
+      const parsed = OpenRouterProviderOptionsSchema.safeParse(
+        part.providerOptions,
+      );
+      const reasoningContent = parsed.success
+        ? parsed.data?.openrouter?.reasoning_content
+        : undefined;
+
+      if (reasoningContent != null) {
+        return reasoningContent;
       }
     }
   }
