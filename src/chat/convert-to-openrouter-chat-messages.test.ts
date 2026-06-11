@@ -585,6 +585,111 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should pass image detail from OpenRouter image part provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: new Uint8Array([0, 1, 2, 3]),
+            mediaType: 'image/png',
+            providerOptions: {
+              openrouter: {
+                imageDetail: 'low',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'data:image/png;base64,AAECAw==',
+              detail: 'low',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass image detail from OpenAI-compatible image part provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'https://example.com/image.png',
+            mediaType: 'image/png',
+            providerOptions: {
+              openai: {
+                imageDetail: 'high',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://example.com/image.png',
+              detail: 'high',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should use message-level image detail when the image part has no override', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: 'https://example.com/image.png',
+            mediaType: 'image/png',
+          },
+        ],
+        providerOptions: {
+          openrouter: {
+            imageDetail: 'auto',
+          },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://example.com/image.png',
+              detail: 'auto',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should pass cache control to file parts from user message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
       {

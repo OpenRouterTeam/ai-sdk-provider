@@ -164,6 +164,40 @@ There are 3 ways to pass extra body to OpenRouter:
    });
    ```
 
+### Passing Image Detail
+
+For vision requests, pass the OpenAI-compatible `imageDetail` option on the
+image file part. The provider forwards it as `image_url.detail`:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+
+await streamText({
+  model: openrouter('openai/gpt-4o-mini'),
+  messages: [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'What is in this image?' },
+        {
+          type: 'file',
+          data: 'https://example.com/image.png',
+          mediaType: 'image/png',
+          providerOptions: {
+            openrouter: {
+              imageDetail: 'low',
+            },
+          },
+        },
+      ],
+    },
+  ],
+});
+```
+
 ## Anthropic Prompt Caching
 
 You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
