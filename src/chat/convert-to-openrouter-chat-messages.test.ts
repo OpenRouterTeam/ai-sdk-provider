@@ -1141,7 +1141,9 @@ describe('reasoning_details accumulation', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: '',
+        content: null,
+        annotations: undefined,
+        cache_control: undefined,
         tool_calls: [
           {
             id: 'call_time',
