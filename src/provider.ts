@@ -18,6 +18,10 @@ import type {
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
 import type {
+  OpenRouterRerankingModelId,
+  OpenRouterRerankingSettings,
+} from './types/openrouter-reranking-settings';
+import type {
   OpenRouterVideoModelId,
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
@@ -27,6 +31,7 @@ import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
 import { OpenRouterImageModel } from './image';
+import { OpenRouterRerankingModel } from './reranking';
 import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
@@ -114,6 +119,14 @@ Creates an OpenRouter video model for video generation.
     modelId: OpenRouterVideoModelId,
     settings?: OpenRouterVideoSettings,
   ): OpenRouterVideoModel;
+
+  /**
+Creates an OpenRouter reranking model.
+   */
+  rerankingModel(
+    modelId: OpenRouterRerankingModelId,
+    settings?: OpenRouterRerankingSettings,
+  ): OpenRouterRerankingModel;
 
   /**
    * Provider-defined tools for OpenRouter server tools.
@@ -280,6 +293,18 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createRerankingModel = (
+    modelId: OpenRouterRerankingModelId,
+    settings: OpenRouterRerankingSettings = {},
+  ) =>
+    new OpenRouterRerankingModel(modelId, settings, {
+      provider: 'openrouter.reranking',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
@@ -312,6 +337,7 @@ export function createOpenRouter(
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
   provider.videoModel = createVideoModel;
+  provider.rerankingModel = createRerankingModel;
   provider.tools = {
     webSearch: webSearch,
   };
