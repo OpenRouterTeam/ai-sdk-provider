@@ -91,5 +91,57 @@ describe('OpenRouterRerankingModel', () => {
         (result.providerMetadata?.openrouter as { provider?: string }).provider,
       ).toBe('cohere');
     });
+
+    it('should pass object documents to the reranking endpoint', async () => {
+      let capturedRequest: Record<string, unknown> | undefined;
+
+      const mockFetch = async (
+        _url: URL | RequestInfo,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        capturedRequest = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({
+            id: 'rerank-object-test-id',
+            model: 'cohere/rerank-v3.5',
+            results: [{ index: 0, relevance_score: 0.91 }],
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-api-key',
+        fetch: mockFetch,
+      });
+      const model = provider.rerankingModel('cohere/rerank-v3.5');
+
+      const documents = [
+        { title: 'Paris', body: 'Paris is the capital of France.' },
+        { title: 'Berlin', body: 'Berlin is the capital of Germany.' },
+      ];
+
+      const result = await model.doRerank({
+        query: 'capital of France',
+        documents: {
+          type: 'object',
+          values: documents,
+        },
+        topN: 1,
+      });
+
+      expect(capturedRequest).toMatchObject({
+        model: 'cohere/rerank-v3.5',
+        query: 'capital of France',
+        documents,
+        top_n: 1,
+      });
+      expect(result.ranking).toEqual([{ index: 0, relevanceScore: 0.91 }]);
+    });
   });
 });
