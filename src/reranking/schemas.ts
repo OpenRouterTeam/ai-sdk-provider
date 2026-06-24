@@ -4,6 +4,7 @@ export const OpenRouterRerankingResponseSchema = z
   .object({
     id: z.string().optional(),
     model: z.string().optional(),
+    provider: z.string().optional(),
     results: z.array(
       z
         .object({

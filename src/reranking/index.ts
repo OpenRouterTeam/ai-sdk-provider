@@ -87,7 +87,7 @@ export class OpenRouterRerankingModel implements RerankingModelV3 {
       })),
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
-          provider: '',
+          provider: responseValue.provider ?? '',
           usage: {
             promptTokens: responseValue.usage?.prompt_tokens ?? 0,
             completionTokens: 0,

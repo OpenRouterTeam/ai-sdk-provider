@@ -35,6 +35,7 @@ describe('OpenRouterRerankingModel', () => {
           JSON.stringify({
             id: 'rerank-test-id',
             model: 'cohere/rerank-v3.5',
+            provider: 'cohere',
             results: [
               { index: 1, relevance_score: 0.98 },
               { index: 0, relevance_score: 0.12 },
@@ -86,6 +87,9 @@ describe('OpenRouterRerankingModel', () => {
         (result.providerMetadata?.openrouter as { usage?: { cost?: number } })
           ?.usage?.cost,
       ).toBe(0.00002);
+      expect(
+        (result.providerMetadata?.openrouter as { provider?: string }).provider,
+      ).toBe('cohere');
     });
   });
 });
