@@ -13,7 +13,7 @@ importers:
   .:
     dependencies:
       zod:
-        specifier: ^3.25.0 || ^4.0.0
+        specifier: ^3.25.76 || ^4.1.8
         version: 4.3.5
     devDependencies:
       '@ai-sdk/provider':
