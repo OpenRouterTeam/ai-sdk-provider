@@ -12,7 +12,7 @@ describe('user messages', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'image/png',
           },
         ],
@@ -41,7 +41,10 @@ describe('user messages', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: 'https://example.com/image.png',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/image.png'),
+            },
             mediaType: 'image/png',
           },
         ],
@@ -70,7 +73,7 @@ describe('user messages', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: 'data:image/png;base64,AAECAw==',
+            data: { type: 'data', data: 'data:image/png;base64,AAECAw==' },
             mediaType: 'image/png',
           },
         ],
@@ -114,7 +117,7 @@ describe('user messages', () => {
         content: [
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType,
           },
         ],
@@ -144,7 +147,7 @@ describe('user messages', () => {
         content: [
           {
             type: 'file',
-            data: 'data:audio/mpeg;base64,AAECAw==',
+            data: { type: 'data', data: 'data:audio/mpeg;base64,AAECAw==' },
             mediaType: 'audio/mpeg',
           },
         ],
@@ -174,7 +177,7 @@ describe('user messages', () => {
         content: [
           {
             type: 'file',
-            data: 'AAECAw==',
+            data: { type: 'data', data: 'AAECAw==' },
             mediaType: 'audio/mpeg',
           },
         ],
@@ -205,7 +208,10 @@ describe('user messages', () => {
           content: [
             {
               type: 'file',
-              data: 'https://example.com/audio.mp3',
+              data: {
+                type: 'url',
+                url: new URL('https://example.com/audio.mp3'),
+              },
               mediaType: 'audio/mpeg',
             },
           ],
@@ -222,7 +228,10 @@ describe('user messages', () => {
           { type: 'text', text: 'Describe this video' },
           {
             type: 'file',
-            data: 'https://example.com/video.mp4',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/video.mp4'),
+            },
             mediaType: 'video/mp4',
           },
         ],
@@ -251,7 +260,7 @@ describe('user messages', () => {
           { type: 'text', text: 'What is in this video?' },
           {
             type: 'file',
-            data: 'data:video/mp4;base64,AAECAw==',
+            data: { type: 'data', data: 'data:video/mp4;base64,AAECAw==' },
             mediaType: 'video/mp4',
           },
         ],
@@ -279,7 +288,7 @@ describe('user messages', () => {
         content: [
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'video/webm',
           },
         ],
@@ -311,7 +320,7 @@ describe('user messages', () => {
         content: [
           {
             type: 'file',
-            data: 'https://example.com/sample',
+            data: { type: 'url', url: new URL('https://example.com/sample') },
             mediaType,
           },
         ],
@@ -339,7 +348,7 @@ describe('user messages', () => {
           content: [
             {
               type: 'file',
-              data: new Uint8Array([0, 1, 2, 3]),
+              data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
               mediaType: 'audio/webm',
             },
           ],
@@ -492,7 +501,7 @@ describe('cache control', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'image/png',
           },
         ],
@@ -546,12 +555,12 @@ describe('cache control', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'image/png',
           },
           {
             type: 'file',
-            data: new Uint8Array([4, 5, 6, 7]),
+            data: { type: 'data', data: new Uint8Array([4, 5, 6, 7]) },
             mediaType: 'image/jpeg',
           },
         ],
@@ -593,7 +602,7 @@ describe('cache control', () => {
           { type: 'text', text: 'Hello' },
           {
             type: 'file',
-            data: 'ZmlsZSBjb250ZW50',
+            data: { type: 'data', data: 'ZmlsZSBjb250ZW50' },
             mediaType: 'text/plain',
             providerOptions: {
               openrouter: {
@@ -643,7 +652,7 @@ describe('cache control', () => {
           },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'image/png',
             providerOptions: {
               anthropic: {
@@ -653,7 +662,7 @@ describe('cache control', () => {
           },
           {
             type: 'file',
-            data: 'ZmlsZSBjb250ZW50',
+            data: { type: 'data', data: 'ZmlsZSBjb250ZW50' },
             mediaType: 'text/plain',
             providerOptions: {
               openrouter: {
@@ -752,7 +761,7 @@ describe('cache control', () => {
           },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'image/png',
           },
         ],
@@ -913,7 +922,7 @@ describe('cache control', () => {
           { type: 'text', text: 'Listen to this' },
           {
             type: 'file',
-            data: new Uint8Array([0, 1, 2, 3]),
+            data: { type: 'data', data: new Uint8Array([0, 1, 2, 3]) },
             mediaType: 'audio/mpeg',
           },
         ],
@@ -2225,8 +2234,11 @@ describe('multimodal tool result content (issue #181)', () => {
                   text: 'Here is the screenshot:',
                 },
                 {
-                  type: 'image-data',
-                  data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  type: 'file',
+                  data: {
+                    type: 'data',
+                    data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  },
                   mediaType: 'image/png',
                 },
               ],
@@ -2272,8 +2284,12 @@ describe('multimodal tool result content (issue #181)', () => {
                   text: 'Generated image:',
                 },
                 {
-                  type: 'image-url',
-                  url: 'https://example.com/generated-image.png',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/generated-image.png'),
+                  },
+                  mediaType: 'image/png',
                 },
               ],
             },
@@ -2307,8 +2323,8 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-data',
-                  data: 'AAECAw==',
+                  type: 'file',
+                  data: { type: 'data', data: 'AAECAw==' },
                   mediaType: 'image/jpeg',
                 },
               ],
@@ -2346,8 +2362,8 @@ describe('multimodal tool result content (issue #181)', () => {
                   text: 'Document contents:',
                 },
                 {
-                  type: 'file-data',
-                  data: 'ZmlsZSBjb250ZW50',
+                  type: 'file',
+                  data: { type: 'data', data: 'ZmlsZSBjb250ZW50' },
                   mediaType: 'application/pdf',
                   filename: 'report.pdf',
                 },
@@ -2386,8 +2402,12 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-url',
-                  url: 'https://example.com/photo.jpg',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/photo.jpg'),
+                  },
+                  mediaType: 'image/jpeg',
                 },
               ],
             },
@@ -2420,8 +2440,13 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-url',
-                  url: 'https://example.com/report.pdf',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/report.pdf'),
+                  },
+                  mediaType: 'application/pdf',
+                  filename: 'report.pdf',
                 },
               ],
             },
@@ -2457,8 +2482,12 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-url',
-                  url: 'https://api.example.com/files/123',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://api.example.com/files/123'),
+                  },
+                  mediaType: 'application/octet-stream',
                 },
               ],
             },
@@ -2498,8 +2527,12 @@ describe('multimodal tool result content (issue #181)', () => {
                   text: 'Here is the file:',
                 },
                 {
-                  type: 'file-id',
-                  fileId: 'file-abc-123',
+                  type: 'custom',
+                  providerOptions: {
+                    openrouter: {
+                      fileId: 'file-abc-123',
+                    },
+                  },
                 },
               ],
             },
@@ -2513,10 +2546,13 @@ describe('multimodal tool result content (issue #181)', () => {
 
     expect(result[0]?.content).toEqual([
       { type: 'text', text: 'Here is the file:' },
-      // Unknown type falls back to stringified text
+      // Custom content falls back to stringified text
       {
         type: 'text',
-        text: JSON.stringify({ type: 'file-id', fileId: 'file-abc-123' }),
+        text: JSON.stringify({
+          type: 'custom',
+          providerOptions: { openrouter: { fileId: 'file-abc-123' } },
+        }),
       },
     ]);
   });
@@ -2611,8 +2647,8 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-data',
-                  data: 'ZmlsZSBjb250ZW50',
+                  type: 'file',
+                  data: { type: 'data', data: 'ZmlsZSBjb250ZW50' },
                   mediaType: 'application/pdf',
                 },
               ],
@@ -2649,8 +2685,8 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-data',
-                  data: 'YXVkaW9fZGF0YQ==',
+                  type: 'file',
+                  data: { type: 'data', data: 'YXVkaW9fZGF0YQ==' },
                   mediaType: 'audio/mpeg',
                 },
               ],
@@ -2687,8 +2723,8 @@ describe('multimodal tool result content (issue #181)', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-data',
-                  data: 'dmlkZW9fZGF0YQ==',
+                  type: 'file',
+                  data: { type: 'data', data: 'dmlkZW9fZGF0YQ==' },
                   mediaType: 'video/mp4',
                 },
               ],
@@ -2726,13 +2762,17 @@ describe('multimodal tool result content (issue #181)', () => {
                   text: 'Screenshots captured:',
                 },
                 {
-                  type: 'image-data',
-                  data: 'AAECAw==',
+                  type: 'file',
+                  data: { type: 'data', data: 'AAECAw==' },
                   mediaType: 'image/png',
                 },
                 {
-                  type: 'image-url',
-                  url: 'https://example.com/screenshot2.png',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/screenshot2.png'),
+                  },
+                  mediaType: 'image/png',
                 },
               ],
             },

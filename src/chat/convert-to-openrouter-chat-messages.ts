@@ -1,10 +1,10 @@
 import type {
-  LanguageModelV3FilePart,
-  LanguageModelV3Prompt,
-  LanguageModelV3TextPart,
-  LanguageModelV3ToolResultOutput,
-  LanguageModelV3ToolResultPart,
-  SharedV3ProviderMetadata,
+  LanguageModelV4FilePart,
+  LanguageModelV4Prompt,
+  LanguageModelV4TextPart,
+  LanguageModelV4ToolResultOutput,
+  LanguageModelV4ToolResultPart,
+  SharedV4ProviderMetadata,
 } from '@ai-sdk/provider';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
@@ -18,8 +18,8 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { deterministicStringify } from '../utils/deterministic-stringify';
 import { ReasoningDetailsDuplicateTracker } from '../utils/reasoning-details-duplicate-tracker';
 import {
-  buildFileDataUrl,
   getBase64FromDataUrl,
+  getFileDataUrl,
   getFileUrl,
   getInputAudioData,
   MIME_TO_FORMAT,
@@ -30,7 +30,7 @@ import { isUrl } from './is-url';
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
 function getCacheControl(
-  providerMetadata: SharedV3ProviderMetadata | undefined,
+  providerMetadata: SharedV4ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
@@ -43,7 +43,7 @@ function getCacheControl(
 }
 
 export function convertToOpenRouterChatMessages(
-  prompt: LanguageModelV3Prompt,
+  prompt: LanguageModelV4Prompt,
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
 
@@ -105,7 +105,7 @@ export function convertToOpenRouterChatMessages(
         }
 
         const contentParts: ChatCompletionContentPart[] = content.map(
-          (part: LanguageModelV3TextPart | LanguageModelV3FilePart, index) => {
+          (part: LanguageModelV4TextPart | LanguageModelV4FilePart, index) => {
             const isLastTextPart =
               part.type === 'text' && index === lastTextPartIndex;
             const partCacheControl = getCacheControl(part.providerOptions);
@@ -412,7 +412,7 @@ export function convertToOpenRouterChatMessages(
 }
 
 function getToolResultContent(
-  input: LanguageModelV3ToolResultPart,
+  input: LanguageModelV4ToolResultPart,
 ): string | ChatCompletionContentPart[] {
   switch (input.output.type) {
     case 'text':
@@ -429,7 +429,7 @@ function getToolResultContent(
 }
 
 type ToolResultContentPart = Extract<
-  LanguageModelV3ToolResultOutput,
+  LanguageModelV4ToolResultOutput,
   { type: 'content' }
 >['value'][number];
 
@@ -441,26 +441,8 @@ function mapToolResultContentParts(
       case 'text':
         return { type: 'text', text: part.text };
 
-      case 'image-data':
-        return {
-          type: 'image_url',
-          image_url: {
-            url: buildFileDataUrl({
-              data: part.data,
-              mediaType: part.mediaType,
-              defaultMediaType: 'image/jpeg',
-            }),
-          },
-        };
-
-      case 'image-url':
-        return {
-          type: 'image_url',
-          image_url: { url: part.url },
-        };
-
-      case 'file-data': {
-        const dataUrl = buildFileDataUrl({
+      case 'file': {
+        const dataUrl = getFileDataUrl({
           data: part.data,
           mediaType: part.mediaType,
           defaultMediaType: 'application/octet-stream',
@@ -503,27 +485,6 @@ function mapToolResultContentParts(
         };
       }
 
-      case 'file-url': {
-        // file-url parts don't carry a mediaType field in the SDK,
-        // so we infer from the URL path extension to route correctly.
-        if (looksLikeImageUrl(part.url)) {
-          return {
-            type: 'image_url',
-            image_url: { url: part.url },
-          };
-        }
-
-        return {
-          type: 'file',
-          file: {
-            filename: filenameFromUrl(part.url),
-            file_data: part.url,
-          },
-        };
-      }
-
-      case 'file-id':
-      case 'image-file-id':
       case 'custom':
         return { type: 'text', text: JSON.stringify(part) };
 
@@ -533,40 +494,6 @@ function mapToolResultContentParts(
       }
     }
   });
-}
-
-const IMAGE_EXTENSIONS = new Set([
-  'jpg',
-  'jpeg',
-  'png',
-  'gif',
-  'webp',
-  'svg',
-  'bmp',
-  'ico',
-  'tif',
-  'tiff',
-  'avif',
-]);
-
-function looksLikeImageUrl(url: string): boolean {
-  try {
-    const pathname = new URL(url).pathname;
-    const ext = pathname.split('.').pop()?.toLowerCase();
-    return ext !== undefined && IMAGE_EXTENSIONS.has(ext);
-  } catch {
-    return false;
-  }
-}
-
-function filenameFromUrl(url: string): string {
-  try {
-    const pathname = new URL(url).pathname;
-    const last = pathname.split('/').pop();
-    return last?.includes('.') ? last : '';
-  } catch {
-    return '';
-  }
 }
 
 /**

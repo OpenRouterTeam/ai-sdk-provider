@@ -1,10 +1,10 @@
 import type {
   JSONObject,
-  LanguageModelV3,
-  LanguageModelV3CallOptions,
-  LanguageModelV3FinishReason,
-  LanguageModelV3StreamPart,
-  LanguageModelV3Usage,
+  LanguageModelV4,
+  LanguageModelV4CallOptions,
+  LanguageModelV4FinishReason,
+  LanguageModelV4StreamPart,
+  LanguageModelV4Usage,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { z } from 'zod/v4';
@@ -46,8 +46,8 @@ type OpenRouterCompletionConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
-  readonly specificationVersion = 'v3' as const;
+export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
+  readonly specificationVersion = 'v4' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterCompletionModelId;
   readonly supportsImageUrls = true;
@@ -87,7 +87,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
     stopSequences,
     tools,
     toolChoice,
-  }: LanguageModelV3CallOptions) {
+  }: LanguageModelV4CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
       inputFormat: 'prompt',
@@ -149,8 +149,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
   }
 
   async doGenerate(
-    options: LanguageModelV3CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV3['doGenerate']>>> {
+    options: LanguageModelV4CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV4['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -254,8 +254,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
   }
 
   async doStream(
-    options: LanguageModelV3CallOptions,
-  ): Promise<Awaited<ReturnType<LanguageModelV3['doStream']>>> {
+    options: LanguageModelV4CallOptions,
+  ): Promise<Awaited<ReturnType<LanguageModelV4['doStream']>>> {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
@@ -293,8 +293,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       streamError = err;
     });
 
-    let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
-    const usage: LanguageModelV3Usage = {
+    let finishReason: LanguageModelV4FinishReason = createFinishReason('other');
+    const usage: LanguageModelV4Usage = {
       inputTokens: {
         total: undefined,
         noCache: undefined,
@@ -319,7 +319,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV3 {
       stream: safeResponse.pipeThrough(
         new TransformStream<
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
-          LanguageModelV3StreamPart
+          LanguageModelV4StreamPart
         >({
           transform(chunk, controller) {
             // Emit raw chunk if requested (before anything else)

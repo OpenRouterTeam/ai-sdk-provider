@@ -1,10 +1,10 @@
-import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 
 import { createTestServer } from '@ai-sdk/test-server';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 

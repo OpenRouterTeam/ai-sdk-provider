@@ -85,7 +85,7 @@ describe('OpenRouterVideoModel', () => {
       expect(model).toBeInstanceOf(OpenRouterVideoModel);
       expect(model.modelId).toBe('google/veo-3.1');
       expect(model.provider).toBe('openrouter');
-      expect(model.specificationVersion).toBe('v3');
+      expect(model.specificationVersion).toBe('v4');
     });
 
     it('should have maxVideosPerCall set to 1', () => {
@@ -124,6 +124,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -163,6 +164,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: 42,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -202,6 +204,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -234,6 +237,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {
           openrouter: {
             provider: {
@@ -285,6 +289,7 @@ describe('OpenRouterVideoModel', () => {
           type: 'url',
           url: 'https://example.com/first-frame.png',
         },
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -322,6 +327,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -358,6 +364,7 @@ describe('OpenRouterVideoModel', () => {
           fps: undefined,
           seed: undefined,
           image: undefined,
+          generateAudio: undefined,
           providerOptions: {},
         }),
       ).rejects.toThrow('Content policy violation');
@@ -398,6 +405,7 @@ describe('OpenRouterVideoModel', () => {
           fps: undefined,
           seed: undefined,
           image: undefined,
+          generateAudio: undefined,
           providerOptions: {},
         }),
       ).rejects.toThrow(/timed out/);
@@ -428,6 +436,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -463,6 +472,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 
@@ -496,6 +506,7 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        generateAudio: undefined,
         providerOptions: {},
       });
 

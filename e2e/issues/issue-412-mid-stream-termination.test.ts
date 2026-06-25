@@ -16,8 +16,8 @@
  * already streamed before the connection drop.
  */
 import type {
-  LanguageModelV3Prompt,
-  LanguageModelV3StreamPart,
+  LanguageModelV4Prompt,
+  LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
@@ -37,7 +37,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -86,13 +86,13 @@ describe('Issue #412: Mid-stream socket termination should emit error and finish
     const elements = await convertReadableStreamToArray(stream);
 
     const hasTextDelta = elements.some(
-      (e: LanguageModelV3StreamPart) => e.type === 'text-delta',
+      (e: LanguageModelV4StreamPart) => e.type === 'text-delta',
     );
     const errorEvent = elements.find(
-      (e: LanguageModelV3StreamPart) => e.type === 'error',
+      (e: LanguageModelV4StreamPart) => e.type === 'error',
     );
     const finishEvent = elements.find(
-      (e: LanguageModelV3StreamPart) => e.type === 'finish',
+      (e: LanguageModelV4StreamPart) => e.type === 'finish',
     );
 
     expect(hasTextDelta).toBe(true);
@@ -129,13 +129,13 @@ describe('Issue #412: Mid-stream socket termination should emit error and finish
     const elements = await convertReadableStreamToArray(stream);
 
     const textDeltas = elements.filter(
-      (e: LanguageModelV3StreamPart) => e.type === 'text-delta',
+      (e: LanguageModelV4StreamPart) => e.type === 'text-delta',
     );
 
     expect(textDeltas.length).toBeGreaterThan(0);
     expect(
       textDeltas.some(
-        (e: LanguageModelV3StreamPart) =>
+        (e: LanguageModelV4StreamPart) =>
           e.type === 'text-delta' && e.delta === 'Partial',
       ),
     ).toBe(true);
@@ -160,10 +160,10 @@ describe('Issue #412: Mid-stream socket termination should emit error and finish
     const elements = await convertReadableStreamToArray(stream);
 
     const errorEvent = elements.find(
-      (e: LanguageModelV3StreamPart) => e.type === 'error',
+      (e: LanguageModelV4StreamPart) => e.type === 'error',
     );
     const finishEvent = elements.find(
-      (e: LanguageModelV3StreamPart) => e.type === 'finish',
+      (e: LanguageModelV4StreamPart) => e.type === 'finish',
     );
 
     expect(errorEvent).toBeDefined();
@@ -202,7 +202,7 @@ describe('Issue #412: Mid-stream socket termination should emit error and finish
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (e: LanguageModelV3StreamPart) => e.type === 'finish',
+      (e: LanguageModelV4StreamPart) => e.type === 'finish',
     );
 
     expect(finishEvent).toBeDefined();

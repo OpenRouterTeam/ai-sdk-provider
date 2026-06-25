@@ -1,4 +1,7 @@
-import type { LanguageModelV3FilePart } from '@ai-sdk/provider';
+import type {
+  LanguageModelV4FilePart,
+  SharedV4FileData,
+} from '@ai-sdk/provider';
 import type { OpenRouterAudioFormat } from '../types/openrouter-chat-completions-input';
 
 import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
@@ -39,13 +42,52 @@ export function getFileUrl({
   part,
   defaultMediaType,
 }: {
-  part: LanguageModelV3FilePart;
+  part: LanguageModelV4FilePart;
   defaultMediaType: string;
 }) {
-  const data = part.data instanceof URL ? part.data.toString() : part.data;
-  return buildFileDataUrl({
-    data,
+  return getFileDataUrl({
+    data: part.data,
     mediaType: part.mediaType,
+    defaultMediaType,
+  });
+}
+
+export function getFileDataUrl({
+  data,
+  mediaType,
+  defaultMediaType,
+}: {
+  data: SharedV4FileData;
+  mediaType?: string;
+  defaultMediaType: string;
+}): string {
+  switch (data.type) {
+    case 'data':
+      return buildFileDataUrl({
+        data: data.data,
+        mediaType,
+        defaultMediaType,
+      });
+    case 'url':
+      return data.url.toString();
+    case 'text': {
+      const encoded = new TextEncoder().encode(data.text);
+      return buildFileDataUrl({
+        data: encoded,
+        mediaType: mediaType ?? 'text/plain',
+        defaultMediaType,
+      });
+    }
+    case 'reference':
+      throw new Error(
+        'Provider file references are not supported by OpenRouter',
+      );
+  }
+
+  const _exhaustiveCheck: never = data;
+  return buildFileDataUrl({
+    data: _exhaustiveCheck,
+    mediaType,
     defaultMediaType,
   });
 }
@@ -117,7 +159,7 @@ export const MIME_TO_FORMAT: Record<string, OpenRouterAudioFormat> = {
  * // Returns: { data: "base64string...", format: "mp3" }
  * ```
  */
-export function getInputAudioData(part: LanguageModelV3FilePart): {
+export function getInputAudioData(part: LanguageModelV4FilePart): {
   data: string;
   format: OpenRouterAudioFormat;
 } {

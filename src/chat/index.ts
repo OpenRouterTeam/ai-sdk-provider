@@ -1,15 +1,15 @@
 import type {
   JSONObject,
-  LanguageModelV3,
-  LanguageModelV3CallOptions,
-  LanguageModelV3Content,
-  LanguageModelV3FinishReason,
-  LanguageModelV3ProviderTool,
-  LanguageModelV3ResponseMetadata,
-  LanguageModelV3StreamPart,
-  LanguageModelV3Usage,
-  SharedV3Headers,
-  SharedV3Warning,
+  LanguageModelV4,
+  LanguageModelV4CallOptions,
+  LanguageModelV4Content,
+  LanguageModelV4FinishReason,
+  LanguageModelV4ProviderTool,
+  LanguageModelV4ResponseMetadata,
+  LanguageModelV4StreamPart,
+  LanguageModelV4Usage,
+  SharedV4Headers,
+  SharedV4Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { z } from 'zod/v4';
@@ -60,8 +60,8 @@ type OpenRouterChatConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterChatLanguageModel implements LanguageModelV3 {
-  readonly specificationVersion = 'v3' as const;
+export class OpenRouterChatLanguageModel implements LanguageModelV4 {
+  readonly specificationVersion = 'v4' as const;
   readonly provider = 'openrouter';
   readonly defaultObjectGenerationMode = 'tool' as const;
 
@@ -102,7 +102,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     topK,
     tools,
     toolChoice,
-  }: LanguageModelV3CallOptions) {
+  }: LanguageModelV4CallOptions) {
     const baseArgs = {
       // model id:
       model: this.modelId,
@@ -215,11 +215,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     return baseArgs;
   }
 
-  async doGenerate(options: LanguageModelV3CallOptions): Promise<{
-    content: Array<LanguageModelV3Content>;
-    finishReason: LanguageModelV3FinishReason;
-    usage: LanguageModelV3Usage;
-    warnings: Array<SharedV3Warning>;
+  async doGenerate(options: LanguageModelV4CallOptions): Promise<{
+    content: Array<LanguageModelV4Content>;
+    finishReason: LanguageModelV4FinishReason;
+    usage: LanguageModelV4Usage;
+    warnings: Array<SharedV4Warning>;
     providerMetadata?: {
       openrouter: {
         provider: string;
@@ -228,8 +228,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       };
     };
     request?: { body?: unknown };
-    response?: LanguageModelV3ResponseMetadata & {
-      headers?: SharedV3Headers;
+    response?: LanguageModelV4ResponseMetadata & {
+      headers?: SharedV4Headers;
       body?: unknown;
     };
   }> {
@@ -295,13 +295,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       });
     }
 
-    const usageInfo: LanguageModelV3Usage = response.usage
+    const usageInfo: LanguageModelV4Usage = response.usage
       ? computeTokenUsage(response.usage)
       : emptyUsage();
 
     const reasoningDetails = choice.message.reasoning_details ?? [];
 
-    const reasoning: Array<LanguageModelV3Content> =
+    const reasoning: Array<LanguageModelV4Content> =
       reasoningDetails.length > 0
         ? (reasoningDetails
             .map((detail) => {
@@ -347,7 +347,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               }
               return null;
             })
-            .filter((p) => p !== null) as Array<LanguageModelV3Content>)
+            .filter((p) => p !== null) as Array<LanguageModelV4Content>)
         : choice.message.reasoning
           ? [
               {
@@ -357,7 +357,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
             ]
           : [];
 
-    const content: Array<LanguageModelV3Content> = [];
+    const content: Array<LanguageModelV4Content> = [];
 
     // Add reasoning content first
     content.push(...reasoning);
@@ -409,7 +409,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
         content.push({
           type: 'file' as const,
           mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
-          data: getBase64FromDataUrl(image.image_url.url),
+          data: {
+            type: 'data' as const,
+            data: getBase64FromDataUrl(image.image_url.url),
+          },
         });
       }
     }
@@ -531,12 +534,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     };
   }
 
-  async doStream(options: LanguageModelV3CallOptions): Promise<{
-    stream: ReadableStream<LanguageModelV3StreamPart>;
-    warnings: Array<SharedV3Warning>;
+  async doStream(options: LanguageModelV4CallOptions): Promise<{
+    stream: ReadableStream<LanguageModelV4StreamPart>;
+    warnings: Array<SharedV4Warning>;
     request?: { body?: unknown };
-    response?: LanguageModelV3ResponseMetadata & {
-      headers?: SharedV3Headers;
+    response?: LanguageModelV4ResponseMetadata & {
+      headers?: SharedV4Headers;
       body?: unknown;
     };
   }> {
@@ -607,8 +610,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
     // return empty, null, or duplicate IDs for parallel tool calls.
     const seenToolCallIds = new Set<string>();
 
-    let finishReason: LanguageModelV3FinishReason = createFinishReason('other');
-    const usage: LanguageModelV3Usage = {
+    let finishReason: LanguageModelV4FinishReason = createFinishReason('other');
+    const usage: LanguageModelV4Usage = {
       inputTokens: {
         total: undefined,
         noCache: undefined,
@@ -653,7 +656,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           ParseResult<
             z.infer<typeof OpenRouterStreamChatCompletionChunkSchema>
           >,
-          LanguageModelV3StreamPart
+          LanguageModelV4StreamPart
         >({
           transform(chunk, controller) {
             // Emit raw chunk if requested (before anything else)
@@ -1093,7 +1096,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
                 controller.enqueue({
                   type: 'file',
                   mediaType: getMediaType(image.image_url.url, 'image/jpeg'),
-                  data: getBase64FromDataUrl(image.image_url.url),
+                  data: {
+                    type: 'data',
+                    data: getBase64FromDataUrl(image.image_url.url),
+                  },
                 });
               }
             }
@@ -1271,7 +1277,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
  * to `openrouter:<tool_name>` in the API request tools array.
  */
 function mapProviderTool(
-  tool: LanguageModelV3ProviderTool,
+  tool: LanguageModelV4ProviderTool,
 ): Record<string, unknown> {
   // Convert provider tool ID format (openrouter.web_search)
   // to OpenRouter API format (openrouter:web_search)

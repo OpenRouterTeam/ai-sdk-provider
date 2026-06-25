@@ -1,10 +1,10 @@
 import type {
-  SharedV3ProviderMetadata,
-  SharedV3Warning,
-  Experimental_VideoModelV3 as VideoModelV3,
-  Experimental_VideoModelV3CallOptions as VideoModelV3CallOptions,
-  Experimental_VideoModelV3File as VideoModelV3File,
-  Experimental_VideoModelV3VideoData as VideoModelV3VideoData,
+  SharedV4ProviderMetadata,
+  SharedV4Warning,
+  Experimental_VideoModelV4 as VideoModelV4,
+  Experimental_VideoModelV4CallOptions as VideoModelV4CallOptions,
+  Experimental_VideoModelV4File as VideoModelV4File,
+  Experimental_VideoModelV4VideoData as VideoModelV4VideoData,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterVideoModelId,
@@ -37,8 +37,8 @@ type OpenRouterVideoConfig = {
 const DEFAULT_POLL_INTERVAL_MS = 2000;
 const DEFAULT_MAX_POLL_TIME_MS = 600_000;
 
-export class OpenRouterVideoModel implements VideoModelV3 {
-  readonly specificationVersion = 'v3';
+export class OpenRouterVideoModel implements VideoModelV4 {
+  readonly specificationVersion = 'v4';
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterVideoModelId;
   readonly settings: OpenRouterVideoSettings;
@@ -56,10 +56,10 @@ export class OpenRouterVideoModel implements VideoModelV3 {
     this.config = config;
   }
 
-  async doGenerate(options: VideoModelV3CallOptions): Promise<{
-    videos: Array<VideoModelV3VideoData>;
-    warnings: Array<SharedV3Warning>;
-    providerMetadata?: SharedV3ProviderMetadata;
+  async doGenerate(options: VideoModelV4CallOptions): Promise<{
+    videos: Array<VideoModelV4VideoData>;
+    warnings: Array<SharedV4Warning>;
+    providerMetadata?: SharedV4ProviderMetadata;
     response: {
       timestamp: Date;
       modelId: string;
@@ -79,7 +79,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       providerOptions,
     } = options;
 
-    const warnings: SharedV3Warning[] = [];
+    const warnings: SharedV4Warning[] = [];
 
     if (n > 1) {
       warnings.push({
@@ -137,7 +137,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       maxPollTimeMs,
     });
 
-    const videos: VideoModelV3VideoData[] = [];
+    const videos: VideoModelV4VideoData[] = [];
 
     if (pollResult.unsigned_urls) {
       for (const url of pollResult.unsigned_urls) {
@@ -149,7 +149,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
       }
     }
 
-    const providerMetadata: SharedV3ProviderMetadata = {
+    const providerMetadata: SharedV4ProviderMetadata = {
       openrouter: {
         generationId: pollResult.generation_id ?? null,
         cost: pollResult.usage?.cost ?? null,
@@ -251,7 +251,7 @@ export class OpenRouterVideoModel implements VideoModelV3 {
 }
 
 function convertImageToFrameImage(
-  file: VideoModelV3File,
+  file: VideoModelV4File,
 ): Record<string, unknown> {
   if (file.type === 'url') {
     return {

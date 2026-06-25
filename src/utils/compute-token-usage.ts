@@ -1,4 +1,4 @@
-import type { JSONObject, LanguageModelV3Usage } from '@ai-sdk/provider';
+import type { JSONObject, LanguageModelV4Usage } from '@ai-sdk/provider';
 
 interface UsageData {
   prompt_tokens?: number | null;
@@ -12,7 +12,7 @@ interface UsageData {
   } | null;
 }
 
-export function computeTokenUsage(usage: UsageData): LanguageModelV3Usage {
+export function computeTokenUsage(usage: UsageData): LanguageModelV4Usage {
   const promptTokens = usage.prompt_tokens ?? 0;
   const completionTokens = usage.completion_tokens ?? 0;
   const cacheReadTokens = usage.prompt_tokens_details?.cached_tokens ?? 0;
@@ -37,7 +37,7 @@ export function computeTokenUsage(usage: UsageData): LanguageModelV3Usage {
   };
 }
 
-export function emptyUsage(): LanguageModelV3Usage {
+export function emptyUsage(): LanguageModelV4Usage {
   return {
     inputTokens: {
       total: 0,
