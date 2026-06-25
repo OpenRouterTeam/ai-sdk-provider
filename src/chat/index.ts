@@ -649,6 +649,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     let reasoningId: string | undefined;
     let openrouterResponseId: string | undefined;
     let provider: string | undefined;
+    const warnings: Array<SharedV4Warning> = [];
 
     return {
       stream: safeResponse.pipeThrough(
@@ -658,6 +659,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
           >,
           LanguageModelV4StreamPart
         >({
+          start(controller) {
+            controller.enqueue({ type: 'stream-start', warnings });
+          },
+
           transform(chunk, controller) {
             // Emit raw chunk if requested (before anything else)
             if (options.includeRawChunks) {
@@ -1263,7 +1268,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
           },
         }),
       ),
-      warnings: [],
+      warnings,
       request: { body: args },
       response: { headers: responseHeaders },
     };

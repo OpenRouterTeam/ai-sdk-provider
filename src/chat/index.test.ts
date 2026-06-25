@@ -1494,6 +1494,7 @@ describe('doStream', () => {
     // note: space moved to last chunk bc of trimming
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2075,6 +2076,7 @@ describe('doStream', () => {
     });
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2280,6 +2282,7 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2770,6 +2773,7 @@ describe('doStream', () => {
     });
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2842,6 +2846,10 @@ describe('doStream', () => {
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
+        type: 'stream-start',
+        warnings: [],
+      },
+      {
         type: 'error',
         error: {
           message:
@@ -2892,9 +2900,10 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
 
-    expect(elements.length).toBe(2);
-    expect(elements[0]?.type).toBe('error');
-    expect(elements[1]).toStrictEqual({
+    expect(elements.length).toBe(3);
+    expect(elements[0]).toStrictEqual({ type: 'stream-start', warnings: [] });
+    expect(elements[1]?.type).toBe('error');
+    expect(elements[2]).toStrictEqual({
       finishReason: { unified: 'error', raw: undefined },
 
       type: 'finish',
