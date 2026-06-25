@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "pnpm clean && tsup",
-    "clean": "rm -rf dist && rm -rf internal/dist",
+    "clean": "node -e \"const fs=require('node:fs'); for (const path of ['dist','internal/dist']) fs.rmSync(path,{recursive:true,force:true});\"",
     "dev": "tsup --watch",
     "stylecheck": "biome check",
     "typecheck": "tsc --noEmit",

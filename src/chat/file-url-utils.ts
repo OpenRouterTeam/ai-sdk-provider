@@ -68,8 +68,21 @@ export function getFileDataUrl({
         mediaType,
         defaultMediaType,
       });
-    case 'url':
-      return data.url.toString();
+    case 'url': {
+      const url = data.url.toString();
+      if (
+        url.startsWith('data:') ||
+        isUrl({
+          url,
+          protocols: new Set(['http:', 'https:'] as const),
+        })
+      ) {
+        return url;
+      }
+      throw new Error(
+        'Only http(s) and data: file URLs are supported by OpenRouter',
+      );
+    }
     case 'text': {
       const encoded = new TextEncoder().encode(data.text);
       return buildFileDataUrl({

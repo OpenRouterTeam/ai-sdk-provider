@@ -65,6 +65,29 @@ describe('user messages', () => {
     ]);
   });
 
+  it.each([
+    'file:///tmp/image.png',
+    'blob:https://example.com/image-id',
+  ])('should reject unsupported file URL protocol %s', (url) => {
+    expect(() =>
+      convertToOpenRouterChatMessages([
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              data: {
+                type: 'url',
+                url: new URL(url),
+              },
+              mediaType: 'image/png',
+            },
+          ],
+        },
+      ]),
+    ).toThrow('Only http(s) and data: file URLs are supported by OpenRouter');
+  });
+
   it('should convert messages with image base64', async () => {
     const result = convertToOpenRouterChatMessages([
       {

@@ -5,6 +5,7 @@ import type {
   LanguageModelV4FinishReason,
   LanguageModelV4StreamPart,
   LanguageModelV4Usage,
+  SharedV4Warning,
 } from '@ai-sdk/provider';
 import type { ParseResult } from '@ai-sdk/provider-utils';
 import type { z } from 'zod/v4';
@@ -314,6 +315,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
+    const warnings: Array<SharedV4Warning> = [];
 
     return {
       stream: safeResponse.pipeThrough(
@@ -321,6 +323,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
           ParseResult<z.infer<typeof OpenRouterCompletionChunkSchema>>,
           LanguageModelV4StreamPart
         >({
+          start(controller) {
+            controller.enqueue({ type: 'stream-start', warnings });
+          },
+
           transform(chunk, controller) {
             // Emit raw chunk if requested (before anything else)
             if (options.includeRawChunks) {
