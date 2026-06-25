@@ -68,6 +68,7 @@ Remember to be helpful and concise in your responses.`;
       for (let i = 0; i < 3; i++) {
         const response = await generateText({
           model,
+          allowSystemInMessages: true,
           messages: [
             { role: 'system', content: longSystemPrompt },
             {
@@ -138,6 +139,7 @@ Remember to be helpful and concise in your responses.`;
       for (let i = 0; i < 3; i++) {
         const response = await generateText({
           model,
+          allowSystemInMessages: true,
           messages: [
             { role: 'system', content: longSystemPrompt },
             {
