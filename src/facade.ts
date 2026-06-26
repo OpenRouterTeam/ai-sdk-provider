@@ -11,11 +11,16 @@ import type {
   OpenRouterEmbeddingModelId,
   OpenRouterEmbeddingSettings,
 } from './types/openrouter-embedding-settings';
+import type {
+  OpenRouterRerankModelId,
+  OpenRouterRerankSettings,
+} from './types/openrouter-rerank-settings';
 
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
+import { OpenRouterRerankingModel } from './rerank';
 
 /**
 @deprecated Use `createOpenRouter` instead.
@@ -127,5 +132,25 @@ Custom headers to include in the requests.
     settings: OpenRouterEmbeddingSettings = {},
   ) {
     return this.textEmbeddingModel(modelId, settings);
+  }
+
+  rerankingModel(
+    modelId: OpenRouterRerankModelId,
+    settings: OpenRouterRerankSettings = {},
+  ) {
+    return new OpenRouterRerankingModel(modelId, settings, {
+      ...this.baseConfig,
+      url: ({ path }: { path: string }) => `${this.baseURL}${path}`,
+    });
+  }
+
+  /**
+   * @deprecated Use rerankingModel instead
+   */
+  reranking(
+    modelId: OpenRouterRerankModelId,
+    settings: OpenRouterRerankSettings = {},
+  ) {
+    return this.rerankingModel(modelId, settings);
   }
 }
