@@ -1,5 +1,15 @@
 # @openrouter/ai-sdk-provider
 
+## Unreleased
+
+### Major Changes
+
+- feat: support Vercel AI SDK v7.
+
+  This release line is v7-only: it peers on `ai@^7.0.0`, requires Node.js 22 or newer, and publishes ESM-only output. The provider now implements the `@ai-sdk/provider@4` V4 provider/model interfaces across chat, completion, embedding, image, and video models.
+
+  Usage accounting is mapped to the AI SDK v7 token detail shape: cached input tokens are available through `usage.inputTokenDetails.cacheReadTokens`, and reasoning tokens are available through `usage.outputTokenDetails.reasoningTokens`. OpenRouter-specific cost, BYOK, reasoning details, annotations, and cache-control metadata continue to be exposed through `providerMetadata.openrouter`.
+
 ## 2.10.0
 
 ### Minor Changes

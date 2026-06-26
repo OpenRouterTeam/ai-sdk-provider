@@ -7,7 +7,7 @@
  * The OpenRouter provider did not export provider-defined tools, unlike
  * @ai-sdk/openai, @ai-sdk/google, and @ai-sdk/anthropic. The getArgs()
  * method filtered tools to only function tools, discarding any
- * LanguageModelV3ProviderTool.
+ * LanguageModelV4ProviderTool.
  *
  * This test verifies that openrouter.tools.webSearch() works end-to-end
  * with both generateText and streamText, producing text with URL citations

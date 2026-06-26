@@ -1,6 +1,6 @@
 import type {
-  LanguageModelV3Prompt,
-  LanguageModelV3StreamPart,
+  LanguageModelV4Prompt,
+  LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
@@ -12,7 +12,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -513,6 +513,7 @@ describe('doStream', () => {
     // note: space moved to last chunk bc of trimming
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
       { type: 'text-delta', delta: ', ', id: expect.any(String) },
       { type: 'text-delta', delta: 'World!', id: expect.any(String) },
@@ -569,11 +570,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
 
@@ -609,11 +610,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -649,11 +650,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
     const finishChunk = elements.find(
       (
         element,
-      ): element is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): element is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         element.type === 'finish',
     );
     const openrouterUsage = (
@@ -685,6 +686,10 @@ describe('doStream', () => {
     });
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      {
+        type: 'stream-start',
+        warnings: [],
+      },
       {
         type: 'error',
         error: {
@@ -735,9 +740,10 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
 
-    expect(elements.length).toBe(2);
-    expect(elements[0]?.type).toBe('error');
-    expect(elements[1]).toStrictEqual({
+    expect(elements.length).toBe(3);
+    expect(elements[0]).toStrictEqual({ type: 'stream-start', warnings: [] });
+    expect(elements[1]?.type).toBe('error');
+    expect(elements[2]).toStrictEqual({
       finishReason: { unified: 'error', raw: undefined },
       providerMetadata: {
         openrouter: {
@@ -870,7 +876,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -889,7 +895,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -905,7 +911,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -922,7 +928,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -943,11 +949,11 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
     const errorChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'error' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'error' }> =>
         chunk.type === 'error',
     );
 

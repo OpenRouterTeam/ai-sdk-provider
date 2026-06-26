@@ -48,6 +48,7 @@ Remember to be helpful and concise in your responses.`;
     // The fix ensures only the last text part gets cache_control
     const response = await generateText({
       model,
+      allowSystemInMessages: true,
       messages: [
         {
           role: 'system',
@@ -78,6 +79,7 @@ Remember to be helpful and concise in your responses.`;
     // Test cache control on system message
     const response = await generateText({
       model,
+      allowSystemInMessages: true,
       messages: [
         {
           role: 'system',
@@ -107,6 +109,7 @@ Remember to be helpful and concise in your responses.`;
     for (let i = 0; i < 2; i++) {
       const response = await generateText({
         model,
+        allowSystemInMessages: true,
         messages: [
           {
             role: 'system',

@@ -1,11 +1,4 @@
-import type {
-  LanguageModelV3FilePart,
-  LanguageModelV3Prompt,
-  LanguageModelV3ReasoningPart,
-  LanguageModelV3TextPart,
-  LanguageModelV3ToolCallPart,
-  LanguageModelV3ToolResultPart,
-} from '@ai-sdk/provider';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 
 import {
   InvalidPromptError,
@@ -18,7 +11,7 @@ export function convertToOpenRouterCompletionPrompt({
   user = 'user',
   assistant = 'assistant',
 }: {
-  prompt: LanguageModelV3Prompt;
+  prompt: LanguageModelV4Prompt;
   inputFormat: 'prompt' | 'messages';
   user?: string;
   assistant?: string;
@@ -58,7 +51,7 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'user': {
         const userMessage = content
-          .map((part: LanguageModelV3TextPart | LanguageModelV3FilePart) => {
+          .map((part) => {
             switch (part.type) {
               case 'text': {
                 return part.text;
@@ -82,47 +75,38 @@ export function convertToOpenRouterCompletionPrompt({
 
       case 'assistant': {
         const assistantMessage = content
-          .map(
-            (
-              part:
-                | LanguageModelV3TextPart
-                | LanguageModelV3FilePart
-                | LanguageModelV3ReasoningPart
-                | LanguageModelV3ToolCallPart
-                | LanguageModelV3ToolResultPart,
-            ) => {
-              switch (part.type) {
-                case 'text': {
-                  return part.text;
-                }
-                case 'tool-call': {
-                  throw new UnsupportedFunctionalityError({
-                    functionality: 'tool-call messages',
-                  });
-                }
-                case 'tool-result': {
-                  throw new UnsupportedFunctionalityError({
-                    functionality: 'tool-result messages',
-                  });
-                }
-                case 'reasoning': {
-                  throw new UnsupportedFunctionalityError({
-                    functionality: 'reasoning messages',
-                  });
-                }
-
-                case 'file': {
-                  throw new UnsupportedFunctionalityError({
-                    functionality: 'file attachments',
-                  });
-                }
-
-                default: {
-                  return '';
-                }
+          .map((part) => {
+            switch (part.type) {
+              case 'text': {
+                return part.text;
               }
-            },
-          )
+              case 'tool-call': {
+                throw new UnsupportedFunctionalityError({
+                  functionality: 'tool-call messages',
+                });
+              }
+              case 'tool-result': {
+                throw new UnsupportedFunctionalityError({
+                  functionality: 'tool-result messages',
+                });
+              }
+              case 'reasoning': {
+                throw new UnsupportedFunctionalityError({
+                  functionality: 'reasoning messages',
+                });
+              }
+
+              case 'file': {
+                throw new UnsupportedFunctionalityError({
+                  functionality: 'file attachments',
+                });
+              }
+
+              default: {
+                return '';
+              }
+            }
+          })
           .join('');
 
         text += `${assistant}:\n${assistantMessage}\n\n`;

@@ -1,5 +1,5 @@
-import type { ProviderV3 } from '@ai-sdk/provider';
-import type { ProviderToolFactory } from '@ai-sdk/provider-utils';
+import type { ProviderV4 } from '@ai-sdk/provider';
+import type { ProviderDefinedToolFactory } from '@ai-sdk/provider-utils';
 import type { Engine } from './types/openrouter-api-types';
 import type {
   OpenRouterChatModelId,
@@ -47,7 +47,7 @@ type WebSearchToolArgs = {
 
 export type { OpenRouterChatSettings, OpenRouterCompletionSettings };
 
-export interface OpenRouterProvider extends ProviderV3 {
+export interface OpenRouterProvider extends ProviderV4 {
   (
     modelId: OpenRouterChatModelId,
     settings?: OpenRouterCompletionSettings,
@@ -124,7 +124,7 @@ Creates an OpenRouter video model for video generation.
      *
      * @see https://openrouter.ai/docs/guides/features/server-tools/web-search
      */
-    webSearch: ProviderToolFactory<unknown, WebSearchToolArgs>;
+    webSearch: ProviderDefinedToolFactory<unknown, WebSearchToolArgs>;
   };
 }
 
