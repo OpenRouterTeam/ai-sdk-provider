@@ -300,6 +300,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       : emptyUsage();
 
     const reasoningDetails = choice.message.reasoning_details ?? [];
+    const reasoningContent = choice.message.reasoning_content ?? undefined;
+    const reasoningText = choice.message.reasoning ?? reasoningContent;
 
     const reasoning: Array<LanguageModelV3Content> =
       reasoningDetails.length > 0
@@ -348,11 +350,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
               return null;
             })
             .filter((p) => p !== null) as Array<LanguageModelV3Content>)
-        : choice.message.reasoning
+        : reasoningText
           ? [
               {
                 type: 'reasoning' as const,
-                text: choice.message.reasoning,
+                text: reasoningText,
+                ...(reasoningContent != null
+                  ? {
+                      providerMetadata: {
+                        openrouter: {
+                          reasoning_content: reasoningContent,
+                          reasoning_details: reasoningDetails,
+                        },
+                      },
+                    }
+                  : {}),
               },
             ]
           : [];
@@ -395,6 +407,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
           providerMetadata: !reasoningDetailsAttachedToToolCall
             ? {
                 openrouter: {
+                  ...(reasoningContent != null
+                    ? { reasoning_content: reasoningContent }
+                    : {}),
                   reasoning_details: reasoningDetails,
                 },
               }
@@ -479,6 +494,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV3 {
       providerMetadata: {
         openrouter: OpenRouterProviderMetadataSchema.parse({
           provider: response.provider ?? '',
+          reasoning_content: reasoningContent,
           reasoning_details: choice.message.reasoning_details ?? [],
           annotations:
             fileAnnotations && fileAnnotations.length > 0
