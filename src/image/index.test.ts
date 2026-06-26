@@ -13,26 +13,10 @@ function createMockFetch(imageBase64: string) {
   ): Promise<Response> => {
     return new Response(
       JSON.stringify({
-        id: 'chatcmpl-test',
-        object: 'chat.completion',
         created: 1711115037,
-        model: 'google/gemini-2.5-flash-image',
-        choices: [
+        data: [
           {
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: 'Here is the generated image.',
-              images: [
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:image/png;base64,${imageBase64}`,
-                  },
-                },
-              ],
-            },
-            finish_reason: 'stop',
+            b64_json: imageBase64,
           },
         ],
         usage: {
@@ -53,33 +37,19 @@ function createMockFetch(imageBase64: string) {
 
 function createCapturingMockFetch(imageBase64: string) {
   let capturedBody: Record<string, unknown> | undefined;
+  let capturedUrl: string | undefined;
   const fetch = async (
-    _url: URL | RequestInfo,
+    url: URL | RequestInfo,
     init?: RequestInit,
   ): Promise<Response> => {
     capturedBody = JSON.parse(init?.body as string);
+    capturedUrl = url.toString();
     return new Response(
       JSON.stringify({
-        id: 'chatcmpl-test',
-        object: 'chat.completion',
         created: 1711115037,
-        model: 'google/gemini-2.5-flash-image',
-        choices: [
+        data: [
           {
-            index: 0,
-            message: {
-              role: 'assistant',
-              content: '',
-              images: [
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:image/png;base64,${imageBase64}`,
-                  },
-                },
-              ],
-            },
-            finish_reason: 'stop',
+            b64_json: imageBase64,
           },
         ],
         usage: {
@@ -101,14 +71,10 @@ function createCapturingMockFetch(imageBase64: string) {
     get capturedBody() {
       return capturedBody;
     },
+    get capturedUrl() {
+      return capturedUrl;
+    },
   };
-}
-
-function getMessageContent(
-  body: Record<string, unknown> | undefined,
-): Array<Record<string, unknown>> {
-  const messages = body?.messages as Array<Record<string, unknown>>;
-  return messages[0]?.content as Array<Record<string, unknown>>;
 }
 
 describe('OpenRouterImageModel', () => {
@@ -128,14 +94,36 @@ describe('OpenRouterImageModel', () => {
       expect(model.specificationVersion).toBe('v4');
     });
 
-    it('should have maxImagesPerCall set to 1', () => {
+    it('should have maxImagesPerCall set to 10', () => {
       const provider = createOpenRouter({ apiKey: 'test-key' });
       const model = provider.imageModel('google/gemini-2.5-flash-image');
-      expect(model.maxImagesPerCall).toBe(1);
+      expect(model.maxImagesPerCall).toBe(10);
     });
   });
 
   describe('doGenerate', () => {
+    it('should post to /images endpoint', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {},
+      });
+
+      expect(mock.capturedUrl).toBe('https://openrouter.ai/api/v1/images');
+    });
+
     it('should generate an image from a text prompt', async () => {
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -160,7 +148,75 @@ describe('OpenRouterImageModel', () => {
       expect(result.response.modelId).toBe('google/gemini-2.5-flash-image');
     });
 
-    it('should pass aspectRatio via image_config', async () => {
+    it('should handle responses without created timestamp', async () => {
+      const mockFetchWithoutCreated = async (
+        _url: URL | RequestInfo,
+        _init?: RequestInit,
+      ): Promise<Response> => {
+        return new Response(
+          JSON.stringify({
+            data: [
+              {
+                b64_json: TEST_IMAGE_BASE64,
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetchWithoutCreated,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      const result = await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {},
+      });
+
+      expect(result.images).toEqual([TEST_IMAGE_BASE64]);
+    });
+
+    it('should send prompt directly in the request body', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await model.doGenerate({
+        prompt: 'Generate a cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {},
+      });
+
+      expect(mock.capturedBody?.prompt).toBe('Generate a cat');
+      expect(mock.capturedBody?.model).toBe('google/gemini-2.5-flash-image');
+      // Should not have messages or modalities (legacy chat format)
+      expect(mock.capturedBody?.messages).toBeUndefined();
+      expect(mock.capturedBody?.modalities).toBeUndefined();
+    });
+
+    it('should pass aspect_ratio parameter', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -179,10 +235,53 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      expect(mock.capturedBody?.image_config).toEqual({
-        aspect_ratio: '16:9',
+      expect(mock.capturedBody?.aspect_ratio).toBe('16:9');
+      // Should not use legacy image_config wrapper
+      expect(mock.capturedBody?.image_config).toBeUndefined();
+    });
+
+    it('should pass size parameter', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
       });
-      expect(mock.capturedBody?.modalities).toEqual(['image', 'text']);
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: '1024x1024',
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {},
+      });
+
+      expect(mock.capturedBody?.size).toBe('1024x1024');
+    });
+
+    it('should pass n parameter', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 3,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {},
+      });
+
+      expect(mock.capturedBody?.n).toBe(3);
     });
 
     it('should pass seed parameter', async () => {
@@ -207,7 +306,7 @@ describe('OpenRouterImageModel', () => {
       expect(mock.capturedBody?.seed).toBe(12345);
     });
 
-    it('should include base64 file as image_url content part in user message', async () => {
+    it('should include base64 file as input_references', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -234,27 +333,19 @@ describe('OpenRouterImageModel', () => {
 
       expect(result.images).toHaveLength(1);
 
-      const messages = mock.capturedBody?.messages as Array<
+      const inputRefs = mock.capturedBody?.input_references as Array<
         Record<string, unknown>
       >;
-      expect(messages).toHaveLength(1);
-      expect(messages[0]?.role).toBe('user');
-
-      const content = getMessageContent(mock.capturedBody);
-      expect(content).toHaveLength(2);
-      expect(content[0]).toEqual({
+      expect(inputRefs).toHaveLength(1);
+      expect(inputRefs[0]).toEqual({
         type: 'image_url',
         image_url: {
           url: `data:image/png;base64,${TEST_IMAGE_BASE64}`,
         },
       });
-      expect(content[1]).toEqual({
-        type: 'text',
-        text: 'Edit this image',
-      });
     });
 
-    it('should include URL file as image_url content part in user message', async () => {
+    it('should include URL file as input_references', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -278,21 +369,19 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      expect(content).toHaveLength(2);
-      expect(content[0]).toEqual({
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      expect(inputRefs).toHaveLength(1);
+      expect(inputRefs[0]).toEqual({
         type: 'image_url',
         image_url: {
           url: 'https://example.com/image.png',
         },
       });
-      expect(content[1]).toEqual({
-        type: 'text',
-        text: 'Edit this image',
-      });
     });
 
-    it('should include Uint8Array file as base64 image_url content part', async () => {
+    it('should include Uint8Array file as base64 input_references', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -319,9 +408,11 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      expect(content).toHaveLength(2);
-      const imageUrlPart = content[0] as {
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      expect(inputRefs).toHaveLength(1);
+      const imageUrlPart = inputRefs[0] as {
         type: string;
         image_url: { url: string };
       };
@@ -329,7 +420,7 @@ describe('OpenRouterImageModel', () => {
       expect(imageUrlPart.image_url.url).toMatch(/^data:image\/png;base64,/);
     });
 
-    it('should include multiple files as multiple image_url content parts', async () => {
+    it('should include multiple files as multiple input_references', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -358,17 +449,15 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      expect(content).toHaveLength(3);
-      expect(content[0]?.type).toBe('image_url');
-      expect(content[1]?.type).toBe('image_url');
-      expect(content[2]).toEqual({
-        type: 'text',
-        text: 'Combine these images',
-      });
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      expect(inputRefs).toHaveLength(2);
+      expect(inputRefs[0]?.type).toBe('image_url');
+      expect(inputRefs[1]?.type).toBe('image_url');
     });
 
-    it('should send simple string content when no files are provided', async () => {
+    it('should not include input_references when no files are provided', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -387,10 +476,7 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const messages = mock.capturedBody?.messages as Array<
-        Record<string, unknown>
-      >;
-      expect(messages[0]?.content).toBe('Generate a cat');
+      expect(mock.capturedBody?.input_references).toBeUndefined();
     });
 
     it('should default to image/png when file mediaType is undefined', async () => {
@@ -418,9 +504,11 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      expect(content).toHaveLength(2);
-      const imageUrlPart = content[0] as {
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      expect(inputRefs).toHaveLength(1);
+      const imageUrlPart = inputRefs[0] as {
         type: string;
         image_url: { url: string };
       };
@@ -456,8 +544,10 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      const imageUrlPart = content[0] as {
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      const imageUrlPart = inputRefs[0] as {
         type: string;
         image_url: { url: string };
       };
@@ -491,8 +581,10 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      const content = getMessageContent(mock.capturedBody);
-      const imageUrlPart = content[0] as {
+      const inputRefs = mock.capturedBody?.input_references as Array<
+        Record<string, unknown>
+      >;
+      const imageUrlPart = inputRefs[0] as {
         type: string;
         image_url: { url: string };
       };
@@ -524,83 +616,22 @@ describe('OpenRouterImageModel', () => {
       ).rejects.toThrow(UnsupportedFunctionalityError);
     });
 
-    it('should return warning when n > 1 is requested', async () => {
-      const provider = createOpenRouter({
-        apiKey: 'test-key',
-        fetch: createMockFetch(TEST_IMAGE_BASE64),
-      });
-      const model = provider.imageModel('google/gemini-2.5-flash-image');
-
-      const result = await model.doGenerate({
-        prompt: 'A cat',
-        n: 3,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {},
-      });
-
-      expect(result.warnings).toContainEqual({
-        type: 'unsupported',
-        feature: 'n > 1',
-        details:
-          'OpenRouter image generation returns 1 image per call. Requested 3 images.',
-      });
-    });
-
-    it('should return warning when size is provided', async () => {
-      const provider = createOpenRouter({
-        apiKey: 'test-key',
-        fetch: createMockFetch(TEST_IMAGE_BASE64),
-      });
-      const model = provider.imageModel('google/gemini-2.5-flash-image');
-
-      const result = await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        size: '1024x1024',
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {},
-      });
-
-      expect(result.warnings).toContainEqual({
-        type: 'unsupported',
-        feature: 'size',
-        details:
-          'Use aspectRatio instead. Size parameter is not supported by OpenRouter image generation.',
-      });
-    });
-
-    it('should handle response without images in message', async () => {
-      const mockFetchNoImages = async (
+    it('should handle multiple images in response data', async () => {
+      const mockFetchMultiple = async (
         _url: URL | RequestInfo,
         _init?: RequestInit,
       ): Promise<Response> => {
         return new Response(
           JSON.stringify({
-            id: 'chatcmpl-test',
-            object: 'chat.completion',
             created: 1711115037,
-            model: 'google/gemini-2.5-flash-image',
-            choices: [
-              {
-                index: 0,
-                message: {
-                  role: 'assistant',
-                  content: 'I cannot generate that image.',
-                },
-                finish_reason: 'stop',
-              },
+            data: [
+              { b64_json: TEST_IMAGE_BASE64 },
+              { b64_json: TEST_IMAGE_BASE64 },
             ],
             usage: {
               prompt_tokens: 10,
-              completion_tokens: 20,
-              total_tokens: 30,
+              completion_tokens: 200,
+              total_tokens: 210,
             },
           }),
           {
@@ -614,13 +645,13 @@ describe('OpenRouterImageModel', () => {
 
       const provider = createOpenRouter({
         apiKey: 'test-key',
-        fetch: mockFetchNoImages,
+        fetch: mockFetchMultiple,
       });
       const model = provider.imageModel('google/gemini-2.5-flash-image');
 
       const result = await model.doGenerate({
         prompt: 'A cat',
-        n: 1,
+        n: 2,
         size: undefined,
         aspectRatio: undefined,
         seed: undefined,
@@ -629,21 +660,20 @@ describe('OpenRouterImageModel', () => {
         providerOptions: {},
       });
 
-      expect(result.images).toEqual([]);
+      expect(result.images).toHaveLength(2);
+      expect(result.images[0]).toBe(TEST_IMAGE_BASE64);
+      expect(result.images[1]).toBe(TEST_IMAGE_BASE64);
     });
 
-    it('should throw NoContentGeneratedError when choices array is empty', async () => {
-      const mockFetchEmptyChoices = async (
+    it('should throw NoContentGeneratedError when data array is empty', async () => {
+      const mockFetchEmptyData = async (
         _url: URL | RequestInfo,
         _init?: RequestInit,
       ): Promise<Response> => {
         return new Response(
           JSON.stringify({
-            id: 'chatcmpl-test',
-            object: 'chat.completion',
             created: 1711115037,
-            model: 'google/gemini-2.5-flash-image',
-            choices: [],
+            data: [],
             usage: {
               prompt_tokens: 10,
               completion_tokens: 0,
@@ -661,7 +691,7 @@ describe('OpenRouterImageModel', () => {
 
       const provider = createOpenRouter({
         apiKey: 'test-key',
-        fetch: mockFetchEmptyChoices,
+        fetch: mockFetchEmptyData,
       });
       const model = provider.imageModel('google/gemini-2.5-flash-image');
 
@@ -676,7 +706,7 @@ describe('OpenRouterImageModel', () => {
           mask: undefined,
           providerOptions: {},
         }),
-      ).rejects.toThrow('No choice in response');
+      ).rejects.toThrow('No images in response');
     });
 
     it('should pass provider routing settings', async () => {

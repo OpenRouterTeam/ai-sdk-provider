@@ -10,6 +10,26 @@
 
   Usage accounting is mapped to the AI SDK v7 token detail shape: cached input tokens are available through `usage.inputTokenDetails.cacheReadTokens`, and reasoning tokens are available through `usage.outputTokenDetails.reasoningTokens`. OpenRouter-specific cost, BYOK, reasoning details, annotations, and cache-control metadata continue to be exposed through `providerMetadata.openrouter`.
 
+## 2.10.0
+
+### Minor Changes
+
+- [#513](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/513) [`384f3c8`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/384f3c81fad1099d56203c0f672f57d9f3ed7b93) Thanks [@Robinnnnn](https://github.com/Robinnnnn)! - Switch image generation to dedicated `/api/v1/images` endpoint
+
+  Migrates `OpenRouterImageModel` from the legacy chat completions path (`/chat/completions` with `modalities: ["image", "text"]`) to OpenRouter's dedicated image generation endpoint (`/images`).
+
+  **Request changes:**
+
+  - Sends `{ model, prompt, n, size, aspect_ratio, seed, input_references }` directly instead of wrapping in a chat messages array
+  - `files` are mapped to `input_references` (array of `{ type: "image_url", image_url: { url } }`) instead of inline message content parts
+  - `aspectRatio` maps to `aspect_ratio` (was `image_config.aspect_ratio`)
+  - `size` and `n` are now passed through (previously emitted warnings)
+
+  **Response changes:**
+
+  - Parses `{ created, data: [{ b64_json }], usage }` instead of `{ choices: [{ message: { images } }] }`
+  - `maxImagesPerCall` updated from 1 to 10 (the new endpoint supports batch generation)
+
 ## 2.9.1
 
 ### Patch Changes
