@@ -20,7 +20,7 @@ import {
   createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
-import { buildFileDataUrl, getBase64FromDataUrl } from '../chat/file-url-utils';
+import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterImageResponseSchema } from './schemas';
 
@@ -37,7 +37,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterImageModelId;
   readonly settings: OpenRouterImageSettings;
-  readonly maxImagesPerCall = 1;
+  readonly maxImagesPerCall = 10;
 
   private readonly config: OpenRouterImageConfig;
 
@@ -86,48 +86,22 @@ export class OpenRouterImageModel implements ImageModelV3 {
       });
     }
 
-    if (n > 1) {
-      warnings.push({
-        type: 'unsupported',
-        feature: 'n > 1',
-        details: `OpenRouter image generation returns 1 image per call. Requested ${n} images.`,
-      });
-    }
-
-    if (size !== undefined) {
-      warnings.push({
-        type: 'unsupported',
-        feature: 'size',
-        details:
-          'Use aspectRatio instead. Size parameter is not supported by OpenRouter image generation.',
-      });
-    }
-
-    const imageConfig: Record<string, string> | undefined =
-      aspectRatio !== undefined ? { aspect_ratio: aspectRatio } : undefined;
-
     const hasFiles = files !== undefined && files.length > 0;
 
-    const userContent: string | Array<Record<string, unknown>> = hasFiles
-      ? [
-          ...files.map((file: ImageModelV3File) =>
-            convertImageFileToContentPart(file),
-          ),
-          { type: 'text', text: prompt ?? '' },
-        ]
-      : (prompt ?? '');
+    const inputReferences: Array<Record<string, unknown>> | undefined = hasFiles
+      ? files.map((file: ImageModelV3File) => convertFileToInputReference(file))
+      : undefined;
 
     const body: Record<string, unknown> = {
       model: this.modelId,
-      messages: [
-        {
-          role: 'user',
-          content: userContent,
-        },
-      ],
-      modalities: ['image', 'text'],
-      ...(imageConfig !== undefined && { image_config: imageConfig }),
+      prompt: prompt ?? '',
+      ...(n !== undefined && { n }),
+      ...(size !== undefined && { size }),
+      ...(aspectRatio !== undefined && { aspect_ratio: aspectRatio }),
       ...(seed !== undefined && { seed }),
+      ...(inputReferences !== undefined && {
+        input_references: inputReferences,
+      }),
       ...(this.settings.user !== undefined && { user: this.settings.user }),
       ...(this.settings.provider !== undefined && {
         provider: this.settings.provider,
@@ -139,7 +113,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
       url: this.config.url({
-        path: '/chat/completions',
+        path: '/images',
         modelId: this.modelId,
       }),
       headers: combineHeaders(this.config.headers(), headers),
@@ -152,22 +126,13 @@ export class OpenRouterImageModel implements ImageModelV3 {
       fetch: this.config.fetch,
     });
 
-    const choice = responseValue.choices[0];
-
-    if (!choice) {
+    if (!responseValue.data || responseValue.data.length === 0) {
       throw new NoContentGeneratedError({
-        message: 'No choice in response',
+        message: 'No images in response',
       });
     }
 
-    const images: string[] = [];
-
-    if (choice.message?.images) {
-      for (const image of choice.message.images) {
-        const dataUrl = image.image_url.url;
-        images.push(getBase64FromDataUrl(dataUrl));
-      }
-    }
+    const images: string[] = responseValue.data.map((item) => item.b64_json);
 
     const usage: ImageModelV3Usage | undefined = responseValue.usage
       ? {
@@ -182,7 +147,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
       warnings,
       response: {
         timestamp: new Date(),
-        modelId: responseValue.model,
+        modelId: this.modelId,
         headers: responseHeaders as Record<string, string> | undefined,
       },
       usage,
@@ -192,7 +157,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
 
 const DEFAULT_IMAGE_MEDIA_TYPE = 'image/png';
 
-function convertImageFileToContentPart(
+function convertFileToInputReference(
   file: ImageModelV3File,
 ): Record<string, unknown> {
   if (file.type === 'url') {

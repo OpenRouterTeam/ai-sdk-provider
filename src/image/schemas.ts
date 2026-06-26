@@ -2,33 +2,11 @@ import { z } from 'zod/v4';
 
 export const OpenRouterImageResponseSchema = z
   .object({
-    id: z.string().optional(),
-    object: z.string().optional(),
     created: z.number().optional(),
-    model: z.string(),
-    choices: z.array(
+    data: z.array(
       z
         .object({
-          index: z.number(),
-          message: z
-            .object({
-              role: z.string(),
-              content: z.string().nullable().optional(),
-              images: z
-                .array(
-                  z
-                    .object({
-                      type: z.literal('image_url'),
-                      image_url: z.object({
-                        url: z.string(),
-                      }),
-                    })
-                    .passthrough(),
-                )
-                .optional(),
-            })
-            .passthrough(),
-          finish_reason: z.string().nullable().optional(),
+          b64_json: z.string(),
         })
         .passthrough(),
     ),
