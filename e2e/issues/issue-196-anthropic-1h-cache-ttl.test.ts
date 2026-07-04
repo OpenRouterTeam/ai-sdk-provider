@@ -29,6 +29,7 @@ describe('Issue #196: Anthropic 1-hour cache TTL', () => {
   async function callWithIssue196Structure() {
     const response = await streamText({
       model,
+      allowSystemInMessages: true,
       messages: [
         {
           role: 'system',
