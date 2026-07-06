@@ -45,6 +45,7 @@ Remember to be helpful and concise in your responses.`;
   it('should trigger cache write on first request with system message cache control', async () => {
     const response = await generateText({
       model,
+      allowSystemInMessages: true,
       messages: [
         {
           role: 'system',
@@ -71,6 +72,7 @@ Remember to be helpful and concise in your responses.`;
     const makeRequest = () =>
       generateText({
         model,
+        allowSystemInMessages: true,
         messages: [
           {
             role: 'system',

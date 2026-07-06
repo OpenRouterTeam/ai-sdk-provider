@@ -28,6 +28,7 @@ describe('Issue #432: raw response body in doGenerate', () => {
   it('should include raw response body with OpenRouter-specific fields', async () => {
     const result = await generateText({
       model: openrouter('openai/gpt-4.1-nano'),
+      include: { responseBody: true },
       prompt: 'Say hello in one word.',
     });
 
@@ -42,6 +43,7 @@ describe('Issue #432: raw response body in doGenerate', () => {
   it('should expose provider field in raw response body', async () => {
     const result = await generateText({
       model: openrouter('openai/gpt-4.1-nano'),
+      include: { responseBody: true },
       prompt: 'Say hi.',
     });
 

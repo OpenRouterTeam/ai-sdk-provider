@@ -11,7 +11,7 @@
  * This test verifies that eager_input_streaming from tool.providerOptions.openrouter
  * is correctly included in the request body sent to the OpenRouter API.
  */
-import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 
 import { createTestServer } from '@ai-sdk/test-server';
 import {
@@ -29,7 +29,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   {
     role: 'user',
     content: [{ type: 'text', text: 'What is the weather in Tokyo?' }],

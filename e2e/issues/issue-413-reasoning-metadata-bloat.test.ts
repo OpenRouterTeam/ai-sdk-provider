@@ -11,8 +11,8 @@
  * available on reasoning-end, tool-call, and finish events.
  */
 import type {
-  LanguageModelV3Prompt,
-  LanguageModelV3StreamPart,
+  LanguageModelV4Prompt,
+  LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
@@ -33,7 +33,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Think step by step.' }] },
 ];
 
@@ -99,7 +99,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const reasoningDeltas = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-delta',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-delta',
     );
 
     expect(reasoningDeltas).toHaveLength(N);
@@ -121,7 +121,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const reasoningStart = elements.find(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-start',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-start',
     );
 
     expect(reasoningStart).toBeDefined();
@@ -140,7 +140,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const reasoningEnd = elements.find(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-end',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-end',
     );
 
     expect(reasoningEnd).toBeDefined();
@@ -171,7 +171,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el: LanguageModelV3StreamPart) => el.type === 'finish',
+      (el: LanguageModelV4StreamPart) => el.type === 'finish',
     );
 
     expect(finishEvent).toBeDefined();
@@ -202,7 +202,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
 
     // Serialize all stream parts to measure total payload size
     const totalBytes = elements.reduce(
-      (sum: number, el: LanguageModelV3StreamPart) =>
+      (sum: number, el: LanguageModelV4StreamPart) =>
         sum + JSON.stringify(el).length,
       0,
     );
@@ -227,7 +227,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const reasoningDeltas = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-delta',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-delta',
     );
 
     expect(reasoningDeltas).toHaveLength(1);
@@ -235,7 +235,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
 
     // reasoning-end should still have metadata
     const reasoningEnd = elements.find(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-end',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-end',
     );
     expect(reasoningEnd?.providerMetadata).toBeDefined();
   });
@@ -268,7 +268,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
 
     // Text + Summary produce deltas; Encrypted does not
     const reasoningDeltas = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-delta',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-delta',
     );
     expect(reasoningDeltas).toHaveLength(2);
 
@@ -279,7 +279,7 @@ describe('Issue #413: reasoning metadata bloat in streaming', () => {
 
     // reasoning-end should have all 3 types accumulated
     const reasoningEnd = elements.find(
-      (el: LanguageModelV3StreamPart) => el.type === 'reasoning-end',
+      (el: LanguageModelV4StreamPart) => el.type === 'reasoning-end',
     );
     const details = (
       reasoningEnd?.providerMetadata?.openrouter as {

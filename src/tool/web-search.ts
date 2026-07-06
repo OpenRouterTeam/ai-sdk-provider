@@ -1,6 +1,6 @@
 import type { Engine } from '../types/openrouter-api-types';
 
-import { createProviderToolFactory } from '@ai-sdk/provider-utils';
+import { createProviderDefinedToolFactory } from '@ai-sdk/provider-utils';
 import { z } from 'zod/v4';
 
 /**
@@ -43,7 +43,7 @@ type WebSearchArgs = {
  * });
  * ```
  */
-export const webSearch = createProviderToolFactory<
+export const webSearch = createProviderDefinedToolFactory<
   WebSearchInput,
   WebSearchArgs
 >({

@@ -31,8 +31,11 @@ describe('Issue #181: Tool response for image not working', () => {
                   text: 'Here is the screenshot:',
                 },
                 {
-                  type: 'file-data',
-                  data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  type: 'file',
+                  data: {
+                    type: 'data',
+                    data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+                  },
                   mediaType: 'image/png',
                 },
               ],
@@ -78,8 +81,12 @@ describe('Issue #181: Tool response for image not working', () => {
                   text: 'Generated image:',
                 },
                 {
-                  type: 'file-url',
-                  url: 'https://example.com/generated-image.png',
+                  type: 'file',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/generated-image.png'),
+                  },
+                  mediaType: 'image/png',
                 },
               ],
             },
@@ -168,9 +175,12 @@ describe('Issue #181: Tool response for image not working', () => {
               type: 'content',
               value: [
                 {
-                  type: 'file-data',
+                  type: 'file',
                   mediaType: 'image/jpeg',
-                  data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
+                  data: {
+                    type: 'data',
+                    data: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5OjcBCgoKDQwNGg8PGjclHyU3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3N//AABEIAFgAXAMBIgACEQEDEQH/xAAcAAACAgMBAQAA',
+                  },
                 },
               ],
             },

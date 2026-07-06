@@ -15,7 +15,7 @@
  * set it to `false`) so they can route to providers that don't implement
  * strict json_schema.
  */
-import type { LanguageModelV3Prompt } from '@ai-sdk/provider';
+import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 import type { JSONSchema7 } from 'json-schema';
 
 import { createTestServer } from '@ai-sdk/test-server';
@@ -29,7 +29,7 @@ const TEST_SCHEMA: JSONSchema7 = {
   additionalProperties: false,
 };
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'hi' }] },
 ];
 

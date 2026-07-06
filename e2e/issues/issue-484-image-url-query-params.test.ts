@@ -6,7 +6,7 @@
  *
  * The `supportedUrls` regex for `image/*` only matches URLs that END with a
  * known extension. Valid image URLs with query strings or fragments do NOT
- * match, so the AI SDK's LanguageModelV3 layer treats them as unsupported
+ * match, so the AI SDK's LanguageModelV4 layer treats them as unsupported
  * and downloads + base64-encodes them.
  */
 import { describe, expect, it } from 'vitest';

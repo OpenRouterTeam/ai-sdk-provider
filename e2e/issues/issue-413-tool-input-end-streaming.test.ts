@@ -18,8 +18,8 @@
  * full tool-input-start -> tool-input-delta -> tool-input-end -> tool-call sequence.
  */
 import type {
-  LanguageModelV3Prompt,
-  LanguageModelV3StreamPart,
+  LanguageModelV4Prompt,
+  LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
@@ -39,7 +39,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'What is the weather?' }] },
 ];
 
@@ -76,7 +76,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    const toolEvents = elements.filter((el: LanguageModelV3StreamPart) =>
+    const toolEvents = elements.filter((el: LanguageModelV4StreamPart) =>
       [
         'tool-input-start',
         'tool-input-delta',
@@ -85,7 +85,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
       ].includes(el.type),
     );
 
-    expect(toolEvents.map((e: LanguageModelV3StreamPart) => e.type)).toEqual([
+    expect(toolEvents.map((e: LanguageModelV4StreamPart) => e.type)).toEqual([
       'tool-input-start',
       'tool-input-delta',
       'tool-input-delta',
@@ -109,7 +109,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    const toolEvents = elements.filter((el: LanguageModelV3StreamPart) =>
+    const toolEvents = elements.filter((el: LanguageModelV4StreamPart) =>
       [
         'tool-input-start',
         'tool-input-delta',
@@ -120,7 +120,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
 
     // Single-chunk tool call: complete in first chunk, so full lifecycle is
     // emitted immediately (start -> delta -> end -> call)
-    expect(toolEvents.map((e: LanguageModelV3StreamPart) => e.type)).toEqual([
+    expect(toolEvents.map((e: LanguageModelV4StreamPart) => e.type)).toEqual([
       'tool-input-start',
       'tool-input-delta',
       'tool-input-end',
@@ -147,7 +147,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    const toolEvents = elements.filter((el: LanguageModelV3StreamPart) =>
+    const toolEvents = elements.filter((el: LanguageModelV4StreamPart) =>
       [
         'tool-input-start',
         'tool-input-delta',
@@ -157,7 +157,7 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
     );
 
     // Partially streamed (inputStarted=true): flush should only add end + call
-    expect(toolEvents.map((e: LanguageModelV3StreamPart) => e.type)).toEqual([
+    expect(toolEvents.map((e: LanguageModelV4StreamPart) => e.type)).toEqual([
       'tool-input-start',
       'tool-input-delta',
       'tool-input-end',

@@ -91,7 +91,7 @@ describe('OpenRouterImageModel', () => {
       expect(model).toBeInstanceOf(OpenRouterImageModel);
       expect(model.modelId).toBe('google/gemini-2.5-flash-image');
       expect(model.provider).toBe('openrouter');
-      expect(model.specificationVersion).toBe('v3');
+      expect(model.specificationVersion).toBe('v4');
     });
 
     it('should have maxImagesPerCall set to 10', () => {

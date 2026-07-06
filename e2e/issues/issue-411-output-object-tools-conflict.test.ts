@@ -48,7 +48,7 @@ describe('Issue #411: generateText with Output.object() + tools should return st
             'Look up the email for john@example.com and return the result.',
         },
       ],
-      experimental_output: Output.object({
+      output: Output.object({
         schema: z.object({
           name: z.string(),
           email: z.string(),

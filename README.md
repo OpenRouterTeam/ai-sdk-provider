@@ -2,7 +2,9 @@
 
 The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https://sdk.vercel.ai/docs) gives access to over 300 large language models on the OpenRouter chat and completion APIs.
 
-## Setup for AI SDK v6
+## Setup for AI SDK v7
+
+This release line supports `ai@^7.0.0`, requires Node.js 22 or newer, and is ESM-only.
 
 ```bash
 # For pnpm
@@ -13,6 +15,19 @@ npm install @openrouter/ai-sdk-provider
 
 # For yarn
 yarn add @openrouter/ai-sdk-provider
+```
+
+## (LEGACY) Setup for AI SDK v6
+
+```bash
+# For pnpm
+pnpm add @openrouter/ai-sdk-provider@2.9.1
+
+# For npm
+npm install @openrouter/ai-sdk-provider@2.9.1
+
+# For yarn
+yarn add @openrouter/ai-sdk-provider@2.9.1
 ```
 
 ## (LEGACY) Setup for AI SDK v5
@@ -383,6 +398,11 @@ const result = await generateText({
   prompt: 'Hello, how are you today?',
 });
 
+// AI SDK v7 standard usage details
+console.log('Input tokens:', result.usage.inputTokens);
+console.log('Cached input tokens:', result.usage.inputTokenDetails.cacheReadTokens);
+console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens);
+
 // Provider-specific usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
   console.log('Cost:', result.providerMetadata.openrouter.usage.cost);
@@ -410,6 +430,10 @@ const result = await generateText({
   model,
   prompt: 'Hello, how are you today?',
 });
+
+console.log('Input tokens:', result.usage.inputTokens);
+console.log('Cached input tokens:', result.usage.inputTokenDetails.cacheReadTokens);
+console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens);
 
 // Provider-specific BYOK usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {

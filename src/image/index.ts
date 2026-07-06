@@ -1,10 +1,10 @@
 import type {
-  ImageModelV3,
-  ImageModelV3CallOptions,
-  ImageModelV3File,
-  ImageModelV3ProviderMetadata,
-  ImageModelV3Usage,
-  SharedV3Warning,
+  ImageModelV4,
+  ImageModelV4CallOptions,
+  ImageModelV4File,
+  ImageModelV4ProviderMetadata,
+  ImageModelV4Usage,
+  SharedV4Warning,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterImageModelId,
@@ -32,8 +32,8 @@ type OpenRouterImageConfig = {
   extraBody?: Record<string, unknown>;
 };
 
-export class OpenRouterImageModel implements ImageModelV3 {
-  readonly specificationVersion = 'v3' as const;
+export class OpenRouterImageModel implements ImageModelV4 {
+  readonly specificationVersion = 'v4' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterImageModelId;
   readonly settings: OpenRouterImageSettings;
@@ -51,16 +51,16 @@ export class OpenRouterImageModel implements ImageModelV3 {
     this.config = config;
   }
 
-  async doGenerate(options: ImageModelV3CallOptions): Promise<{
+  async doGenerate(options: ImageModelV4CallOptions): Promise<{
     images: Array<string>;
-    warnings: Array<SharedV3Warning>;
-    providerMetadata?: ImageModelV3ProviderMetadata;
+    warnings: Array<SharedV4Warning>;
+    providerMetadata?: ImageModelV4ProviderMetadata;
     response: {
       timestamp: Date;
       modelId: string;
       headers: Record<string, string> | undefined;
     };
-    usage?: ImageModelV3Usage;
+    usage?: ImageModelV4Usage;
   }> {
     const {
       prompt,
@@ -78,7 +78,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
     const openrouterOptions =
       (providerOptions?.openrouter as Record<string, unknown>) || {};
 
-    const warnings: SharedV3Warning[] = [];
+    const warnings: SharedV4Warning[] = [];
 
     if (mask !== undefined) {
       throw new UnsupportedFunctionalityError({
@@ -89,7 +89,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
     const hasFiles = files !== undefined && files.length > 0;
 
     const inputReferences: Array<Record<string, unknown>> | undefined = hasFiles
-      ? files.map((file: ImageModelV3File) => convertFileToInputReference(file))
+      ? files.map((file: ImageModelV4File) => convertFileToInputReference(file))
       : undefined;
 
     const body: Record<string, unknown> = {
@@ -134,7 +134,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
 
     const images: string[] = responseValue.data.map((item) => item.b64_json);
 
-    const usage: ImageModelV3Usage | undefined = responseValue.usage
+    const usage: ImageModelV4Usage | undefined = responseValue.usage
       ? {
           inputTokens: responseValue.usage.prompt_tokens,
           outputTokens: responseValue.usage.completion_tokens,
@@ -158,7 +158,7 @@ export class OpenRouterImageModel implements ImageModelV3 {
 const DEFAULT_IMAGE_MEDIA_TYPE = 'image/png';
 
 function convertFileToInputReference(
-  file: ImageModelV3File,
+  file: ImageModelV4File,
 ): Record<string, unknown> {
   if (file.type === 'url') {
     return {

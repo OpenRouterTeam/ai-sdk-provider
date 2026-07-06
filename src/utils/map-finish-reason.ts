@@ -1,4 +1,4 @@
-import type { LanguageModelV3FinishReason } from '@ai-sdk/provider';
+import type { LanguageModelV4FinishReason } from '@ai-sdk/provider';
 
 type UnifiedFinishReason =
   | 'stop'
@@ -28,7 +28,7 @@ function mapToUnified(
 
 export function mapOpenRouterFinishReason(
   finishReason: string | null | undefined,
-): LanguageModelV3FinishReason {
+): LanguageModelV4FinishReason {
   return {
     unified: mapToUnified(finishReason),
     raw: finishReason ?? undefined,
@@ -38,6 +38,6 @@ export function mapOpenRouterFinishReason(
 export function createFinishReason(
   unified: UnifiedFinishReason,
   raw?: string,
-): LanguageModelV3FinishReason {
+): LanguageModelV4FinishReason {
   return { unified, raw };
 }

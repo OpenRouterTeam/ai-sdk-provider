@@ -1,7 +1,7 @@
 import type {
-  LanguageModelV3Content,
-  LanguageModelV3Prompt,
-  LanguageModelV3StreamPart,
+  LanguageModelV4Content,
+  LanguageModelV4Prompt,
+  LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
@@ -17,7 +17,7 @@ vi.mock('@/src/version', () => ({
   VERSION: '0.0.0-test',
 }));
 
-const TEST_PROMPT: LanguageModelV3Prompt = [
+const TEST_PROMPT: LanguageModelV4Prompt = [
   { role: 'user', content: [{ type: 'text', text: 'Hello' }] },
 ];
 
@@ -127,8 +127,8 @@ const provider = createOpenRouter({
 
 const model = provider.chat('anthropic/claude-3.5-sonnet');
 
-function isReasoningDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
-  LanguageModelV3StreamPart,
+function isReasoningDeltaPart(part: LanguageModelV4StreamPart): part is Extract<
+  LanguageModelV4StreamPart,
   {
     type: 'reasoning-delta';
   }
@@ -136,8 +136,8 @@ function isReasoningDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
   return part.type === 'reasoning-delta';
 }
 
-function isReasoningStartPart(part: LanguageModelV3StreamPart): part is Extract<
-  LanguageModelV3StreamPart,
+function isReasoningStartPart(part: LanguageModelV4StreamPart): part is Extract<
+  LanguageModelV4StreamPart,
   {
     type: 'reasoning-start';
   }
@@ -145,8 +145,8 @@ function isReasoningStartPart(part: LanguageModelV3StreamPart): part is Extract<
   return part.type === 'reasoning-start';
 }
 
-function isTextDeltaPart(part: LanguageModelV3StreamPart): part is Extract<
-  LanguageModelV3StreamPart,
+function isTextDeltaPart(part: LanguageModelV4StreamPart): part is Extract<
+  LanguageModelV4StreamPart,
   {
     type: 'text-delta';
   }
@@ -1292,7 +1292,7 @@ describe('doGenerate', () => {
       {
         type: 'file',
         mediaType: 'image/png',
-        data: TEST_IMAGE_BASE64,
+        data: { type: 'data', data: TEST_IMAGE_BASE64 },
       },
     ]);
   });
@@ -1326,7 +1326,7 @@ describe('doGenerate', () => {
     });
 
     const toolCalls = result.content.filter(
-      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+      (c): c is Extract<LanguageModelV4Content, { type: 'tool-call' }> =>
         c.type === 'tool-call',
     );
 
@@ -1365,7 +1365,7 @@ describe('doGenerate', () => {
     });
 
     const toolCalls = result.content.filter(
-      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+      (c): c is Extract<LanguageModelV4Content, { type: 'tool-call' }> =>
         c.type === 'tool-call',
     );
 
@@ -1399,7 +1399,7 @@ describe('doGenerate', () => {
     });
 
     const toolCalls = result.content.filter(
-      (c): c is Extract<LanguageModelV3Content, { type: 'tool-call' }> =>
+      (c): c is Extract<LanguageModelV4Content, { type: 'tool-call' }> =>
         c.type === 'tool-call',
     );
 
@@ -1494,6 +1494,7 @@ describe('doStream', () => {
     // note: space moved to last chunk bc of trimming
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -1605,11 +1606,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -1645,11 +1646,11 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
     const openrouterUsage = (
@@ -2075,6 +2076,7 @@ describe('doStream', () => {
     });
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2280,6 +2282,7 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2408,7 +2411,7 @@ describe('doStream', () => {
 
     // Find the finish event
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2420,7 +2423,7 @@ describe('doStream', () => {
 
     // Should have the tool call
     const toolCallEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
@@ -2465,7 +2468,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2476,7 +2479,7 @@ describe('doStream', () => {
     });
 
     const toolCallEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
@@ -2504,7 +2507,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2553,7 +2556,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2587,7 +2590,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2625,7 +2628,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2670,7 +2673,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2700,7 +2703,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2742,7 +2745,7 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const finishEvent = elements.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'finish' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
         el.type === 'finish',
     );
 
@@ -2770,6 +2773,7 @@ describe('doStream', () => {
     });
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
+      { type: 'stream-start', warnings: [] },
       {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
@@ -2781,7 +2785,7 @@ describe('doStream', () => {
       {
         type: 'file',
         mediaType: 'image/png',
-        data: TEST_IMAGE_BASE64,
+        data: { type: 'data', data: TEST_IMAGE_BASE64 },
       },
       {
         type: 'response-metadata',
@@ -2842,6 +2846,10 @@ describe('doStream', () => {
 
     expect(await convertReadableStreamToArray(stream)).toStrictEqual([
       {
+        type: 'stream-start',
+        warnings: [],
+      },
+      {
         type: 'error',
         error: {
           message:
@@ -2892,9 +2900,10 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
 
-    expect(elements.length).toBe(2);
-    expect(elements[0]?.type).toBe('error');
-    expect(elements[1]).toStrictEqual({
+    expect(elements.length).toBe(3);
+    expect(elements[0]).toStrictEqual({ type: 'stream-start', warnings: [] });
+    expect(elements[1]?.type).toBe('error');
+    expect(elements[2]).toStrictEqual({
       finishReason: { unified: 'error', raw: undefined },
 
       type: 'finish',
@@ -3171,13 +3180,13 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
 
     // Find the finish chunk
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 
@@ -3245,12 +3254,12 @@ describe('doStream', () => {
 
     const elements = (await convertReadableStreamToArray(
       stream,
-    )) as LanguageModelV3StreamPart[];
+    )) as LanguageModelV4StreamPart[];
 
     const finishChunk = elements.find(
       (
         chunk,
-      ): chunk is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      ): chunk is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         chunk.type === 'finish',
     );
 
@@ -3322,7 +3331,7 @@ describe('doStream', () => {
     const reasoningEnd = elements.find(
       (
         el,
-      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
         el.type === 'reasoning-end',
     );
 
@@ -3351,7 +3360,7 @@ describe('doStream', () => {
 
     // Also verify that the finish event has the same accumulated data
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
 
@@ -3632,7 +3641,7 @@ describe('doStream', () => {
     // The late signature MUST still be accumulated in accumulatedReasoningDetails
     // and appear in the finish event's providerMetadata for multi-turn roundtrip
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
 
@@ -3655,7 +3664,7 @@ describe('doStream', () => {
     const reasoningEnd = elements.find(
       (
         el,
-      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
         el.type === 'reasoning-end',
     );
 
@@ -3721,7 +3730,7 @@ describe('doStream', () => {
 
     // ALL late details must be accumulated in finish metadata
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
     const finishDetails = (
@@ -3812,7 +3821,7 @@ describe('doStream', () => {
 
     // Signature should be in finish metadata
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
     const finishDetails = (
@@ -3868,7 +3877,7 @@ describe('doStream', () => {
 
     // But reasoning data IS in finish metadata for multi-turn
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
     const finishDetails = (
@@ -3974,7 +3983,7 @@ describe('doStream', () => {
 
     // Tool call should have reasoning_details with signature
     const toolCallEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'tool-call' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'tool-call' }> =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent).toBeDefined();
@@ -4045,7 +4054,7 @@ describe('doStream', () => {
 
     // Signature in finish metadata
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
     const finishDetails = (
@@ -4098,7 +4107,7 @@ describe('doStream', () => {
     const reasoningEnd = elements.find(
       (
         el,
-      ): el is Extract<LanguageModelV3StreamPart, { type: 'reasoning-end' }> =>
+      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
         el.type === 'reasoning-end',
     );
     const reasoningEndDetails = (
@@ -4123,7 +4132,7 @@ describe('doStream', () => {
 
     // finish event metadata: has BOTH text AND signature (accumulated after text)
     const finishEvent = elements.find(
-      (el): el is Extract<LanguageModelV3StreamPart, { type: 'finish' }> =>
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
         el.type === 'finish',
     );
     const finishDetails = (
@@ -4361,7 +4370,7 @@ describe('web search citations', () => {
 
     // Find the source event
     const sourceEvent = elements.find(
-      (e): e is Extract<LanguageModelV3StreamPart, { type: 'source' }> =>
+      (e): e is Extract<LanguageModelV4StreamPart, { type: 'source' }> =>
         e.type === 'source',
     );
 
@@ -4540,7 +4549,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -4559,7 +4568,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -4575,7 +4584,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -4592,7 +4601,7 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
 
@@ -4718,7 +4727,7 @@ describe('includeRawChunks', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const toolCallEvents = elements.filter(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
 
@@ -4904,7 +4913,7 @@ describe('includeRawChunks', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const toolInputDeltas = elements.filter(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-delta' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-input-delta' } =>
         el.type === 'tool-input-delta',
     );
 
@@ -5209,7 +5218,7 @@ describe('includeRawChunks', () => {
     // Concatenated deltas should equal the tool-call input
     const deltas = toolEvents
       .filter(
-        (e): e is LanguageModelV3StreamPart & { type: 'tool-input-delta' } =>
+        (e): e is LanguageModelV4StreamPart & { type: 'tool-input-delta' } =>
           e.type === 'tool-input-delta',
       )
       .map((e) => e.delta)
@@ -5549,11 +5558,11 @@ describe('includeRawChunks', () => {
 
     // For every tool-input-end, there must be a preceding tool-input-start with the same id
     const ends = elements.filter(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-end' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-input-end' } =>
         el.type === 'tool-input-end',
     );
     const starts = elements.filter(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-input-start' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-input-start' } =>
         el.type === 'tool-input-start',
     );
 
@@ -5991,7 +6000,7 @@ describe('includeRawChunks', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const toolCallEvents = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+      (el: LanguageModelV4StreamPart) => el.type === 'tool-call',
     );
 
     expect(toolCallEvents).toHaveLength(2);
@@ -6022,7 +6031,7 @@ describe('includeRawChunks', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const toolCallEvents = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+      (el: LanguageModelV4StreamPart) => el.type === 'tool-call',
     );
 
     expect(toolCallEvents).toHaveLength(2);
@@ -6054,12 +6063,12 @@ describe('includeRawChunks', () => {
     const elements = await convertReadableStreamToArray(stream);
 
     const toolCallEvents = elements.filter(
-      (el: LanguageModelV3StreamPart) => el.type === 'tool-call',
+      (el: LanguageModelV4StreamPart) => el.type === 'tool-call',
     );
 
     expect(toolCallEvents).toHaveLength(1);
     const toolCallEvent = toolCallEvents.find(
-      (el): el is LanguageModelV3StreamPart & { type: 'tool-call' } =>
+      (el): el is LanguageModelV4StreamPart & { type: 'tool-call' } =>
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolCallId).toBe('call_unique_abc');
@@ -6078,11 +6087,11 @@ describe('includeRawChunks', () => {
 
     const elements = await convertReadableStreamToArray(stream);
     const rawChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'raw' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'raw' }> =>
         chunk.type === 'raw',
     );
     const errorChunks = elements.filter(
-      (chunk): chunk is Extract<LanguageModelV3StreamPart, { type: 'error' }> =>
+      (chunk): chunk is Extract<LanguageModelV4StreamPart, { type: 'error' }> =>
         chunk.type === 'error',
     );
 
