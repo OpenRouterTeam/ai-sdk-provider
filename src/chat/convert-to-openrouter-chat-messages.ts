@@ -9,6 +9,7 @@ import type {
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
+  ChatCompletionContentPartText,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
@@ -220,16 +221,35 @@ export function convertToOpenRouterChatMessages(
       case 'assistant': {
         let text = '';
         let reasoning = '';
+        const textParts: ChatCompletionContentPartText[] = [];
         const toolCalls: Array<{
           id: string;
           type: 'function';
           function: { name: string; arguments: string };
         }> = [];
+        const messageCacheControl = getCacheControl(providerOptions);
+        let lastTextPartIndex = -1;
 
-        for (const part of content) {
+        for (let index = content.length - 1; index >= 0; index--) {
+          if (content[index]?.type === 'text') {
+            lastTextPartIndex = index;
+            break;
+          }
+        }
+
+        for (const [index, part] of content.entries()) {
           switch (part.type) {
             case 'text': {
+              const cacheControl =
+                getCacheControl(part.providerOptions) ??
+                (index === lastTextPartIndex ? messageCacheControl : undefined);
+
               text += part.text;
+              textParts.push({
+                type: 'text',
+                text: part.text,
+                ...(cacheControl && { cache_control: cacheControl }),
+              });
               break;
             }
             case 'tool-call': {
@@ -367,15 +387,20 @@ export function convertToOpenRouterChatMessages(
           reasoning && finalReasoningDetails && finalReasoningDetails.length > 0
             ? reasoning
             : undefined;
+        const hasTextPartCacheControl = textParts.some(
+          (part) => part.cache_control !== undefined,
+        );
 
         messages.push({
           role: 'assistant',
-          content: text || null,
+          content: hasTextPartCacheControl ? textParts : text || null,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
           annotations: messageAnnotations,
-          cache_control: getCacheControl(providerOptions),
+          cache_control: hasTextPartCacheControl
+            ? undefined
+            : messageCacheControl,
         });
 
         break;
