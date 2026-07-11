@@ -31,6 +31,7 @@ import {
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
+  isCustomReasoning,
   isParsableJson,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
@@ -102,6 +103,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     topK,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const baseArgs = {
       // model id:
@@ -158,7 +161,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning:
+        providerOptions?.openrouter?.reasoning_effort !== undefined ||
+        providerOptions?.openrouter?.reasoning !== undefined
+          ? undefined
+          : isCustomReasoning(reasoning)
+            ? { effort: reasoning }
+            : this.settings.reasoning,
       usage: this.settings.usage,
 
       // Web search settings:
