@@ -836,6 +836,35 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should only apply message-level cache control to last text part on assistant message (multiple text parts)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First' },
+          { type: 'text', text: 'Second' },
+        ],
+        providerOptions: {
+          anthropic: { cacheControl: { type: 'ephemeral' } },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First' },
+          {
+            type: 'text',
+            text: 'Second',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should pass cache control from tool message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
       {
