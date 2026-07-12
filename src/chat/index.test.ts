@@ -1016,6 +1016,76 @@ describe('doGenerate', () => {
     expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
   });
 
+  it('should accept cacheControl from the anthropic providerOptions namespace too', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          description: 'Get the weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+          providerOptions: {
+            anthropic: {
+              cacheControl: { type: 'ephemeral' },
+            },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<Record<string, unknown>>;
+    expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
+  });
+
+  it('prefers the openrouter namespace over anthropic when both are set on a tool', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          description: 'Get the weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+          providerOptions: {
+            openrouter: { cache_control: { type: 'ephemeral', ttl: '1h' } },
+            anthropic: { cacheControl: { type: 'ephemeral' } },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<Record<string, unknown>>;
+    expect(tools[0]).toHaveProperty('cache_control', {
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+  });
+
   it('should not include cache_control when not set in tool providerOptions', async () => {
     prepareJsonResponse({ content: '' });
 

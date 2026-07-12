@@ -185,13 +185,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
           const openrouterOptions = tool.providerOptions?.openrouter as
             | Record<string, unknown>
             | undefined;
+          const anthropicOptions = tool.providerOptions?.anthropic as
+            | Record<string, unknown>
+            | undefined;
           const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
-          // Support both cache_control (snake_case) and cacheControl
-          // (camelCase), same normalization already applied to
-          // settings.cache_control/providerOptions.openrouter.cacheControl
-          // above for message-level caching.
+          // Resolve a tool-level cache_control from either the `openrouter` or
+          // `anthropic` providerOptions namespace, in both snake_case and
+          // camelCase. This mirrors how `convertToOpenRouterChatMessages`'
+          // `getCacheControl` already resolves *message*-level cache_control
+          // from both namespaces, so tools and messages behave consistently —
+          // callers that stamp `anthropic.cacheControl` on a tool (matching the
+          // Anthropic-native shape) get the same wire result as
+          // `openrouter.cache_control`.
           const cacheControl =
-            openrouterOptions?.cache_control ?? openrouterOptions?.cacheControl;
+            openrouterOptions?.cache_control ??
+            openrouterOptions?.cacheControl ??
+            anthropicOptions?.cacheControl ??
+            anthropicOptions?.cache_control;
 
           mappedTools.push({
             type: 'function' as const,
