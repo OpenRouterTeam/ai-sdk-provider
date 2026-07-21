@@ -49,6 +49,7 @@ type AccumulatedDetail = {
   data?: string;
   id?: string;
   index?: number;
+  format?: string;
 };
 
 describe('Issue #519: streaming reasoning.summary deltas must be merged', () => {
@@ -74,8 +75,13 @@ describe('Issue #519: streaming reasoning.summary deltas must be merged', () => 
     summaryParts.forEach((part, i) => {
       const isFirst = i === 0;
       const rolePart = isFirst ? `"role":"assistant","content":"",` : '';
+      // The first summary delta intentionally omits `format`; a later delta
+      // carries it. This exercises the merge's format-preservation fallback
+      // (lastDetail.format = lastDetail.format || detail.format) so the merged
+      // entry ends up with the format even when the leading delta lacked it.
+      const formatPart = isFirst ? '' : `,"format":"openai-responses-v1"`;
       chunks.push(
-        `data: {"id":"${id}",${base},"choices":[{"index":0,"delta":{${rolePart}"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":${JSON.stringify(part)},"format":"openai-responses-v1","index":0}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"${id}",${base},"choices":[{"index":0,"delta":{${rolePart}"reasoning_details":[{"type":"${ReasoningDetailType.Summary}","summary":${JSON.stringify(part)}${formatPart},"index":0}]},"logprobs":null,"finish_reason":null}]}\n\n`,
       );
     });
 
@@ -135,6 +141,8 @@ describe('Issue #519: streaming reasoning.summary deltas must be merged', () => 
     // Three summary deltas collapse into ONE merged summary entry...
     expect(summaries).toHaveLength(1);
     expect(summaries[0]?.summary).toBe(' reading it.');
+    // ...with format preserved from the deltas on the merged entry.
+    expect(summaries[0]?.format).toBe('openai-responses-v1');
     // ...and the encrypted block stays a discrete entry.
     expect(encrypted).toHaveLength(1);
     expect(encrypted[0]?.data).toBe('gAAAAA...Fgw=');
