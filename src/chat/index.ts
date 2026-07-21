@@ -772,14 +772,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             };
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
-              // Accumulate reasoning_details to preserve for multi-turn conversations
-              // Merge consecutive reasoning.text items into a single entry
+              // Accumulate reasoning_details to preserve for multi-turn conversations.
+              // Merge consecutive same-type text/summary deltas into a single
+              // entry. Providers (e.g. OpenAI `openai-responses-v1`) stream a
+              // logical reasoning block as many small deltas that all carry the
+              // same `index` (frequently `index: 0`), so `index` cannot be used
+              // to reassemble the array — reassembly is driven by the `type`
+              // transition instead. Without merging summary deltas the array
+              // fragments into one entry per delta, which breaks multi-turn
+              // round-tripping when re-submitted (see issue #519, langchain #36400).
               for (const detail of delta.reasoning_details) {
+                const lastDetail =
+                  accumulatedReasoningDetails[
+                    accumulatedReasoningDetails.length - 1
+                  ];
+
                 if (detail.type === ReasoningDetailType.Text) {
-                  const lastDetail =
-                    accumulatedReasoningDetails[
-                      accumulatedReasoningDetails.length - 1
-                    ];
                   if (lastDetail?.type === ReasoningDetailType.Text) {
                     // Merge with the previous text detail
                     lastDetail.text =
@@ -793,8 +801,20 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     // Start a new text detail
                     accumulatedReasoningDetails.push({ ...detail });
                   }
+                } else if (detail.type === ReasoningDetailType.Summary) {
+                  if (lastDetail?.type === ReasoningDetailType.Summary) {
+                    // Merge consecutive summary deltas by concatenating text
+                    lastDetail.summary =
+                      (lastDetail.summary || '') + (detail.summary || '');
+
+                    lastDetail.format = lastDetail.format || detail.format;
+                  } else {
+                    // Start a new summary detail
+                    accumulatedReasoningDetails.push({ ...detail });
+                  }
                 } else {
-                  // Non-text details (encrypted, summary) are pushed as-is
+                  // Encrypted details are opaque blobs (each has its own id);
+                  // they are discrete and must be pushed as-is, never merged.
                   accumulatedReasoningDetails.push(detail);
                 }
               }
