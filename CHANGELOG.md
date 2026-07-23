@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 3.0.1
+
+### Patch Changes
+
+- [#521](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/521) [`b96b207`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b96b20799eadeb72a180ef021b85254fc1500746) Thanks [@christineschen](https://github.com/christineschen)! - Update to latest AI SDK v7 packages and expand test coverage
+
 ## 3.0.0
 
 ### Major Changes
