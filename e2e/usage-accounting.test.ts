@@ -11,7 +11,7 @@ it('receive usage accounting', async () => {
     apiKey: process.env.OPENROUTER_API_KEY,
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
-  const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
+  const model = openrouter('anthropic/claude-sonnet-4:thinking', {
     usage: {
       include: true,
     },

@@ -14,7 +14,7 @@ describe('Web Search E2E Tests', () => {
       baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
     });
 
-    const model = openrouter('anthropic/claude-3.5-sonnet', {
+    const model = openrouter('anthropic/claude-sonnet-4', {
       plugins: [
         {
           id: 'web',

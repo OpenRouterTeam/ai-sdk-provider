@@ -22,7 +22,7 @@ describe('Issue #196: Anthropic 1-hour cache TTL', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-3.7-sonnet', {
+  const model = openrouter('anthropic/claude-sonnet-4', {
     usage: { include: true },
   });
 
