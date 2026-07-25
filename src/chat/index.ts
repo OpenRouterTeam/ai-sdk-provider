@@ -33,6 +33,9 @@ import {
   generateId,
   isParsableJson,
   postJsonToApi,
+  serializeModelOptions,
+  WORKFLOW_DESERIALIZE,
+  WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
@@ -78,6 +81,34 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
   readonly settings: OpenRouterChatSettings;
 
   private readonly config: OpenRouterChatConfig;
+
+  /**
+   * Serializes the model for `@ai-sdk/workflow` durable step boundaries.
+   *
+   * `serializeModelOptions` resolves the `headers` closure and strips the
+   * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
+   * captured alongside so the constructor can faithfully round-trip.
+   */
+  static [WORKFLOW_SERIALIZE](model: OpenRouterChatLanguageModel) {
+    const { modelId, config } = serializeModelOptions({
+      modelId: model.modelId,
+      config: model.config,
+    });
+
+    return { modelId, config, settings: model.settings };
+  }
+
+  static [WORKFLOW_DESERIALIZE](data: {
+    modelId: OpenRouterChatModelId;
+    settings: OpenRouterChatSettings;
+    config: OpenRouterChatConfig;
+  }) {
+    return new OpenRouterChatLanguageModel(
+      data.modelId,
+      data.settings,
+      data.config,
+    );
+  }
 
   constructor(
     modelId: OpenRouterChatModelId,
