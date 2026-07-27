@@ -4,6 +4,7 @@ export type { LanguageModelV4, LanguageModelV4Prompt };
 
 export * from './openrouter-embedding-settings';
 export * from './openrouter-image-settings';
+export * from './openrouter-rerank-settings';
 export * from './openrouter-video-settings';
 
 export type OpenRouterProviderOptions = {
