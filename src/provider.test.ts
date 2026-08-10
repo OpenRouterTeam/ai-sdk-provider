@@ -22,6 +22,7 @@ describe('createOpenRouter', () => {
   it('creates the supported model factories and callable provider', () => {
     const provider = createOpenRouter({ apiKey: 'test-key' });
 
+    expect(provider.specificationVersion).toBe('v4');
     expect(provider.chat('openai/gpt-4o')).toBeInstanceOf(
       OpenRouterChatLanguageModel,
     );

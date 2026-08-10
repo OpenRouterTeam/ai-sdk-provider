@@ -305,6 +305,7 @@ export function createOpenRouter(
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
   ) => createLanguageModel(modelId, settings);
 
+  provider.specificationVersion = 'v4';
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
