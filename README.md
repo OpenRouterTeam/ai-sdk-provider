@@ -415,7 +415,7 @@ if (result.providerMetadata?.openrouter?.usage) {
 }
 ```
 
-It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/docs/guides/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account.
+It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter.ai/docs/cookbook/administration/usage-accounting#cost-breakdown), which allows you to track passthrough costs when you are using a provider's own API key in your OpenRouter account. Because `costDetails` can also be present for non-BYOK requests, use `isByok` to determine whether the upstream cost is an additional charge.
 
 ```typescript
 // Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
@@ -439,11 +439,12 @@ console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens
 
 // Provider-specific BYOK usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
-  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  const { cost, costDetails, isByok } = result.providerMetadata.openrouter.usage;
   if (costDetails) {
-    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
+    console.log('Upstream cost:', costDetails.upstreamInferenceCost);
   }
-  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
+  console.log('BYOK:', isByok);
+  console.log('OpenRouter credits cost:', cost);
   console.log(
     'Total Tokens:',
     result.providerMetadata.openrouter.usage.totalTokens,

@@ -57,6 +57,7 @@ export const OpenRouterProviderMetadataSchema = z
           .optional(),
         totalTokens: z.number(),
         cost: z.number().optional(),
+        isByok: z.boolean().optional(),
         costDetails: z
           .object({
             upstreamInferenceCost: z.number(),

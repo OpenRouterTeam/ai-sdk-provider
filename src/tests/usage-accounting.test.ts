@@ -41,6 +41,7 @@ describe('OpenRouter Usage Accounting', () => {
             },
             total_tokens: 30,
             cost: 0.0015,
+            is_byok: false,
             cost_details: {
               upstream_inference_cost: 0.0019,
             },
@@ -133,6 +134,7 @@ describe('OpenRouter Usage Accounting', () => {
       completionTokens: 20,
       totalTokens: 30,
       cost: 0.0015,
+      isByok: false,
       costDetails: {
         upstreamInferenceCost: 0.0019,
       },
@@ -178,6 +180,7 @@ describe('OpenRouter Usage Accounting', () => {
       completionTokens: 20,
       totalTokens: 30,
       cost: 0.0015,
+      isByok: false,
       costDetails: {
         upstreamInferenceCost: 0.0019,
       },

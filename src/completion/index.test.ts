@@ -78,6 +78,7 @@ describe('doGenerate', () => {
       total_tokens: number;
       completion_tokens: number;
       cost?: number;
+      is_byok?: boolean;
       prompt_tokens_details?: {
         cached_tokens: number;
       };
@@ -293,6 +294,7 @@ describe('doGenerate', () => {
         prompt_tokens: 100,
         total_tokens: 150,
         completion_tokens: 50,
+        is_byok: false,
         prompt_tokens_details: {
           cached_tokens: 80,
         },
@@ -317,6 +319,7 @@ describe('doGenerate', () => {
           promptTokens: 100,
           completionTokens: 50,
           totalTokens: 150,
+          isByok: false,
           promptTokensDetails: {
             cachedTokens: 80,
           },
@@ -466,6 +469,7 @@ describe('doStream', () => {
         reasoning_tokens: number;
       };
       cost?: number;
+      is_byok?: boolean;
       cost_details?: {
         upstream_inference_cost: number;
       };
@@ -638,6 +642,7 @@ describe('doStream', () => {
         total_tokens: 15,
         completion_tokens: 10,
         cost: 0.0025,
+        is_byok: true,
         cost_details: {
           upstream_inference_cost: 0.0036,
         },
@@ -661,6 +666,7 @@ describe('doStream', () => {
       finishChunk?.providerMetadata?.openrouter as {
         usage?: {
           cost?: number;
+          isByok?: boolean;
           costDetails?: { upstreamInferenceCost: number };
         };
       }
@@ -669,6 +675,7 @@ describe('doStream', () => {
       upstreamInferenceCost: 0.0036,
     });
     expect(openrouterUsage?.cost).toBe(0.0025);
+    expect(openrouterUsage?.isByok).toBe(true);
   });
 
   it('should handle error stream parts', async () => {
