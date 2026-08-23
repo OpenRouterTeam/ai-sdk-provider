@@ -100,7 +100,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       });
     }
 
-    if (toolChoice) {
+    // The AI SDK always sends a default toolChoice of { type: 'auto' },
+    // even when no tools are provided. Only reject tool choices that
+    // actually request tool usage, since completions don't support tools.
+    if (toolChoice && toolChoice.type !== 'auto') {
       throw new UnsupportedFunctionalityError({
         functionality: 'toolChoice',
       });
@@ -315,6 +318,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
+    let textStarted = false;
+    let textId: string | undefined;
+    let openrouterResponseId: string | undefined;
     const warnings: Array<SharedV4Warning> = [];
 
     return {
@@ -351,6 +357,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
             if (value.provider) {
               provider = value.provider;
+            }
+
+            if (value.id) {
+              openrouterResponseId = value.id;
             }
 
             if (value.usage != null) {
@@ -399,10 +409,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             }
 
             if (choice?.text != null) {
+              if (!textStarted) {
+                textId = openrouterResponseId || generateId();
+                controller.enqueue({
+                  type: 'text-start',
+                  id: textId,
+                });
+                textStarted = true;
+              }
               controller.enqueue({
                 type: 'text-delta',
                 delta: choice.text,
-                id: generateId(),
+                id: textId || generateId(),
               });
             }
           },
@@ -411,6 +429,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             if (streamError != null) {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: streamError });
+            }
+
+            if (textStarted) {
+              controller.enqueue({
+                type: 'text-end',
+                id: textId || generateId(),
+              });
             }
 
             // Set raw usage before emitting finish event
