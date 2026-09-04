@@ -406,4 +406,55 @@ describe('OpenRouter Streaming Usage Accounting', () => {
     // When no usage data, raw should be undefined
     expect(finishChunk?.usage?.raw).toBeUndefined();
   });
+
+  it('should preserve isByok in streaming finish metadata when present', async () => {
+    const chunks = [
+      `data: {"id":"test-id","model":"test-model","choices":[{"delta":{"content":"Hello"},"index":0}]}\n\n`,
+      `data: {"choices":[{"finish_reason":"stop","index":0}]}\n\n`,
+      `data: ${JSON.stringify({
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+          cost: 0,
+          is_byok: true,
+          cost_details: { upstream_inference_cost: 0.0019 },
+        },
+        choices: [],
+      })}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks,
+    };
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      { usage: { include: true } },
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doStream({
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hello' }] }],
+      maxOutputTokens: 100,
+    });
+
+    const streamChunks = await convertReadableStreamToArray(result.stream);
+    const finishChunk = streamChunks.find((chunk) => chunk.type === 'finish');
+    const openrouterUsage = finishChunk?.providerMetadata?.openrouter?.usage;
+
+    expect(openrouterUsage).toMatchObject({
+      cost: 0,
+      isByok: true,
+      costDetails: { upstreamInferenceCost: 0.0019 },
+    });
+  });
 });
