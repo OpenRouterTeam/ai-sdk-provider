@@ -42,8 +42,81 @@ function getCacheControl(
     anthropic?.cache_control) as OpenRouterCacheControl | undefined;
 }
 
+function extractDetailValue(obj?: Record<string, unknown>): string | undefined {
+  if (!obj) {
+    return undefined;
+  }
+  const val = obj.imageDetail ?? obj.image_detail ?? obj.detail;
+  if (val != null) {
+    return String(val);
+  }
+
+  const nestedOpenai = obj.openai as Record<string, unknown> | undefined;
+  if (nestedOpenai) {
+    const nestedVal =
+      nestedOpenai.imageDetail ??
+      nestedOpenai.image_detail ??
+      nestedOpenai.detail;
+    if (nestedVal != null) {
+      return String(nestedVal);
+    }
+  }
+
+  const nestedParams = obj.provider_parameters as
+    | Record<string, unknown>
+    | undefined;
+  if (nestedParams) {
+    const nestedVal =
+      nestedParams.imageDetail ??
+      nestedParams.image_detail ??
+      nestedParams.detail;
+    if (nestedVal != null) {
+      return String(nestedVal);
+    }
+  }
+
+  return undefined;
+}
+
+export function getImageDetail(
+  partProviderOptions?: SharedV4ProviderMetadata,
+  messageProviderOptions?: SharedV4ProviderMetadata,
+  defaultDetail?: string,
+): string | undefined {
+  const partOpenrouter = partProviderOptions?.openrouter as
+    | Record<string, unknown>
+    | undefined;
+  const partOpenai = partProviderOptions?.openai as
+    | Record<string, unknown>
+    | undefined;
+
+  const partDetail =
+    extractDetailValue(partOpenrouter) ?? extractDetailValue(partOpenai);
+  if (partDetail != null) {
+    return partDetail;
+  }
+
+  const msgOpenrouter = messageProviderOptions?.openrouter as
+    | Record<string, unknown>
+    | undefined;
+  const msgOpenai = messageProviderOptions?.openai as
+    | Record<string, unknown>
+    | undefined;
+
+  const msgDetail =
+    extractDetailValue(msgOpenrouter) ?? extractDetailValue(msgOpenai);
+  if (msgDetail != null) {
+    return msgDetail;
+  }
+
+  return defaultDetail;
+}
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV4Prompt,
+  options?: {
+    imageDetail?: string;
+  },
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
 
@@ -129,10 +202,16 @@ export function convertToOpenRouterChatMessages(
                     part,
                     defaultMediaType: 'image/jpeg',
                   });
+                  const detail = getImageDetail(
+                    part.providerOptions,
+                    providerOptions,
+                    options?.imageDetail,
+                  );
                   return {
                     type: 'image_url' as const,
                     image_url: {
                       url,
+                      ...(detail && { detail }),
                     },
                     ...(cacheControl && { cache_control: cacheControl }),
                   };
@@ -387,7 +466,7 @@ export function convertToOpenRouterChatMessages(
           if (toolResponse.type === 'tool-approval-response') {
             continue;
           }
-          const content = getToolResultContent(toolResponse);
+          const content = getToolResultContent(toolResponse, options);
 
           messages.push({
             role: 'tool',
@@ -413,6 +492,7 @@ export function convertToOpenRouterChatMessages(
 
 function getToolResultContent(
   input: LanguageModelV4ToolResultPart,
+  options?: { imageDetail?: string },
 ): string | ChatCompletionContentPart[] {
   switch (input.output.type) {
     case 'text':
@@ -422,7 +502,7 @@ function getToolResultContent(
     case 'error-json':
       return JSON.stringify(input.output.value);
     case 'content':
-      return mapToolResultContentParts(input.output.value);
+      return mapToolResultContentParts(input.output.value, options);
     case 'execution-denied':
       return input.output.reason ?? 'Tool execution denied';
   }
@@ -435,6 +515,7 @@ type ToolResultContentPart = Extract<
 
 function mapToolResultContentParts(
   parts: ReadonlyArray<ToolResultContentPart>,
+  options?: { imageDetail?: string },
 ): ChatCompletionContentPart[] {
   return parts.map((part): ChatCompletionContentPart => {
     switch (part.type) {
@@ -449,9 +530,17 @@ function mapToolResultContentParts(
         });
 
         if (part.mediaType?.startsWith('image/')) {
+          const detail = getImageDetail(
+            part.providerOptions,
+            undefined,
+            options?.imageDetail,
+          );
           return {
             type: 'image_url',
-            image_url: { url: dataUrl },
+            image_url: {
+              url: dataUrl,
+              ...(detail && { detail }),
+            },
           };
         }
 

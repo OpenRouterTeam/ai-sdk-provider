@@ -46,9 +46,14 @@ tokens that were generated.
   logprobs?: boolean | number;
 
   /**
-Whether to enable parallel function calling during tool use. Default to true.
+   * Whether to enable parallel function calling during tool use. Default to true.
    */
   parallelToolCalls?: boolean;
+
+  /**
+   * The image detail level to use for images in the request ('auto', 'low', or 'high').
+   */
+  imageDetail?: 'auto' | 'low' | 'high' | string;
 
   /**
 A unique identifier representing your end-user, which can help OpenRouter to
