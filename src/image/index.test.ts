@@ -795,5 +795,120 @@ describe('OpenRouterImageModel', () => {
         order: ['google'],
       });
     });
+
+    it('should merge runtime providerOptions.openrouter.provider with configured model provider preferences', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: {
+          order: ['google'],
+          allow_fallbacks: true,
+          sort: 'price',
+        },
+      });
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {
+          openrouter: {
+            provider: {
+              order: ['black-forest-labs'],
+            },
+          },
+        },
+      });
+
+      expect(mock.capturedBody?.provider).toEqual({
+        order: ['black-forest-labs'],
+        allow_fallbacks: true,
+        sort: 'price',
+      });
+    });
+
+    it('should preserve configured provider preferences when runtime provider options omit provider', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: {
+          order: ['google'],
+          allow_fallbacks: true,
+        },
+      });
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {
+          openrouter: {
+            custom_field: 'test',
+          },
+        },
+      });
+
+      expect(mock.capturedBody?.provider).toEqual({
+        order: ['google'],
+        allow_fallbacks: true,
+      });
+      expect(mock.capturedBody?.custom_field).toBe('test');
+    });
+
+    it('should merge config extraBody, model provider, and runtime provider options', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+        extraBody: {
+          provider: {
+            data_collection: 'deny',
+          },
+        },
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: {
+          order: ['google'],
+          allow_fallbacks: true,
+        },
+      });
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {
+          openrouter: {
+            provider: {
+              order: ['black-forest-labs'],
+            },
+          },
+        },
+      });
+
+      expect(mock.capturedBody?.provider).toEqual({
+        data_collection: 'deny',
+        order: ['black-forest-labs'],
+        allow_fallbacks: true,
+      });
+    });
   });
 });
