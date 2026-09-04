@@ -1897,6 +1897,40 @@ describe('doStream', () => {
     );
   });
 
+  it('should not assign signature: undefined or format: undefined to accumulated reasoning_details when deltas omit them (issue #540)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"think"}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" more"}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find((el) => el.type === 'finish');
+    const details = (
+      finishEvent?.providerMetadata as
+        | { openrouter?: { reasoning_details?: Record<string, unknown>[] } }
+        | undefined
+    )?.openrouter?.reasoning_details;
+
+    expect(details).toBeDefined();
+    expect(details).toHaveLength(1);
+    const firstDetail = details?.[0];
+    expect(firstDetail).toBeDefined();
+    expect(firstDetail?.text).toBe('think more');
+    expect(Object.hasOwn(firstDetail as object, 'signature')).toBe(false);
+    expect(Object.hasOwn(firstDetail as object, 'format')).toBe(false);
+  });
+
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
     // This test reproduces the issue where reasoning appears first but then gets "pushed down"
     // by content that comes later in the stream
