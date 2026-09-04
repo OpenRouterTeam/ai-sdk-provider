@@ -63,6 +63,7 @@ export const OpenRouterProviderMetadataSchema = z
           })
           .catchall(z.any())
           .optional(),
+        isByok: z.boolean().optional(),
       })
       .catchall(z.any()),
   })

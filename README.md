@@ -439,14 +439,23 @@ console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens
 
 // Provider-specific BYOK usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
-  const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  const { cost, costDetails, isByok, totalTokens } =
+    result.providerMetadata.openrouter.usage;
+
+  console.log('Is BYOK request:', isByok);
+  console.log('OpenRouter credits cost:', cost);
   if (costDetails) {
-    console.log('BYOK cost:', costDetails.upstreamInferenceCost);
+    console.log('Upstream inference cost:', costDetails.upstreamInferenceCost);
   }
-  console.log('OpenRouter credits cost:', result.providerMetadata.openrouter.usage.cost);
-  console.log(
-    'Total Tokens:',
-    result.providerMetadata.openrouter.usage.totalTokens,
-  );
+  console.log('Total Tokens:', totalTokens);
+
+  // When calculating total cost:
+  // For BYOK requests (isByok: true), upstreamInferenceCost reflects passthrough cost.
+  // For non-BYOK requests (isByok: false), upstreamInferenceCost is already included in cost.
+  const totalCost =
+    isByok
+      ? (cost ?? 0) + (costDetails?.upstreamInferenceCost ?? 0)
+      : (cost ?? 0);
+  console.log('Total cost:', totalCost);
 }
 ```
