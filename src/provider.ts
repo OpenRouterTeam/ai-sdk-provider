@@ -83,6 +83,14 @@ Creates an OpenRouter completion model for text generation.
   ): OpenRouterCompletionLanguageModel;
 
   /**
+   * Creates an OpenRouter text embedding model.
+   */
+  embeddingModel(
+    modelId: OpenRouterEmbeddingModelId,
+    settings?: OpenRouterEmbeddingSettings,
+  ): OpenRouterEmbeddingModel;
+
+  /**
 Creates an OpenRouter text embedding model. (AI SDK v5)
    */
   textEmbeddingModel(
@@ -305,9 +313,11 @@ export function createOpenRouter(
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
   ) => createLanguageModel(modelId, settings);
 
+  provider.specificationVersion = 'v4' as const;
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
+  provider.embeddingModel = createEmbeddingModel;
   provider.textEmbeddingModel = createEmbeddingModel;
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
