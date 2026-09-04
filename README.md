@@ -115,6 +115,35 @@ OpenRouter supports various embedding models including:
 - `openai/text-embedding-ada-002`
 - And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
 
+## Reranking
+
+OpenRouter supports rerank models that reorder documents by relevance to a query.
+
+### Basic Usage
+
+```ts
+import { rerank } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { rerankedDocuments, ranking } = await rerank({
+  model: openrouter.rerankingModel('cohere/rerank-v3.5'),
+  query: 'What is the capital of France?',
+  documents: [
+    'Berlin is the capital of Germany.',
+    'Paris is the capital of France.',
+  ],
+});
+
+console.log(rerankedDocuments); // Documents sorted by relevance
+console.log(ranking); // Original index and relevance score per document
+```
+
+### Supported Reranking Models
+
+OpenRouter supports various reranking models including:
+- `cohere/rerank-v3.5`
+- And more available on [OpenRouter](https://openrouter.ai/collections/rerank-models)
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:
