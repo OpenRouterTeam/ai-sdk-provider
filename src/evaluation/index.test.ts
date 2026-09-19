@@ -181,6 +181,32 @@ describe('OpenRouterEvaluationModel', () => {
       expect(body.custom).toBe(1);
     });
 
+    it('should omit usage and provider when the response lacks them', async () => {
+      const { mockFetch } = createMockFetch({
+        model: 'typesafe/jev-1.13-20260917',
+        answers: { q: { type: 'noul', noul: 0.5 } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .evaluationModel('typesafe/jev-1.13')
+        .doEvaluate({
+          state: 'x',
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.answers).toEqual({
+        q: { type: 'boolean', probability: 0.5 },
+      });
+      expect(result.usage).toBeUndefined();
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { q: {} } },
+      });
+    });
+
     it('should respect a custom baseURL', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({

@@ -138,7 +138,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
       warnings,
       providerMetadata: {
         openrouter: {
-          provider: response.provider ?? '',
+          ...(response.provider != null ? { provider: response.provider } : {}),
           answers: answerMetadata,
           ...(response.usage?.cost != null
             ? { usage: { cost: response.usage.cost } }
