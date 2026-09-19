@@ -14,6 +14,10 @@ import type {
   OpenRouterEmbeddingSettings,
 } from './types/openrouter-embedding-settings';
 import type {
+  OpenRouterEvaluationModelId,
+  OpenRouterEvaluationSettings,
+} from './types/openrouter-evaluation-settings';
+import type {
   OpenRouterImageModelId,
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
@@ -26,6 +30,7 @@ import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
+import { OpenRouterEvaluationModel } from './evaluation';
 import { OpenRouterImageModel } from './image';
 import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
@@ -116,6 +121,14 @@ Creates an OpenRouter video model for video generation.
   ): OpenRouterVideoModel;
 
   /**
+Creates an OpenRouter evaluation model backed by the Decisions API, for use with `experimental_evaluate`.
+   */
+  evaluationModel(
+    modelId: OpenRouterEvaluationModelId,
+    settings?: OpenRouterEvaluationSettings,
+  ): OpenRouterEvaluationModel;
+
+  /**
    * Provider-defined tools for OpenRouter server tools.
    */
   readonly tools: {
@@ -196,6 +209,9 @@ export function createOpenRouter(
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
     'https://openrouter.ai/api/v1';
 
+  // Decisions lives under /api/alpha rather than the versioned /api/v1 prefix.
+  const alphaBaseURL = `${baseURL.replace(/\/v1$/, '')}/alpha`;
+
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
@@ -251,6 +267,18 @@ export function createOpenRouter(
     new OpenRouterEmbeddingModel(modelId, settings, {
       provider: 'openrouter.embedding',
       url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
+  const createEvaluationModel = (
+    modelId: OpenRouterEvaluationModelId,
+    settings: OpenRouterEvaluationSettings = {},
+  ) =>
+    new OpenRouterEvaluationModel(modelId, settings, {
+      provider: 'openrouter.evaluation',
+      url: ({ path }) => `${alphaBaseURL}${path}`,
       headers: getHeaders,
       fetch: options.fetch,
       extraBody: options.extraBody,
@@ -312,6 +340,7 @@ export function createOpenRouter(
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
   provider.videoModel = createVideoModel;
+  provider.evaluationModel = createEvaluationModel;
   provider.tools = {
     webSearch: webSearch,
   };
