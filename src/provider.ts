@@ -122,7 +122,15 @@ Creates an OpenRouter video model for video generation.
   ): OpenRouterVideoModel;
 
   /**
-Creates an OpenRouter evaluation model backed by the Decisions API, for use with `experimental_evaluate`.
+Creates an OpenRouter decision model backed by the Decisions API, for use with `experimental_evaluate`.
+   */
+  decisionModel(
+    modelId: OpenRouterEvaluationModelId,
+    settings?: OpenRouterEvaluationSettings,
+  ): OpenRouterEvaluationModel;
+
+  /**
+AI SDK-compatible name for `decisionModel()`. The AI SDK calls this method when resolving string model IDs through a default provider.
    */
   evaluationModel(
     modelId: OpenRouterEvaluationModelId,
@@ -154,7 +162,7 @@ Base URL for the OpenRouter API calls.
   baseUrl?: string;
 
   /**
-Base URL for the Decisions API used by `evaluationModel()`. Defaults to
+Base URL for the Decisions API used by `decisionModel()` and `evaluationModel()`. Defaults to
 `https://openrouter.ai/api/alpha`; when `baseURL` ends in `/v1` it defaults
 to the same URL with `/alpha` in place of `/v1`. Required when `baseURL`
 points at a proxy path that does not end in `/v1`.
@@ -295,7 +303,7 @@ export function createOpenRouter(
   ) => {
     if (decisionsBaseURL == null) {
       throw new LoadSettingError({
-        message: `Cannot derive the Decisions API URL from baseURL "${baseURL}" because it does not end in "/v1". Set \`decisionsBaseURL\` in createOpenRouter() to use evaluationModel().`,
+        message: `Cannot derive the Decisions API URL from baseURL "${baseURL}" because it does not end in "/v1". Set \`decisionsBaseURL\` in createOpenRouter() to use decisionModel().`,
       });
     }
     return new OpenRouterEvaluationModel(modelId, settings, {
@@ -362,6 +370,7 @@ export function createOpenRouter(
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
   provider.videoModel = createVideoModel;
+  provider.decisionModel = createEvaluationModel;
   provider.evaluationModel = createEvaluationModel;
   provider.tools = {
     webSearch: webSearch,

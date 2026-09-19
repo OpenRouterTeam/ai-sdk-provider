@@ -47,7 +47,7 @@ src/
 
 ### Key Patterns
 
-- **Provider Factory**: `createOpenRouter(options)` returns a provider with `.chat()`, `.completion()`, `.textEmbeddingModel()`, and `.evaluationModel()` methods
+- **Provider Factory**: `createOpenRouter(options)` returns a provider with `.chat()`, `.completion()`, `.textEmbeddingModel()`, and `.decisionModel()` (alias `.evaluationModel()`) methods
 - **Message Conversion**: `convert-to-openrouter-chat-messages.ts` transforms AI SDK messages to OpenRouter format (handles images, files, cache control, tool results)
 - **Dual Build Output**: tsup generates both main (`dist/`) and internal (`dist/internal/`) exports
 
