@@ -59,9 +59,9 @@ describe('Issue #407: Token usage detail fields should not be undefined', () => 
       );
     });
 
-    it('should populate reasoning tokens with anthropic/claude-3.7-sonnet:thinking', async () => {
+    it('should populate reasoning tokens with anthropic/claude-sonnet-4:thinking', async () => {
       const response = await generateText({
-        model: openrouter('anthropic/claude-3.7-sonnet:thinking'),
+        model: openrouter('anthropic/claude-sonnet-4:thinking'),
         messages: [
           {
             role: 'user',
@@ -113,9 +113,9 @@ describe('Issue #407: Token usage detail fields should not be undefined', () => 
       );
     });
 
-    it('should populate reasoning tokens with anthropic/claude-3.7-sonnet:thinking', async () => {
+    it('should populate reasoning tokens with anthropic/claude-sonnet-4:thinking', async () => {
       const response = streamText({
-        model: openrouter('anthropic/claude-3.7-sonnet:thinking'),
+        model: openrouter('anthropic/claude-sonnet-4:thinking'),
         messages: [
           {
             role: 'user',
