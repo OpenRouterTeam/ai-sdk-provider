@@ -1,5 +1,5 @@
 import { createTestServer } from '@ai-sdk/test-server';
-import { streamText } from 'ai';
+import { createProviderRegistry, streamText } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
@@ -22,12 +22,16 @@ describe('createOpenRouter', () => {
   it('creates the supported model factories and callable provider', () => {
     const provider = createOpenRouter({ apiKey: 'test-key' });
 
+    expect(provider.specificationVersion).toBe('v4');
     expect(provider.chat('openai/gpt-4o')).toBeInstanceOf(
       OpenRouterChatLanguageModel,
     );
     expect(provider.completion('openai/gpt-3.5-turbo-instruct')).toBeInstanceOf(
       OpenRouterCompletionLanguageModel,
     );
+    expect(
+      provider.embeddingModel('openai/text-embedding-3-small'),
+    ).toBeInstanceOf(OpenRouterEmbeddingModel);
     expect(
       provider.textEmbeddingModel('openai/text-embedding-3-small'),
     ).toBeInstanceOf(OpenRouterEmbeddingModel);
@@ -71,5 +75,14 @@ describe('createOpenRouter', () => {
     expect(() => Reflect.construct(provider, ['openai/gpt-4o'])).toThrow(
       TypeError,
     );
+  });
+
+  it('integrates cleanly with createProviderRegistry without double-adaptation', () => {
+    const provider = createOpenRouter({ apiKey: 'test-key' });
+    const registry = createProviderRegistry({ openrouter: provider });
+    const model = registry.languageModel('openrouter:openai/gpt-4o');
+
+    expect(model.specificationVersion).toBe('v4');
+    expect(model.modelId).toBe('openai/gpt-4o');
   });
 });
