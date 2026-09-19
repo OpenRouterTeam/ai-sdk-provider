@@ -5,6 +5,7 @@ import type {
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
+import { generateText, streamText } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 
@@ -514,10 +515,28 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
       { type: 'stream-start', warnings: [] },
-      { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
-      { type: 'text-delta', delta: ', ', id: expect.any(String) },
-      { type: 'text-delta', delta: 'World!', id: expect.any(String) },
-      { type: 'text-delta', delta: '', id: expect.any(String) },
+      { type: 'text-start', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
+      {
+        type: 'text-delta',
+        delta: 'Hello',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: ', ',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: 'World!',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: '',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      { type: 'text-end', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
       {
         type: 'finish',
         finishReason: { unified: 'stop', raw: 'stop' },
@@ -960,5 +979,76 @@ describe('includeRawChunks', () => {
     // Raw chunk is emitted before error handling, useful for debugging
     expect(rawChunks.length).toBe(1);
     expect(errorChunks.length).toBe(1);
+  });
+});
+
+describe('AI SDK v7 usage (generateText/streamText)', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('should generate text without tools despite the default toolChoice', async () => {
+    // The AI SDK always sends toolChoice: { type: 'auto' }, even when no
+    // tools are configured. The completion model must not reject it.
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
+        object: 'text_completion',
+        created: 1711363706,
+        model: 'openai/gpt-3.5-turbo-instruct',
+        choices: [
+          {
+            text: 'Hello, World!',
+            index: 0,
+            logprobs: null,
+            finish_reason: 'stop',
+          },
+        ],
+        usage: { prompt_tokens: 4, total_tokens: 34, completion_tokens: 30 },
+      },
+    };
+
+    const result = await generateText({
+      model,
+      prompt: 'Hello',
+    });
+
+    expect(result.text).toBe('Hello, World!');
+  });
+
+  it('should stream text with start/delta/end lifecycle events', async () => {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"choices":[{"text":"Hello","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"choices":[{"text":", World!","index":0,"logprobs":null,"finish_reason":"stop"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
+        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"model":"openai/gpt-3.5-turbo-instruct","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15},"choices":[]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const result = streamText({
+      model,
+      prompt: 'Hello',
+    });
+
+    const partTypes: string[] = [];
+    for await (const part of result.fullStream) {
+      partTypes.push(part.type);
+    }
+
+    // Without text-start/text-end the AI SDK drops every delta and the
+    // resulting text is empty.
+    expect(partTypes).toContain('text-start');
+    expect(partTypes).toContain('text-delta');
+    expect(partTypes).toContain('text-end');
+    expect(await result.text).toBe('Hello, World!');
   });
 });
