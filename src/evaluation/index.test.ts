@@ -1,6 +1,9 @@
-import { InvalidArgumentError } from '@ai-sdk/provider';
+import type { Experimental_EvaluationModelV4 } from '@ai-sdk/provider';
+import type { EvaluationModelV4 } from './types';
+
+import { InvalidArgumentError, LoadSettingError } from '@ai-sdk/provider';
 import { experimental_evaluate as evaluate } from 'ai';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterEvaluationModel } from './index';
 
@@ -29,6 +32,19 @@ const DECISIONS_RESPONSE = {
     },
   },
   usage: { input_tokens: 476, output_tokens: 70, cost: 0.000019992 },
+};
+
+// Two-decimal API output whose weighted mean (1.89) differs from the score.
+const ROUNDED_DECISIONS_RESPONSE = {
+  ...DECISIONS_RESPONSE,
+  answers: {
+    ...DECISIONS_RESPONSE.answers,
+    urgency: {
+      type: 'score',
+      score: 1.9,
+      probabilities: { '0': 0.01, '1': 0.09, '2': 0.9 },
+    },
+  },
 };
 
 const QUESTIONS = {
@@ -81,6 +97,11 @@ function parseBody(init: RequestInit | undefined): Record<string, unknown> {
 }
 
 describe('OpenRouterEvaluationModel', () => {
+  it('should satisfy the AI SDK evaluation model contract', () => {
+    expectTypeOf<OpenRouterEvaluationModel>().toExtend<Experimental_EvaluationModelV4>();
+    expectTypeOf<EvaluationModelV4>().toEqualTypeOf<Experimental_EvaluationModelV4>();
+  });
+
   describe('provider methods', () => {
     it('should create an evaluation model instance', () => {
       const provider = createOpenRouter({ apiKey: 'test-key' });
@@ -97,8 +118,69 @@ describe('OpenRouterEvaluationModel', () => {
     });
   });
 
+  describe('endpoint resolution', () => {
+    it.each([
+      [undefined, 'https://openrouter.ai/api/alpha/decisions'],
+      [
+        'https://openrouter.ai/api/v1',
+        'https://openrouter.ai/api/alpha/decisions',
+      ],
+      [
+        'https://proxy.example.com/api/v1/',
+        'https://proxy.example.com/api/alpha/decisions',
+      ],
+      [
+        'https://proxy.example.com/openrouter/v1',
+        'https://proxy.example.com/openrouter/alpha/decisions',
+      ],
+    ])('should derive the Decisions URL from baseURL %s', async (baseURL, expected) => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        baseURL,
+        fetch: mockFetch,
+      });
+
+      await provider
+        .evaluationModel('typesafe/jev-1.13')
+        .doEvaluate({ state: 'x', questions: QUESTIONS });
+
+      expect(calls[0]?.url).toBe(expected);
+    });
+
+    it('should prefer an explicit decisionsBaseURL', async () => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        baseURL: 'https://proxy.example.com/openrouter',
+        decisionsBaseURL: 'https://proxy.example.com/decisions-gateway/',
+        fetch: mockFetch,
+      });
+
+      await provider
+        .evaluationModel('typesafe/jev-1.13')
+        .doEvaluate({ state: 'x', questions: QUESTIONS });
+
+      expect(calls[0]?.url).toBe(
+        'https://proxy.example.com/decisions-gateway/decisions',
+      );
+    });
+
+    it('should require decisionsBaseURL when baseURL does not end in /v1', () => {
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        baseURL: 'https://proxy.example.com/openrouter',
+      });
+
+      expect(() => provider.evaluationModel('typesafe/jev-1.13')).toThrow(
+        LoadSettingError,
+      );
+      expect(() => provider.chat('openai/gpt-4o')).not.toThrow();
+    });
+  });
+
   describe('doEvaluate', () => {
-    it('should post to /api/alpha/decisions with mapped questions', async () => {
+    it('should post to /decisions with mapped questions', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -107,6 +189,8 @@ describe('OpenRouterEvaluationModel', () => {
       const model = provider.evaluationModel('typesafe/jev-1.13', {
         user: 'user-1',
         provider: { order: ['typesafe'] },
+        session_id: 'session-1',
+        trace: { trace_id: 'trace-1' },
       });
 
       await model.doEvaluate({
@@ -126,6 +210,8 @@ describe('OpenRouterEvaluationModel', () => {
         state: { ticket: 'Checkout is blank after Pay.' },
         user: 'user-1',
         provider: { order: ['typesafe'] },
+        session_id: 'session-1',
+        trace: { trace_id: 'trace-1' },
         questions: {
           is_bug: {
             type: 'noul',
@@ -157,16 +243,18 @@ describe('OpenRouterEvaluationModel', () => {
       });
     });
 
-    it('should merge call-level providerOptions.openrouter into the body', async () => {
+    it('should merge factory extraBody, settings, and providerOptions in that precedence', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
         apiKey: 'test-key',
         fetch: mockFetch,
+        extraBody: { user: 'factory-user', factory: true, shared: 'factory' },
       });
 
       await provider
         .evaluationModel('typesafe/jev-1.13', {
           provider: { order: ['openai'] },
+          extraBody: { shared: 'settings', session_id: 'from-extra-body' },
         })
         .doEvaluate({
           state: 'x',
@@ -177,54 +265,62 @@ describe('OpenRouterEvaluationModel', () => {
         });
 
       const body = parseBody(calls[0]?.init);
+      expect(body.user).toBe('factory-user');
+      expect(body.factory).toBe(true);
+      expect(body.shared).toBe('settings');
+      expect(body.session_id).toBe('from-extra-body');
       expect(body.provider).toEqual({ order: ['typesafe'] });
       expect(body.custom).toBe(1);
     });
 
-    it('should omit usage and provider when the response lacks them', async () => {
-      const { mockFetch } = createMockFetch({
-        model: 'typesafe/jev-1.13-20260917',
-        answers: { q: { type: 'noul', noul: 0.5 } },
-      });
-      const provider = createOpenRouter({
-        apiKey: 'test-key',
-        fetch: mockFetch,
-      });
-
-      const result = await provider
-        .evaluationModel('typesafe/jev-1.13')
-        .doEvaluate({
-          state: 'x',
-          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
-        });
-
-      expect(result.answers).toEqual({
-        q: { type: 'boolean', probability: 0.5 },
-      });
-      expect(result.usage).toBeUndefined();
-      expect(result.providerMetadata).toEqual({
-        openrouter: { answers: { q: {} } },
-      });
-    });
-
-    it('should respect a custom baseURL', async () => {
+    it('should not let extraBody or providerOptions override model, state, or questions', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
         apiKey: 'test-key',
-        baseURL: 'https://proxy.example.com/api/v1/',
         fetch: mockFetch,
+        extraBody: { questions: {}, model: 'factory/model' },
       });
 
       await provider
-        .evaluationModel('typesafe/jev-1.13')
-        .doEvaluate({ state: 'x', questions: QUESTIONS });
+        .evaluationModel('typesafe/jev-1.13', {
+          extraBody: { state: 'settings-state' },
+        })
+        .doEvaluate({
+          state: 'call-state',
+          questions: QUESTIONS,
+          providerOptions: {
+            openrouter: { model: 'other/model', state: 'REPLACED' },
+          },
+        });
 
-      expect(calls[0]?.url).toBe(
-        'https://proxy.example.com/api/alpha/decisions',
-      );
+      const body = parseBody(calls[0]?.init);
+      expect(body.model).toBe('typesafe/jev-1.13');
+      expect(body.state).toBe('call-state');
+      expect(Object.keys(body.questions as object)).toEqual([
+        'is_bug',
+        'team',
+        'urgency',
+      ]);
     });
 
-    it('should map answers, probabilities, usage and metadata', async () => {
+    it('should reject malformed providerOptions.openrouter before calling the API', async () => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await expect(
+        provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+          state: 'x',
+          questions: QUESTIONS,
+          providerOptions: { openrouter: { user: 42 } },
+        }),
+      ).rejects.toBeInstanceOf(InvalidArgumentError);
+      expect(calls).toHaveLength(0);
+    });
+
+    it('should map answers, probabilities, usage, rounding and metadata', async () => {
       const { mockFetch } = createMockFetch();
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -247,6 +343,10 @@ describe('OpenRouterEvaluationModel', () => {
           score: 1.99,
           probabilities: { '0': 0, '1': 0.01, '2': 0.99 },
         },
+      });
+      expect(result.rounding).toEqual({
+        probabilityDecimals: 2,
+        scoreDecimals: 2,
       });
       expect(result.usage).toEqual({ inputTokens: 476, outputTokens: 70 });
       expect(result.warnings).toEqual([]);
@@ -275,6 +375,32 @@ describe('OpenRouterEvaluationModel', () => {
       );
     });
 
+    it('should accept a response with only answers', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .evaluationModel('typesafe/jev-1.13')
+        .doEvaluate({
+          state: 'x',
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.answers).toEqual({
+        q: { type: 'boolean', probability: 0.5 },
+      });
+      expect(result.usage).toBeUndefined();
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { q: {} } },
+      });
+      expect(result.response?.modelId).toBeUndefined();
+    });
+
     it('should reject null score criteria without calling the API', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
@@ -297,9 +423,30 @@ describe('OpenRouterEvaluationModel', () => {
       expect(calls).toHaveLength(0);
     });
 
-    it('should drop partial boolean criteria with a warning', async () => {
+    it('should reject one-sided boolean criteria without calling the API', async () => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await expect(
+        provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+          state: 'x',
+          questions: {
+            q: {
+              type: 'boolean',
+              instructions: 'Is it?',
+              criteria: { true: 'yes', false: null },
+            },
+          },
+        }),
+      ).rejects.toBeInstanceOf(InvalidArgumentError);
+      expect(calls).toHaveLength(0);
+    });
+
+    it('should omit boolean criteria when no description is given', async () => {
       const { mockFetch, calls } = createMockFetch({
-        model: 'typesafe/jev-1.13',
         answers: { q: { type: 'noul', noul: 0.5 } },
       });
       const provider = createOpenRouter({
@@ -315,16 +462,15 @@ describe('OpenRouterEvaluationModel', () => {
             q: {
               type: 'boolean',
               instructions: 'Is it?',
-              criteria: { true: 'yes' },
+              criteria: { true: null, false: undefined },
             },
           },
         });
 
-      const body = parseBody(calls[0]?.init);
-      expect(body.questions).toEqual({
+      expect(parseBody(calls[0]?.init).questions).toEqual({
         q: { type: 'noul', instructions: 'Is it?' },
       });
-      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings).toEqual([]);
     });
 
     it('should throw an API error on failed responses', async () => {
@@ -368,6 +514,27 @@ describe('OpenRouterEvaluationModel', () => {
       expect(result.answers.urgency.score).toBe(1.99);
       expect(result.providerMetadata?.openrouter).toMatchObject({
         answers: { team: { confidence: 0.75 } },
+      });
+    });
+
+    it('should accept two-decimal scores that differ from the exact weighted mean', async () => {
+      const { mockFetch } = createMockFetch(ROUNDED_DECISIONS_RESPONSE);
+      const openrouter = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await evaluate({
+        model: openrouter.evaluationModel('typesafe/jev-1.13'),
+        state: 'x',
+        questions: QUESTIONS,
+      });
+
+      expect(result.answers.urgency.score).toBe(1.9);
+      expect(result.answers.urgency.probabilities).toEqual({
+        '0': 0.01,
+        '1': 0.09,
+        '2': 0.9,
       });
     });
   });

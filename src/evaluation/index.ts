@@ -1,58 +1,56 @@
-import type {
-  Experimental_EvaluationModelV4 as EvaluationModelV4,
-  Experimental_EvaluationModelV4Answer as EvaluationModelV4Answer,
-  Experimental_EvaluationModelV4CallOptions as EvaluationModelV4CallOptions,
-  Experimental_EvaluationModelV4Input as EvaluationModelV4Input,
-  Experimental_EvaluationModelV4Question as EvaluationModelV4Question,
-  Experimental_EvaluationModelV4Result as EvaluationModelV4Result,
-  JSONValue,
-  SharedV4Warning,
-} from '@ai-sdk/provider';
+import type { JSONValue } from '@ai-sdk/provider';
 import type {
   OpenRouterEvaluationModelId,
   OpenRouterEvaluationSettings,
 } from '../types/openrouter-evaluation-settings';
-import type { OpenRouterDecisionsAnswer } from './schemas';
+import type {
+  OpenRouterDecisionsAnswer,
+  OpenRouterDecisionsQuestion,
+  OpenRouterDecisionsRequest,
+} from './schemas';
+import type {
+  EvaluationModelV4,
+  EvaluationModelV4Answer,
+  EvaluationModelV4CallOptions,
+  EvaluationModelV4Question,
+  EvaluationModelV4Result,
+} from './types';
 
 import { InvalidArgumentError } from '@ai-sdk/provider';
 import {
   combineHeaders,
   createJsonResponseHandler,
+  parseProviderOptions,
   postJsonToApi,
+  removeUndefinedEntries,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { OpenRouterDecisionsResponseSchema } from './schemas';
+import {
+  OpenRouterDecisionsProviderOptionsSchema,
+  OpenRouterDecisionsResponseSchema,
+} from './schemas';
+
+export type * from './types';
 
 type OpenRouterEvaluationConfig = {
-  provider: string;
   headers: () => Record<string, string | undefined>;
-  url: (options: { modelId: string; path: string }) => string;
+  url: (options: { path: string }) => string;
   fetch?: typeof fetch;
   extraBody?: Record<string, unknown>;
 };
 
-type OpenRouterDecisionsQuestion =
-  | {
-      type: 'noul';
-      instructions: EvaluationModelV4Input;
-      criteria?: {
-        true: EvaluationModelV4Input;
-        false: EvaluationModelV4Input;
-      };
-    }
-  | {
-      type: 'choice';
-      instructions: EvaluationModelV4Input;
-      criteria: Record<string, EvaluationModelV4Input | null>;
-    }
-  | {
-      type: 'score';
-      instructions: EvaluationModelV4Input;
-      criteria: EvaluationModelV4Input[];
-    };
+/**
+ * The Decisions API returns probabilities and scores rounded to two decimals,
+ * so a score can differ from the exact probability-weighted mean by up to
+ * half a unit in the last place.
+ */
+const DECISIONS_ROUNDING = {
+  probabilityDecimals: 2,
+  scoreDecimals: 2,
+} as const;
 
 /**
- * Evaluation model backed by the OpenRouter Decisions API (`/api/alpha/decisions`).
+ * Evaluation model backed by the OpenRouter Decisions API.
  *
  * Maps AI SDK `choice`, `score`, and `boolean` questions onto OpenRouter
  * `choice`, `score`, and `noul` questions, and surfaces per-answer
@@ -81,30 +79,36 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
     options: EvaluationModelV4CallOptions,
   ): Promise<EvaluationModelV4Result> {
     const { state, questions, abortSignal, headers, providerOptions } = options;
-    const warnings: SharedV4Warning[] = [];
 
     const decisionsQuestions = Object.fromEntries(
       Object.entries(questions).map(([id, question]) => [
         id,
-        toDecisionsQuestion(id, question, warnings),
+        toDecisionsQuestion(id, question),
       ]),
     );
 
-    const args = {
+    const openrouterOptions = await parseProviderOptions({
+      provider: 'openrouter',
+      providerOptions,
+      schema: OpenRouterDecisionsProviderOptionsSchema,
+    });
+
+    const { user, provider, session_id, trace, extraBody } = this.settings;
+
+    const body: OpenRouterDecisionsRequest = {
+      ...this.config.extraBody,
+      ...extraBody,
+      ...removeUndefinedEntries({ user, provider, session_id, trace }),
+      ...openrouterOptions,
       model: this.modelId,
       state,
       questions: decisionsQuestions,
-      user: this.settings.user,
-      provider: this.settings.provider,
-      ...this.config.extraBody,
-      ...this.settings.extraBody,
-      ...providerOptions?.openrouter,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
-      url: this.config.url({ path: '/decisions', modelId: this.modelId }),
+      url: this.config.url({ path: '/decisions' }),
       headers: combineHeaders(this.config.headers(), headers),
-      body: args,
+      body,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
         OpenRouterDecisionsResponseSchema,
@@ -129,13 +133,14 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
 
     return {
       answers,
+      rounding: DECISIONS_ROUNDING,
       usage: response.usage
         ? {
             inputTokens: response.usage.input_tokens,
             outputTokens: response.usage.output_tokens,
           }
         : undefined,
-      warnings,
+      warnings: [],
       providerMetadata: {
         openrouter: {
           ...(response.provider != null ? { provider: response.provider } : {}),
@@ -155,24 +160,28 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
   }
 }
 
+/**
+ * Converts one AI SDK question into its Decisions counterpart. Criteria the
+ * Decisions API would reject (a `null` score level, a boolean with only one
+ * side described) throw before any request is sent.
+ */
 function toDecisionsQuestion(
   id: string,
   question: EvaluationModelV4Question,
-  warnings: SharedV4Warning[],
 ): OpenRouterDecisionsQuestion {
   switch (question.type) {
     case 'choice':
       return {
         type: 'choice',
         instructions: question.instructions,
-        criteria: { ...question.criteria },
+        criteria: question.criteria,
       };
     case 'score':
       return {
         type: 'score',
         instructions: question.instructions,
         criteria: question.criteria.map((criterion, index) => {
-          if (criterion === null) {
+          if (criterion == null) {
             throw new InvalidArgumentError({
               argument: `questions.${id}.criteria[${index}]`,
               message: `Question "${id}": the OpenRouter Decisions API requires a description for every score criterion.`,
@@ -184,19 +193,19 @@ function toDecisionsQuestion(
     case 'boolean': {
       const trueCriterion = question.criteria?.true;
       const falseCriterion = question.criteria?.false;
-      const hasBothCriteria = trueCriterion != null && falseCriterion != null;
-      if (question.criteria != null && !hasBothCriteria) {
-        warnings.push({
-          type: 'other',
-          message: `Question "${id}": boolean criteria require both "true" and "false" descriptions and were omitted.`,
+      if (trueCriterion == null && falseCriterion == null) {
+        return { type: 'noul', instructions: question.instructions };
+      }
+      if (trueCriterion == null || falseCriterion == null) {
+        throw new InvalidArgumentError({
+          argument: `questions.${id}.criteria`,
+          message: `Question "${id}": the OpenRouter Decisions API requires both "true" and "false" descriptions when boolean criteria are given.`,
         });
       }
       return {
         type: 'noul',
         instructions: question.instructions,
-        ...(hasBothCriteria
-          ? { criteria: { true: trueCriterion, false: falseCriterion } }
-          : {}),
+        criteria: { true: trueCriterion, false: falseCriterion },
       };
     }
     default:

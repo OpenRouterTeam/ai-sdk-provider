@@ -26,6 +26,7 @@ import type {
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
 
+import { LoadSettingError } from '@ai-sdk/provider';
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
@@ -153,6 +154,14 @@ Base URL for the OpenRouter API calls.
   baseUrl?: string;
 
   /**
+Base URL for the Decisions API used by `evaluationModel()`. Defaults to
+`https://openrouter.ai/api/alpha`; when `baseURL` ends in `/v1` it defaults
+to the same URL with `/alpha` in place of `/v1`. Required when `baseURL`
+points at a proxy path that does not end in `/v1`.
+     */
+  decisionsBaseURL?: string;
+
+  /**
 API key for authenticating requests.
      */
   apiKey?: string;
@@ -199,6 +208,13 @@ A JSON object to send as the request body to access OpenRouter features & upstre
   appUrl?: string;
 }
 
+function deriveDecisionsBaseURL(baseURL: string): string | undefined {
+  const versionSuffix = '/v1';
+  return baseURL.endsWith(versionSuffix)
+    ? `${baseURL.slice(0, -versionSuffix.length)}/alpha`
+    : undefined;
+}
+
 /**
 Create an OpenRouter provider instance.
  */
@@ -209,8 +225,9 @@ export function createOpenRouter(
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
     'https://openrouter.ai/api/v1';
 
-  // Decisions lives under /api/alpha rather than the versioned /api/v1 prefix.
-  const alphaBaseURL = `${baseURL.replace(/\/v1$/, '')}/alpha`;
+  const decisionsBaseURL =
+    withoutTrailingSlash(options.decisionsBaseURL) ??
+    deriveDecisionsBaseURL(baseURL);
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
@@ -275,14 +292,19 @@ export function createOpenRouter(
   const createEvaluationModel = (
     modelId: OpenRouterEvaluationModelId,
     settings: OpenRouterEvaluationSettings = {},
-  ) =>
-    new OpenRouterEvaluationModel(modelId, settings, {
-      provider: 'openrouter.evaluation',
-      url: ({ path }) => `${alphaBaseURL}${path}`,
+  ) => {
+    if (decisionsBaseURL == null) {
+      throw new LoadSettingError({
+        message: `Cannot derive the Decisions API URL from baseURL "${baseURL}" because it does not end in "/v1". Set \`decisionsBaseURL\` in createOpenRouter() to use evaluationModel().`,
+      });
+    }
+    return new OpenRouterEvaluationModel(modelId, settings, {
+      url: ({ path }) => `${decisionsBaseURL}${path}`,
       headers: getHeaders,
       fetch: options.fetch,
       extraBody: options.extraBody,
     });
+  };
 
   const createImageModel = (
     modelId: OpenRouterImageModelId,
