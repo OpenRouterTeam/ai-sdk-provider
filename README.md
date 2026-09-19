@@ -115,6 +115,69 @@ OpenRouter supports various embedding models including:
 - `openai/text-embedding-ada-002`
 - And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
 
+## Evaluation (Jev with AI SDK through OpenRouter)
+
+`openrouter.evaluationModel()` implements the AI SDK evaluation model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_evaluate` requests go through OpenRouter instead of the AI SDK's default gateway. `experimental_evaluate` itself ships in `ai@7.0.103` and newer; the rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
+
+```ts
+import { openrouter } from '@openrouter/ai-sdk-provider';
+import { experimental_evaluate as evaluate } from 'ai';
+
+const result = await evaluate({
+  model: openrouter.evaluationModel('typesafe/jev-1.13'),
+  state: {
+    ticket: 'My checkout page shows a blank screen after I click Pay.',
+    customer_tier: 'enterprise',
+  },
+  questions: {
+    is_bug: {
+      type: 'boolean',
+      instructions: 'Is the customer reporting a software defect?',
+    },
+    team: {
+      type: 'choice',
+      instructions: 'Which team should own this ticket?',
+      criteria: {
+        payments: 'Checkout, billing, or payment processing issues.',
+        frontend: 'Rendering, layout, or browser compatibility issues.',
+        account: 'Login, permissions, or profile issues.',
+      },
+    },
+    urgency: {
+      type: 'score',
+      instructions: 'How urgent is this ticket?',
+      criteria: [
+        'Can wait for the next release',
+        'Should be fixed this week',
+        'Blocking revenue right now',
+      ],
+    },
+  },
+});
+
+result.answers.is_bug.probability; // 0.93
+result.answers.team.choice; // 'payments'
+result.answers.team.probabilities; // { payments: 0.87, frontend: 0.13, account: 0 }
+result.answers.urgency.score; // 2 (probability-weighted mean over criteria indices)
+result.answers.urgency.probabilities; // { '0': 0, '1': 0, '2': 1 }
+result.providerMetadata?.openrouter; // { provider: 'TypeSafe', answers: { team: { confidence: 0.8 }, ... }, usage: { cost: 0.000018228 } }
+```
+
+Question types map as follows: AI SDK `boolean` becomes an OpenRouter `noul` question and the returned `noul` value is exposed as `probability`, while `choice` and `score` map directly and keep their probability distributions. The Decisions API rounds probabilities and scores to two decimals, and the model declares that rounding on every result so the AI SDK accepts scores that differ from the exact probability-weighted mean by rounding alone. Per-answer `confidence` and score `legend` values that have no field in the AI SDK contract are preserved under `result.providerMetadata.openrouter.answers[questionId]`, and the request `cost` is under `result.providerMetadata.openrouter.usage.cost`.
+
+The Decisions API rejects a `score` question whose `criteria` contains `null` and a `boolean` question whose `criteria` describes only one of `true` and `false`, so the model throws an `InvalidArgumentError` for those inputs before sending anything (and before anything is billed). A `boolean` question with no criteria descriptions at all is sent without `criteria`.
+
+Model settings accept `user`, `provider` (routing preferences), `session_id`, `trace`, and `extraBody`; call-level `providerOptions.openrouter` accepts the same Decisions request fields plus arbitrary pass-through keys. Precedence, lowest to highest, is factory `extraBody`, model `extraBody`, typed model settings, then `providerOptions.openrouter`; `model`, `state`, and `questions` always come from the call and cannot be overridden.
+
+When `baseURL` is customized, the Decisions URL is derived by replacing a trailing `/v1` with `/alpha` (`https://proxy.example.com/api/v1` becomes `https://proxy.example.com/api/alpha`). If your `baseURL` does not end in `/v1`, set `decisionsBaseURL` explicitly; `evaluationModel()` throws a `LoadSettingError` otherwise:
+
+```ts
+const openrouter = createOpenRouter({
+  baseURL: 'https://proxy.example.com/openrouter',
+  decisionsBaseURL: 'https://proxy.example.com/openrouter-alpha',
+});
+```
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:
