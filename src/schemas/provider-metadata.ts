@@ -37,6 +37,7 @@ export type FileAnnotation = z.infer<typeof FileAnnotationSchema>;
 export const OpenRouterProviderMetadataSchema = z
   .object({
     provider: z.string(),
+    reasoning_content: z.string().optional(),
     reasoning_details: z.array(ReasoningDetailUnionSchema).optional(),
     annotations: z.array(FileAnnotationSchema).optional(),
     usage: z
@@ -83,6 +84,7 @@ export const OpenRouterProviderOptionsSchema = z
         // z.array(ReasoningDetailUnionSchema) so that a single malformed entry
         // (e.g., a future format not yet in the enum) is individually dropped
         // rather than causing the entire array to fail parsing.
+        reasoning_content: z.string().optional(),
         reasoning_details: ReasoningDetailArraySchema.optional(),
         annotations: z.array(FileAnnotationSchema).optional(),
       })
