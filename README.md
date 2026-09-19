@@ -117,14 +117,14 @@ OpenRouter supports various embedding models including:
 
 ## Evaluation (Jev with AI SDK through OpenRouter)
 
-`openrouter.evaluationModel()` implements the AI SDK evaluation model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_evaluate` requests go through OpenRouter instead of the AI SDK's default gateway. `experimental_evaluate` itself ships in `ai@7.0.103` and newer; the rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
+`openrouter.decisionModel()` implements the AI SDK evaluation model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_evaluate` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `evaluate()`. `experimental_evaluate` itself ships in `ai@7.0.103` and newer; the rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
 
 ```ts
 import { openrouter } from '@openrouter/ai-sdk-provider';
 import { experimental_evaluate as evaluate } from 'ai';
 
 const result = await evaluate({
-  model: openrouter.evaluationModel('typesafe/jev-1.13'),
+  model: openrouter.decisionModel('typesafe/jev-1.13'),
   state: {
     ticket: 'My checkout page shows a blank screen after I click Pay.',
     customer_tier: 'enterprise',
@@ -169,7 +169,7 @@ The Decisions API rejects a `score` question whose `criteria` contains `null` an
 
 Model settings accept `user`, `provider` (routing preferences), `session_id`, `trace`, and `extraBody`; call-level `providerOptions.openrouter` accepts the same Decisions request fields plus arbitrary pass-through keys. Precedence, lowest to highest, is factory `extraBody`, model `extraBody`, typed model settings, then `providerOptions.openrouter`; `model`, `state`, and `questions` always come from the call and cannot be overridden.
 
-When `baseURL` is customized, the Decisions URL is derived by replacing a trailing `/v1` with `/alpha` (`https://proxy.example.com/api/v1` becomes `https://proxy.example.com/api/alpha`). If your `baseURL` does not end in `/v1`, set `decisionsBaseURL` explicitly; `evaluationModel()` throws a `LoadSettingError` otherwise:
+When `baseURL` is customized, the Decisions URL is derived by replacing a trailing `/v1` with `/alpha` (`https://proxy.example.com/api/v1` becomes `https://proxy.example.com/api/alpha`). If your `baseURL` does not end in `/v1`, set `decisionsBaseURL` explicitly; `decisionModel()` throws a `LoadSettingError` otherwise:
 
 ```ts
 const openrouter = createOpenRouter({

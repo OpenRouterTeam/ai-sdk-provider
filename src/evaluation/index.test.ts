@@ -103,9 +103,9 @@ describe('OpenRouterEvaluationModel', () => {
   });
 
   describe('provider methods', () => {
-    it('should create an evaluation model instance', () => {
+    it('should create a decision model instance', () => {
       const provider = createOpenRouter({ apiKey: 'test-key' });
-      const model = provider.evaluationModel('typesafe/jev-1.13');
+      const model = provider.decisionModel('typesafe/jev-1.13');
       expect(model).toBeInstanceOf(OpenRouterEvaluationModel);
       expect(model.modelId).toBe('typesafe/jev-1.13');
       expect(model.provider).toBe('openrouter');
@@ -115,6 +115,14 @@ describe('OpenRouterEvaluationModel', () => {
         'score',
         'boolean',
       ]);
+    });
+
+    it('should expose evaluationModel as the AI SDK-compatible alias of decisionModel', () => {
+      const provider = createOpenRouter({ apiKey: 'test-key' });
+      expect(provider.evaluationModel).toBe(provider.decisionModel);
+      expect(provider.evaluationModel('typesafe/jev-1.13')).toBeInstanceOf(
+        OpenRouterEvaluationModel,
+      );
     });
   });
 
@@ -510,7 +518,7 @@ describe('OpenRouterEvaluationModel', () => {
       });
 
       const result = await evaluate({
-        model: openrouter.evaluationModel('typesafe/jev-1.13'),
+        model: openrouter.decisionModel('typesafe/jev-1.13'),
         state: { ticket: 'Checkout is blank after Pay.' },
         questions: QUESTIONS,
       });
