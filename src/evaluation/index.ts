@@ -80,7 +80,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
   async doEvaluate(
     options: EvaluationModelV4CallOptions,
   ): Promise<EvaluationModelV4Result> {
-    const { state, questions, abortSignal, headers } = options;
+    const { state, questions, abortSignal, headers, providerOptions } = options;
     const warnings: SharedV4Warning[] = [];
 
     const decisionsQuestions = Object.fromEntries(
@@ -98,6 +98,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
       provider: this.settings.provider,
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...providerOptions?.openrouter,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({

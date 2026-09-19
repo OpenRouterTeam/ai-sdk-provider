@@ -157,6 +157,30 @@ describe('OpenRouterEvaluationModel', () => {
       });
     });
 
+    it('should merge call-level providerOptions.openrouter into the body', async () => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await provider
+        .evaluationModel('typesafe/jev-1.13', {
+          provider: { order: ['openai'] },
+        })
+        .doEvaluate({
+          state: 'x',
+          questions: QUESTIONS,
+          providerOptions: {
+            openrouter: { provider: { order: ['typesafe'] }, custom: 1 },
+          },
+        });
+
+      const body = parseBody(calls[0]?.init);
+      expect(body.provider).toEqual({ order: ['typesafe'] });
+      expect(body.custom).toBe(1);
+    });
+
     it('should respect a custom baseURL', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
