@@ -105,7 +105,11 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
       questions: decisionsQuestions,
     };
 
-    const { value: response, responseHeaders } = await postJsonToApi({
+    const {
+      value: response,
+      rawValue,
+      responseHeaders,
+    } = await postJsonToApi({
       url: this.config.url({ path: '/decisions' }),
       headers: combineHeaders(this.config.headers(), headers),
       body,
@@ -154,7 +158,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
         id: response.id,
         modelId: response.model,
         headers: responseHeaders,
-        body: response,
+        body: rawValue,
       },
     };
   }

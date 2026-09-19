@@ -321,7 +321,10 @@ describe('OpenRouterEvaluationModel', () => {
     });
 
     it('should map answers, probabilities, usage, rounding and metadata', async () => {
-      const { mockFetch } = createMockFetch();
+      const { mockFetch } = createMockFetch({
+        ...DECISIONS_RESPONSE,
+        future_field: 'kept',
+      });
       const provider = createOpenRouter({
         apiKey: 'test-key',
         fetch: mockFetch,
@@ -373,6 +376,10 @@ describe('OpenRouterEvaluationModel', () => {
       expect(result.response?.headers?.['content-type']).toBe(
         'application/json',
       );
+      expect(result.response?.body).toEqual({
+        ...DECISIONS_RESPONSE,
+        future_field: 'kept',
+      });
     });
 
     it('should accept a response with only answers', async () => {
