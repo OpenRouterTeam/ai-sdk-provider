@@ -1,5 +1,11 @@
 # @openrouter/ai-sdk-provider
 
+## 3.2.0
+
+### Minor Changes
+
+- [#564](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/564) [`1b22b05`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/1b22b05352cb0f9243a6c3fdd326038dd3705544) Thanks [@louisgv](https://github.com/louisgv)! - Add `openrouter.decisionModel()` as the preferred name for the Decisions API model. It shares one implementation with `evaluationModel()`, which is kept as the AI SDK-compatible name (the AI SDK calls `evaluationModel()` when resolving string model IDs through a default provider).
+
 ## 3.1.0
 
 ### Minor Changes
