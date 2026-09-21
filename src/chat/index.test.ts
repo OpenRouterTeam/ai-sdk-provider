@@ -933,6 +933,107 @@ describe('doGenerate', () => {
     expect(tools[1]).not.toHaveProperty('eager_input_streaming');
   });
 
+  it('should forward tool.strict (true) into function definition', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'strict-tool',
+          description: 'Strict tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+          strict: true,
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<{
+      type: string;
+      function: Record<string, unknown>;
+    }>;
+    expect(tools[0]!.function).toHaveProperty('strict', true);
+  });
+
+  it('should forward tool.strict (false) into function definition', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'non-strict-tool',
+          description: 'Non strict tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+          strict: false,
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<{
+      type: string;
+      function: Record<string, unknown>;
+    }>;
+    expect(tools[0]!.function).toHaveProperty('strict', false);
+  });
+
+  it('should allow overriding tool.strict via providerOptions.openrouter.strict', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'override-tool',
+          description: 'Overridden tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+          strict: true,
+          providerOptions: {
+            openrouter: {
+              strict: false,
+            },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<{
+      type: string;
+      function: Record<string, unknown>;
+    }>;
+    expect(tools[0]!.function).toHaveProperty('strict', false);
+  });
+
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 

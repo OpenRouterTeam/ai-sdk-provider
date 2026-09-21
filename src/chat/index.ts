@@ -186,6 +186,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             | Record<string, unknown>
             | undefined;
           const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
+          const strict =
+            (openrouterOptions?.strict as boolean | undefined) ?? tool.strict;
 
           mappedTools.push({
             type: 'function' as const,
@@ -193,6 +195,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               name: tool.name,
               description: tool.description,
               parameters: tool.inputSchema,
+              ...(strict != null ? { strict } : {}),
             },
             ...(eagerInputStreaming != null && {
               eager_input_streaming: eagerInputStreaming,
