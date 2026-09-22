@@ -92,6 +92,43 @@ export class OpenRouterImageModel implements ImageModelV4 {
       ? files.map((file: ImageModelV4File) => convertFileToInputReference(file))
       : undefined;
 
+    const { provider: runtimeProvider, ...restOpenrouterOptions } =
+      openrouterOptions;
+
+    const configExtraProvider = this.config.extraBody?.provider as
+      | Record<string, unknown>
+      | undefined;
+    const settingsExtraProvider = this.settings.extraBody?.provider as
+      | Record<string, unknown>
+      | undefined;
+    const configuredProvider = this.settings.provider;
+
+    const hasProvider =
+      configuredProvider !== undefined ||
+      runtimeProvider !== undefined ||
+      settingsExtraProvider !== undefined ||
+      configExtraProvider !== undefined;
+
+    const provider = hasProvider
+      ? {
+          ...(typeof configExtraProvider === 'object' &&
+          configExtraProvider !== null
+            ? configExtraProvider
+            : {}),
+          ...(typeof settingsExtraProvider === 'object' &&
+          settingsExtraProvider !== null
+            ? settingsExtraProvider
+            : {}),
+          ...(typeof configuredProvider === 'object' &&
+          configuredProvider !== null
+            ? configuredProvider
+            : {}),
+          ...(typeof runtimeProvider === 'object' && runtimeProvider !== null
+            ? (runtimeProvider as Record<string, unknown>)
+            : {}),
+        }
+      : undefined;
+
     const body: Record<string, unknown> = {
       model: this.modelId,
       prompt: prompt ?? '',
@@ -103,12 +140,10 @@ export class OpenRouterImageModel implements ImageModelV4 {
         input_references: inputReferences,
       }),
       ...(this.settings.user !== undefined && { user: this.settings.user }),
-      ...(this.settings.provider !== undefined && {
-        provider: this.settings.provider,
-      }),
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      ...(provider !== undefined && { provider }),
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
