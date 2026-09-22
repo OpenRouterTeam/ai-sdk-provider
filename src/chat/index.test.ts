@@ -1406,6 +1406,129 @@ describe('doGenerate', () => {
     expect(toolCalls).toHaveLength(1);
     expect(toolCalls[0]!.toolCallId).toBe('call_abc123');
   });
+
+  it('should forward imageDetail from call-level providerOptions to image_url', async () => {
+    prepareJsonResponse({ content: 'Hello' });
+
+    await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this image:' },
+            {
+              type: 'file',
+              data: {
+                type: 'url',
+                url: new URL('https://example.com/test.jpg'),
+              },
+              mediaType: 'image/jpeg',
+            },
+          ],
+        },
+      ],
+      providerOptions: {
+        openrouter: {
+          imageDetail: 'low',
+        },
+      },
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const messages = body.messages as Array<{
+      role: string;
+      content: Array<{
+        type: string;
+        image_url?: { url: string; detail?: string };
+      }>;
+    }>;
+    expect(messages[0]?.content[1]?.image_url?.detail).toBe('low');
+    expect(body.imageDetail).toBeUndefined();
+  });
+
+  it('should forward imageDetail from part-level providerOptions to image_url', async () => {
+    prepareJsonResponse({ content: 'Hello' });
+
+    await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this image:' },
+            {
+              type: 'file',
+              data: {
+                type: 'url',
+                url: new URL('https://example.com/test.jpg'),
+              },
+              mediaType: 'image/jpeg',
+              providerOptions: {
+                openai: {
+                  imageDetail: 'high',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const messages = body.messages as Array<{
+      role: string;
+      content: Array<{
+        type: string;
+        image_url?: { url: string; detail?: string };
+      }>;
+    }>;
+    expect(messages[0]?.content[1]?.image_url?.detail).toBe('high');
+  });
+
+  it('should forward imageDetail from model settings to image_url', async () => {
+    prepareJsonResponse({ content: 'Hello' });
+
+    const modelWithDetail = provider.chat('test-model', {
+      imageDetail: 'low',
+    });
+
+    await modelWithDetail.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this image:' },
+            {
+              type: 'file',
+              data: {
+                type: 'url',
+                url: new URL('https://example.com/test.jpg'),
+              },
+              mediaType: 'image/jpeg',
+            },
+          ],
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const messages = body.messages as Array<{
+      role: string;
+      content: Array<{
+        type: string;
+        image_url?: { url: string; detail?: string };
+      }>;
+    }>;
+    expect(messages[0]?.content[1]?.image_url?.detail).toBe('low');
+  });
 });
 
 describe('doStream', () => {

@@ -44,6 +44,7 @@ export interface ChatCompletionContentPartImage {
   type: 'image_url';
   image_url: {
     url: string;
+    detail?: 'auto' | 'low' | 'high' | string;
   };
   cache_control?: OpenRouterCacheControl;
 }
