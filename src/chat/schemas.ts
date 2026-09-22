@@ -33,6 +33,7 @@ const OpenRouterChatCompletionBaseResponseSchema = z
           })
           .passthrough()
           .nullish(),
+        is_byok: z.boolean().nullish(),
       })
       .passthrough()
       .nullish(),

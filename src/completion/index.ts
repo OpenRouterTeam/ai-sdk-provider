@@ -220,6 +220,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             ...(response.usage?.cost != null
               ? { cost: response.usage.cost }
               : {}),
+            ...(response.usage?.is_byok != null
+              ? { isByok: response.usage.is_byok }
+              : {}),
             ...(response.usage?.prompt_tokens_details?.cached_tokens != null
               ? {
                   promptTokensDetails: {
@@ -381,6 +384,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
               if (value.usage.cost != null) {
                 openrouterUsage.cost = value.usage.cost;
+              }
+              if (value.usage.is_byok != null) {
+                openrouterUsage.isByok = value.usage.is_byok;
               }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =

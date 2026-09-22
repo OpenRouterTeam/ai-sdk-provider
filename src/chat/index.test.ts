@@ -1444,6 +1444,7 @@ describe('doStream', () => {
       cost_details?: {
         upstream_inference_cost: number;
       };
+      is_byok?: boolean;
     };
     logprobs?: {
       content:
@@ -1665,6 +1666,50 @@ describe('doStream', () => {
       upstreamInferenceCost: 0.0036,
     });
     expect(openrouterUsage?.cost).toBe(0.0042);
+  });
+
+  it('should include isByok in finish metadata when provided', async () => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 17,
+        total_tokens: 244,
+        completion_tokens: 227,
+        cost: 0,
+        is_byok: true,
+        cost_details: {
+          upstream_inference_cost: 0.0036,
+        },
+      },
+    });
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV4StreamPart[];
+    const finishChunk = elements.find(
+      (
+        chunk,
+      ): chunk is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
+        chunk.type === 'finish',
+    );
+    const openrouterUsage = (
+      finishChunk?.providerMetadata?.openrouter as {
+        usage?: {
+          cost?: number;
+          isByok?: boolean;
+          costDetails?: { upstreamInferenceCost: number };
+        };
+      }
+    )?.usage;
+    expect(openrouterUsage?.isByok).toBe(true);
+    expect(openrouterUsage?.cost).toBe(0);
+    expect(openrouterUsage?.costDetails).toStrictEqual({
+      upstreamInferenceCost: 0.0036,
+    });
   });
 
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {

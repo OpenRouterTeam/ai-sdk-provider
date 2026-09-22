@@ -552,4 +552,118 @@ describe('OpenRouter Usage Accounting', () => {
     // When no usage data, raw should be undefined
     expect(result.usage.raw).toBeUndefined();
   });
+
+  it('should preserve isByok: true in providerMetadata when present in response', async () => {
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'test-id',
+        model: 'test-model',
+        choices: [
+          {
+            message: { role: 'assistant', content: 'Hello' },
+            index: 0,
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+          cost: 0,
+          is_byok: true,
+          cost_details: {
+            upstream_inference_cost: 0.0019,
+          },
+        },
+      },
+    };
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      {},
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    expect(result.providerMetadata?.openrouter?.usage).toMatchObject({
+      cost: 0,
+      isByok: true,
+      costDetails: {
+        upstreamInferenceCost: 0.0019,
+      },
+    });
+  });
+
+  it('should preserve isByok: false in providerMetadata when present in response', async () => {
+    server.urls['https://api.openrouter.ai/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'test-id',
+        model: 'test-model',
+        choices: [
+          {
+            message: { role: 'assistant', content: 'Hello' },
+            index: 0,
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+          cost: 0.0019,
+          is_byok: false,
+          cost_details: {
+            upstream_inference_cost: 0.0019,
+          },
+        },
+      },
+    };
+
+    const model = new OpenRouterChatLanguageModel(
+      'test-model',
+      {},
+      {
+        provider: 'openrouter.chat',
+        url: () => 'https://api.openrouter.ai/chat/completions',
+        headers: () => ({}),
+        compatibility: 'strict',
+        fetch: global.fetch,
+      },
+    );
+
+    const result = await model.doGenerate({
+      prompt: [
+        {
+          role: 'user',
+          content: [{ type: 'text', text: 'Hello' }],
+        },
+      ],
+      maxOutputTokens: 100,
+    });
+
+    expect(result.providerMetadata?.openrouter?.usage).toMatchObject({
+      cost: 0.0019,
+      isByok: false,
+      costDetails: {
+        upstreamInferenceCost: 0.0019,
+      },
+    });
+  });
 });

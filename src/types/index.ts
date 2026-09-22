@@ -112,4 +112,5 @@ export type OpenRouterUsageAccounting = {
   costDetails?: {
     upstreamInferenceCost: number;
   };
+  isByok?: boolean;
 };
