@@ -178,6 +178,21 @@ const openrouter = createOpenRouter({
 });
 ```
 
+## Reasoning Effort
+
+Set `reasoning.effort` in the model settings to request a reasoning effort supported by your model:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter.chat('openai/gpt-6-luna', {
+  reasoning: { effort: 'max' },
+});
+```
+
+Accepted values are `max`, `xhigh`, `high`, `medium`, `low`, `minimal`, and `none`. Support varies by model; see [OpenRouter's reasoning documentation](https://openrouter.ai/docs/guides/best-practices/reasoning-tokens). You can also set `reasoning.effort` per call using `providerOptions.openrouter`.
+
 ## Passing Extra Body to OpenRouter
 
 There are 3 ways to pass extra body to OpenRouter:

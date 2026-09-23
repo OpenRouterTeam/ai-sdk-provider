@@ -1,4 +1,5 @@
 import type { ModelMessage } from 'ai';
+import type { OpenRouterProviderOptions } from '../types';
 
 import { createTestServer } from '@ai-sdk/test-server';
 import { streamText } from 'ai';
@@ -99,6 +100,34 @@ describe('providerOptions', () => {
         effort: 'xhigh',
       },
       model: 'openai/o3',
+      stream: true,
+    });
+  });
+
+  it.each([
+    'model settings',
+    'provider options',
+  ] as const)('should pass effort max from %s to API body', async (source) => {
+    const openrouter = createOpenRouter({ apiKey: 'test' });
+    const options = {
+      reasoning: { effort: 'max' },
+    } satisfies OpenRouterProviderOptions;
+    const model = openrouter.chat(
+      'openai/gpt-6-luna',
+      source === 'model settings' ? options : undefined,
+    );
+
+    await streamText({
+      model,
+      messages: TEST_MESSAGES,
+      providerOptions:
+        source === 'provider options' ? { openrouter: options } : undefined,
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+      messages: [{ content: 'Hello', role: 'user' }],
+      reasoning: { effort: 'max' },
+      model: 'openai/gpt-6-luna',
       stream: true,
     });
   });
