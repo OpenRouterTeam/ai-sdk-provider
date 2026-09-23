@@ -26,6 +26,9 @@ import {
   createJsonResponseHandler,
   generateId,
   postJsonToApi,
+  serializeModelOptions,
+  WORKFLOW_DESERIALIZE,
+  WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
@@ -64,6 +67,34 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
   readonly settings: OpenRouterCompletionSettings;
 
   private readonly config: OpenRouterCompletionConfig;
+
+  /**
+   * Serializes the model for `@ai-sdk/workflow` durable step boundaries.
+   *
+   * `serializeModelOptions` resolves the `headers` closure and strips the
+   * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
+   * captured alongside so the constructor can faithfully round-trip.
+   */
+  static [WORKFLOW_SERIALIZE](model: OpenRouterCompletionLanguageModel) {
+    const { modelId, config } = serializeModelOptions({
+      modelId: model.modelId,
+      config: model.config,
+    });
+
+    return { modelId, config, settings: model.settings };
+  }
+
+  static [WORKFLOW_DESERIALIZE](data: {
+    modelId: OpenRouterCompletionModelId;
+    settings: OpenRouterCompletionSettings;
+    config: OpenRouterCompletionConfig;
+  }) {
+    return new OpenRouterCompletionLanguageModel(
+      data.modelId,
+      data.settings,
+      data.config,
+    );
+  }
 
   constructor(
     modelId: OpenRouterCompletionModelId,
