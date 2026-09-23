@@ -825,8 +825,74 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: 'Assistant response',
-        cache_control: { type: 'ephemeral' },
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should pass cache control from assistant text part provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            providerOptions: {
+              anthropic: {
+                cacheControl: { type: 'ephemeral' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should only apply message-level cache control to last text part on assistant message (multiple text parts)', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First' },
+          { type: 'text', text: 'Second' },
+        ],
+        providerOptions: {
+          anthropic: { cacheControl: { type: 'ephemeral' } },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First' },
+          {
+            type: 'text',
+            text: 'Second',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
       },
     ]);
   });
