@@ -25,6 +25,7 @@ import {
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
+  isCustomReasoning,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
@@ -88,6 +89,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     stopSequences,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
@@ -141,7 +144,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning:
+        providerOptions?.openrouter?.reasoning_effort !== undefined ||
+        providerOptions?.openrouter?.reasoning !== undefined
+          ? undefined
+          : isCustomReasoning(reasoning)
+            ? { effort: reasoning }
+            : this.settings.reasoning,
 
       // extra body:
       ...this.config.extraBody,

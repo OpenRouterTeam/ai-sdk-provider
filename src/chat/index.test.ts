@@ -6100,3 +6100,231 @@ describe('includeRawChunks', () => {
     expect(errorChunks.length).toBe(1);
   });
 });
+
+describe('reasoning settings', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: { type: 'json-value', body: {} },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: 1711115037,
+        model: 'anthropic/claude-3.5-sonnet',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content,
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 4,
+          total_tokens: 34,
+          completion_tokens: 30,
+        },
+      },
+    };
+  }
+
+  describe('if reasoning settings is given', () => {
+    it('should pass reasoning settings in doGenerate', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      await model.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'medium',
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning: {
+          effort: 'medium',
+        },
+      });
+    });
+
+    it('should ignore reasoning parameter of model settings', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      const modelWithReasoningSetting = provider.chat(
+        'anthropic/claude-3.5-sonnet',
+        {
+          reasoning: {
+            effort: 'high',
+          },
+        },
+      );
+
+      await modelWithReasoningSetting.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'medium',
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning: {
+          effort: 'medium',
+        },
+      });
+    });
+  });
+
+  describe('if reasoning parameter is undefined', () => {
+    it('should not include reasoning parameter', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      await model.doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+      const requestBody = await server.calls[0]!.requestBodyJson;
+      expect(requestBody).not.toHaveProperty('reasoning');
+    });
+
+    it('should falls back to reasoning parameter of model settings', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      const modelWithReasoningSetting = provider.chat(
+        'anthropic/claude-3.5-sonnet',
+        {
+          reasoning: {
+            effort: 'high',
+          },
+        },
+      );
+
+      await modelWithReasoningSetting.doGenerate({
+        prompt: TEST_PROMPT,
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning: {
+          effort: 'high',
+        },
+      });
+    });
+  });
+
+  describe('if reasoning parameter is provider-default', () => {
+    it('should not include reasoning parameter', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      await model.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'provider-default',
+      });
+
+      const requestBody = await server.calls[0]!.requestBodyJson;
+      expect(requestBody).not.toHaveProperty('reasoning');
+    });
+
+    it('should falls back to reasoning parameter of model settings', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      const modelWithReasoningSetting = provider.chat(
+        'anthropic/claude-3.5-sonnet',
+        {
+          reasoning: {
+            effort: 'high',
+          },
+        },
+      );
+
+      await modelWithReasoningSetting.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'provider-default',
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning: {
+          effort: 'high',
+        },
+      });
+    });
+  });
+
+  describe('if reasoning parameter is given by providerOptions', () => {
+    it('should ignore top-level reasoning parameter and model settings', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      const modelWithReasoningSetting = provider.chat(
+        'anthropic/claude-3.5-sonnet',
+        {
+          reasoning: {
+            effort: 'high',
+          },
+        },
+      );
+
+      await modelWithReasoningSetting.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'medium',
+        providerOptions: {
+          openrouter: {
+            reasoning: {
+              effort: 'low',
+            },
+          },
+        },
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning: {
+          effort: 'low',
+        },
+      });
+    });
+  });
+
+  describe('if reasoning_effort parameter is given by providerOptions', () => {
+    it('should ignore top-level reasoning parameter and model settings', async () => {
+      prepareJsonResponse({ content: 'Hello!' });
+
+      const modelWithReasoningSetting = provider.chat(
+        'anthropic/claude-3.5-sonnet',
+        {
+          reasoning: {
+            effort: 'high',
+          },
+        },
+      );
+
+      await modelWithReasoningSetting.doGenerate({
+        prompt: TEST_PROMPT,
+        reasoning: 'medium',
+        providerOptions: {
+          openrouter: {
+            reasoning_effort: 'low',
+          },
+        },
+      });
+
+      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+        model: 'anthropic/claude-3.5-sonnet',
+        messages: [{ role: 'user', content: 'Hello' }],
+        reasoning_effort: 'low',
+      });
+    });
+  });
+});
