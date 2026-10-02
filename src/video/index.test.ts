@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterVideoModel } from './index';
 
+const testVideoBytes = new Uint8Array([0, 1, 2, 3]);
+
 function createSubmitResponse(jobId: string) {
   return {
     id: jobId,
@@ -31,11 +33,23 @@ function createPollResponse(
   };
 }
 
-function createMockFetchSequence(responses: Array<Record<string, unknown>>) {
+function createVideoContentResponse() {
+  return new Response(testVideoBytes, {
+    status: 200,
+    headers: { 'content-type': 'video/mp4' },
+  });
+}
+
+function createMockFetchSequence(
+  responses: Array<Record<string, unknown> | Response>,
+) {
   let callIndex = 0;
   return async (): Promise<Response> => {
-    const response = responses[callIndex]!;
+    const response = responses[callIndex] ?? createVideoContentResponse();
     callIndex++;
+    if (response instanceof Response) {
+      return response;
+    }
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -43,7 +57,9 @@ function createMockFetchSequence(responses: Array<Record<string, unknown>>) {
   };
 }
 
-function createCapturingMockFetch(responses: Array<Record<string, unknown>>) {
+function createCapturingMockFetch(
+  responses: Array<Record<string, unknown> | Response>,
+) {
   let callIndex = 0;
   const capturedRequests: Array<{
     url: string;
@@ -61,8 +77,11 @@ function createCapturingMockFetch(responses: Array<Record<string, unknown>>) {
       method: init?.method ?? 'POST',
       body: bodyText ? JSON.parse(bodyText) : undefined,
     });
-    const response = responses[callIndex]!;
+    const response = responses[callIndex] ?? createVideoContentResponse();
     callIndex++;
+    if (response instanceof Response) {
+      return response;
+    }
     return new Response(JSON.stringify(response), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -96,7 +115,7 @@ describe('OpenRouterVideoModel', () => {
   });
 
   describe('doGenerate', () => {
-    it('should submit and poll until complete, returning video URLs', async () => {
+    it('should submit and poll until complete, returning video bytes', async () => {
       const jobId = 'job-test-123';
       const videoUrl = 'https://storage.example.com/video.mp4';
 
@@ -132,8 +151,8 @@ describe('OpenRouterVideoModel', () => {
 
       expect(result.videos).toHaveLength(1);
       expect(result.videos[0]).toEqual({
-        type: 'url',
-        url: videoUrl,
+        type: 'binary',
+        data: testVideoBytes,
         mediaType: 'video/mp4',
       });
       expect(result.warnings).toEqual([]);
@@ -534,13 +553,13 @@ describe('OpenRouterVideoModel', () => {
 
       expect(result.videos).toHaveLength(2);
       expect(result.videos[0]).toEqual({
-        type: 'url',
-        url: 'https://example.com/video1.mp4',
+        type: 'binary',
+        data: testVideoBytes,
         mediaType: 'video/mp4',
       });
       expect(result.videos[1]).toEqual({
-        type: 'url',
-        url: 'https://example.com/video2.mp4',
+        type: 'binary',
+        data: testVideoBytes,
         mediaType: 'video/mp4',
       });
     });

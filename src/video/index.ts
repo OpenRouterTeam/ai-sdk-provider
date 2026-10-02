@@ -14,7 +14,9 @@ import type {
 import { APICallError } from '@ai-sdk/provider';
 import {
   combineHeaders,
+  createBinaryResponseHandler,
   createJsonResponseHandler,
+  createStatusCodeErrorResponseHandler,
   delay,
   getFromApi,
   postJsonToApi,
@@ -141,10 +143,15 @@ export class OpenRouterVideoModel implements VideoModelV4 {
 
     if (pollResult.unsigned_urls) {
       for (const url of pollResult.unsigned_urls) {
-        videos.push({
-          type: 'url',
+        const { data, mediaType } = await this.downloadVideo({
           url,
-          mediaType: 'video/mp4',
+          headers: mergedHeaders,
+          abortSignal,
+        });
+        videos.push({
+          type: 'binary',
+          data,
+          mediaType,
         });
       }
     }
@@ -248,6 +255,44 @@ export class OpenRouterVideoModel implements VideoModelV4 {
       isRetryable: true,
     });
   }
+
+  private async downloadVideo({
+    url,
+    headers,
+    abortSignal,
+  }: {
+    url: string;
+    headers: Record<string, string | undefined>;
+    abortSignal?: AbortSignal;
+  }): Promise<{ data: Uint8Array; mediaType: string }> {
+    const trustedOrigin = getOrigin(
+      this.config.url({
+        path: '/videos',
+        modelId: this.modelId,
+      }),
+    );
+
+    const { value, responseHeaders } = await getFromApi({
+      url,
+      headers,
+      failedResponseHandler: createStatusCodeErrorResponseHandler(),
+      successfulResponseHandler: createBinaryResponseHandler(),
+      abortSignal,
+      fetch: this.config.fetch,
+      validateUrl: true,
+      credentialedOrigin: trustedOrigin,
+      trustedOrigin,
+    });
+
+    return {
+      data: value,
+      mediaType: responseHeaders?.['content-type'] ?? 'video/mp4',
+    };
+  }
+}
+
+function getOrigin(url: string): string {
+  return new URL(url).origin;
 }
 
 function convertImageToFrameImage(
