@@ -611,6 +611,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const seenToolCallIds = new Set<string>();
 
     let finishReason: LanguageModelV4FinishReason = createFinishReason('other');
+    let receivedFinishReason = false;
     const usage: LanguageModelV4Usage = {
       inputTokens: {
         total: undefined,
@@ -747,6 +748,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
             if (choice?.finish_reason != null) {
               finishReason = mapOpenRouterFinishReason(choice.finish_reason);
+              receivedFinishReason = true;
             }
 
             if (choice?.delta == null) {
@@ -1150,6 +1152,33 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               finishReason.unified === 'stop'
             ) {
               finishReason = createFinishReason('tool-calls', finishReason.raw);
+            }
+
+            // A stream that ends without any finish reason while a tool call's
+            // arguments are still incomplete JSON was cut off. Report it rather
+            // than inferring a finished call with synthesized '{}' input.
+            const incompleteToolCalls = receivedFinishReason
+              ? []
+              : toolCalls.filter(
+                  (toolCall) =>
+                    toolCall != null &&
+                    !toolCall.sent &&
+                    !isParsableJson(toolCall.function.arguments),
+                );
+            if (incompleteToolCalls.length > 0) {
+              finishReason = createFinishReason('error');
+              controller.enqueue({
+                type: 'error',
+                error: new InvalidResponseDataError({
+                  data: incompleteToolCalls.map((toolCall) => ({
+                    id: toolCall.id,
+                    name: toolCall.function.name,
+                    arguments: toolCall.function.arguments,
+                  })),
+                  message:
+                    'Stream ended before the tool call arguments were complete.',
+                }),
+              });
             }
 
             // Fix for #420: When finishReason is 'other' (unknown/missing) but tool calls
