@@ -1,7 +1,15 @@
 import type { Experimental_EvaluationModelV4 } from '@ai-sdk/provider';
+import type {
+  OpenRouterDecisionStatePart,
+  OpenRouterEvaluationCallOptions,
+} from './index';
 import type { EvaluationModelV4 } from './types';
 
-import { InvalidArgumentError, LoadSettingError } from '@ai-sdk/provider';
+import {
+  InvalidArgumentError,
+  LoadSettingError,
+  UnsupportedFunctionalityError,
+} from '@ai-sdk/provider';
 import { experimental_evaluate as evaluate } from 'ai';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createOpenRouter } from '../provider';
@@ -506,6 +514,142 @@ describe('OpenRouterEvaluationModel', () => {
           .evaluationModel('nope/nope')
           .doEvaluate({ state: 'x', questions: QUESTIONS }),
       ).rejects.toThrow('Bad model');
+    });
+  });
+
+  // `ai` 7.0.133+ normalizes state into parts before calling the provider.
+  describe('state parts', () => {
+    async function sentState(state: unknown): Promise<unknown> {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      await provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+        state: state as OpenRouterEvaluationCallOptions['state'],
+        questions: QUESTIONS,
+      });
+      return parseBody(calls[0]?.init).state;
+    }
+
+    it('should accept the state parts newer AI SDK releases pass', () => {
+      expectTypeOf<readonly OpenRouterDecisionStatePart[]>().toExtend<
+        OpenRouterEvaluationCallOptions['state']
+      >();
+    });
+
+    it('should send the value of a single json part as the state', async () => {
+      expect(
+        await sentState([
+          { type: 'json', value: { ticket: 'Checkout is blank after Pay.' } },
+        ]),
+      ).toEqual({ ticket: 'Checkout is blank after Pay.' });
+    });
+
+    it('should send the text of a single text part as the state', async () => {
+      expect(
+        await sentState([
+          { type: 'text', text: 'Checkout is blank after Pay.' },
+        ]),
+      ).toBe('Checkout is blank after Pay.');
+    });
+
+    it('should send several parts as their values, in order', async () => {
+      expect(
+        await sentState([
+          { type: 'text', text: 'Ticket from an enterprise customer.' },
+          { type: 'json', value: { ticket: 'Checkout is blank after Pay.' } },
+        ]),
+      ).toEqual([
+        'Ticket from an enterprise customer.',
+        { ticket: 'Checkout is blank after Pay.' },
+      ]);
+    });
+
+    it('should keep a primitive json value inside an array', async () => {
+      expect(await sentState([{ type: 'json', value: 42 }])).toEqual([42]);
+    });
+
+    it('should leave raw state from older AI SDK releases untouched', async () => {
+      expect(await sentState('Checkout is blank after Pay.')).toBe(
+        'Checkout is blank after Pay.',
+      );
+      expect(await sentState({ type: 'json', value: 1 })).toEqual({
+        type: 'json',
+        value: 1,
+      });
+      expect(await sentState(['first ticket', { ticket: 'second' }])).toEqual([
+        'first ticket',
+        { ticket: 'second' },
+      ]);
+      expect(await sentState([])).toEqual([]);
+    });
+
+    it('should send image parts as image_url entries next to the text', async () => {
+      expect(
+        await sentState([
+          { type: 'text', text: 'Listing title: "Organic apples, 6 count"' },
+          {
+            type: 'file',
+            mediaType: 'image/png',
+            data: { type: 'data', data: 'aGVsbG8=' },
+          },
+          {
+            type: 'file',
+            mediaType: 'image/jpeg',
+            data: { type: 'url', url: new URL('https://example.com/a.jpg') },
+          },
+        ]),
+      ).toEqual([
+        'Listing title: "Organic apples, 6 count"',
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image/png;base64,aGVsbG8=' },
+        },
+        {
+          type: 'image_url',
+          image_url: { url: 'https://example.com/a.jpg' },
+        },
+      ]);
+    });
+
+    it('should keep a lone image part inside an array', async () => {
+      expect(
+        await sentState([
+          {
+            type: 'file',
+            mediaType: 'image',
+            data: { type: 'data', data: 'aGVsbG8=' },
+          },
+        ]),
+      ).toEqual([
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image;base64,aGVsbG8=' },
+        },
+      ]);
+    });
+
+    it('should reject files that are not images before sending a request', async () => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await expect(
+        provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+          state: [
+            {
+              type: 'file',
+              mediaType: 'application/pdf',
+              data: { type: 'data', data: 'aGVsbG8=' },
+            },
+          ],
+          questions: QUESTIONS,
+        }),
+      ).rejects.toBeInstanceOf(UnsupportedFunctionalityError);
+      expect(calls).toHaveLength(0);
     });
   });
 
