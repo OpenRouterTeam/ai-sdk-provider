@@ -4799,13 +4799,73 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // The tool-call should have coerced the invalid JSON to '{}'
+    // The tool-call should forward the invalid JSON as streamed so the AI
+    // SDK can report it or run experimental_repairToolCall
     const toolCall = toolEvents.find((e) => e.type === 'tool-call');
     expect(toolCall).toMatchObject({
       type: 'tool-call',
       toolCallId: 'call_flush_001',
       toolName: 'search',
-      input: '{}',
+      input: '{"q"',
+    });
+  });
+
+  it('should forward complete-but-invalid tool arguments to tool-call instead of coercing to {}', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call starts with empty arguments
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_inv_001","type":"function","function":{"name":"update_field","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Arguments stream in two chunks forming a complete object plus a stray "}"
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"page_index\\":0,"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"\\"field_id\\":\\"q1\\"}}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Stream finishes normally with tool_calls
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'update_field',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              page_index: { type: 'number' },
+              field_id: { type: 'string' },
+            },
+            required: ['page_index', 'field_id'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // The tool-call must carry the arguments as streamed — including the
+    // stray trailing "}" — so the AI SDK can report InvalidToolInputError or
+    // run experimental_repairToolCall instead of seeing a silent '{}'.
+    const toolCall = elements.find((el) => el.type === 'tool-call');
+    expect(toolCall).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 'call_inv_001',
+      toolName: 'update_field',
+      input: '{"page_index":0,"field_id":"q1"}}',
     });
   });
 
@@ -5303,12 +5363,12 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Both should have coerced input to '{}'
+    // Both should forward the invalid JSON as streamed
     expect(tool0Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"x',
     });
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"y',
     });
   });
 
@@ -5394,9 +5454,9 @@ describe('includeRawChunks', () => {
       'tool-input-end',
       'tool-call',
     ]);
-    // Slow tool had invalid JSON → coerced to '{}'
+    // Slow tool's invalid JSON is forwarded as streamed
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"b"',
     });
   });
 
@@ -5971,9 +6031,9 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Invalid JSON coerced to '{}'
+    // Invalid JSON is forwarded as streamed
     expect(toolEvents.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"z"',
     });
 
     // Finish reason should be overridden to tool-calls
