@@ -78,7 +78,12 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
   static [WORKFLOW_SERIALIZE](model: OpenRouterCompletionLanguageModel) {
     const { modelId, config } = serializeModelOptions({
       modelId: model.modelId,
-      config: model.config,
+      config: {
+        ...model.config,
+        // `url` is a closure and gets dropped, so persist the resolved base
+        // URL to rebuild it on deserialize.
+        baseURL: model.config.url({ path: '', modelId: model.modelId }),
+      },
     });
 
     return { modelId, config, settings: model.settings };
@@ -87,13 +92,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
   static [WORKFLOW_DESERIALIZE](data: {
     modelId: OpenRouterCompletionModelId;
     settings: OpenRouterCompletionSettings;
-    config: OpenRouterCompletionConfig;
+    config: Omit<OpenRouterCompletionConfig, 'url' | 'headers' | 'fetch'> & {
+      baseURL: string;
+      headers?: Record<string, string | undefined>;
+    };
   }) {
-    return new OpenRouterCompletionLanguageModel(
-      data.modelId,
-      data.settings,
-      data.config,
-    );
+    const { baseURL, headers, ...config } = data.config;
+    return new OpenRouterCompletionLanguageModel(data.modelId, data.settings, {
+      ...config,
+      headers: () => headers ?? {},
+      url: ({ path }) => `${baseURL}${path}`,
+    });
   }
 
   constructor(

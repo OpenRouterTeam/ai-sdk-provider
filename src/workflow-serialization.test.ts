@@ -17,7 +17,8 @@ import {
   WORKFLOW_DESERIALIZE,
   WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
-import { describe, expect, it } from 'vitest';
+import { createTestServer } from '@ai-sdk/test-server';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { createOpenRouter } from './provider';
@@ -34,7 +35,50 @@ type CompletionDeserializeInput = Parameters<
   (typeof OpenRouterCompletionLanguageModel)[typeof WORKFLOW_DESERIALIZE]
 >[0];
 
+const CUSTOM_BASE_URL = 'https://custom.example.com/api/v1';
+
 describe('Issue #525: durable-execution model serialization', () => {
+  const server = createTestServer({
+    [`${CUSTOM_BASE_URL}/chat/completions`]: {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'chatcmpl-1',
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello' },
+              finish_reason: 'stop',
+            },
+          ],
+        },
+      },
+    },
+    [`${CUSTOM_BASE_URL}/completions`]: {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-1',
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [{ index: 0, text: 'Hello', finish_reason: 'stop' }],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  const customProvider = createOpenRouter({
+    apiKey: 'test-api-key',
+    baseURL: CUSTOM_BASE_URL,
+  });
+  const prompt = [
+    { role: 'user' as const, content: [{ type: 'text' as const, text: 'Hi' }] },
+  ];
+
   describe('OpenRouterChatLanguageModel', () => {
     it('exposes the workflow serde hooks as static methods', () => {
       expect(typeof OpenRouterChatLanguageModel[WORKFLOW_SERIALIZE]).toBe(
@@ -85,6 +129,25 @@ describe('Issue #525: durable-execution model serialization', () => {
       expect(restored.settings).toEqual(settings);
       expect(restored.provider).toBe('openrouter');
     });
+
+    it('runs doGenerate against the original baseURL after deserializing', async () => {
+      const model = customProvider.chat('anthropic/claude-3.5-sonnet');
+      const restored = OpenRouterChatLanguageModel[WORKFLOW_DESERIALIZE](
+        structuredClone(
+          OpenRouterChatLanguageModel[WORKFLOW_SERIALIZE](model),
+        ) as unknown as ChatDeserializeInput,
+      );
+
+      const result = await restored.doGenerate({ prompt });
+
+      expect(result.content).toEqual([{ type: 'text', text: 'Hello' }]);
+      expect(server.calls[0]!.requestUrl).toBe(
+        `${CUSTOM_BASE_URL}/chat/completions`,
+      );
+      expect(server.calls[0]!.requestHeaders.authorization).toBe(
+        'Bearer test-api-key',
+      );
+    });
   });
 
   describe('OpenRouterCompletionLanguageModel', () => {
@@ -118,6 +181,25 @@ describe('Issue #525: durable-execution model serialization', () => {
       expect(restored).toBeInstanceOf(OpenRouterCompletionLanguageModel);
       expect(restored.modelId).toBe('openai/gpt-3.5-turbo-instruct');
       expect(restored.settings).toEqual(settings);
+    });
+
+    it('runs doGenerate against the original baseURL after deserializing', async () => {
+      const model = customProvider.completion('openai/gpt-3.5-turbo-instruct');
+      const restored = OpenRouterCompletionLanguageModel[WORKFLOW_DESERIALIZE](
+        structuredClone(
+          OpenRouterCompletionLanguageModel[WORKFLOW_SERIALIZE](model),
+        ) as unknown as CompletionDeserializeInput,
+      );
+
+      const result = await restored.doGenerate({ prompt });
+
+      expect(result.content).toEqual([{ type: 'text', text: 'Hello' }]);
+      expect(server.calls[0]!.requestUrl).toBe(
+        `${CUSTOM_BASE_URL}/completions`,
+      );
+      expect(server.calls[0]!.requestHeaders.authorization).toBe(
+        'Bearer test-api-key',
+      );
     });
   });
 });
