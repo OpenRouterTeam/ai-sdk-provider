@@ -24,7 +24,14 @@ export type OpenRouterProviderOptions = {
         max_tokens: number;
       }
     | {
-        effort: 'xhigh' | 'high' | 'medium' | 'low' | 'minimal' | 'none';
+        effort:
+          | 'max'
+          | 'xhigh'
+          | 'high'
+          | 'medium'
+          | 'low'
+          | 'minimal'
+          | 'none';
       }
   );
 
