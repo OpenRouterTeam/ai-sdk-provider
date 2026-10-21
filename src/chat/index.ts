@@ -781,14 +781,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               // transition instead. Without merging summary deltas the array
               // fragments into one entry per delta, which breaks multi-turn
               // round-tripping when re-submitted (see issue #519, langchain #36400).
-              for (const rawDetail of delta.reasoning_details) {
-                const detail = { ...rawDetail };
-                for (const key of Object.keys(detail)) {
-                  if ((detail as Record<string, unknown>)[key] === undefined) {
-                    delete (detail as Record<string, unknown>)[key];
-                  }
-                }
-
+              for (const detail of delta.reasoning_details) {
                 const lastDetail =
                   accumulatedReasoningDetails[
                     accumulatedReasoningDetails.length - 1
@@ -800,25 +793,18 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     lastDetail.text =
                       (lastDetail.text || '') + (detail.text || '');
 
-                    // Fix for #540: only assign signature/format if defined to avoid
-                    // assigning `signature: undefined` or `format: undefined`, which
-                    // breaks AI SDK prompt validation on subsequent requests.
-                    const signature = detail.signature ?? lastDetail.signature;
-                    if (signature !== undefined) {
-                      lastDetail.signature = signature;
-                    } else {
-                      delete lastDetail.signature;
+                    // Only copy defined values: assigning `undefined` keys
+                    // breaks AI SDK prompt validation on replay (#540).
+                    if (!lastDetail.signature && detail.signature) {
+                      lastDetail.signature = detail.signature;
                     }
 
-                    const format = detail.format ?? lastDetail.format;
-                    if (format !== undefined) {
-                      lastDetail.format = format;
-                    } else {
-                      delete lastDetail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
                     }
                   } else {
                     // Start a new text detail
-                    accumulatedReasoningDetails.push(detail);
+                    accumulatedReasoningDetails.push({ ...detail });
                   }
                 } else if (detail.type === ReasoningDetailType.Summary) {
                   if (lastDetail?.type === ReasoningDetailType.Summary) {
@@ -826,15 +812,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     lastDetail.summary =
                       (lastDetail.summary || '') + (detail.summary || '');
 
-                    const format = detail.format ?? lastDetail.format;
-                    if (format !== undefined) {
-                      lastDetail.format = format;
-                    } else {
-                      delete lastDetail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
                     }
                   } else {
                     // Start a new summary detail
-                    accumulatedReasoningDetails.push(detail);
+                    accumulatedReasoningDetails.push({ ...detail });
                   }
                 } else {
                   // Encrypted details are opaque blobs (each has its own id);
