@@ -612,6 +612,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
     let finishReason: LanguageModelV4FinishReason = createFinishReason('other');
     let receivedFinishReason = false;
+    let receivedUsage = false;
     const usage: LanguageModelV4Usage = {
       inputTokens: {
         total: undefined,
@@ -706,6 +707,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             }
 
             if (value.usage != null) {
+              receivedUsage = true;
               const computed = computeTokenUsage(value.usage);
               Object.assign(usage.inputTokens, computed.inputTokens);
               Object.assign(usage.outputTokens, computed.outputTokens);
@@ -1154,17 +1156,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               finishReason = createFinishReason('tool-calls', finishReason.raw);
             }
 
-            // A stream that ends without any finish reason while a tool call's
-            // arguments are still incomplete JSON was cut off. Report it rather
-            // than inferring a finished call with synthesized '{}' input.
-            const incompleteToolCalls = receivedFinishReason
-              ? []
-              : toolCalls.filter(
-                  (toolCall) =>
-                    toolCall != null &&
-                    !toolCall.sent &&
-                    !isParsableJson(toolCall.function.arguments),
-                );
+            // A stream that ends without any finish reason or usage while a tool
+            // call's arguments are still incomplete JSON was cut off. Report it
+            // rather than inferring a finished call with synthesized '{}' input.
+            // Skip when a stream error was already reported above.
+            const incompleteToolCalls =
+              receivedFinishReason || receivedUsage || streamError != null
+                ? []
+                : toolCalls.filter(
+                    (toolCall) =>
+                      toolCall != null &&
+                      !toolCall.sent &&
+                      !isParsableJson(toolCall.function.arguments),
+                  );
             if (incompleteToolCalls.length > 0) {
               finishReason = createFinishReason('error');
               controller.enqueue({

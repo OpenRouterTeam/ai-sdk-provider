@@ -2526,6 +2526,69 @@ describe('doStream', () => {
     });
   });
 
+  it('should not report a no-argument tool call as truncated when usage was received (#558)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // No finish_reason, but the final usage chunk shows the stream completed.
+        `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"list_items","arguments":""}}]},` +
+          `"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    expect(elements.some((el) => el.type === 'error')).toBe(false);
+    expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
+      toolCallId: 'call-1',
+      toolName: 'list_items',
+      input: '{}',
+    });
+  });
+
+  it('should not report a second error for incomplete tool call arguments after a stream error (#558)', async () => {
+    const encoder = new TextEncoder();
+    let pulls = 0;
+    const errorProvider = createOpenRouter({
+      apiKey: 'test-api-key',
+      fetch: async () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              if (pulls++ > 0) {
+                controller.error(new Error('connection reset'));
+                return;
+              }
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"id":"chatcmpl-err","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+                    `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{\\"scope\\":"}}]},` +
+                    `"finish_reason":null}]}\n\n`,
+                ),
+              );
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+    });
+
+    const { stream } = await errorProvider
+      .chat('test/model')
+      .doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const errorEvents = elements.filter((el) => el.type === 'error');
+    expect(errorEvents).toHaveLength(1);
+    expect(InvalidResponseDataError.isInstance(errorEvents[0]?.error)).toBe(
+      false,
+    );
+  });
+
   it('should keep finishReason as other when finish_reason is null and no tool calls are present in streaming (#166)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
