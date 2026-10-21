@@ -244,7 +244,9 @@ There are 3 ways to pass extra body to OpenRouter:
    });
    ```
 
-### Passing Image Detail
+## Multimodal Inputs
+
+### Image Detail
 
 For vision requests, pass the OpenAI-compatible `imageDetail` option
 (`'auto'`, `'low'` or `'high'`) on the image file part. The provider forwards
