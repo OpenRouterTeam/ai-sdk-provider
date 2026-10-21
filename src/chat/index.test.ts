@@ -5291,6 +5291,82 @@ describe('includeRawChunks', () => {
     expect(toolInputDeltas.at(0)).toMatchObject({ delta: '{"city":"Berlin"}' });
   });
 
+  describe('streamed tool-call argument completion (#581)', () => {
+    const toolCallChunks = (argumentDeltas: string[]) => [
+      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+        `"tool_calls":[{"index":0,"id":"call_581","type":"function","function":{"name":"write","arguments":""}}]},` +
+        `"finish_reason":null}]}\n\n`,
+      ...argumentDeltas.map(
+        (delta) =>
+          `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(delta)}}}]},` +
+          `"finish_reason":null}]}\n\n`,
+      ),
+      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    it('should emit the tool call as soon as the arguments close, ignoring braces in strings', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: toolCallChunks(['{"text":"a}', '\\"]{', '"', '}', ' ']),
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+
+      expect(toolEvents.map((el) => el.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+        'tool-input-delta',
+      ]);
+      expect(toolEvents.find((el) => el.type === 'tool-call')).toMatchObject({
+        toolCallId: 'call_581',
+        input: '{"text":"a}\\"]{"}',
+      });
+    });
+
+    it('should not re-parse the accumulated arguments on every delta', async () => {
+      const deltaCount = 2000;
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: toolCallChunks([
+          '{"text":"',
+          ...Array.from({ length: deltaCount }, () => 'abcdefgh'),
+          '"}',
+        ]),
+      };
+
+      const input = `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`;
+      const parseSpy = vi.spyOn(JSON, 'parse');
+      try {
+        const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+        const elements = await convertReadableStreamToArray(stream);
+
+        expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
+          input,
+        });
+        // isParsableJson parses the accumulated arguments with JSON.parse.
+        // Exactly one such parse, for the complete arguments, shows the
+        // filter matches that path and that no partial prefix was parsed.
+        const argumentParses = parseSpy.mock.calls
+          .map(([text]) => text)
+          .filter((text) => text.startsWith('{"text"'));
+        expect(argumentParses).toStrictEqual([input]);
+      } finally {
+        parseSpy.mockRestore();
+      }
+    });
+  });
+
   it('should accumulate correct tool-call input across many chunks (5+ deltas)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',

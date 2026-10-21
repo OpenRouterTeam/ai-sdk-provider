@@ -20,6 +20,7 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
+import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
 
 import {
   APICallError,
@@ -38,6 +39,10 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { computeTokenUsage, emptyUsage } from '../utils/compute-token-usage';
+import {
+  createJsonCompletenessScanner,
+  mayBeCompleteJson,
+} from '../utils/json-completeness-scanner';
 import {
   createFinishReason,
   mapOpenRouterFinishReason,
@@ -611,6 +616,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       };
       inputStarted: boolean;
       sent: boolean;
+      argumentsScanner: JsonCompletenessScanner;
     }> = [];
 
     // Track seen tool call IDs to ensure uniqueness. Some providers
@@ -989,6 +995,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     },
                     inputStarted: false,
                     sent: false,
+                    argumentsScanner: createJsonCompletenessScanner(),
                   };
 
                   const toolCall = toolCalls[index];
@@ -1004,6 +1011,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   if (
                     toolCall.function?.name != null &&
                     toolCall.function?.arguments != null &&
+                    mayBeCompleteJson(
+                      toolCall.argumentsScanner,
+                      toolCall.function.arguments,
+                    ) &&
                     isParsableJson(toolCall.function.arguments)
                   ) {
                     toolCall.inputStarted = true;
@@ -1083,6 +1094,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   }
                 }
 
+                // Scan only the new delta so the full accumulated arguments
+                // are re-parsed only when they may be complete JSON (#581).
+                const argumentsMayBeComplete = mayBeCompleteJson(
+                  toolCall.argumentsScanner,
+                  toolCallDelta.function?.arguments ?? '',
+                );
+
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function.arguments +=
                     toolCallDelta.function?.arguments ?? '';
@@ -1105,6 +1123,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   !toolCall.sent &&
                   toolCall.function?.name != null &&
                   toolCall.function?.arguments != null &&
+                  argumentsMayBeComplete &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
                   // Emit tool-input-end before tool-call to complete the
