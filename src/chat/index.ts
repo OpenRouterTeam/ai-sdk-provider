@@ -1182,9 +1182,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {
                 if (toolCall && !toolCall.sent) {
-                  const input = isParsableJson(toolCall.function.arguments)
-                    ? toolCall.function.arguments
-                    : '{}';
+                  // Forward invalid JSON as-is so the AI SDK can report it or
+                  // run experimental_repairToolCall; '{}' only when nothing
+                  // was streamed (no-argument tool calls).
+                  const input =
+                    toolCall.function.arguments.trim() === ''
+                      ? '{}'
+                      : toolCall.function.arguments;
 
                   // Emit the full tool-input lifecycle for unsent tool calls.
                   // If inputStarted is false, the tool call was never partially
