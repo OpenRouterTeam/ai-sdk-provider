@@ -46,6 +46,10 @@ import {
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
+import {
+  omitCredentialHeaders,
+  withEnvironmentApiKey,
+} from '../utils/workflow-serde';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
@@ -88,6 +92,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
    * `serializeModelOptions` resolves the `headers` closure and strips the
    * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
    * captured alongside so the constructor can faithfully round-trip.
+   * Credential headers are never persisted; the API key is re-read from
+   * `OPENROUTER_API_KEY` on deserialize.
    */
   static [WORKFLOW_SERIALIZE](model: OpenRouterChatLanguageModel) {
     const { modelId, config } = serializeModelOptions({
@@ -99,6 +105,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
         baseURL: model.config.url({ path: '', modelId: model.modelId }),
       },
     });
+
+    config.headers = omitCredentialHeaders(config.headers);
 
     return { modelId, config, settings: model.settings };
   }
@@ -114,7 +122,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const { baseURL, headers, ...config } = data.config;
     return new OpenRouterChatLanguageModel(data.modelId, data.settings, {
       ...config,
-      headers: () => headers ?? {},
+      headers: withEnvironmentApiKey(headers),
       url: ({ path }) => `${baseURL}${path}`,
     });
   }

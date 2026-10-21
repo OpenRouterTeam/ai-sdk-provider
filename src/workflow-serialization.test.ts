@@ -18,12 +18,23 @@ import {
   WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { createTestServer } from '@ai-sdk/test-server';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { createOpenRouter } from './provider';
 
-const provider = createOpenRouter({ apiKey: 'test-api-key' });
+const provider = createOpenRouter({
+  apiKey: 'test-api-key',
+  api_keys: { anthropic: 'test-anthropic-key' },
+});
 
 // The workflow runtime hands the deserialize hook the persisted payload,
 // whose `config` has been reduced to a plain JSON object. Chaining the two
@@ -68,7 +79,10 @@ describe('Issue #525: durable-execution model serialization', () => {
   });
 
   beforeAll(() => server.server.start());
-  afterEach(() => server.server.reset());
+  afterEach(() => {
+    server.server.reset();
+    vi.unstubAllEnvs();
+  });
   afterAll(() => server.server.stop());
 
   const customProvider = createOpenRouter({
@@ -102,9 +116,11 @@ describe('Issue #525: durable-execution model serialization', () => {
       expect(serialized.config.url).toBeUndefined();
       expect(serialized.config.fetch).toBeUndefined();
       expect(serialized.config.provider).toBe('openrouter.chat');
-      expect(
-        (serialized.config.headers as Record<string, string>).Authorization,
-      ).toBe('Bearer test-api-key');
+
+      // Credentials must never reach durable storage.
+      const persisted = JSON.stringify(serialized);
+      expect(persisted).not.toContain('test-api-key');
+      expect(persisted).not.toContain('test-anthropic-key');
 
       // The whole payload must survive the durable boundary.
       expect(() => structuredClone(serialized)).not.toThrow();
@@ -138,6 +154,7 @@ describe('Issue #525: durable-execution model serialization', () => {
         ) as unknown as ChatDeserializeInput,
       );
 
+      vi.stubEnv('OPENROUTER_API_KEY', 'env-api-key');
       const result = await restored.doGenerate({ prompt });
 
       expect(result.content).toEqual([{ type: 'text', text: 'Hello' }]);
@@ -145,8 +162,23 @@ describe('Issue #525: durable-execution model serialization', () => {
         `${CUSTOM_BASE_URL}/chat/completions`,
       );
       expect(server.calls[0]!.requestHeaders.authorization).toBe(
-        'Bearer test-api-key',
+        'Bearer env-api-key',
       );
+    });
+
+    it('requires OPENROUTER_API_KEY after deserializing', async () => {
+      const model = customProvider.chat('anthropic/claude-3.5-sonnet');
+      const restored = OpenRouterChatLanguageModel[WORKFLOW_DESERIALIZE](
+        structuredClone(
+          OpenRouterChatLanguageModel[WORKFLOW_SERIALIZE](model),
+        ) as unknown as ChatDeserializeInput,
+      );
+
+      vi.stubEnv('OPENROUTER_API_KEY', undefined);
+      await expect(restored.doGenerate({ prompt })).rejects.toThrow(
+        /OPENROUTER_API_KEY/,
+      );
+      expect(server.calls).toHaveLength(0);
     });
   });
 
@@ -191,6 +223,7 @@ describe('Issue #525: durable-execution model serialization', () => {
         ) as unknown as CompletionDeserializeInput,
       );
 
+      vi.stubEnv('OPENROUTER_API_KEY', 'env-api-key');
       const result = await restored.doGenerate({ prompt });
 
       expect(result.content).toEqual([{ type: 'text', text: 'Hello' }]);
@@ -198,7 +231,7 @@ describe('Issue #525: durable-execution model serialization', () => {
         `${CUSTOM_BASE_URL}/completions`,
       );
       expect(server.calls[0]!.requestHeaders.authorization).toBe(
-        'Bearer test-api-key',
+        'Bearer env-api-key',
       );
     });
   });

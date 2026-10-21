@@ -38,6 +38,10 @@ import {
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
+import {
+  omitCredentialHeaders,
+  withEnvironmentApiKey,
+} from '../utils/workflow-serde';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -74,6 +78,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
    * `serializeModelOptions` resolves the `headers` closure and strips the
    * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
    * captured alongside so the constructor can faithfully round-trip.
+   * Credential headers are never persisted; the API key is re-read from
+   * `OPENROUTER_API_KEY` on deserialize.
    */
   static [WORKFLOW_SERIALIZE](model: OpenRouterCompletionLanguageModel) {
     const { modelId, config } = serializeModelOptions({
@@ -85,6 +91,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
         baseURL: model.config.url({ path: '', modelId: model.modelId }),
       },
     });
+
+    config.headers = omitCredentialHeaders(config.headers);
 
     return { modelId, config, settings: model.settings };
   }
@@ -100,7 +108,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     const { baseURL, headers, ...config } = data.config;
     return new OpenRouterCompletionLanguageModel(data.modelId, data.settings, {
       ...config,
-      headers: () => headers ?? {},
+      headers: withEnvironmentApiKey(headers),
       url: ({ path }) => `${baseURL}${path}`,
     });
   }
