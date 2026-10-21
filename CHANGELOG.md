@@ -1,5 +1,15 @@
 # @openrouter/ai-sdk-provider
 
+## 3.1.0
+
+### Minor Changes
+
+- [#562](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/562) [`4020201`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/40202018e80b6e1175fc5f46cd8704217b186273) Thanks [@robert-j-y](https://github.com/robert-j-y)! - Add `openrouter.evaluationModel()` backed by the OpenRouter Decisions API (`/api/alpha/decisions`), so `experimental_evaluate` from `ai@7.0.103+` runs boolean, choice, and score questions through OpenRouter. Probabilities are mapped onto the AI SDK answer shapes with the API's two-decimal rounding declared on the result, and per-answer confidence, score legends, and cost are exposed under `providerMetadata.openrouter`. Model settings accept `user`, `provider`, `session_id`, `trace`, and `extraBody`; call-level `providerOptions.openrouter` is validated and merged into the request body without being able to override `model`, `state`, or `questions`. A new `decisionsBaseURL` provider setting configures the Decisions endpoint for proxies whose `baseURL` does not end in `/v1`. The `ai` peer dependency range is unchanged; only `evaluationModel()` requires `ai@7.0.103+`.
+
+### Patch Changes
+
+- [#521](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/521) [`b96b207`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b96b20799eadeb72a180ef021b85254fc1500746) Thanks [@christineschen](https://github.com/christineschen)! - Update to latest AI SDK v7 packages and expand test coverage
+
 ## 3.0.0
 
 ### Major Changes
