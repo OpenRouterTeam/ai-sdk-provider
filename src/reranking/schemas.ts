@@ -14,7 +14,7 @@ export const OpenRouterRerankingResponseSchema = z.object({
     z.object({
       index: z.number(),
       relevance_score: z.number(),
-      document: z.record(z.string(), z.any()).optional(),
+      document: z.record(z.string(), z.unknown()).optional(),
     }),
   ),
   usage: openrouterRerankingUsageSchema.optional(),

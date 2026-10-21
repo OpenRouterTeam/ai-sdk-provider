@@ -14,9 +14,9 @@ import {
   combineHeaders,
   createJsonResponseHandler,
   postJsonToApi,
+  removeUndefinedEntries,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
-import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { OpenRouterRerankingResponseSchema } from './schemas';
 
 type OpenRouterRerankingConfig = {
@@ -81,13 +81,18 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
       query,
       documents: requestDocuments,
       ...(topN != null && { top_n: topN }),
+      user: this.settings.user,
       provider: this.settings.provider,
       ...this.config.extraBody,
       ...this.settings.extraBody,
       ...openrouterOptions,
     };
 
-    const { value: responseValue, responseHeaders } = await postJsonToApi({
+    const {
+      value: responseValue,
+      rawValue,
+      responseHeaders,
+    } = await postJsonToApi({
       url: this.config.url({
         path: '/rerank',
         modelId: this.modelId,
@@ -102,29 +107,34 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
       fetch: this.config.fetch,
     });
 
+    const usage = responseValue.usage;
+
     return {
       ranking: responseValue.results.map((result) => ({
         index: result.index,
         relevanceScore: result.relevance_score,
       })),
       providerMetadata: {
-        openrouter: OpenRouterProviderMetadataSchema.parse({
-          provider: responseValue.provider ?? '',
-          usage: {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: responseValue.usage?.total_tokens ?? 0,
-            ...(responseValue.usage?.cost != null
-              ? { cost: responseValue.usage.cost }
-              : {}),
-          },
-        }),
+        openrouter: {
+          ...(responseValue.provider != null
+            ? { provider: responseValue.provider }
+            : {}),
+          ...(usage != null
+            ? {
+                usage: removeUndefinedEntries({
+                  searchUnits: usage.search_units,
+                  totalTokens: usage.total_tokens,
+                  cost: usage.cost,
+                }),
+              }
+            : {}),
+        },
       },
       response: {
         ...(responseValue.id != null && { id: responseValue.id }),
         modelId: responseValue.model,
         headers: responseHeaders,
-        body: responseValue,
+        body: rawValue,
       },
       warnings,
     };
