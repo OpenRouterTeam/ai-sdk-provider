@@ -1026,3 +1026,38 @@ describe('includeRawChunks', () => {
     expect(errorChunks.length).toBe(1);
   });
 });
+
+describe('reasoning call option', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-test',
+          object: 'text_completion',
+          created: 1711363706,
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [{ index: 0, text: 'Hello!', finish_reason: 'stop' }],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('maps call-level reasoning to reasoning.effort, keeping model-level exclude', async () => {
+    await provider
+      .completion('openai/gpt-3.5-turbo-instruct', {
+        reasoning: { effort: 'high', exclude: true },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'medium' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      reasoning: { exclude: true, effort: 'medium' },
+    });
+  });
+});

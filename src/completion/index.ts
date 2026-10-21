@@ -34,6 +34,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
@@ -88,6 +89,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     stopSequences,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
@@ -144,7 +147,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning: resolveReasoning({
+        reasoning,
+        settingsReasoning: this.settings.reasoning,
+        providerOptions,
+      }),
 
       // extra body:
       ...this.config.extraBody,

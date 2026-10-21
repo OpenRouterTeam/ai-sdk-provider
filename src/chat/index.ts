@@ -42,6 +42,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
@@ -102,6 +103,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     topK,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const baseArgs = {
       // model id:
@@ -158,7 +161,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning: resolveReasoning({
+        reasoning,
+        settingsReasoning: this.settings.reasoning,
+        providerOptions,
+      }),
       usage: this.settings.usage,
 
       // Web search settings:

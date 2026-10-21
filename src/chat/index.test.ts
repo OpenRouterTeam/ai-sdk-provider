@@ -6207,3 +6207,44 @@ describe('includeRawChunks', () => {
     expect(errorChunks.length).toBe(1);
   });
 });
+
+describe('reasoning call option', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'chatcmpl-test',
+          object: 'chat.completion',
+          created: 1711115037,
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello!' },
+              finish_reason: 'stop',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('maps call-level reasoning to reasoning.effort, keeping model-level exclude', async () => {
+    await provider
+      .chat('anthropic/claude-3.5-sonnet', {
+        reasoning: { effort: 'high', exclude: true },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'medium' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      reasoning: { exclude: true, effort: 'medium' },
+    });
+  });
+});
