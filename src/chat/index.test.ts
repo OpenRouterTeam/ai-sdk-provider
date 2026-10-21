@@ -989,6 +989,89 @@ describe('doGenerate', () => {
     expect(tools[0]!.function).toHaveProperty('strict', strict);
   });
 
+  it('should pass cache_control from tool providerOptions to request body', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          description: 'Get the weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+          providerOptions: {
+            openrouter: {
+              cache_control: { type: 'ephemeral' },
+            },
+          },
+        },
+      ],
+    });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'get-weather',
+            description: 'Get the weather',
+            parameters: {
+              type: 'object',
+              properties: { location: { type: 'string' } },
+              required: ['location'],
+              additionalProperties: false,
+              $schema: 'http://json-schema.org/draft-07/schema#',
+            },
+          },
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+    });
+  });
+
+  it('should accept cacheControl from the anthropic providerOptions namespace too', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          description: 'Get the weather',
+          inputSchema: {
+            type: 'object',
+            properties: { location: { type: 'string' } },
+            required: ['location'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+          providerOptions: {
+            anthropic: {
+              cacheControl: { type: 'ephemeral' },
+            },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<Record<string, unknown>>;
+    expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
+  });
+
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 
