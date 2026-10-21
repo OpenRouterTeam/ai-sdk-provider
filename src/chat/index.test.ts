@@ -1897,7 +1897,7 @@ describe('doStream', () => {
     );
   });
 
-  it('should not assign signature: undefined or format: undefined to accumulated reasoning_details when deltas omit them (issue #540)', async () => {
+  it('does not add undefined signature/format keys to accumulated reasoning_details (#540)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
