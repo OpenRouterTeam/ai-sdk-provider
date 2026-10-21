@@ -310,6 +310,33 @@ await streamText({
 });
 ```
 
+### Video Processing
+
+For a video file part, set `providerOptions.openrouter.videoProcessing` to
+`'agentic'` or `'static'`. The provider forwards it as `video_url.processing`.
+Omit the option to keep the upstream default. See the
+[video processing documentation](https://openrouter.ai/docs/guides/overview/multimodal/videos#video-processing-mode)
+for model support.
+
+```ts
+const { text } = await generateText({
+  model: openrouter('google/gemini-3.5-flash-lite'),
+  messages: [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'file',
+          data: new URL('https://example.com/video.mp4'),
+          mediaType: 'video/mp4',
+          providerOptions: { openrouter: { videoProcessing: 'agentic' } },
+        },
+      ],
+    },
+  ],
+});
+```
+
 ## Anthropic Prompt Caching
 
 You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.

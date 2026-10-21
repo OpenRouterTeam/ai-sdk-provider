@@ -56,7 +56,10 @@ import {
   restoreOpenRouterConfig,
   serializeOpenRouterModel,
 } from '../utils/workflow-serde';
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import {
+  convertToOpenRouterChatMessages,
+  getCacheControl,
+} from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
 import {
@@ -226,6 +229,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             | Record<string, unknown>
             | undefined;
           const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
+          const cacheControl = getCacheControl(tool.providerOptions);
 
           mappedTools.push({
             type: 'function' as const,
@@ -238,6 +242,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             ...(eagerInputStreaming != null && {
               eager_input_streaming: eagerInputStreaming,
             }),
+            ...(cacheControl != null && { cache_control: cacheControl }),
           });
         } else if (tool.type === 'provider') {
           mappedTools.push(mapProviderTool(tool));

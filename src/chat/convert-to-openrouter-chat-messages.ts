@@ -28,9 +28,9 @@ import {
 import { isUrl } from './is-url';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
-export type OpenRouterCacheControl = { type: 'ephemeral' };
+export type OpenRouterCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
 
-function getCacheControl(
+export function getCacheControl(
   providerMetadata: SharedV4ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
@@ -49,6 +49,15 @@ function getImageDetail(
   const detail = providerOptions?.openrouter?.imageDetail;
   return detail === 'auto' || detail === 'low' || detail === 'high'
     ? detail
+    : undefined;
+}
+
+function getVideoProcessing(
+  providerOptions: SharedV4ProviderMetadata | undefined,
+): 'agentic' | 'static' | undefined {
+  const processing = providerOptions?.openrouter?.videoProcessing;
+  return processing === 'agentic' || processing === 'static'
+    ? processing
     : undefined;
 }
 
@@ -156,10 +165,12 @@ export function convertToOpenRouterChatMessages(
                     part,
                     defaultMediaType: 'video/mp4',
                   });
+                  const processing = getVideoProcessing(part.providerOptions);
                   return {
                     type: 'video_url' as const,
                     video_url: {
                       url,
+                      ...(processing && { processing }),
                     },
                     ...(cacheControl && { cache_control: cacheControl }),
                   };
@@ -484,9 +495,13 @@ function mapToolResultContentParts(
         }
 
         if (part.mediaType?.startsWith('video/')) {
+          const processing = getVideoProcessing(part.providerOptions);
           return {
             type: 'video_url',
-            video_url: { url: dataUrl },
+            video_url: {
+              url: dataUrl,
+              ...(processing && { processing }),
+            },
           };
         }
 
