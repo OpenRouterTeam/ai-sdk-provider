@@ -332,17 +332,16 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should include isByok in providerMetadata when provided', async () => {
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to providerMetadata usage', async (isByok) => {
     prepareJsonResponse({
       usage: {
         prompt_tokens: 10,
         completion_tokens: 20,
         total_tokens: 30,
-        cost: 0,
-        is_byok: true,
-        cost_details: {
-          upstream_inference_cost: 0.005,
-        },
+        is_byok: isByok,
       },
     });
 
@@ -350,21 +349,7 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    const usage = (
-      providerMetadata?.openrouter as {
-        usage?: {
-          cost?: number;
-          isByok?: boolean;
-          costDetails?: { upstreamInferenceCost: number };
-        };
-      }
-    )?.usage;
-
-    expect(usage?.isByok).toBe(true);
-    expect(usage?.cost).toBe(0);
-    expect(usage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.005,
-    });
+    expect(providerMetadata?.openrouter?.usage).toMatchObject({ isByok });
   });
 
   it('should extract logprobs', async () => {
@@ -708,47 +693,28 @@ describe('doStream', () => {
     expect(openrouterUsage?.cost).toBe(0.0025);
   });
 
-  it('should include isByok in finish metadata when provided', async () => {
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to finish metadata', async (isByok) => {
     prepareStreamResponse({
       content: ['Hello'],
       usage: {
         prompt_tokens: 5,
         total_tokens: 15,
         completion_tokens: 10,
-        cost: 0,
-        is_byok: true,
-        cost_details: {
-          upstream_inference_cost: 0.0036,
-        },
+        is_byok: isByok,
       },
     });
 
-    const { stream } = await model.doStream({
-      prompt: TEST_PROMPT,
-    });
-
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = (await convertReadableStreamToArray(
       stream,
     )) as LanguageModelV4StreamPart[];
-    const finishChunk = elements.find(
-      (
-        element,
-      ): element is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
-        element.type === 'finish',
-    );
-    const openrouterUsage = (
-      finishChunk?.providerMetadata?.openrouter as {
-        usage?: {
-          cost?: number;
-          isByok?: boolean;
-          costDetails?: { upstreamInferenceCost: number };
-        };
-      }
-    )?.usage;
-    expect(openrouterUsage?.isByok).toBe(true);
-    expect(openrouterUsage?.cost).toBe(0);
-    expect(openrouterUsage?.costDetails).toStrictEqual({
-      upstreamInferenceCost: 0.0036,
+    const finishChunk = elements.find((chunk) => chunk.type === 'finish');
+
+    expect(finishChunk?.providerMetadata?.openrouter?.usage).toMatchObject({
+      isByok,
     });
   });
 
