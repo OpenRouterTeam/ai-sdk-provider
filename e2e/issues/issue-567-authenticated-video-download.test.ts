@@ -11,7 +11,7 @@
 import type { AddressInfo } from 'node:net';
 
 import { createServer } from 'node:http';
-import { DownloadError, experimental_generateVideo as generateVideo } from 'ai';
+import { experimental_generateVideo as generateVideo } from 'ai';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createOpenRouter } from '@/src';
 
@@ -116,31 +116,6 @@ describe('Issue #567: authenticated video content download', () => {
       return fetch(localUrl, init);
     };
 
-    const publicDownloadWithoutOpenRouterAuth = async ({
-      url,
-    }: {
-      url: URL;
-    }) => {
-      const localUrl =
-        url.origin === 'https://openrouter.ai'
-          ? `${localOrigin}${url.pathname}${url.search}`
-          : url.toString();
-      const response = await fetch(localUrl);
-
-      if (!response.ok) {
-        throw new DownloadError({
-          url: url.toString(),
-          statusCode: response.status,
-          statusText: response.statusText,
-        });
-      }
-
-      return {
-        data: new Uint8Array(await response.arrayBuffer()),
-        mediaType: response.headers.get('content-type') ?? undefined,
-      };
-    };
-
     const openrouter = createOpenRouter({
       apiKey,
       fetch: providerFetch,
@@ -151,7 +126,6 @@ describe('Issue #567: authenticated video content download', () => {
         pollIntervalMs: 1,
       }),
       prompt: 'A test video',
-      download: publicDownloadWithoutOpenRouterAuth,
     });
 
     expect(result.video.uint8Array).toEqual(videoBytes);

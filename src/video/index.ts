@@ -16,7 +16,6 @@ import {
   combineHeaders,
   createBinaryResponseHandler,
   createJsonResponseHandler,
-  createStatusCodeErrorResponseHandler,
   delay,
   getFromApi,
   postJsonToApi,
@@ -275,7 +274,7 @@ export class OpenRouterVideoModel implements VideoModelV4 {
     const { value, responseHeaders } = await getFromApi({
       url,
       headers,
-      failedResponseHandler: createStatusCodeErrorResponseHandler(),
+      failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createBinaryResponseHandler(),
       abortSignal,
       fetch: this.config.fetch,
@@ -286,13 +285,24 @@ export class OpenRouterVideoModel implements VideoModelV4 {
 
     return {
       data: value,
-      mediaType: responseHeaders?.['content-type'] ?? 'video/mp4',
+      mediaType: normalizeVideoMediaType(responseHeaders?.['content-type']),
     };
   }
 }
 
 function getOrigin(url: string): string {
   return new URL(url).origin;
+}
+
+/**
+ * Strips parameters (e.g. `; codecs=...`) from a Content-Type header and falls
+ * back to `video/mp4` when it is missing or a generic binary type.
+ */
+function normalizeVideoMediaType(contentType: string | undefined): string {
+  const mediaType = contentType?.split(';')[0]?.trim().toLowerCase();
+  return mediaType && mediaType !== 'application/octet-stream'
+    ? mediaType
+    : 'video/mp4';
 }
 
 function convertImageToFrameImage(

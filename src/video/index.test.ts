@@ -33,10 +33,27 @@ function createPollResponse(
   };
 }
 
-function createVideoContentResponse() {
+function createVideoContentResponse(contentType: string | null = 'video/mp4') {
   return new Response(testVideoBytes, {
     status: 200,
-    headers: { 'content-type': 'video/mp4' },
+    headers: contentType != null ? { 'content-type': contentType } : {},
+  });
+}
+
+function toResponse(
+  response: Record<string, unknown> | Response | undefined,
+  callIndex: number,
+  url: URL | RequestInfo,
+): Response {
+  if (response === undefined) {
+    throw new Error(`Unexpected fetch call #${callIndex + 1}: ${String(url)}`);
+  }
+  if (response instanceof Response) {
+    return response;
+  }
+  return new Response(JSON.stringify(response), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
   });
 }
 
@@ -44,16 +61,10 @@ function createMockFetchSequence(
   responses: Array<Record<string, unknown> | Response>,
 ) {
   let callIndex = 0;
-  return async (): Promise<Response> => {
-    const response = responses[callIndex] ?? createVideoContentResponse();
+  return async (url: URL | RequestInfo): Promise<Response> => {
+    const response = toResponse(responses[callIndex], callIndex, url);
     callIndex++;
-    if (response instanceof Response) {
-      return response;
-    }
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    return response;
   };
 }
 
@@ -64,6 +75,7 @@ function createCapturingMockFetch(
   const capturedRequests: Array<{
     url: string;
     method: string;
+    headers: Headers;
     body: Record<string, unknown> | undefined;
   }> = [];
 
@@ -74,21 +86,33 @@ function createCapturingMockFetch(
     const bodyText = init?.body as string | undefined;
     capturedRequests.push({
       url: url.toString(),
-      method: init?.method ?? 'POST',
+      method: init?.method ?? 'GET',
+      headers: new Headers(init?.headers),
       body: bodyText ? JSON.parse(bodyText) : undefined,
     });
-    const response = responses[callIndex] ?? createVideoContentResponse();
+    const response = toResponse(responses[callIndex], callIndex, url);
     callIndex++;
-    if (response instanceof Response) {
-      return response;
-    }
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    });
+    return response;
   };
 
   return { fetch, capturedRequests };
+}
+
+function generate(model: OpenRouterVideoModel) {
+  return model.doGenerate({
+    prompt: 'A cat',
+    n: 1,
+    aspectRatio: undefined,
+    resolution: undefined,
+    duration: undefined,
+    fps: undefined,
+    seed: undefined,
+    image: undefined,
+    frameImages: undefined,
+    inputReferences: undefined,
+    generateAudio: undefined,
+    providerOptions: {},
+  });
 }
 
 describe('OpenRouterVideoModel', () => {
@@ -128,6 +152,7 @@ describe('OpenRouterVideoModel', () => {
             unsigned_urls: [videoUrl],
             usage: { cost: 0.5 },
           }),
+          createVideoContentResponse(),
         ]),
       });
       const model = provider.videoModel('google/veo-3.1', {
@@ -166,6 +191,7 @@ describe('OpenRouterVideoModel', () => {
         createPollResponse(jobId, 'completed', {
           unsigned_urls: ['https://example.com/video.mp4'],
         }),
+        createVideoContentResponse(),
       ]);
 
       const provider = createOpenRouter({
@@ -207,6 +233,7 @@ describe('OpenRouterVideoModel', () => {
         createPollResponse(jobId, 'completed', {
           unsigned_urls: ['https://example.com/video.mp4'],
         }),
+        createVideoContentResponse(),
       ]);
 
       const provider = createOpenRouter({
@@ -243,6 +270,7 @@ describe('OpenRouterVideoModel', () => {
         createPollResponse(jobId, 'completed', {
           unsigned_urls: ['https://example.com/video.mp4'],
         }),
+        createVideoContentResponse(),
       ]);
 
       const provider = createOpenRouter({
@@ -294,6 +322,7 @@ describe('OpenRouterVideoModel', () => {
         createPollResponse(jobId, 'completed', {
           unsigned_urls: ['https://example.com/video.mp4'],
         }),
+        createVideoContentResponse(),
       ]);
 
       const provider = createOpenRouter({
@@ -341,6 +370,7 @@ describe('OpenRouterVideoModel', () => {
           createPollResponse(jobId, 'completed', {
             unsigned_urls: ['https://example.com/video.mp4'],
           }),
+          createVideoContentResponse(),
         ]),
       });
       const model = provider.videoModel('google/veo-3.1', {
@@ -456,6 +486,7 @@ describe('OpenRouterVideoModel', () => {
             unsigned_urls: ['https://example.com/video.mp4'],
             usage: { cost: 1.25 },
           }),
+          createVideoContentResponse(),
         ]),
       });
       const model = provider.videoModel('google/veo-3.1', {
@@ -530,6 +561,8 @@ describe('OpenRouterVideoModel', () => {
               'https://example.com/video2.mp4',
             ],
           }),
+          createVideoContentResponse(),
+          createVideoContentResponse(),
         ]),
       });
       const model = provider.videoModel('google/veo-3.1', {
@@ -562,6 +595,116 @@ describe('OpenRouterVideoModel', () => {
         data: testVideoBytes,
         mediaType: 'video/mp4',
       });
+    });
+  });
+
+  describe('video download', () => {
+    const jobId = 'job-test-download';
+
+    it('should download same-origin content URLs with the API key', async () => {
+      const contentUrl = `https://openrouter.ai/api/v1/videos/${jobId}/content?index=0`;
+      const mock = createCapturingMockFetch([
+        createSubmitResponse(jobId),
+        createPollResponse(jobId, 'completed', {
+          unsigned_urls: [contentUrl],
+        }),
+        createVideoContentResponse(),
+      ]);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+
+      const result = await generate(
+        provider.videoModel('google/veo-3.1', { pollIntervalMs: 10 }),
+      );
+
+      expect(mock.capturedRequests).toHaveLength(3);
+      const download = mock.capturedRequests[2]!;
+      expect(download.url).toBe(contentUrl);
+      expect(download.headers.get('authorization')).toBe('Bearer test-key');
+      expect(result.videos).toEqual([
+        { type: 'binary', data: testVideoBytes, mediaType: 'video/mp4' },
+      ]);
+    });
+
+    it('should not send the API key to a cross-origin content URL', async () => {
+      const contentUrl = 'https://storage.example.com/video.mp4';
+      const mock = createCapturingMockFetch([
+        createSubmitResponse(jobId),
+        createPollResponse(jobId, 'completed', {
+          unsigned_urls: [contentUrl],
+        }),
+        createVideoContentResponse(),
+      ]);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+
+      await generate(
+        provider.videoModel('google/veo-3.1', { pollIntervalMs: 10 }),
+      );
+
+      expect(mock.capturedRequests).toHaveLength(3);
+      // The submit request does carry the key, so the mock captures headers.
+      expect(mock.capturedRequests[0]!.headers.get('authorization')).toBe(
+        'Bearer test-key',
+      );
+      const download = mock.capturedRequests[2]!;
+      expect(download.url).toBe(contentUrl);
+      expect(download.headers.has('authorization')).toBe(false);
+    });
+
+    it.each([
+      { contentType: 'video/webm; codecs="vp9"', expected: 'video/webm' },
+      { contentType: 'video/mp4;charset=binary', expected: 'video/mp4' },
+      { contentType: 'application/octet-stream', expected: 'video/mp4' },
+      { contentType: null, expected: 'video/mp4' },
+    ])('should normalize content-type $contentType to $expected', async ({
+      contentType,
+      expected,
+    }) => {
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: createMockFetchSequence([
+          createSubmitResponse(jobId),
+          createPollResponse(jobId, 'completed', {
+            unsigned_urls: ['https://example.com/video.mp4'],
+          }),
+          createVideoContentResponse(contentType),
+        ]),
+      });
+
+      const result = await generate(
+        provider.videoModel('google/veo-3.1', { pollIntervalMs: 10 }),
+      );
+
+      expect(result.videos[0]?.mediaType).toBe(expected);
+    });
+
+    it('should surface OpenRouter error messages from a failed download', async () => {
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: createMockFetchSequence([
+          createSubmitResponse(jobId),
+          createPollResponse(jobId, 'completed', {
+            unsigned_urls: [
+              `https://openrouter.ai/api/v1/videos/${jobId}/content?index=0`,
+            ],
+          }),
+          new Response(
+            JSON.stringify({
+              error: { message: 'Video content has expired', code: 404 },
+            }),
+            { status: 404, headers: { 'content-type': 'application/json' } },
+          ),
+        ]),
+      });
+
+      await expect(
+        generate(provider.videoModel('google/veo-3.1', { pollIntervalMs: 10 })),
+      ).rejects.toThrow('Video content has expired');
     });
   });
 });
