@@ -58,6 +58,7 @@ export const OpenRouterCompletionChunkSchema = z.union([
             })
             .passthrough()
             .nullish(),
+          is_byok: z.boolean().nullish(),
         })
         .passthrough()
         .nullish(),

@@ -192,6 +192,7 @@ describe('doGenerate', () => {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      is_byok?: boolean;
     };
     logprobs?: {
       content:
@@ -273,6 +274,26 @@ describe('doGenerate', () => {
         completion_tokens: 5,
       },
     });
+  });
+
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to providerMetadata usage', async (isByok) => {
+    prepareJsonResponse({
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30,
+        is_byok: isByok,
+      },
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(providerMetadata?.openrouter?.usage).toMatchObject({ isByok });
   });
 
   it('should extract logprobs', async () => {
@@ -1479,6 +1500,7 @@ describe('doStream', () => {
       cost_details?: {
         upstream_inference_cost: number;
       };
+      is_byok?: boolean;
     };
     logprobs?: {
       content:
@@ -1700,6 +1722,31 @@ describe('doStream', () => {
       upstreamInferenceCost: 0.0036,
     });
     expect(openrouterUsage?.cost).toBe(0.0042);
+  });
+
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to finish metadata', async (isByok) => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 5,
+        total_tokens: 15,
+        completion_tokens: 10,
+        is_byok: isByok,
+      },
+    });
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV4StreamPart[];
+    const finishChunk = elements.find((chunk) => chunk.type === 'finish');
+
+    expect(finishChunk?.providerMetadata?.openrouter?.usage).toMatchObject({
+      isByok,
+    });
   });
 
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {

@@ -569,6 +569,7 @@ console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens
 // Provider-specific BYOK usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
   const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  console.log('Is BYOK request:', result.providerMetadata.openrouter.usage.isByok);
   if (costDetails) {
     console.log('BYOK cost:', costDetails.upstreamInferenceCost);
   }
