@@ -831,20 +831,22 @@ describe('cache control', () => {
     ]);
   });
 
-  it('should pass cache control from assistant text part provider metadata', () => {
+  it('should emit assistant text blocks with cache control on the specific part', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
         content: [
+          { type: 'text', text: 'First part. ' },
           {
             type: 'text',
-            text: 'Assistant response',
+            text: 'Cached part.',
             providerOptions: {
               openrouter: {
                 cacheControl: { type: 'ephemeral', ttl: '1h' },
               },
             },
           },
+          { type: 'text', text: ' Trailing part.' },
         ],
       },
     ]);
@@ -852,13 +854,36 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: 'Assistant response',
-        cache_control: { type: 'ephemeral', ttl: '1h' },
+        content: [
+          { type: 'text', text: 'First part. ' },
+          {
+            type: 'text',
+            text: 'Cached part.',
+            cache_control: { type: 'ephemeral', ttl: '1h' },
+          },
+          { type: 'text', text: ' Trailing part.' },
+        ],
       },
     ]);
   });
 
-  it('should prefer assistant message-level cache control over part-level', () => {
+  it('should keep assistant content as a string without part-level cache control', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'First part. ' },
+          { type: 'text', text: 'Second part.' },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      { role: 'assistant', content: 'First part. Second part.' },
+    ]);
+  });
+
+  it('should keep assistant message-level cache control at the root alongside part-level', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'assistant',
@@ -880,7 +905,13 @@ describe('cache control', () => {
     expect(result).toEqual([
       {
         role: 'assistant',
-        content: 'Assistant response',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            cache_control: { type: 'ephemeral', ttl: '5m' },
+          },
+        ],
         cache_control: { type: 'ephemeral', ttl: '1h' },
       },
     ]);

@@ -90,7 +90,7 @@ export interface ChatCompletionContentPartInputAudio {
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
-  content?: string | null;
+  content?: string | Array<ChatCompletionContentPartText> | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   annotations?: FileAnnotation[];
