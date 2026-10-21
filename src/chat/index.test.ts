@@ -4835,25 +4835,7 @@ describe('includeRawChunks', () => {
       ],
     };
 
-    const { stream } = await model.doStream({
-      tools: [
-        {
-          type: 'function',
-          name: 'update_field',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              page_index: { type: 'number' },
-              field_id: { type: 'string' },
-            },
-            required: ['page_index', 'field_id'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-        },
-      ],
-      prompt: TEST_PROMPT,
-    });
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
 
     const elements = await convertReadableStreamToArray(stream);
 
