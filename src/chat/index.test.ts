@@ -5196,18 +5196,22 @@ describe('includeRawChunks', () => {
         ]),
       };
 
+      const input = `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`;
       const parseSpy = vi.spyOn(JSON, 'parse');
       try {
         const { stream } = await model.doStream({ prompt: TEST_PROMPT });
         const elements = await convertReadableStreamToArray(stream);
 
         expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
-          input: `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`,
+          input,
         });
-        const argumentParses = parseSpy.mock.calls.filter(
-          ([text]) => typeof text === 'string' && text.startsWith('{"text"'),
-        );
-        expect(argumentParses.length).toBeLessThanOrEqual(2);
+        // isParsableJson parses the accumulated arguments with JSON.parse.
+        // Exactly one such parse, for the complete arguments, shows the
+        // filter matches that path and that no partial prefix was parsed.
+        const argumentParses = parseSpy.mock.calls
+          .map(([text]) => text)
+          .filter((text) => text.startsWith('{"text"'));
+        expect(argumentParses).toStrictEqual([input]);
       } finally {
         parseSpy.mockRestore();
       }
