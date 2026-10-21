@@ -198,9 +198,20 @@ function isStatePart(value: unknown): value is OpenRouterDecisionStatePart {
   if (typeof value !== 'object' || value === null || !('type' in value)) {
     return false;
   }
-  return (
-    value.type === 'text' || value.type === 'json' || value.type === 'file'
-  );
+  switch (value.type) {
+    case 'text':
+      return 'text' in value && typeof value.text === 'string';
+    case 'json':
+      return 'value' in value;
+    case 'file':
+      return (
+        'mediaType' in value &&
+        typeof value.mediaType === 'string' &&
+        'data' in value
+      );
+    default:
+      return false;
+  }
 }
 
 /**

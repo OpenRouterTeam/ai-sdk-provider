@@ -595,6 +595,12 @@ describe('OpenRouterEvaluationModel', () => {
       expect(await sentState([])).toEqual([]);
     });
 
+    it('should leave raw arrays of part look-alikes untouched', async () => {
+      expect(
+        await sentState([{ type: 'text', content: 'Checkout is blank.' }]),
+      ).toEqual([{ type: 'text', content: 'Checkout is blank.' }]);
+    });
+
     it('should send image parts as image_url entries next to the text', async () => {
       expect(
         await sentState([
