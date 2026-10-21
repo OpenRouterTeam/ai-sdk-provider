@@ -3,8 +3,10 @@ import type {
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
+import { generateText, streamText } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 
@@ -87,6 +89,7 @@ describe('doGenerate', () => {
       cost_details?: {
         upstream_inference_cost: number;
       };
+      is_byok?: boolean;
     };
     logprobs?: {
       tokens: string[];
@@ -331,6 +334,26 @@ describe('doGenerate', () => {
     });
   });
 
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to providerMetadata usage', async (isByok) => {
+    prepareJsonResponse({
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30,
+        is_byok: isByok,
+      },
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(providerMetadata?.openrouter?.usage).toMatchObject({ isByok });
+  });
+
   it('should extract logprobs', async () => {
     prepareJsonResponse({ logprobs: TEST_LOGPROBS });
 
@@ -431,6 +454,40 @@ describe('doGenerate', () => {
     });
     expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
+
+  it('should accept auto and none tool choices without tools', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    for (const type of ['auto', 'none'] as const) {
+      const { content } = await model.doGenerate({
+        prompt: TEST_PROMPT,
+        toolChoice: { type },
+      });
+      expect(content).toStrictEqual([{ type: 'text', text: 'Hello, World!' }]);
+    }
+  });
+
+  it('should reject tool choices that require a tool call', async () => {
+    for (const toolChoice of [
+      { type: 'required' },
+      { type: 'tool', toolName: 'test' },
+    ] as const) {
+      await expect(
+        model.doGenerate({ prompt: TEST_PROMPT, toolChoice }),
+      ).rejects.toThrow(UnsupportedFunctionalityError);
+    }
+    expect(server.calls).toHaveLength(0);
+  });
+
+  it('should work with generateText from the AI SDK', async () => {
+    // generateText always passes toolChoice: { type: 'auto' }, even without
+    // tools, so the model must not reject it.
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const result = await generateText({ model, prompt: 'Hello' });
+
+    expect(result.text).toBe('Hello, World!');
+  });
 });
 
 describe('doStream', () => {
@@ -469,6 +526,7 @@ describe('doStream', () => {
       cost_details?: {
         upstream_inference_cost: number;
       };
+      is_byok?: boolean;
     };
     logprobs?: {
       tokens: string[];
@@ -514,10 +572,28 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
       { type: 'stream-start', warnings: [] },
-      { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
-      { type: 'text-delta', delta: ', ', id: expect.any(String) },
-      { type: 'text-delta', delta: 'World!', id: expect.any(String) },
-      { type: 'text-delta', delta: '', id: expect.any(String) },
+      { type: 'text-start', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
+      {
+        type: 'text-delta',
+        delta: 'Hello',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: ', ',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: 'World!',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: '',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      { type: 'text-end', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
       {
         type: 'finish',
         finishReason: { unified: 'stop', raw: 'stop' },
@@ -669,6 +745,31 @@ describe('doStream', () => {
       upstreamInferenceCost: 0.0036,
     });
     expect(openrouterUsage?.cost).toBe(0.0025);
+  });
+
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to finish metadata', async (isByok) => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 5,
+        total_tokens: 15,
+        completion_tokens: 10,
+        is_byok: isByok,
+      },
+    });
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV4StreamPart[];
+    const finishChunk = elements.find((chunk) => chunk.type === 'finish');
+
+    expect(finishChunk?.providerMetadata?.openrouter?.usage).toMatchObject({
+      isByok,
+    });
   });
 
   it('should handle error stream parts', async () => {
@@ -838,6 +939,16 @@ describe('doStream', () => {
       'custom_value',
     );
   });
+
+  it('should work with streamText from the AI SDK', async () => {
+    // Without text-start/text-end the AI SDK drops every delta and the
+    // resulting text is empty.
+    prepareStreamResponse({ content: ['Hello', ', World!'] });
+
+    const result = streamText({ model, prompt: 'Hello' });
+
+    expect(await result.text).toBe('Hello, World!');
+  });
 });
 
 describe('includeRawChunks', () => {
@@ -960,5 +1071,40 @@ describe('includeRawChunks', () => {
     // Raw chunk is emitted before error handling, useful for debugging
     expect(rawChunks.length).toBe(1);
     expect(errorChunks.length).toBe(1);
+  });
+});
+
+describe('reasoning call option', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-test',
+          object: 'text_completion',
+          created: 1711363706,
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [{ index: 0, text: 'Hello!', finish_reason: 'stop' }],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('maps call-level reasoning to reasoning.effort, keeping model-level exclude', async () => {
+    await provider
+      .completion('openai/gpt-3.5-turbo-instruct', {
+        reasoning: { effort: 'high', exclude: true },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'medium' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      reasoning: { exclude: true, effort: 'medium' },
+    });
   });
 });

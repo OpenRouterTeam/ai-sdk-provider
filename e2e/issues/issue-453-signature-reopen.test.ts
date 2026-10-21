@@ -164,8 +164,8 @@ describe('Issue #453: #423 needs reopening — full signature fix chain verifica
     });
   });
 
-  describe('anthropic/claude-opus-4 (also mentioned in #423 original report)', () => {
-    const model = provider.chat('anthropic/claude-opus-4', {
+  describe('anthropic/claude-opus-4.1 (also mentioned in #423 original report)', () => {
+    const model = provider.chat('anthropic/claude-opus-4.1', {
       reasoning: { effort: 'low' },
     });
 

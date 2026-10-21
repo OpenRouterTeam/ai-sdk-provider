@@ -115,6 +115,35 @@ OpenRouter supports various embedding models including:
 - `openai/text-embedding-ada-002`
 - And more available on [OpenRouter](https://openrouter.ai/models?output_modalities=embeddings)
 
+## Reranking
+
+OpenRouter supports rerank models that reorder documents by relevance to a query.
+
+### Basic Usage
+
+```ts
+import { rerank } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { rerankedDocuments, ranking } = await rerank({
+  model: openrouter.rerankingModel('cohere/rerank-v3.5'),
+  query: 'What is the capital of France?',
+  documents: [
+    'Berlin is the capital of Germany.',
+    'Paris is the capital of France.',
+  ],
+});
+
+console.log(rerankedDocuments); // Documents sorted by relevance
+console.log(ranking); // Original index and relevance score per document
+```
+
+### Supported Reranking Models
+
+OpenRouter supports various reranking models including:
+- `cohere/rerank-v3.5`
+- And more available on [OpenRouter](https://openrouter.ai/collections/rerank-models)
+
 ## Evaluation (Jev with AI SDK through OpenRouter)
 
 `openrouter.decisionModel()` implements the AI SDK evaluation model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_evaluate` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `evaluate()`. `experimental_evaluate` itself ships in `ai@7.0.103` and newer; the rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
@@ -245,6 +274,41 @@ There are 3 ways to pass extra body to OpenRouter:
    ```
 
 ## Multimodal Inputs
+
+### Image Detail
+
+For vision requests, pass the OpenAI-compatible `imageDetail` option
+(`'auto'`, `'low'` or `'high'`) on the image file part. The provider forwards
+it as `image_url.detail`:
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+
+await streamText({
+  model: openrouter('openai/gpt-4o-mini'),
+  messages: [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'What is in this image?' },
+        {
+          type: 'file',
+          data: 'https://example.com/image.png',
+          mediaType: 'image/png',
+          providerOptions: {
+            openrouter: {
+              imageDetail: 'low',
+            },
+          },
+        },
+      ],
+    },
+  ],
+});
+```
 
 ### Video Processing
 
@@ -532,6 +596,7 @@ console.log('Reasoning tokens:', result.usage.outputTokenDetails.reasoningTokens
 // Provider-specific BYOK usage details (available in providerMetadata)
 if (result.providerMetadata?.openrouter?.usage) {
   const costDetails = result.providerMetadata.openrouter.usage.costDetails;
+  console.log('Is BYOK request:', result.providerMetadata.openrouter.usage.isByok);
   if (costDetails) {
     console.log('BYOK cost:', costDetails.upstreamInferenceCost);
   }

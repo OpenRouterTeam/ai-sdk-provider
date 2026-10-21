@@ -22,6 +22,10 @@ import type {
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
 import type {
+  OpenRouterRerankingModelId,
+  OpenRouterRerankingSettings,
+} from './types/openrouter-reranking-settings';
+import type {
   OpenRouterVideoModelId,
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
@@ -33,6 +37,7 @@ import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
 import { OpenRouterEvaluationModel } from './evaluation';
 import { OpenRouterImageModel } from './image';
+import { OpenRouterRerankingModel } from './reranking';
 import { webSearch } from './tool/web-search';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
@@ -89,7 +94,16 @@ Creates an OpenRouter completion model for text generation.
   ): OpenRouterCompletionLanguageModel;
 
   /**
-Creates an OpenRouter text embedding model. (AI SDK v5)
+   * Creates an OpenRouter text embedding model.
+   */
+  embeddingModel(
+    modelId: OpenRouterEmbeddingModelId,
+    settings?: OpenRouterEmbeddingSettings,
+  ): OpenRouterEmbeddingModel;
+
+  /**
+Creates an OpenRouter text embedding model. Alias of `embeddingModel`
+(AI SDK v5 name, deprecated since AI SDK v6 in favour of `embeddingModel`).
    */
   textEmbeddingModel(
     modelId: OpenRouterEmbeddingModelId,
@@ -112,6 +126,14 @@ Creates an OpenRouter image model for image generation.
     modelId: OpenRouterImageModelId,
     settings?: OpenRouterImageSettings,
   ): OpenRouterImageModel;
+
+  /**
+Creates an OpenRouter reranking model for reranking documents against a query.
+   */
+  rerankingModel(
+    modelId: OpenRouterRerankingModelId,
+    settings?: OpenRouterRerankingSettings,
+  ): OpenRouterRerankingModel;
 
   /**
 Creates an OpenRouter video model for video generation.
@@ -326,6 +348,18 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createRerankingModel = (
+    modelId: OpenRouterRerankingModelId,
+    settings: OpenRouterRerankingSettings = {},
+  ) =>
+    new OpenRouterRerankingModel(modelId, settings, {
+      provider: 'openrouter.reranking',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createVideoModel = (
     modelId: OpenRouterVideoModelId,
     settings: OpenRouterVideoSettings = {},
@@ -363,12 +397,15 @@ export function createOpenRouter(
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
   ) => createLanguageModel(modelId, settings);
 
+  provider.specificationVersion = 'v4';
   provider.languageModel = createLanguageModel;
   provider.chat = createChatModel;
   provider.completion = createCompletionModel;
+  provider.embeddingModel = createEmbeddingModel;
   provider.textEmbeddingModel = createEmbeddingModel;
   provider.embedding = createEmbeddingModel; // deprecated alias for v4 compatibility
   provider.imageModel = createImageModel;
+  provider.rerankingModel = createRerankingModel;
   provider.videoModel = createVideoModel;
   provider.decisionModel = createEvaluationModel;
   provider.evaluationModel = createEvaluationModel;

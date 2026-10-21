@@ -59,15 +59,18 @@ describe('Issue #407: Token usage detail fields should not be undefined', () => 
       );
     });
 
-    it('should populate reasoning tokens with anthropic/claude-3.7-sonnet:thinking', async () => {
+    it('should populate reasoning tokens with anthropic/claude-sonnet-4.5', async () => {
       const response = await generateText({
-        model: openrouter('anthropic/claude-3.7-sonnet:thinking'),
+        model: openrouter('anthropic/claude-sonnet-4.5'),
         messages: [
           {
             role: 'user',
             content: 'What is 2+2? Answer with just the number.',
           },
         ],
+        providerOptions: {
+          openrouter: { reasoning: { effort: 'low' } },
+        },
       });
 
       expect(response.usage.outputTokens).toEqual(expect.any(Number));
@@ -113,15 +116,18 @@ describe('Issue #407: Token usage detail fields should not be undefined', () => 
       );
     });
 
-    it('should populate reasoning tokens with anthropic/claude-3.7-sonnet:thinking', async () => {
+    it('should populate reasoning tokens with anthropic/claude-sonnet-4.5', async () => {
       const response = streamText({
-        model: openrouter('anthropic/claude-3.7-sonnet:thinking'),
+        model: openrouter('anthropic/claude-sonnet-4.5'),
         messages: [
           {
             role: 'user',
             content: 'What is 2+2? Answer with just the number.',
           },
         ],
+        providerOptions: {
+          openrouter: { reasoning: { effort: 'low' } },
+        },
       });
 
       await response.consumeStream();

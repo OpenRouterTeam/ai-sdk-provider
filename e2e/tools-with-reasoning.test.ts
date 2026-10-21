@@ -25,7 +25,7 @@ describe('Vercel AI SDK tools call with reasoning', () => {
       baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
     });
 
-    const model = openrouter('anthropic/claude-sonnet-4', {
+    const model = openrouter('anthropic/claude-sonnet-4.5', {
       usage: {
         include: true,
       },

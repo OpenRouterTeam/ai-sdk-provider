@@ -92,6 +92,23 @@ export class OpenRouterImageModel implements ImageModelV4 {
       ? files.map((file: ImageModelV4File) => convertFileToInputReference(file))
       : undefined;
 
+    const { provider: runtimeProvider, ...restOpenrouterOptions } =
+      openrouterOptions;
+
+    // Shallow merge provider routing preferences instead of replacing them,
+    // keeping the same precedence as the rest of the body (later wins).
+    // Non-object values (null, arrays, primitives) are ignored.
+    const providerSources = [
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    ].filter((p) => typeof p === 'object' && p !== null && !Array.isArray(p));
+    const provider =
+      providerSources.length > 0
+        ? Object.assign({}, ...providerSources)
+        : undefined;
+
     const body: Record<string, unknown> = {
       model: this.modelId,
       prompt: prompt ?? '',
@@ -103,12 +120,10 @@ export class OpenRouterImageModel implements ImageModelV4 {
         input_references: inputReferences,
       }),
       ...(this.settings.user !== undefined && { user: this.settings.user }),
-      ...(this.settings.provider !== undefined && {
-        provider: this.settings.provider,
-      }),
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      ...(provider !== undefined && { provider }),
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
