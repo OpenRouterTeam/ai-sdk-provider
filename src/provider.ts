@@ -14,6 +14,10 @@ import type {
   OpenRouterEmbeddingSettings,
 } from './types/openrouter-embedding-settings';
 import type {
+  OpenRouterEvaluationModelId,
+  OpenRouterEvaluationSettings,
+} from './types/openrouter-evaluation-settings';
+import type {
   OpenRouterImageModelId,
   OpenRouterImageSettings,
 } from './types/openrouter-image-settings';
@@ -26,10 +30,12 @@ import type {
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
 
+import { LoadSettingError } from '@ai-sdk/provider';
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
 import { OpenRouterChatLanguageModel } from './chat';
 import { OpenRouterCompletionLanguageModel } from './completion';
 import { OpenRouterEmbeddingModel } from './embedding';
+import { OpenRouterEvaluationModel } from './evaluation';
 import { OpenRouterImageModel } from './image';
 import { OpenRouterRerankingModel } from './reranking';
 import { webSearch } from './tool/web-search';
@@ -129,6 +135,22 @@ Creates an OpenRouter video model for video generation.
   ): OpenRouterVideoModel;
 
   /**
+Creates an OpenRouter decision model backed by the Decisions API, for use with `experimental_evaluate`.
+   */
+  decisionModel(
+    modelId: OpenRouterEvaluationModelId,
+    settings?: OpenRouterEvaluationSettings,
+  ): OpenRouterEvaluationModel;
+
+  /**
+AI SDK-compatible name for `decisionModel()`. The AI SDK calls this method when resolving string model IDs through a default provider.
+   */
+  evaluationModel(
+    modelId: OpenRouterEvaluationModelId,
+    settings?: OpenRouterEvaluationSettings,
+  ): OpenRouterEvaluationModel;
+
+  /**
    * Provider-defined tools for OpenRouter server tools.
    */
   readonly tools: {
@@ -151,6 +173,14 @@ Base URL for the OpenRouter API calls.
 @deprecated Use `baseURL` instead.
      */
   baseUrl?: string;
+
+  /**
+Base URL for the Decisions API used by `decisionModel()` and `evaluationModel()`. Defaults to
+`https://openrouter.ai/api/alpha`; when `baseURL` ends in `/v1` it defaults
+to the same URL with `/alpha` in place of `/v1`. Required when `baseURL`
+points at a proxy path that does not end in `/v1`.
+     */
+  decisionsBaseURL?: string;
 
   /**
 API key for authenticating requests.
@@ -199,6 +229,13 @@ A JSON object to send as the request body to access OpenRouter features & upstre
   appUrl?: string;
 }
 
+function deriveDecisionsBaseURL(baseURL: string): string | undefined {
+  const versionSuffix = '/v1';
+  return baseURL.endsWith(versionSuffix)
+    ? `${baseURL.slice(0, -versionSuffix.length)}/alpha`
+    : undefined;
+}
+
 /**
 Create an OpenRouter provider instance.
  */
@@ -208,6 +245,10 @@ export function createOpenRouter(
   const baseURL =
     withoutTrailingSlash(options.baseURL ?? options.baseUrl) ??
     'https://openrouter.ai/api/v1';
+
+  const decisionsBaseURL =
+    withoutTrailingSlash(options.decisionsBaseURL) ??
+    deriveDecisionsBaseURL(baseURL);
 
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
@@ -268,6 +309,23 @@ export function createOpenRouter(
       fetch: options.fetch,
       extraBody: options.extraBody,
     });
+
+  const createEvaluationModel = (
+    modelId: OpenRouterEvaluationModelId,
+    settings: OpenRouterEvaluationSettings = {},
+  ) => {
+    if (decisionsBaseURL == null) {
+      throw new LoadSettingError({
+        message: `Cannot derive the Decisions API URL from baseURL "${baseURL}" because it does not end in "/v1". Set \`decisionsBaseURL\` in createOpenRouter() to use decisionModel().`,
+      });
+    }
+    return new OpenRouterEvaluationModel(modelId, settings, {
+      url: ({ path }) => `${decisionsBaseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+  };
 
   const createImageModel = (
     modelId: OpenRouterImageModelId,
@@ -338,6 +396,8 @@ export function createOpenRouter(
   provider.imageModel = createImageModel;
   provider.rerankingModel = createRerankingModel;
   provider.videoModel = createVideoModel;
+  provider.decisionModel = createEvaluationModel;
+  provider.evaluationModel = createEvaluationModel;
   provider.tools = {
     webSearch: webSearch,
   };
