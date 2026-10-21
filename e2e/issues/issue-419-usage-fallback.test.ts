@@ -41,9 +41,9 @@ describe('Issue #419: Standard usage should not contain undefined values', () =>
       expect(usage.outputTokens).toBeGreaterThanOrEqual(0);
     });
 
-    it('should populate standard usage with google/gemini-2.0-flash-001', async () => {
+    it('should populate standard usage with google/gemini-2.5-flash', async () => {
       const response = streamText({
-        model: provider('google/gemini-2.0-flash-001'),
+        model: provider('google/gemini-2.5-flash'),
         prompt: 'What is 2+2? Answer with just the number.',
       });
 
@@ -56,9 +56,9 @@ describe('Issue #419: Standard usage should not contain undefined values', () =>
       expect(usage.outputTokens).toBeGreaterThanOrEqual(0);
     });
 
-    it('should have consistent usage between standard and providerMetadata with anthropic/claude-3.5-haiku', async () => {
+    it('should have consistent usage between standard and providerMetadata with anthropic/claude-haiku-4.5', async () => {
       const response = streamText({
-        model: provider('anthropic/claude-3.5-haiku'),
+        model: provider('anthropic/claude-haiku-4.5'),
         prompt: 'What is 2+2? Answer with just the number.',
       });
 

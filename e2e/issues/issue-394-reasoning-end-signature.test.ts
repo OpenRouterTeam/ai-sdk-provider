@@ -23,7 +23,7 @@ describe('Issue #394: reasoning-end should include accumulated reasoning_details
   });
 
   it('should include reasoning_details with signature in reasoning-end providerMetadata for text-only streaming response', async () => {
-    const model = provider('anthropic/claude-sonnet-4');
+    const model = provider('anthropic/claude-sonnet-4.5');
 
     const stream = streamText({
       model,
@@ -106,7 +106,7 @@ describe('Issue #394: reasoning-end should include accumulated reasoning_details
   });
 
   it('should produce valid reasoning parts for multi-turn continuation', async () => {
-    const model = provider('anthropic/claude-sonnet-4');
+    const model = provider('anthropic/claude-sonnet-4.5');
 
     const result = await streamText({
       model,

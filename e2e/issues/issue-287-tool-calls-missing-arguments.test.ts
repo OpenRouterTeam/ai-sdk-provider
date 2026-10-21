@@ -28,7 +28,7 @@ describe('Issue #287: Tool calls with missing arguments field', () => {
 
   // Use Anthropic Haiku model - mentioned in original issue context as potentially
   // omitting the arguments field for tools with no parameters
-  const model = openrouter('anthropic/claude-3.5-haiku');
+  const model = openrouter('anthropic/claude-haiku-4.5');
 
   it('should handle tool with no parameters', async () => {
     // Tool with no parameters - some providers may omit the arguments field entirely
