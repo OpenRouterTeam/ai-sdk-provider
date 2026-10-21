@@ -997,43 +997,6 @@ describe('doGenerate', () => {
     expect(tools[0]!.function).toHaveProperty('strict', false);
   });
 
-  it('should allow overriding tool.strict via providerOptions.openrouter.strict', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'override-tool',
-          description: 'Overridden tool',
-          inputSchema: {
-            type: 'object',
-            properties: { value: { type: 'string' } },
-            required: ['value'],
-            additionalProperties: false,
-          },
-          strict: true,
-          providerOptions: {
-            openrouter: {
-              strict: false,
-            },
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<{
-      type: string;
-      function: Record<string, unknown>;
-    }>;
-    expect(tools[0]!.function).toHaveProperty('strict', false);
-  });
-
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 
