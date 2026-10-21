@@ -1,7 +1,9 @@
 import type {
+  JSONObject,
   RerankingModelV4,
   RerankingModelV4CallOptions,
   RerankingModelV4Result,
+  SharedV4Warning,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterRerankingModelId,
@@ -46,16 +48,43 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
   async doRerank(
     options: RerankingModelV4CallOptions,
   ): Promise<RerankingModelV4Result> {
-    const { documents, query, topN, abortSignal, headers } = options;
+    const { documents, query, topN, abortSignal, headers, providerOptions } =
+      options;
+
+    const openrouterOptions =
+      (providerOptions?.openrouter as Record<string, unknown>) || {};
+
+    const warnings: SharedV4Warning[] = [];
+
+    let requestDocuments: Array<string | JSONObject> = documents.values;
+    if (documents.type === 'object') {
+      let convertedToString = false;
+      requestDocuments = documents.values.map((document) => {
+        if (isOpenRouterRerankDocument(document)) {
+          return document;
+        }
+        convertedToString = true;
+        return JSON.stringify(document);
+      });
+      if (convertedToString) {
+        warnings.push({
+          type: 'compatibility',
+          feature: 'object documents',
+          details:
+            'OpenRouter rerank documents must be strings or { text?, image? } objects. Other object documents were converted to JSON strings.',
+        });
+      }
+    }
 
     const args = {
       model: this.modelId,
       query,
-      documents: documents.values,
+      documents: requestDocuments,
       ...(topN != null && { top_n: topN }),
       provider: this.settings.provider,
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...openrouterOptions,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
@@ -97,7 +126,23 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
         headers: responseHeaders,
         body: responseValue,
       },
-      warnings: [],
+      warnings,
     };
   }
+}
+
+/**
+ * OpenRouter accepts object documents only in the `{ text?, image? }` shape
+ * with string values and at least one of the two fields.
+ */
+function isOpenRouterRerankDocument(document: JSONObject): boolean {
+  const entries = Object.entries(document);
+  return (
+    entries.length > 0 &&
+    entries.every(
+      ([key, value]) =>
+        (key === 'text' || key === 'image') &&
+        (value === undefined || typeof value === 'string'),
+    )
+  );
 }

@@ -184,6 +184,104 @@ describe('OpenRouterRerankingModel', () => {
       ]);
     });
 
+    it('should convert object documents that are not text/image shaped to JSON strings', async () => {
+      let capturedRequest: Record<string, unknown> | undefined;
+
+      const mockFetchWithCapture = async (
+        _url: URL | RequestInfo,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        capturedRequest = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({
+            model: 'cohere/rerank-v3.5',
+            results: [{ index: 0, relevance_score: 0.9 }],
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetchWithCapture,
+      });
+
+      const model = provider.rerankingModel('cohere/rerank-v3.5');
+
+      const result = await model.doRerank({
+        documents: {
+          type: 'object',
+          values: [
+            { text: 'doc 1' },
+            { title: 'Doc 2', body: 'content' },
+            { text: 'doc 3', image: 'https://example.com/a.png' },
+          ],
+        },
+        query: 'test query',
+      });
+
+      expect(capturedRequest?.documents).toEqual([
+        { text: 'doc 1' },
+        '{"title":"Doc 2","body":"content"}',
+        { text: 'doc 3', image: 'https://example.com/a.png' },
+      ]);
+      expect(result.warnings).toEqual([
+        expect.objectContaining({
+          type: 'compatibility',
+          feature: 'object documents',
+        }),
+      ]);
+    });
+
+    it('should forward providerOptions.openrouter into the request body', async () => {
+      let capturedRequest: Record<string, unknown> | undefined;
+
+      const mockFetchWithCapture = async (
+        _url: URL | RequestInfo,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        capturedRequest = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({
+            model: 'cohere/rerank-v3.5',
+            results: [{ index: 0, relevance_score: 0.9 }],
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetchWithCapture,
+      });
+
+      const model = provider.rerankingModel('cohere/rerank-v3.5');
+
+      await model.doRerank({
+        documents: { type: 'text', values: ['doc 1'] },
+        query: 'test query',
+        providerOptions: {
+          openrouter: {
+            user: 'user-123',
+            session_id: 'session-abc',
+          },
+        },
+      });
+
+      expect(capturedRequest?.user).toBe('user-123');
+      expect(capturedRequest?.session_id).toBe('session-abc');
+    });
+
     it('should omit top_n when not provided', async () => {
       let capturedRequest: Record<string, unknown> | undefined;
 

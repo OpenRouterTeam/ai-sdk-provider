@@ -3,6 +3,7 @@ export * from '../completion';
 export * from '../embedding';
 export * from '../evaluation';
 export * from '../image';
+export * from '../reranking';
 export * from '../types';
 export * from '../types/openrouter-chat-settings';
 export * from '../types/openrouter-completion-settings';
