@@ -3,8 +3,10 @@ import type {
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
+import { generateText, streamText } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 
@@ -431,6 +433,40 @@ describe('doGenerate', () => {
     });
     expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
+
+  it('should accept auto and none tool choices without tools', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    for (const type of ['auto', 'none'] as const) {
+      const { content } = await model.doGenerate({
+        prompt: TEST_PROMPT,
+        toolChoice: { type },
+      });
+      expect(content).toStrictEqual([{ type: 'text', text: 'Hello, World!' }]);
+    }
+  });
+
+  it('should reject tool choices that require a tool call', async () => {
+    for (const toolChoice of [
+      { type: 'required' },
+      { type: 'tool', toolName: 'test' },
+    ] as const) {
+      await expect(
+        model.doGenerate({ prompt: TEST_PROMPT, toolChoice }),
+      ).rejects.toThrow(UnsupportedFunctionalityError);
+    }
+    expect(server.calls).toHaveLength(0);
+  });
+
+  it('should work with generateText from the AI SDK', async () => {
+    // generateText always passes toolChoice: { type: 'auto' }, even without
+    // tools, so the model must not reject it.
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const result = await generateText({ model, prompt: 'Hello' });
+
+    expect(result.text).toBe('Hello, World!');
+  });
 });
 
 describe('doStream', () => {
@@ -514,10 +550,28 @@ describe('doStream', () => {
     const elements = await convertReadableStreamToArray(stream);
     expect(elements).toStrictEqual([
       { type: 'stream-start', warnings: [] },
-      { type: 'text-delta', delta: 'Hello', id: expect.any(String) },
-      { type: 'text-delta', delta: ', ', id: expect.any(String) },
-      { type: 'text-delta', delta: 'World!', id: expect.any(String) },
-      { type: 'text-delta', delta: '', id: expect.any(String) },
+      { type: 'text-start', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
+      {
+        type: 'text-delta',
+        delta: 'Hello',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: ', ',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: 'World!',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      {
+        type: 'text-delta',
+        delta: '',
+        id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT',
+      },
+      { type: 'text-end', id: 'cmpl-96c64EdfhOw8pjFFgVpLuT8k2MtdT' },
       {
         type: 'finish',
         finishReason: { unified: 'stop', raw: 'stop' },
@@ -837,6 +891,16 @@ describe('doStream', () => {
       'providers.anthropic.custom_field',
       'custom_value',
     );
+  });
+
+  it('should work with streamText from the AI SDK', async () => {
+    // Without text-start/text-end the AI SDK drops every delta and the
+    // resulting text is empty.
+    prepareStreamResponse({ content: ['Hello', ', World!'] });
+
+    const result = streamText({ model, prompt: 'Hello' });
+
+    expect(await result.text).toBe('Hello, World!');
   });
 });
 

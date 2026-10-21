@@ -100,7 +100,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       });
     }
 
-    if (toolChoice) {
+    // The AI SDK always sends a toolChoice (default { type: 'auto' }), even
+    // without tools. 'auto' and 'none' are satisfiable without tools; only
+    // reject choices that require a tool call, which completions can't make.
+    if (toolChoice?.type === 'required' || toolChoice?.type === 'tool') {
       throw new UnsupportedFunctionalityError({
         functionality: 'toolChoice',
       });
@@ -315,6 +318,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
+    let textId: string | undefined;
+    let openrouterResponseId: string | undefined;
     const warnings: Array<SharedV4Warning> = [];
 
     return {
@@ -351,6 +356,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
             if (value.provider) {
               provider = value.provider;
+            }
+
+            if (value.id) {
+              openrouterResponseId = value.id;
             }
 
             if (value.usage != null) {
@@ -399,10 +408,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             }
 
             if (choice?.text != null) {
+              if (textId === undefined) {
+                textId = openrouterResponseId || generateId();
+                controller.enqueue({
+                  type: 'text-start',
+                  id: textId,
+                });
+              }
               controller.enqueue({
                 type: 'text-delta',
                 delta: choice.text,
-                id: generateId(),
+                id: textId,
               });
             }
           },
@@ -411,6 +427,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             if (streamError != null) {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: streamError });
+            }
+
+            if (textId !== undefined) {
+              controller.enqueue({
+                type: 'text-end',
+                id: textId,
+              });
             }
 
             // Set raw usage before emitting finish event
