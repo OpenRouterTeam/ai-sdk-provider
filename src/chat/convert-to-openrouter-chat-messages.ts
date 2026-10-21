@@ -42,6 +42,15 @@ function getCacheControl(
     anthropic?.cache_control) as OpenRouterCacheControl | undefined;
 }
 
+function getImageDetail(
+  providerOptions: SharedV4ProviderMetadata | undefined,
+): 'auto' | 'low' | 'high' | undefined {
+  const detail = providerOptions?.openrouter?.imageDetail;
+  return detail === 'auto' || detail === 'low' || detail === 'high'
+    ? detail
+    : undefined;
+}
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV4Prompt,
 ): OpenRouterChatCompletionsInput {
@@ -129,10 +138,12 @@ export function convertToOpenRouterChatMessages(
                     part,
                     defaultMediaType: 'image/jpeg',
                   });
+                  const detail = getImageDetail(part.providerOptions);
                   return {
                     type: 'image_url' as const,
                     image_url: {
                       url,
+                      ...(detail && { detail }),
                     },
                     ...(cacheControl && { cache_control: cacheControl }),
                   };
@@ -449,9 +460,10 @@ function mapToolResultContentParts(
         });
 
         if (part.mediaType?.startsWith('image/')) {
+          const detail = getImageDetail(part.providerOptions);
           return {
             type: 'image_url',
-            image_url: { url: dataUrl },
+            image_url: { url: dataUrl, ...(detail && { detail }) },
           };
         }
 

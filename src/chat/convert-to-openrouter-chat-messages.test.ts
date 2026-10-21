@@ -65,6 +65,83 @@ describe('user messages', () => {
     ]);
   });
 
+  it('should set image_url detail from part providerOptions.openrouter.imageDetail', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'file',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/image.png'),
+            },
+            mediaType: 'image/png',
+            providerOptions: {
+              openrouter: {
+                imageDetail: 'low',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Hello' },
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://example.com/image.png',
+              detail: 'low',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should ignore invalid imageDetail values', async () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/image.png'),
+            },
+            mediaType: 'image/png',
+            providerOptions: {
+              openrouter: {
+                imageDetail: 'ultra',
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: {
+              url: 'https://example.com/image.png',
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it.each([
     'file:///tmp/image.png',
     'blob:https://example.com/image-id',
@@ -2364,6 +2441,39 @@ describe('multimodal tool result content (issue #181)', () => {
       {
         type: 'image_url',
         image_url: { url: 'data:image/jpeg;base64,AAECAw==' },
+      },
+    ]);
+  });
+
+  it('should set image_url detail on tool result images from providerOptions.openrouter.imageDetail', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-789',
+            toolName: 'screenshot_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file',
+                  data: { type: 'data', data: 'AAECAw==' },
+                  mediaType: 'image/jpeg',
+                  providerOptions: { openrouter: { imageDetail: 'high' } },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: { url: 'data:image/jpeg;base64,AAECAw==', detail: 'high' },
       },
     ]);
   });
