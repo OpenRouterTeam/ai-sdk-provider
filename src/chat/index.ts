@@ -20,6 +20,7 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
+import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
   APICallError,
@@ -33,7 +34,6 @@ import {
   generateId,
   isParsableJson,
   postJsonToApi,
-  serializeModelOptions,
   WORKFLOW_DESERIALIZE,
   WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
@@ -47,8 +47,8 @@ import {
 } from '../utils/map-finish-reason';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
-  omitCredentialHeaders,
-  withEnvironmentApiKey,
+  restoreOpenRouterConfig,
+  serializeOpenRouterModel,
 } from '../utils/workflow-serde';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
@@ -87,44 +87,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
   private readonly config: OpenRouterChatConfig;
 
   /**
-   * Serializes the model for `@ai-sdk/workflow` durable step boundaries.
-   *
-   * `serializeModelOptions` resolves the `headers` closure and strips the
-   * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
-   * captured alongside so the constructor can faithfully round-trip.
-   * Credential headers are never persisted; the API key is re-read from
-   * `OPENROUTER_API_KEY` on deserialize.
+   * Workflow serde hooks for `@ai-sdk/workflow` durable step boundaries.
+   * See `serializeOpenRouterModel` for what is (and is not) persisted.
    */
-  static [WORKFLOW_SERIALIZE](model: OpenRouterChatLanguageModel) {
-    const { modelId, config } = serializeModelOptions({
-      modelId: model.modelId,
-      config: {
-        ...model.config,
-        // `url` is a closure and gets dropped, so persist the resolved base
-        // URL to rebuild it on deserialize.
-        baseURL: model.config.url({ path: '', modelId: model.modelId }),
-      },
-    });
-
-    config.headers = omitCredentialHeaders(config.headers);
-
-    return { modelId, config, settings: model.settings };
+  static [WORKFLOW_SERIALIZE](
+    model: OpenRouterChatLanguageModel,
+  ): SerializedOpenRouterModel<OpenRouterChatModelId, OpenRouterChatSettings> {
+    const { modelId, settings, config } = model;
+    return serializeOpenRouterModel({ modelId, settings, config });
   }
 
-  static [WORKFLOW_DESERIALIZE](data: {
-    modelId: OpenRouterChatModelId;
-    settings: OpenRouterChatSettings;
-    config: Omit<OpenRouterChatConfig, 'url' | 'headers' | 'fetch'> & {
-      baseURL: string;
-      headers?: Record<string, string | undefined>;
-    };
-  }) {
-    const { baseURL, headers, ...config } = data.config;
-    return new OpenRouterChatLanguageModel(data.modelId, data.settings, {
-      ...config,
-      headers: withEnvironmentApiKey(headers),
-      url: ({ path }) => `${baseURL}${path}`,
-    });
+  static [WORKFLOW_DESERIALIZE](
+    data: SerializedOpenRouterModel<
+      OpenRouterChatModelId,
+      OpenRouterChatSettings
+    >,
+  ) {
+    const config = restoreOpenRouterConfig(data.config);
+    return new OpenRouterChatLanguageModel(data.modelId, data.settings, config);
   }
 
   constructor(

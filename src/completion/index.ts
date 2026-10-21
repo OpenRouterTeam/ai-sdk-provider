@@ -14,6 +14,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from '../types/openrouter-completion-settings';
+import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
   APICallError,
@@ -26,7 +27,6 @@ import {
   createJsonResponseHandler,
   generateId,
   postJsonToApi,
-  serializeModelOptions,
   WORKFLOW_DESERIALIZE,
   WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
@@ -39,8 +39,8 @@ import {
 } from '../utils/map-finish-reason';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
-  omitCredentialHeaders,
-  withEnvironmentApiKey,
+  restoreOpenRouterConfig,
+  serializeOpenRouterModel,
 } from '../utils/workflow-serde';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
@@ -73,44 +73,31 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
   private readonly config: OpenRouterCompletionConfig;
 
   /**
-   * Serializes the model for `@ai-sdk/workflow` durable step boundaries.
-   *
-   * `serializeModelOptions` resolves the `headers` closure and strips the
-   * remaining non-JSON `config` values (`url`, `fetch`); `settings` is
-   * captured alongside so the constructor can faithfully round-trip.
-   * Credential headers are never persisted; the API key is re-read from
-   * `OPENROUTER_API_KEY` on deserialize.
+   * Workflow serde hooks for `@ai-sdk/workflow` durable step boundaries.
+   * See `serializeOpenRouterModel` for what is (and is not) persisted.
    */
-  static [WORKFLOW_SERIALIZE](model: OpenRouterCompletionLanguageModel) {
-    const { modelId, config } = serializeModelOptions({
-      modelId: model.modelId,
-      config: {
-        ...model.config,
-        // `url` is a closure and gets dropped, so persist the resolved base
-        // URL to rebuild it on deserialize.
-        baseURL: model.config.url({ path: '', modelId: model.modelId }),
-      },
-    });
-
-    config.headers = omitCredentialHeaders(config.headers);
-
-    return { modelId, config, settings: model.settings };
+  static [WORKFLOW_SERIALIZE](
+    model: OpenRouterCompletionLanguageModel,
+  ): SerializedOpenRouterModel<
+    OpenRouterCompletionModelId,
+    OpenRouterCompletionSettings
+  > {
+    const { modelId, settings, config } = model;
+    return serializeOpenRouterModel({ modelId, settings, config });
   }
 
-  static [WORKFLOW_DESERIALIZE](data: {
-    modelId: OpenRouterCompletionModelId;
-    settings: OpenRouterCompletionSettings;
-    config: Omit<OpenRouterCompletionConfig, 'url' | 'headers' | 'fetch'> & {
-      baseURL: string;
-      headers?: Record<string, string | undefined>;
-    };
-  }) {
-    const { baseURL, headers, ...config } = data.config;
-    return new OpenRouterCompletionLanguageModel(data.modelId, data.settings, {
-      ...config,
-      headers: withEnvironmentApiKey(headers),
-      url: ({ path }) => `${baseURL}${path}`,
-    });
+  static [WORKFLOW_DESERIALIZE](
+    data: SerializedOpenRouterModel<
+      OpenRouterCompletionModelId,
+      OpenRouterCompletionSettings
+    >,
+  ) {
+    const config = restoreOpenRouterConfig(data.config);
+    return new OpenRouterCompletionLanguageModel(
+      data.modelId,
+      data.settings,
+      config,
+    );
   }
 
   constructor(
