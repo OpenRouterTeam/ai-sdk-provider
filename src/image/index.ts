@@ -95,14 +95,15 @@ export class OpenRouterImageModel implements ImageModelV4 {
     const { provider: runtimeProvider, ...restOpenrouterOptions } =
       openrouterOptions;
 
-    // Merge provider routing preferences instead of replacing them, keeping
-    // the same precedence as the rest of the body (later wins).
+    // Shallow merge provider routing preferences instead of replacing them,
+    // keeping the same precedence as the rest of the body (later wins).
+    // Non-object values (null, arrays, primitives) are ignored.
     const providerSources = [
       this.settings.provider,
       this.config.extraBody?.provider,
       this.settings.extraBody?.provider,
       runtimeProvider,
-    ].filter((p) => p != null && typeof p === 'object');
+    ].filter((p) => typeof p === 'object' && p !== null && !Array.isArray(p));
     const provider =
       providerSources.length > 0
         ? Object.assign({}, ...providerSources)

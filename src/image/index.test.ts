@@ -1,3 +1,5 @@
+import type { SharedV4ProviderOptions } from '@ai-sdk/provider';
+
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
@@ -75,6 +77,22 @@ function createCapturingMockFetch(imageBase64: string) {
       return capturedUrl;
     },
   };
+}
+
+function generate(
+  model: OpenRouterImageModel,
+  providerOptions: SharedV4ProviderOptions,
+) {
+  return model.doGenerate({
+    prompt: 'A cat',
+    n: 1,
+    size: undefined,
+    aspectRatio: undefined,
+    seed: undefined,
+    files: undefined,
+    mask: undefined,
+    providerOptions,
+  });
 }
 
 describe('OpenRouterImageModel', () => {
@@ -810,21 +828,8 @@ describe('OpenRouterImageModel', () => {
         },
       });
 
-      await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            provider: {
-              order: ['black-forest-labs'],
-            },
-          },
-        },
+      await generate(model, {
+        openrouter: { provider: { order: ['black-forest-labs'] } },
       });
 
       expect(mock.capturedBody?.provider).toEqual({
@@ -847,26 +852,39 @@ describe('OpenRouterImageModel', () => {
         },
       });
 
-      await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            custom_field: 'test',
-          },
-        },
-      });
+      await generate(model, { openrouter: { custom_field: 'test' } });
 
       expect(mock.capturedBody?.provider).toEqual({
         order: ['google'],
         allow_fallbacks: true,
       });
       expect(mock.capturedBody?.custom_field).toBe('test');
+    });
+
+    it.each([
+      { label: 'null', runtimeProvider: null },
+      { label: 'an array', runtimeProvider: ['black-forest-labs'] },
+    ])('should keep configured provider preferences when runtime provider is $label', async ({
+      runtimeProvider,
+    }) => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: {
+          order: ['google'],
+          allow_fallbacks: true,
+        },
+      });
+
+      await generate(model, { openrouter: { provider: runtimeProvider } });
+
+      expect(mock.capturedBody?.provider).toEqual({
+        order: ['google'],
+        allow_fallbacks: true,
+      });
     });
 
     it('should merge config extraBody, model provider, and runtime provider options', async () => {
@@ -887,21 +905,8 @@ describe('OpenRouterImageModel', () => {
         },
       });
 
-      await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            provider: {
-              order: ['black-forest-labs'],
-            },
-          },
-        },
+      await generate(model, {
+        openrouter: { provider: { order: ['black-forest-labs'] } },
       });
 
       expect(mock.capturedBody?.provider).toEqual({
@@ -931,21 +936,8 @@ describe('OpenRouterImageModel', () => {
         },
       });
 
-      await model.doGenerate({
-        prompt: 'A cat',
-        n: 1,
-        size: undefined,
-        aspectRatio: undefined,
-        seed: undefined,
-        files: undefined,
-        mask: undefined,
-        providerOptions: {
-          openrouter: {
-            provider: {
-              sort: 'throughput',
-            },
-          },
-        },
+      await generate(model, {
+        openrouter: { provider: { sort: 'throughput' } },
       });
 
       expect(mock.capturedBody?.provider).toEqual({
