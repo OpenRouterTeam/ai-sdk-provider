@@ -25,7 +25,6 @@ import {
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
-  isCustomReasoning,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
@@ -35,6 +34,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
@@ -144,18 +144,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning:
-        providerOptions?.openrouter?.reasoning_effort !== undefined ||
-        providerOptions?.openrouter?.reasoning !== undefined
-          ? undefined
-          : isCustomReasoning(reasoning)
-            ? {
-                // keep model-level enabled/exclude; effort replaces max_tokens
-                enabled: this.settings.reasoning?.enabled,
-                exclude: this.settings.reasoning?.exclude,
-                effort: reasoning,
-              }
-            : this.settings.reasoning,
+      reasoning: resolveReasoning({
+        reasoning,
+        settingsReasoning: this.settings.reasoning,
+        providerOptions,
+      }),
 
       // extra body:
       ...this.config.extraBody,

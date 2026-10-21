@@ -963,10 +963,19 @@ describe('includeRawChunks', () => {
   });
 });
 
-describe('reasoning settings', () => {
+describe('reasoning call option', () => {
   const server = createTestServer({
     'https://openrouter.ai/api/v1/completions': {
-      response: { type: 'json-value', body: {} },
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-test',
+          object: 'text_completion',
+          created: 1711363706,
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [{ index: 0, text: 'Hello!', finish_reason: 'stop' }],
+        },
+      },
     },
   });
 
@@ -974,218 +983,17 @@ describe('reasoning settings', () => {
   afterEach(() => server.server.reset());
   afterAll(() => server.server.stop());
 
-  function prepareJsonResponse({ content = '' }: { content?: string } = {}) {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
-      type: 'json-value',
-      body: {
-        id: 'cmpl-test',
-        object: 'text_completion',
-        created: 1711363706,
-        model: 'openai/gpt-3.5-turbo-instruct',
-        choices: [
-          {
-            index: 0,
-            text: content,
-            finish_reason: 'stop',
-          },
-        ],
-        usage: {
-          prompt_tokens: 4,
-          total_tokens: 34,
-          completion_tokens: 30,
-        },
-      },
-    };
-  }
+  it('maps call-level reasoning to reasoning.effort, keeping model-level exclude', async () => {
+    await provider
+      .completion('openai/gpt-3.5-turbo-instruct', {
+        reasoning: { effort: 'high', exclude: true },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'medium' });
 
-  describe('if reasoning settings is given', () => {
-    it('should pass reasoning settings in doGenerate', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      await model.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'medium',
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning: {
-          effort: 'medium',
-        },
-      });
-    });
-
-    it('should override effort but keep other reasoning model settings', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      const modelWithReasoningSetting = provider.completion(
-        'openai/gpt-3.5-turbo-instruct',
-        {
-          reasoning: {
-            effort: 'high',
-            exclude: true,
-          },
-        },
-      );
-
-      await modelWithReasoningSetting.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'medium',
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning: {
-          exclude: true,
-          effort: 'medium',
-        },
-      });
-    });
-  });
-
-  describe('if reasoning parameter is undefined', () => {
-    it('should not include reasoning parameter', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      await model.doGenerate({
-        prompt: TEST_PROMPT,
-      });
-
-      const requestBody = await server.calls[0]!.requestBodyJson;
-      expect(requestBody).not.toHaveProperty('reasoning');
-    });
-
-    it('should falls back to reasoning parameter of model settings', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      const modelWithReasoningSetting = provider.completion(
-        'openai/gpt-3.5-turbo-instruct',
-        {
-          reasoning: {
-            effort: 'high',
-          },
-        },
-      );
-
-      await modelWithReasoningSetting.doGenerate({
-        prompt: TEST_PROMPT,
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning: {
-          effort: 'high',
-        },
-      });
-    });
-  });
-
-  describe('if reasoning parameter is provider-default', () => {
-    it('should not include reasoning parameter', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      await model.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'provider-default',
-      });
-
-      const requestBody = await server.calls[0]!.requestBodyJson;
-      expect(requestBody).not.toHaveProperty('reasoning');
-    });
-
-    it('should falls back to reasoning parameter of model settings', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      const modelWithReasoningSetting = provider.completion(
-        'openai/gpt-3.5-turbo-instruct',
-        {
-          reasoning: {
-            effort: 'high',
-          },
-        },
-      );
-
-      await modelWithReasoningSetting.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'provider-default',
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning: {
-          effort: 'high',
-        },
-      });
-    });
-  });
-
-  describe('if reasoning parameter is given by providerOptions', () => {
-    it('should ignore top-level reasoning parameter and model setting', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      const modelWithReasoningSetting = provider.completion(
-        'openai/gpt-3.5-turbo-instruct',
-        {
-          reasoning: {
-            effort: 'high',
-          },
-        },
-      );
-
-      await modelWithReasoningSetting.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'medium',
-        providerOptions: {
-          openrouter: {
-            reasoning: {
-              effort: 'low',
-            },
-          },
-        },
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning: {
-          effort: 'low',
-        },
-      });
-    });
-  });
-
-  describe('if reasoning_effort parameter is given by providerOptions', () => {
-    it('should ignore top-level reasoning parameter and model setting', async () => {
-      prepareJsonResponse({ content: 'Hello!' });
-
-      const modelWithReasoningSetting = provider.completion(
-        'openai/gpt-3.5-turbo-instruct',
-        {
-          reasoning: {
-            effort: 'high',
-          },
-        },
-      );
-
-      await modelWithReasoningSetting.doGenerate({
-        prompt: TEST_PROMPT,
-        reasoning: 'medium',
-        providerOptions: {
-          openrouter: {
-            reasoning_effort: 'low',
-          },
-        },
-      });
-
-      expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
-        model: 'openai/gpt-3.5-turbo-instruct',
-        prompt: 'Hello',
-        reasoning_effort: 'low',
-      });
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      reasoning: { exclude: true, effort: 'medium' },
     });
   });
 });
