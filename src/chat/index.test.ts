@@ -6157,7 +6157,7 @@ describe('reasoning settings', () => {
       });
     });
 
-    it('should ignore reasoning parameter of model settings', async () => {
+    it('should override effort but keep other reasoning model settings', async () => {
       prepareJsonResponse({ content: 'Hello!' });
 
       const modelWithReasoningSetting = provider.chat(
@@ -6165,6 +6165,7 @@ describe('reasoning settings', () => {
         {
           reasoning: {
             effort: 'high',
+            exclude: true,
           },
         },
       );
@@ -6178,6 +6179,7 @@ describe('reasoning settings', () => {
         model: 'anthropic/claude-3.5-sonnet',
         messages: [{ role: 'user', content: 'Hello' }],
         reasoning: {
+          exclude: true,
           effort: 'medium',
         },
       });

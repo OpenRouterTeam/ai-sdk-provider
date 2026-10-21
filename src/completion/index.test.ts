@@ -1016,7 +1016,7 @@ describe('reasoning settings', () => {
       });
     });
 
-    it('should ignore reasoning parameter of model settings', async () => {
+    it('should override effort but keep other reasoning model settings', async () => {
       prepareJsonResponse({ content: 'Hello!' });
 
       const modelWithReasoningSetting = provider.completion(
@@ -1024,6 +1024,7 @@ describe('reasoning settings', () => {
         {
           reasoning: {
             effort: 'high',
+            exclude: true,
           },
         },
       );
@@ -1037,6 +1038,7 @@ describe('reasoning settings', () => {
         model: 'openai/gpt-3.5-turbo-instruct',
         prompt: 'Hello',
         reasoning: {
+          exclude: true,
           effort: 'medium',
         },
       });

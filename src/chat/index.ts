@@ -166,7 +166,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
         providerOptions?.openrouter?.reasoning !== undefined
           ? undefined
           : isCustomReasoning(reasoning)
-            ? { effort: reasoning }
+            ? {
+                // keep model-level enabled/exclude; effort replaces max_tokens
+                enabled: this.settings.reasoning?.enabled,
+                exclude: this.settings.reasoning?.exclude,
+                effort: reasoning,
+              }
             : this.settings.reasoning,
       usage: this.settings.usage,
 
