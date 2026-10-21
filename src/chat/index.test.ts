@@ -3705,6 +3705,79 @@ describe('doStream', () => {
     expect(reasoningEnd?.providerMetadata).toBeDefined();
   });
 
+  it('should keep separately signed reasoning.text blocks as separate details (issue #582)', async () => {
+    // Two signed thinking blocks in one answer. Both repeat `index: 0`, so
+    // the split must be driven by the signature, not the index.
+    // The real trace in #582 used index 0 then 1; 0/0 is the stricter case.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"First","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" block.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sig-A"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Second","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" block.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sig-B"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+
+    const finishReasoningDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(finishReasoningDetails).toEqual([
+      {
+        type: ReasoningDetailType.Text,
+        text: 'First block.',
+        index: 0,
+        format: 'anthropic-claude-v1',
+        signature: 'sig-A',
+      },
+      {
+        type: ReasoningDetailType.Text,
+        text: 'Second block.',
+        index: 0,
+        format: 'anthropic-claude-v1',
+        signature: 'sig-B',
+      },
+    ]);
+  });
+
   it('should accumulate multiple late reasoning_details after text without creating duplicate blocks', async () => {
     // Edge case: API sends MULTIPLE reasoning_details chunks after text
     // (e.g. encrypted blob + signature-only + another text fragment).
