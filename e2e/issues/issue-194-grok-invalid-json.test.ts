@@ -3,9 +3,9 @@
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/194
  *
  * Reported error: "AI_APICallError: Invalid JSON response"
- * Model: x-ai/grok-4.20
+ * Model: x-ai/grok-4-fast (retired; the test now uses x-ai/grok-4.20)
  *
- * This test verifies that Grok 4 Fast works correctly with the SDK.
+ * This test verifies that a current Grok model works correctly with the SDK.
  */
 import { generateText, streamText, tool } from 'ai';
 import { describe, expect, it, vi } from 'vitest';

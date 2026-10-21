@@ -132,7 +132,7 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     });
   });
 
-  describe('anthropic/claude-sonnet-4.5 (Dec 7 comment: stream cuts, partial response)', () => {
+  describe('anthropic/claude-sonnet-4 (Dec 7 comment: stream cuts, partial response)', () => {
     const model = openrouter('anthropic/claude-sonnet-4.5');
 
     it('should return complete streaming response with web search', async () => {
@@ -158,7 +158,7 @@ describe('Issue #248: Gemini 3 Pro Preview web search empty responses', () => {
     });
   });
 
-  describe('anthropic/claude-opus-4.1 (Dec 7 comment: bugs out, no error)', () => {
+  describe('anthropic/claude-opus-4 (Dec 7 comment: bugs out, no error)', () => {
     const model = openrouter('anthropic/claude-opus-4.1');
 
     it('should return non-empty response with web search', async () => {
