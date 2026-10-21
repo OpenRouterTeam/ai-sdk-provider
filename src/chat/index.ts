@@ -788,7 +788,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   ];
 
                 if (detail.type === ReasoningDetailType.Text) {
-                  if (lastDetail?.type === ReasoningDetailType.Text) {
+                  // A signature closes the text detail it signs: once the last
+                  // text detail is signed, the next text delta starts a new
+                  // block (e.g. multiple signed Anthropic thinking blocks).
+                  if (
+                    lastDetail?.type === ReasoningDetailType.Text &&
+                    !lastDetail.signature
+                  ) {
                     // Merge with the previous text detail
                     lastDetail.text =
                       (lastDetail.text || '') + (detail.text || '');
