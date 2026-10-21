@@ -1160,29 +1160,30 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             // call's arguments are still incomplete JSON was cut off. Report it
             // rather than inferring a finished call with synthesized '{}' input.
             // Skip when a stream error was already reported above.
-            const incompleteToolCalls =
-              receivedFinishReason || receivedUsage || streamError != null
-                ? []
-                : toolCalls.filter(
-                    (toolCall) =>
-                      toolCall != null &&
-                      !toolCall.sent &&
-                      !isParsableJson(toolCall.function.arguments),
-                  );
-            if (incompleteToolCalls.length > 0) {
-              finishReason = createFinishReason('error');
-              controller.enqueue({
-                type: 'error',
-                error: new InvalidResponseDataError({
-                  data: incompleteToolCalls.map((toolCall) => ({
-                    id: toolCall.id,
-                    name: toolCall.function.name,
-                    arguments: toolCall.function.arguments,
-                  })),
-                  message:
-                    'Stream ended before the tool call arguments were complete.',
-                }),
-              });
+            const streamCompleted =
+              receivedFinishReason || receivedUsage || streamError != null;
+            if (!streamCompleted) {
+              const incompleteToolCalls = toolCalls.filter(
+                (toolCall) =>
+                  toolCall != null &&
+                  !toolCall.sent &&
+                  !isParsableJson(toolCall.function.arguments),
+              );
+              if (incompleteToolCalls.length > 0) {
+                finishReason = createFinishReason('error');
+                controller.enqueue({
+                  type: 'error',
+                  error: new InvalidResponseDataError({
+                    data: incompleteToolCalls.map((toolCall) => ({
+                      id: toolCall.id,
+                      name: toolCall.function.name,
+                      arguments: toolCall.function.arguments,
+                    })),
+                    message:
+                      'Stream ended before the tool call arguments were complete.',
+                  }),
+                });
+              }
             }
 
             // Fix for #420: When finishReason is 'other' (unknown/missing) but tool calls

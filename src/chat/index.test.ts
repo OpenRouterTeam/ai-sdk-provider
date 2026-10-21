@@ -2488,14 +2488,14 @@ describe('doStream', () => {
 
   it.each([
     ['empty', ''],
-    ['partial', '{\\"scope\\":'],
-  ])('should report an error when the stream ends before %s tool call arguments are complete (#558)', async (_label, wireArguments) => {
+    ['partial', '{"scope":'],
+  ])('should report an error when the stream ends before %s tool call arguments are complete (#558)', async (_label, toolArguments) => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
         // The stream ends after the tool call starts: no finish_reason, no usage, no [DONE].
         `data: {"id":"chatcmpl-eof","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
-          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"inspect","arguments":"${wireArguments}"}}]},` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"inspect","arguments":${JSON.stringify(toolArguments)}}}]},` +
           `"finish_reason":null}]}\n\n`,
       ],
     };
@@ -2513,7 +2513,7 @@ describe('doStream', () => {
       {
         id: 'call-1',
         name: 'inspect',
-        arguments: JSON.parse(`"${wireArguments}"`),
+        arguments: toolArguments,
       },
     ]);
     const finishEvent = elements.find(
