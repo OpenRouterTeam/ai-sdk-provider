@@ -45,7 +45,7 @@ function getCacheControl(
 function getVideoProcessing(
   providerOptions: SharedV4ProviderMetadata | undefined,
 ): 'agentic' | 'static' | undefined {
-  const processing = providerOptions?.openrouter?.processing;
+  const processing = providerOptions?.openrouter?.videoProcessing;
   return processing === 'agentic' || processing === 'static'
     ? processing
     : undefined;

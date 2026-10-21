@@ -1,5 +1,5 @@
 ---
-'@openrouter/ai-sdk-provider': patch
+'@openrouter/ai-sdk-provider': minor
 ---
 
-Forward video file parts' `providerOptions.openrouter.processing` (`'agentic' | 'static'`) as `video_url.processing`
+Forward video file parts' `providerOptions.openrouter.videoProcessing` (`'agentic' | 'static'`) as `video_url.processing`

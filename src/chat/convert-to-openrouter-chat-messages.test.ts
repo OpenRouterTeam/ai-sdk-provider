@@ -276,12 +276,11 @@ describe('user messages', () => {
   });
 
   it.each([
-    { processing: 'agentic', expected: 'agentic' },
-    { processing: 'static', expected: 'static' },
-    { processing: undefined, expected: undefined },
-    { processing: 'dynamic', expected: undefined },
-  ])('should map video processing $processing to video_url.processing', ({
-    processing,
+    { videoProcessing: 'agentic', expected: 'agentic' },
+    { videoProcessing: 'static', expected: 'static' },
+    { videoProcessing: 'dynamic', expected: undefined },
+  ])('should map videoProcessing $videoProcessing to video_url.processing', ({
+    videoProcessing,
     expected,
   }) => {
     const result = convertToOpenRouterChatMessages([
@@ -295,9 +294,7 @@ describe('user messages', () => {
               url: new URL('https://example.com/video.mp4'),
             },
             mediaType: 'video/mp4',
-            ...(processing !== undefined && {
-              providerOptions: { openrouter: { processing } },
-            }),
+            providerOptions: { openrouter: { videoProcessing } },
           },
         ],
       },
@@ -2812,7 +2809,7 @@ describe('multimodal tool result content (issue #181)', () => {
     ]);
   });
 
-  it('should forward providerOptions.openrouter.processing on tool result videos', () => {
+  it('should forward providerOptions.openrouter.videoProcessing on tool result videos', () => {
     const result = convertToOpenRouterChatMessages([
       {
         role: 'tool',
@@ -2828,7 +2825,9 @@ describe('multimodal tool result content (issue #181)', () => {
                   type: 'file',
                   data: { type: 'data', data: 'dmlkZW9fZGF0YQ==' },
                   mediaType: 'video/mp4',
-                  providerOptions: { openrouter: { processing: 'static' } },
+                  providerOptions: {
+                    openrouter: { videoProcessing: 'static' },
+                  },
                 },
               ],
             },
