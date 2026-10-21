@@ -933,6 +933,41 @@ describe('doGenerate', () => {
     expect(tools[1]).not.toHaveProperty('eager_input_streaming');
   });
 
+  it.each([
+    true,
+    false,
+  ])('should forward tool.strict (%s) into function definition', async (strict) => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          description: 'Test tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+          strict,
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<{
+      type: string;
+      function: Record<string, unknown>;
+    }>;
+    expect(tools[0]!.function).toHaveProperty('strict', strict);
+  });
+
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 

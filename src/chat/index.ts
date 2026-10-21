@@ -205,6 +205,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               name: tool.name,
               description: tool.description,
               parameters: tool.inputSchema,
+              ...(tool.strict != null && { strict: tool.strict }),
             },
             ...(eagerInputStreaming != null && {
               eager_input_streaming: eagerInputStreaming,
