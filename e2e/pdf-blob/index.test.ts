@@ -15,7 +15,7 @@ test('sending pdf base64 blob', async () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-sonnet-4', {
+  const model = openrouter('anthropic/claude-sonnet-4.5', {
     usage: {
       include: true,
     },
@@ -71,7 +71,7 @@ test('sending large pdf base64 blob with FileParserPlugin', async () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-3.5-sonnet', {
+  const model = openrouter('anthropic/claude-sonnet-4.5', {
     plugins: [
       {
         id: 'file-parser',

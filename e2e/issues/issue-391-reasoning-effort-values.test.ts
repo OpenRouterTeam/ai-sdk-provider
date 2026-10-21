@@ -29,9 +29,9 @@ describe('Issue #391: reasoning effort xhigh, minimal, none values', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  // Use anthropic/claude-sonnet-4 which supports extended reasoning effort.
+  // Use anthropic/claude-sonnet-4.5 which supports extended reasoning effort.
   // openai/o3-mini only supports 'low', 'medium', 'high'.
-  const model = openrouter('anthropic/claude-sonnet-4');
+  const model = openrouter('anthropic/claude-sonnet-4.5');
 
   it('should accept reasoning.effort xhigh without SDK-level error', async () => {
     // The SDK should pass 'xhigh' through to the API without rejecting it.

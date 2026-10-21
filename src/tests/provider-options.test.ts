@@ -103,6 +103,36 @@ describe('providerOptions', () => {
     });
   });
 
+  it('should pass effort max to API body', async () => {
+    const openrouter = createOpenRouter({
+      apiKey: 'test',
+    });
+    const model = openrouter('openai/o3', {
+      reasoning: {
+        effort: 'max',
+      },
+    });
+
+    await streamText({
+      model: model,
+      messages: TEST_MESSAGES,
+    }).consumeStream();
+
+    expect(await server.calls[0]?.requestBodyJson).toStrictEqual({
+      messages: [
+        {
+          content: 'Hello',
+          role: 'user',
+        },
+      ],
+      reasoning: {
+        effort: 'max',
+      },
+      model: 'openai/o3',
+      stream: true,
+    });
+  });
+
   it('should pass effort minimal to API body', async () => {
     const openrouter = createOpenRouter({
       apiKey: 'test',

@@ -37,6 +37,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
   restoreOpenRouterConfig,
@@ -123,6 +124,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     stopSequences,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const { prompt: completionPrompt } = convertToOpenRouterCompletionPrompt({
       prompt,
@@ -135,7 +138,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       });
     }
 
-    if (toolChoice) {
+    // The AI SDK always sends a toolChoice (default { type: 'auto' }), even
+    // without tools. 'auto' and 'none' are satisfiable without tools; only
+    // reject choices that require a tool call, which completions can't make.
+    if (toolChoice?.type === 'required' || toolChoice?.type === 'tool') {
       throw new UnsupportedFunctionalityError({
         functionality: 'toolChoice',
       });
@@ -176,7 +182,11 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning: resolveReasoning({
+        reasoning,
+        settingsReasoning: this.settings.reasoning,
+        providerOptions,
+      }),
 
       // extra body:
       ...this.config.extraBody,
@@ -254,6 +264,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
               (response.usage?.completion_tokens ?? 0),
             ...(response.usage?.cost != null
               ? { cost: response.usage.cost }
+              : {}),
+            ...(response.usage?.is_byok != null
+              ? { isByok: response.usage.is_byok }
               : {}),
             ...(response.usage?.prompt_tokens_details?.cached_tokens != null
               ? {
@@ -350,6 +363,8 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
+    let textId: string | undefined;
+    let openrouterResponseId: string | undefined;
     const warnings: Array<SharedV4Warning> = [];
 
     return {
@@ -388,6 +403,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
               provider = value.provider;
             }
 
+            if (value.id) {
+              openrouterResponseId = value.id;
+            }
+
             if (value.usage != null) {
               const computed = computeTokenUsage(value.usage);
               Object.assign(usage.inputTokens, computed.inputTokens);
@@ -417,6 +436,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
               if (value.usage.cost != null) {
                 openrouterUsage.cost = value.usage.cost;
               }
+              if (value.usage.is_byok != null) {
+                openrouterUsage.isByok = value.usage.is_byok;
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =
                 value.usage.cost_details?.upstream_inference_cost;
@@ -434,10 +456,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             }
 
             if (choice?.text != null) {
+              if (textId === undefined) {
+                textId = openrouterResponseId || generateId();
+                controller.enqueue({
+                  type: 'text-start',
+                  id: textId,
+                });
+              }
               controller.enqueue({
                 type: 'text-delta',
                 delta: choice.text,
-                id: generateId(),
+                id: textId,
               });
             }
           },
@@ -446,6 +475,13 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             if (streamError != null) {
               finishReason = createFinishReason('error');
               controller.enqueue({ type: 'error', error: streamError });
+            }
+
+            if (textId !== undefined) {
+              controller.enqueue({
+                type: 'text-end',
+                id: textId,
+              });
             }
 
             // Set raw usage before emitting finish event

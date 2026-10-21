@@ -20,6 +20,7 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
+import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
 import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
@@ -42,9 +43,14 @@ import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { computeTokenUsage, emptyUsage } from '../utils/compute-token-usage';
 import {
+  createJsonCompletenessScanner,
+  mayBeCompleteJson,
+} from '../utils/json-completeness-scanner';
+import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
   restoreOpenRouterConfig,
@@ -130,6 +136,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     topK,
     tools,
     toolChoice,
+    reasoning,
+    providerOptions,
   }: LanguageModelV4CallOptions) {
     const baseArgs = {
       // model id:
@@ -186,7 +194,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
-      reasoning: this.settings.reasoning,
+      reasoning: resolveReasoning({
+        reasoning,
+        settingsReasoning: this.settings.reasoning,
+        providerOptions,
+      }),
       usage: this.settings.usage,
 
       // Web search settings:
@@ -221,6 +233,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               name: tool.name,
               description: tool.description,
               parameters: tool.inputSchema,
+              ...(tool.strict != null && { strict: tool.strict }),
             },
             ...(eagerInputStreaming != null && {
               eager_input_streaming: eagerInputStreaming,
@@ -524,6 +537,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             ...(response.usage?.cost != null
               ? { cost: response.usage.cost }
               : {}),
+            ...(response.usage?.is_byok != null
+              ? { isByok: response.usage.is_byok }
+              : {}),
             ...(response.usage?.prompt_tokens_details?.cached_tokens != null
               ? {
                   promptTokensDetails: {
@@ -632,6 +648,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       };
       inputStarted: boolean;
       sent: boolean;
+      argumentsScanner: JsonCompletenessScanner;
     }> = [];
 
     // Track seen tool call IDs to ensure uniqueness. Some providers
@@ -761,6 +778,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               if (value.usage.cost != null) {
                 openrouterUsage.cost = value.usage.cost;
               }
+              if (value.usage.is_byok != null) {
+                openrouterUsage.isByok = value.usage.is_byok;
+              }
               openrouterUsage.totalTokens = value.usage.total_tokens;
               const upstreamInferenceCost =
                 value.usage.cost_details?.upstream_inference_cost;
@@ -816,15 +836,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   ];
 
                 if (detail.type === ReasoningDetailType.Text) {
-                  if (lastDetail?.type === ReasoningDetailType.Text) {
+                  // A signature closes the text detail it signs: once the last
+                  // text detail is signed, the next text delta starts a new
+                  // block (e.g. multiple signed Anthropic thinking blocks).
+                  if (
+                    lastDetail?.type === ReasoningDetailType.Text &&
+                    !lastDetail.signature
+                  ) {
                     // Merge with the previous text detail
                     lastDetail.text =
                       (lastDetail.text || '') + (detail.text || '');
 
-                    lastDetail.signature =
-                      lastDetail.signature || detail.signature;
+                    // Only copy defined values: assigning `undefined` keys
+                    // breaks AI SDK prompt validation on replay (#540).
+                    if (!lastDetail.signature && detail.signature) {
+                      lastDetail.signature = detail.signature;
+                    }
 
-                    lastDetail.format = lastDetail.format || detail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
+                    }
                   } else {
                     // Start a new text detail
                     accumulatedReasoningDetails.push({ ...detail });
@@ -835,7 +866,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     lastDetail.summary =
                       (lastDetail.summary || '') + (detail.summary || '');
 
-                    lastDetail.format = lastDetail.format || detail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
+                    }
                   } else {
                     // Start a new summary detail
                     accumulatedReasoningDetails.push({ ...detail });
@@ -997,6 +1030,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     },
                     inputStarted: false,
                     sent: false,
+                    argumentsScanner: createJsonCompletenessScanner(),
                   };
 
                   const toolCall = toolCalls[index];
@@ -1012,6 +1046,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   if (
                     toolCall.function?.name != null &&
                     toolCall.function?.arguments != null &&
+                    mayBeCompleteJson(
+                      toolCall.argumentsScanner,
+                      toolCall.function.arguments,
+                    ) &&
                     isParsableJson(toolCall.function.arguments)
                   ) {
                     toolCall.inputStarted = true;
@@ -1091,6 +1129,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   }
                 }
 
+                // Scan only the new delta so the full accumulated arguments
+                // are re-parsed only when they may be complete JSON (#581).
+                const argumentsMayBeComplete = mayBeCompleteJson(
+                  toolCall.argumentsScanner,
+                  toolCallDelta.function?.arguments ?? '',
+                );
+
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function.arguments +=
                     toolCallDelta.function?.arguments ?? '';
@@ -1113,6 +1158,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   !toolCall.sent &&
                   toolCall.function?.name != null &&
                   toolCall.function?.arguments != null &&
+                  argumentsMayBeComplete &&
                   isParsableJson(toolCall.function.arguments)
                 ) {
                   // Emit tool-input-end before tool-call to complete the
@@ -1190,9 +1236,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             if (finishReason.unified === 'tool-calls') {
               for (const toolCall of toolCalls) {
                 if (toolCall && !toolCall.sent) {
-                  const input = isParsableJson(toolCall.function.arguments)
-                    ? toolCall.function.arguments
-                    : '{}';
+                  // Forward invalid JSON as-is so the AI SDK can report it or
+                  // run experimental_repairToolCall; '{}' only when nothing
+                  // was streamed (no-argument tool calls).
+                  const input =
+                    toolCall.function.arguments.trim() === ''
+                      ? '{}'
+                      : toolCall.function.arguments;
 
                   // Emit the full tool-input lifecycle for unsent tool calls.
                   // If inputStarted is false, the tool call was never partially
