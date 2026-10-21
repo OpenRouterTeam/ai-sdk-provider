@@ -9,6 +9,7 @@ import type {
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 import type {
   ChatCompletionContentPart,
+  ChatCompletionContentPartText,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
 
@@ -231,6 +232,10 @@ export function convertToOpenRouterChatMessages(
       case 'assistant': {
         let text = '';
         let reasoning = '';
+        // Text parts are kept as blocks so that part-level cache control can
+        // be placed on the exact part, mirroring user messages.
+        const textParts: ChatCompletionContentPartText[] = [];
+        let hasPartCacheControl = false;
         const toolCalls: Array<{
           id: string;
           type: 'function';
@@ -241,6 +246,15 @@ export function convertToOpenRouterChatMessages(
           switch (part.type) {
             case 'text': {
               text += part.text;
+              const partCacheControl = getCacheControl(part.providerOptions);
+              if (partCacheControl) {
+                hasPartCacheControl = true;
+              }
+              textParts.push({
+                type: 'text',
+                text: part.text,
+                ...(partCacheControl && { cache_control: partCacheControl }),
+              });
               break;
             }
             case 'tool-call': {
@@ -381,7 +395,9 @@ export function convertToOpenRouterChatMessages(
 
         messages.push({
           role: 'assistant',
-          content: text || null,
+          // Without part-level cache control, keep the single-string content
+          // so the wire format is unchanged.
+          content: hasPartCacheControl ? textParts : text || null,
           tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
           reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
