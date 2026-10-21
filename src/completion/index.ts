@@ -14,6 +14,7 @@ import type {
   OpenRouterCompletionModelId,
   OpenRouterCompletionSettings,
 } from '../types/openrouter-completion-settings';
+import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
   APICallError,
@@ -26,6 +27,8 @@ import {
   createJsonResponseHandler,
   generateId,
   postJsonToApi,
+  WORKFLOW_DESERIALIZE,
+  WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
@@ -36,6 +39,10 @@ import {
 } from '../utils/map-finish-reason';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
+import {
+  restoreOpenRouterConfig,
+  serializeOpenRouterModel,
+} from '../utils/workflow-serde';
 import { convertToOpenRouterCompletionPrompt } from './convert-to-openrouter-completion-prompt';
 import { OpenRouterCompletionChunkSchema } from './schemas';
 
@@ -65,6 +72,34 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
   readonly settings: OpenRouterCompletionSettings;
 
   private readonly config: OpenRouterCompletionConfig;
+
+  /**
+   * Workflow serde hooks for `@ai-sdk/workflow` durable step boundaries.
+   * See `serializeOpenRouterModel` for what is (and is not) persisted.
+   */
+  static [WORKFLOW_SERIALIZE](
+    model: OpenRouterCompletionLanguageModel,
+  ): SerializedOpenRouterModel<
+    OpenRouterCompletionModelId,
+    OpenRouterCompletionSettings
+  > {
+    const { modelId, settings, config } = model;
+    return serializeOpenRouterModel({ modelId, settings, config });
+  }
+
+  static [WORKFLOW_DESERIALIZE](
+    data: SerializedOpenRouterModel<
+      OpenRouterCompletionModelId,
+      OpenRouterCompletionSettings
+    >,
+  ) {
+    const config = restoreOpenRouterConfig(data.config);
+    return new OpenRouterCompletionLanguageModel(
+      data.modelId,
+      data.settings,
+      config,
+    );
+  }
 
   constructor(
     modelId: OpenRouterCompletionModelId,

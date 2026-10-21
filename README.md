@@ -478,6 +478,31 @@ for await (const partialComponent of result.partialObjectStream) {
 }
 ```
 
+## Durable execution (AI SDK Workflow)
+
+Chat and completion models implement the `WORKFLOW_SERIALIZE` /
+`WORKFLOW_DESERIALIZE` hooks, so they can be passed across durable step
+boundaries in `@ai-sdk/workflow` (e.g. `WorkflowAgent` with a persisted
+world). Secrets are never written to workflow storage.
+
+What survives the round-trip:
+
+- `modelId` and model settings
+- `baseURL`
+- the `appName` / `appUrl` headers (`X-OpenRouter-Title`, `HTTP-Referer`)
+- `compatibility` and `extraBody`
+
+What does not:
+
+- **API key**: re-read from `OPENROUTER_API_KEY` at request time. A restored
+  model throws a `LoadAPIKeyError` if the variable is not set.
+- **BYOK `api_keys`**: not persisted. A restored model that was created with
+  `api_keys` throws at request time instead of silently using OpenRouter
+  credits. Create such models inside the step instead.
+- **Custom `headers`**: dropped, since they may carry credentials. The SDK
+  user agent is re-applied on restore.
+- **Custom `fetch`**: dropped; the global `fetch` is used.
+
 ## Use Cases
 
 ### Response Healing for Structured Outputs

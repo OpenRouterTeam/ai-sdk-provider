@@ -21,6 +21,7 @@ import type {
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
 import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
+import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
   APICallError,
@@ -34,6 +35,8 @@ import {
   generateId,
   isParsableJson,
   postJsonToApi,
+  WORKFLOW_DESERIALIZE,
+  WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
@@ -49,6 +52,10 @@ import {
 } from '../utils/map-finish-reason';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
+import {
+  restoreOpenRouterConfig,
+  serializeOpenRouterModel,
+} from '../utils/workflow-serde';
 import {
   convertToOpenRouterChatMessages,
   getCacheControl,
@@ -87,6 +94,27 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
   readonly settings: OpenRouterChatSettings;
 
   private readonly config: OpenRouterChatConfig;
+
+  /**
+   * Workflow serde hooks for `@ai-sdk/workflow` durable step boundaries.
+   * See `serializeOpenRouterModel` for what is (and is not) persisted.
+   */
+  static [WORKFLOW_SERIALIZE](
+    model: OpenRouterChatLanguageModel,
+  ): SerializedOpenRouterModel<OpenRouterChatModelId, OpenRouterChatSettings> {
+    const { modelId, settings, config } = model;
+    return serializeOpenRouterModel({ modelId, settings, config });
+  }
+
+  static [WORKFLOW_DESERIALIZE](
+    data: SerializedOpenRouterModel<
+      OpenRouterChatModelId,
+      OpenRouterChatSettings
+    >,
+  ) {
+    const config = restoreOpenRouterConfig(data.config);
+    return new OpenRouterChatLanguageModel(data.modelId, data.settings, config);
+  }
 
   constructor(
     modelId: OpenRouterChatModelId,
