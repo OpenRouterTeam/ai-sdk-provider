@@ -65,6 +65,33 @@ const { text } = await generateText({
 });
 ```
 
+## Video processing
+
+For a video file part, set `providerOptions.openrouter.processing` to
+`'agentic'` or `'static'`. The provider forwards it as `video_url.processing`.
+Omit the option to keep the upstream default. See the
+[video processing documentation](https://openrouter.ai/docs/guides/overview/multimodal/videos#video-processing-mode)
+for model support.
+
+```ts
+const { text } = await generateText({
+  model: openrouter('google/gemini-3.5-flash-lite'),
+  messages: [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'file',
+          data: new URL('https://example.com/video.mp4'),
+          mediaType: 'video/mp4',
+          providerOptions: { openrouter: { processing: 'agentic' } },
+        },
+      ],
+    },
+  ],
+});
+```
+
 ## Supported models
 
 This list is not a definitive list of models supported by OpenRouter, as it constantly changes as we add new models (and deprecate old ones) to our system. You can find the latest list of models supported by OpenRouter [here](https://openrouter.ai/models).

@@ -42,6 +42,15 @@ function getCacheControl(
     anthropic?.cache_control) as OpenRouterCacheControl | undefined;
 }
 
+function getVideoProcessing(
+  providerOptions: SharedV4ProviderMetadata | undefined,
+): 'agentic' | 'static' | undefined {
+  const processing = providerOptions?.openrouter?.processing;
+  return processing === 'agentic' || processing === 'static'
+    ? processing
+    : undefined;
+}
+
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV4Prompt,
 ): OpenRouterChatCompletionsInput {
@@ -144,10 +153,12 @@ export function convertToOpenRouterChatMessages(
                     part,
                     defaultMediaType: 'video/mp4',
                   });
+                  const processing = getVideoProcessing(part.providerOptions);
                   return {
                     type: 'video_url' as const,
                     video_url: {
                       url,
+                      ...(processing && { processing }),
                     },
                     ...(cacheControl && { cache_control: cacheControl }),
                   };
@@ -456,9 +467,13 @@ function mapToolResultContentParts(
         }
 
         if (part.mediaType?.startsWith('video/')) {
+          const processing = getVideoProcessing(part.providerOptions);
           return {
             type: 'video_url',
-            video_url: { url: dataUrl },
+            video_url: {
+              url: dataUrl,
+              ...(processing && { processing }),
+            },
           };
         }
 
