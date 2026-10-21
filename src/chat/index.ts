@@ -102,23 +102,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     topK,
     tools,
     toolChoice,
-    providerOptions,
   }: LanguageModelV4CallOptions) {
-    const openrouterOptions = providerOptions?.openrouter as
-      | Record<string, unknown>
-      | undefined;
-    const openaiOptions = providerOptions?.openai as
-      | Record<string, unknown>
-      | undefined;
-    const callImageDetail =
-      (openrouterOptions?.imageDetail as string | undefined) ??
-      (openrouterOptions?.image_detail as string | undefined) ??
-      (openrouterOptions?.detail as string | undefined) ??
-      (openaiOptions?.imageDetail as string | undefined) ??
-      (openaiOptions?.image_detail as string | undefined) ??
-      (openaiOptions?.detail as string | undefined) ??
-      this.settings.imageDetail;
-
     const baseArgs = {
       // model id:
       model: this.modelId,
@@ -170,9 +154,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       top_k: topK ?? this.settings.topK,
 
       // messages:
-      messages: convertToOpenRouterChatMessages(prompt, {
-        imageDetail: callImageDetail,
-      }),
+      messages: convertToOpenRouterChatMessages(prompt),
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
@@ -254,14 +236,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
-    // Extract cacheControl and imageDetail/detail so they don't pollute top-level request body
-    const {
-      cacheControl,
-      imageDetail: _imageDetail,
-      image_detail: _imageDetailSnake,
-      detail: _detail,
-      ...restOpenrouterOptions
-    } = openrouterOptions as Record<string, unknown>;
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
@@ -569,14 +546,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
-    // Extract cacheControl and imageDetail/detail so they don't pollute top-level request body
-    const {
-      cacheControl,
-      imageDetail: _imageDetail,
-      image_detail: _imageDetailSnake,
-      detail: _detail,
-      ...restOpenrouterOptions
-    } = openrouterOptions as Record<string, unknown>;
+    // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),

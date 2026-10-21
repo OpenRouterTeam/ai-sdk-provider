@@ -2,4 +2,4 @@
 '@openrouter/ai-sdk-provider': patch
 ---
 
-Support OpenAI image detail parameter in multimodal chat requests
+Forward image part `providerOptions.openrouter.imageDetail` (`'auto' | 'low' | 'high'`) as `image_url.detail`
