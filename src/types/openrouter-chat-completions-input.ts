@@ -44,6 +44,7 @@ export interface ChatCompletionContentPartImage {
   type: 'image_url';
   image_url: {
     url: string;
+    detail?: 'auto' | 'low' | 'high';
   };
   cache_control?: OpenRouterCacheControl;
 }
@@ -90,7 +91,7 @@ export interface ChatCompletionContentPartInputAudio {
 
 export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
-  content?: string | null;
+  content?: string | Array<ChatCompletionContentPartText> | null;
   reasoning?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   annotations?: FileAnnotation[];

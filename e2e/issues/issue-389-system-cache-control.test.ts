@@ -28,7 +28,7 @@ describe('Issue #389: System message cache control with string content', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('anthropic/claude-sonnet-4');
+  const model = openrouter('anthropic/claude-sonnet-4.5');
 
   const longSystemPrompt = `You are a helpful assistant. Here is some context that should be cached:
 

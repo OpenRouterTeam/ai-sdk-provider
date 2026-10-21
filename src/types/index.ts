@@ -5,6 +5,7 @@ export type { LanguageModelV4, LanguageModelV4Prompt };
 export * from './openrouter-embedding-settings';
 export * from './openrouter-evaluation-settings';
 export * from './openrouter-image-settings';
+export * from './openrouter-reranking-settings';
 export * from './openrouter-video-settings';
 
 export type OpenRouterProviderOptions = {
@@ -23,7 +24,14 @@ export type OpenRouterProviderOptions = {
         max_tokens: number;
       }
     | {
-        effort: 'xhigh' | 'high' | 'medium' | 'low' | 'minimal' | 'none';
+        effort:
+          | 'max'
+          | 'xhigh'
+          | 'high'
+          | 'medium'
+          | 'low'
+          | 'minimal'
+          | 'none';
       }
   );
 
@@ -112,4 +120,5 @@ export type OpenRouterUsageAccounting = {
   costDetails?: {
     upstreamInferenceCost: number;
   };
+  isByok?: boolean;
 };

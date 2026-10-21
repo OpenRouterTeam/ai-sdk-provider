@@ -192,6 +192,7 @@ describe('doGenerate', () => {
       prompt_tokens: number;
       total_tokens: number;
       completion_tokens: number;
+      is_byok?: boolean;
     };
     logprobs?: {
       content:
@@ -273,6 +274,26 @@ describe('doGenerate', () => {
         completion_tokens: 5,
       },
     });
+  });
+
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to providerMetadata usage', async (isByok) => {
+    prepareJsonResponse({
+      usage: {
+        prompt_tokens: 10,
+        completion_tokens: 20,
+        total_tokens: 30,
+        is_byok: isByok,
+      },
+    });
+
+    const { providerMetadata } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(providerMetadata?.openrouter?.usage).toMatchObject({ isByok });
   });
 
   it('should extract logprobs', async () => {
@@ -933,6 +954,41 @@ describe('doGenerate', () => {
     expect(tools[1]).not.toHaveProperty('eager_input_streaming');
   });
 
+  it.each([
+    true,
+    false,
+  ])('should forward tool.strict (%s) into function definition', async (strict) => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'test-tool',
+          description: 'Test tool',
+          inputSchema: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+            additionalProperties: false,
+          },
+          strict,
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<{
+      type: string;
+      function: Record<string, unknown>;
+    }>;
+    expect(tools[0]!.function).toHaveProperty('strict', strict);
+  });
+
   it('should pass cache_control from tool providerOptions to request body', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -1527,6 +1583,7 @@ describe('doStream', () => {
       cost_details?: {
         upstream_inference_cost: number;
       };
+      is_byok?: boolean;
     };
     logprobs?: {
       content:
@@ -1748,6 +1805,31 @@ describe('doStream', () => {
       upstreamInferenceCost: 0.0036,
     });
     expect(openrouterUsage?.cost).toBe(0.0042);
+  });
+
+  it.each([
+    true,
+    false,
+  ])('should forward is_byok: %s to finish metadata', async (isByok) => {
+    prepareStreamResponse({
+      content: ['Hello'],
+      usage: {
+        prompt_tokens: 5,
+        total_tokens: 15,
+        completion_tokens: 10,
+        is_byok: isByok,
+      },
+    });
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = (await convertReadableStreamToArray(
+      stream,
+    )) as LanguageModelV4StreamPart[];
+    const finishChunk = elements.find((chunk) => chunk.type === 'finish');
+
+    expect(finishChunk?.providerMetadata?.openrouter?.usage).toMatchObject({
+      isByok,
+    });
   });
 
   it('should prioritize reasoning_details over reasoning when both are present in streaming', async () => {
@@ -1978,6 +2060,40 @@ describe('doStream', () => {
         }),
       }),
     );
+  });
+
+  it('does not add undefined signature/format keys to accumulated reasoning_details (#540)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"think"}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" more"}]},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{"content":"done"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-540","object":"chat.completion.chunk","created":1711357598,"model":"z-ai/glm-5.3-flash","choices":[],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find((el) => el.type === 'finish');
+    const details = (
+      finishEvent?.providerMetadata as
+        | { openrouter?: { reasoning_details?: Record<string, unknown>[] } }
+        | undefined
+    )?.openrouter?.reasoning_details;
+
+    expect(details).toBeDefined();
+    expect(details).toHaveLength(1);
+    const firstDetail = details?.[0];
+    expect(firstDetail).toBeDefined();
+    expect(firstDetail?.text).toBe('think more');
+    expect(Object.hasOwn(firstDetail as object, 'signature')).toBe(false);
+    expect(Object.hasOwn(firstDetail as object, 'format')).toBe(false);
   });
 
   it('should maintain correct reasoning order when content comes after reasoning (issue #7824)', async () => {
@@ -3754,6 +3870,79 @@ describe('doStream', () => {
     expect(reasoningEnd?.providerMetadata).toBeDefined();
   });
 
+  it('should keep separately signed reasoning.text blocks as separate details (issue #582)', async () => {
+    // Two signed thinking blocks in one answer. Both repeat `index: 0`, so
+    // the split must be driven by the signature, not the index.
+    // The real trace in #582 used index 0 then 1; 0/0 is the stricter case.
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"First","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" block.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sig-A"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"Second","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":" block.","index":0,"format":"anthropic-claude-v1"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{` +
+          `"reasoning_details":[{"type":"${ReasoningDetailType.Text}","text":"","index":0,"format":"anthropic-claude-v1","signature":"sig-B"}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-two-blocks","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-sonnet-4.6",` +
+          `"system_fingerprint":"fp_test","choices":[{"index":0,"delta":{},` +
+          `"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is Extract<LanguageModelV4StreamPart, { type: 'finish' }> =>
+        el.type === 'finish',
+    );
+
+    const finishReasoningDetails = (
+      finishEvent?.providerMetadata?.openrouter as {
+        reasoning_details: ReasoningDetailUnion[];
+      }
+    )?.reasoning_details;
+
+    expect(finishReasoningDetails).toEqual([
+      {
+        type: ReasoningDetailType.Text,
+        text: 'First block.',
+        index: 0,
+        format: 'anthropic-claude-v1',
+        signature: 'sig-A',
+      },
+      {
+        type: ReasoningDetailType.Text,
+        text: 'Second block.',
+        index: 0,
+        format: 'anthropic-claude-v1',
+        signature: 'sig-B',
+      },
+    ]);
+  });
+
   it('should accumulate multiple late reasoning_details after text without creating duplicate blocks', async () => {
     // Edge case: API sends MULTIPLE reasoning_details chunks after text
     // (e.g. encrypted blob + signature-only + another text fragment).
@@ -4882,13 +5071,55 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // The tool-call should have coerced the invalid JSON to '{}'
+    // The tool-call should forward the invalid JSON as streamed so the AI
+    // SDK can report it or run experimental_repairToolCall
     const toolCall = toolEvents.find((e) => e.type === 'tool-call');
     expect(toolCall).toMatchObject({
       type: 'tool-call',
       toolCallId: 'call_flush_001',
       toolName: 'search',
-      input: '{}',
+      input: '{"q"',
+    });
+  });
+
+  it('should forward complete-but-invalid tool arguments to tool-call instead of coercing to {}', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // Tool call starts with empty arguments
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_inv_001","type":"function","function":{"name":"update_field","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Arguments stream in two chunks forming a complete object plus a stray "}"
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"{\\"page_index\\":0,"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{` +
+          `"tool_calls":[{"index":0,"function":{"arguments":"\\"field_id\\":\\"q1\\"}}"}}]},"logprobs":null,"finish_reason":null}]}\n\n`,
+        // Stream finishes normally with tool_calls
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+        `data: {"id":"chatcmpl-invalid","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"system_fingerprint":"fp_inv","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    // The tool-call must carry the arguments as streamed — including the
+    // stray trailing "}" — so the AI SDK can report InvalidToolInputError or
+    // run experimental_repairToolCall instead of seeing a silent '{}'.
+    const toolCall = elements.find((el) => el.type === 'tool-call');
+    expect(toolCall).toMatchObject({
+      type: 'tool-call',
+      toolCallId: 'call_inv_001',
+      toolName: 'update_field',
+      input: '{"page_index":0,"field_id":"q1"}}',
     });
   });
 
@@ -5225,6 +5456,82 @@ describe('includeRawChunks', () => {
     expect(toolInputDeltas.at(0)).toMatchObject({ delta: '{"city":"Berlin"}' });
   });
 
+  describe('streamed tool-call argument completion (#581)', () => {
+    const toolCallChunks = (argumentDeltas: string[]) => [
+      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+        `"tool_calls":[{"index":0,"id":"call_581","type":"function","function":{"name":"write","arguments":""}}]},` +
+        `"finish_reason":null}]}\n\n`,
+      ...argumentDeltas.map(
+        (delta) =>
+          `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(delta)}}}]},` +
+          `"finish_reason":null}]}\n\n`,
+      ),
+      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    it('should emit the tool call as soon as the arguments close, ignoring braces in strings', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: toolCallChunks(['{"text":"a}', '\\"]{', '"', '}', ' ']),
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+
+      expect(toolEvents.map((el) => el.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+        'tool-input-delta',
+      ]);
+      expect(toolEvents.find((el) => el.type === 'tool-call')).toMatchObject({
+        toolCallId: 'call_581',
+        input: '{"text":"a}\\"]{"}',
+      });
+    });
+
+    it('should not re-parse the accumulated arguments on every delta', async () => {
+      const deltaCount = 2000;
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: toolCallChunks([
+          '{"text":"',
+          ...Array.from({ length: deltaCount }, () => 'abcdefgh'),
+          '"}',
+        ]),
+      };
+
+      const input = `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`;
+      const parseSpy = vi.spyOn(JSON, 'parse');
+      try {
+        const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+        const elements = await convertReadableStreamToArray(stream);
+
+        expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
+          input,
+        });
+        // isParsableJson parses the accumulated arguments with JSON.parse.
+        // Exactly one such parse, for the complete arguments, shows the
+        // filter matches that path and that no partial prefix was parsed.
+        const argumentParses = parseSpy.mock.calls
+          .map(([text]) => text)
+          .filter((text) => text.startsWith('{"text"'));
+        expect(argumentParses).toStrictEqual([input]);
+      } finally {
+        parseSpy.mockRestore();
+      }
+    });
+  });
+
   it('should accumulate correct tool-call input across many chunks (5+ deltas)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
@@ -5386,12 +5693,12 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Both should have coerced input to '{}'
+    // Both should forward the invalid JSON as streamed
     expect(tool0Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"x',
     });
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"y',
     });
   });
 
@@ -5477,9 +5784,9 @@ describe('includeRawChunks', () => {
       'tool-input-end',
       'tool-call',
     ]);
-    // Slow tool had invalid JSON → coerced to '{}'
+    // Slow tool's invalid JSON is forwarded as streamed
     expect(tool1Events.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"b"',
     });
   });
 
@@ -6054,9 +6361,9 @@ describe('includeRawChunks', () => {
       'tool-call',
     ]);
 
-    // Invalid JSON coerced to '{}'
+    // Invalid JSON is forwarded as streamed
     expect(toolEvents.find((e) => e.type === 'tool-call')).toMatchObject({
-      input: '{}',
+      input: '{"z"',
     });
 
     // Finish reason should be overridden to tool-calls
@@ -6181,5 +6488,46 @@ describe('includeRawChunks', () => {
     // Raw chunk is emitted before error handling, useful for debugging
     expect(rawChunks.length).toBe(1);
     expect(errorChunks.length).toBe(1);
+  });
+});
+
+describe('reasoning call option', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'chatcmpl-test',
+          object: 'chat.completion',
+          created: 1711115037,
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello!' },
+              finish_reason: 'stop',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  it('maps call-level reasoning to reasoning.effort, keeping model-level exclude', async () => {
+    await provider
+      .chat('anthropic/claude-3.5-sonnet', {
+        reasoning: { effort: 'high', exclude: true },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'medium' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      reasoning: { exclude: true, effort: 'medium' },
+    });
   });
 });
