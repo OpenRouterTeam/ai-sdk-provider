@@ -220,6 +220,9 @@ export function convertToOpenRouterChatMessages(
       case 'assistant': {
         let text = '';
         let reasoning = '';
+        // Text parts are concatenated into a single string, so part-level
+        // cache control is carried to the message root.
+        let textPartCacheControl: OpenRouterCacheControl | undefined;
         const toolCalls: Array<{
           id: string;
           type: 'function';
@@ -230,6 +233,8 @@ export function convertToOpenRouterChatMessages(
           switch (part.type) {
             case 'text': {
               text += part.text;
+              textPartCacheControl =
+                getCacheControl(part.providerOptions) ?? textPartCacheControl;
               break;
             }
             case 'tool-call': {
@@ -375,7 +380,8 @@ export function convertToOpenRouterChatMessages(
           reasoning: effectiveReasoning,
           reasoning_details: finalReasoningDetails,
           annotations: messageAnnotations,
-          cache_control: getCacheControl(providerOptions),
+          cache_control:
+            getCacheControl(providerOptions) ?? textPartCacheControl,
         });
 
         break;

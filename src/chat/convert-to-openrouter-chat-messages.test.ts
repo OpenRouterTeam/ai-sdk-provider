@@ -831,6 +831,61 @@ describe('cache control', () => {
     ]);
   });
 
+  it('should pass cache control from assistant text part provider metadata', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            providerOptions: {
+              openrouter: {
+                cacheControl: { type: 'ephemeral', ttl: '1h' },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Assistant response',
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ]);
+  });
+
+  it('should prefer assistant message-level cache control over part-level', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            providerOptions: {
+              openrouter: { cacheControl: { type: 'ephemeral', ttl: '5m' } },
+            },
+          },
+        ],
+        providerOptions: {
+          openrouter: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: 'Assistant response',
+        cache_control: { type: 'ephemeral', ttl: '1h' },
+      },
+    ]);
+  });
+
   it('should pass cache control from tool message provider metadata', () => {
     const result = convertToOpenRouterChatMessages([
       {
