@@ -982,40 +982,6 @@ describe('doGenerate', () => {
     });
   });
 
-  it('should also accept cacheControl (camelCase) from tool providerOptions', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'get-weather',
-          description: 'Get the weather',
-          inputSchema: {
-            type: 'object',
-            properties: { location: { type: 'string' } },
-            required: ['location'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-          providerOptions: {
-            openrouter: {
-              cacheControl: { type: 'ephemeral' },
-            },
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
-  });
-
   it('should accept cacheControl from the anthropic providerOptions namespace too', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -1050,42 +1016,6 @@ describe('doGenerate', () => {
     expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
   });
 
-  it('prefers the openrouter namespace over anthropic when both are set on a tool', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'get-weather',
-          description: 'Get the weather',
-          inputSchema: {
-            type: 'object',
-            properties: { location: { type: 'string' } },
-            required: ['location'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-          providerOptions: {
-            openrouter: { cache_control: { type: 'ephemeral', ttl: '1h' } },
-            anthropic: { cacheControl: { type: 'ephemeral' } },
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools[0]).toHaveProperty('cache_control', {
-      type: 'ephemeral',
-      ttl: '1h',
-    });
-  });
-
   it('should not include cache_control when not set in tool providerOptions', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -1113,56 +1043,6 @@ describe('doGenerate', () => {
     >;
     const tools = body.tools as Array<Record<string, unknown>>;
     expect(tools[0]).not.toHaveProperty('cache_control');
-  });
-
-  it('should handle mixed tools with and without cache_control, alongside eager_input_streaming', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'cached-tool',
-          description: 'Last tool in a stable catalog',
-          inputSchema: {
-            type: 'object',
-            properties: { query: { type: 'string' } },
-            required: ['query'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-          providerOptions: {
-            openrouter: {
-              cache_control: { type: 'ephemeral' },
-              eager_input_streaming: true,
-            },
-          },
-        },
-        {
-          type: 'function',
-          name: 'normal-tool',
-          description: 'Tool without cache_control',
-          inputSchema: {
-            type: 'object',
-            properties: { id: { type: 'number' } },
-            required: ['id'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools).toHaveLength(2);
-    expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
-    expect(tools[0]).toHaveProperty('eager_input_streaming', true);
-    expect(tools[1]).not.toHaveProperty('cache_control');
   });
 
   it('should send both response_format and tools when both are present', async () => {

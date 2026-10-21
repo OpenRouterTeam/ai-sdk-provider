@@ -29,7 +29,7 @@ import { isUrl } from './is-url';
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral' };
 
-function getCacheControl(
+export function getCacheControl(
   providerMetadata: SharedV4ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;

@@ -43,7 +43,10 @@ import {
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
-import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
+import {
+  convertToOpenRouterChatMessages,
+  getCacheControl,
+} from './convert-to-openrouter-chat-messages';
 import { getBase64FromDataUrl, getMediaType } from './file-url-utils';
 import { getChatCompletionToolChoice } from './get-tool-choice';
 import {
@@ -185,23 +188,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
           const openrouterOptions = tool.providerOptions?.openrouter as
             | Record<string, unknown>
             | undefined;
-          const anthropicOptions = tool.providerOptions?.anthropic as
-            | Record<string, unknown>
-            | undefined;
           const eagerInputStreaming = openrouterOptions?.eager_input_streaming;
-          // Resolve a tool-level cache_control from either the `openrouter` or
-          // `anthropic` providerOptions namespace, in both snake_case and
-          // camelCase. This mirrors how `convertToOpenRouterChatMessages`'
-          // `getCacheControl` already resolves *message*-level cache_control
-          // from both namespaces, so tools and messages behave consistently —
-          // callers that stamp `anthropic.cacheControl` on a tool (matching the
-          // Anthropic-native shape) get the same wire result as
-          // `openrouter.cache_control`.
-          const cacheControl =
-            openrouterOptions?.cache_control ??
-            openrouterOptions?.cacheControl ??
-            anthropicOptions?.cacheControl ??
-            anthropicOptions?.cache_control;
+          const cacheControl = getCacheControl(tool.providerOptions);
 
           mappedTools.push({
             type: 'function' as const,
