@@ -97,7 +97,8 @@ Creates an OpenRouter completion model for text generation.
   ): OpenRouterEmbeddingModel;
 
   /**
-Creates an OpenRouter text embedding model. (AI SDK v5)
+Creates an OpenRouter text embedding model. Alias of `embeddingModel`
+(AI SDK v5 name, deprecated since AI SDK v6 in favour of `embeddingModel`).
    */
   textEmbeddingModel(
     modelId: OpenRouterEmbeddingModelId,
