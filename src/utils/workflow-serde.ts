@@ -78,7 +78,9 @@ export function serializeOpenRouterModel<MODEL_ID extends string, SETTINGS>({
     config: {
       provider: config.provider,
       compatibility: config.compatibility,
-      // `url` is a closure, so persist the resolved base URL instead.
+      // `url` is a closure, so persist the resolved base URL instead. This
+      // assumes every url builder returns `${baseURL}${path}`, which
+      // restoreOpenRouterConfig relies on to rebuild it.
       baseURL: config.url({ path: '', modelId }),
       headers,
       ...(config.extraBody !== undefined && { extraBody: config.extraBody }),
