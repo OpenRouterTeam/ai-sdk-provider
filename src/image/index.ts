@@ -95,39 +95,18 @@ export class OpenRouterImageModel implements ImageModelV4 {
     const { provider: runtimeProvider, ...restOpenrouterOptions } =
       openrouterOptions;
 
-    const configExtraProvider = this.config.extraBody?.provider as
-      | Record<string, unknown>
-      | undefined;
-    const settingsExtraProvider = this.settings.extraBody?.provider as
-      | Record<string, unknown>
-      | undefined;
-    const configuredProvider = this.settings.provider;
-
-    const hasProvider =
-      configuredProvider !== undefined ||
-      runtimeProvider !== undefined ||
-      settingsExtraProvider !== undefined ||
-      configExtraProvider !== undefined;
-
-    const provider = hasProvider
-      ? {
-          ...(typeof configExtraProvider === 'object' &&
-          configExtraProvider !== null
-            ? configExtraProvider
-            : {}),
-          ...(typeof settingsExtraProvider === 'object' &&
-          settingsExtraProvider !== null
-            ? settingsExtraProvider
-            : {}),
-          ...(typeof configuredProvider === 'object' &&
-          configuredProvider !== null
-            ? configuredProvider
-            : {}),
-          ...(typeof runtimeProvider === 'object' && runtimeProvider !== null
-            ? (runtimeProvider as Record<string, unknown>)
-            : {}),
-        }
-      : undefined;
+    // Merge provider routing preferences instead of replacing them, keeping
+    // the same precedence as the rest of the body (later wins).
+    const providerSources = [
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    ].filter((p) => p != null && typeof p === 'object');
+    const provider =
+      providerSources.length > 0
+        ? Object.assign({}, ...providerSources)
+        : undefined;
 
     const body: Record<string, unknown> = {
       model: this.modelId,

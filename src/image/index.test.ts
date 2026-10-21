@@ -910,5 +910,49 @@ describe('OpenRouterImageModel', () => {
         allow_fallbacks: true,
       });
     });
+
+    it('should let extraBody.provider override settings.provider before runtime options', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: {
+          order: ['google'],
+          sort: 'price',
+          allow_fallbacks: true,
+        },
+        extraBody: {
+          provider: {
+            order: ['openai'],
+            sort: 'latency',
+          },
+        },
+      });
+
+      await model.doGenerate({
+        prompt: 'A cat',
+        n: 1,
+        size: undefined,
+        aspectRatio: undefined,
+        seed: undefined,
+        files: undefined,
+        mask: undefined,
+        providerOptions: {
+          openrouter: {
+            provider: {
+              sort: 'throughput',
+            },
+          },
+        },
+      });
+
+      expect(mock.capturedBody?.provider).toEqual({
+        order: ['openai'],
+        sort: 'throughput',
+        allow_fallbacks: true,
+      });
+    });
   });
 });
