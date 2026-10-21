@@ -3,7 +3,7 @@
  * https://github.com/OpenRouterTeam/ai-sdk-provider/issues/194
  *
  * Reported error: "AI_APICallError: Invalid JSON response"
- * Model: x-ai/grok-4-fast
+ * Model: x-ai/grok-4.20
  *
  * This test verifies that Grok 4 Fast works correctly with the SDK.
  */
@@ -22,7 +22,7 @@ describe('Issue #194: Grok 4 Fast Invalid JSON response', () => {
     baseUrl: `${process.env.OPENROUTER_API_BASE}/api/v1`,
   });
 
-  const model = openrouter('x-ai/grok-4-fast');
+  const model = openrouter('x-ai/grok-4.20');
 
   it('should return valid JSON response with generateText', async () => {
     const response = await generateText({

@@ -28,7 +28,7 @@ describe('Issue #341: Cache control only applies to last text part', () => {
   });
 
   // Use Anthropic model which supports cache control
-  const model = openrouter('anthropic/claude-3.5-haiku');
+  const model = openrouter('anthropic/claude-haiku-4.5');
 
   // Long system prompt to meet caching threshold
   const longSystemPrompt = `You are a helpful assistant. Here is some context that should be cached:
