@@ -7,6 +7,7 @@ import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
+import { InvalidResponseDataError } from '@ai-sdk/provider';
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
@@ -2483,6 +2484,109 @@ describe('doStream', () => {
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
+  });
+
+  it.each([
+    ['empty', ''],
+    ['partial', '{"scope":'],
+  ])('should report an error when the stream ends before %s tool call arguments are complete (#558)', async (_label, toolArguments) => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // The stream ends after the tool call starts: no finish_reason, no usage, no [DONE].
+        `data: {"id":"chatcmpl-eof","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"inspect","arguments":${JSON.stringify(toolArguments)}}}]},` +
+          `"finish_reason":null}]}\n\n`,
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    expect(elements.some((el) => el.type === 'tool-call')).toBe(false);
+    const errorEvent = elements.find(
+      (el): el is LanguageModelV4StreamPart & { type: 'error' } =>
+        el.type === 'error',
+    );
+    expect(InvalidResponseDataError.isInstance(errorEvent?.error)).toBe(true);
+    expect((errorEvent?.error as InvalidResponseDataError).data).toStrictEqual([
+      {
+        id: 'call-1',
+        name: 'inspect',
+        arguments: toolArguments,
+      },
+    ]);
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'error',
+      raw: undefined,
+    });
+  });
+
+  it('should not report a no-argument tool call as truncated when usage was received (#558)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        // No finish_reason, but the final usage chunk shows the stream completed.
+        `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"list_items","arguments":""}}]},` +
+          `"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    expect(elements.some((el) => el.type === 'error')).toBe(false);
+    expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
+      toolCallId: 'call-1',
+      toolName: 'list_items',
+      input: '{}',
+    });
+  });
+
+  it('should not report a second error for incomplete tool call arguments after a stream error (#558)', async () => {
+    const encoder = new TextEncoder();
+    let pulls = 0;
+    const errorProvider = createOpenRouter({
+      apiKey: 'test-api-key',
+      fetch: async () =>
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              if (pulls++ > 0) {
+                controller.error(new Error('connection reset'));
+                return;
+              }
+              controller.enqueue(
+                encoder.encode(
+                  `data: {"id":"chatcmpl-err","object":"chat.completion.chunk","created":1711357598,"model":"test/model",` +
+                    `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call-1","type":"function","function":{"name":"inspect","arguments":"{\\"scope\\":"}}]},` +
+                    `"finish_reason":null}]}\n\n`,
+                ),
+              );
+            },
+          }),
+          { headers: { 'content-type': 'text/event-stream' } },
+        ),
+    });
+
+    const { stream } = await errorProvider
+      .chat('test/model')
+      .doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const errorEvents = elements.filter((el) => el.type === 'error');
+    expect(errorEvents).toHaveLength(1);
+    expect(InvalidResponseDataError.isInstance(errorEvents[0]?.error)).toBe(
+      false,
+    );
   });
 
   it('should keep finishReason as other when finish_reason is null and no tool calls are present in streaming (#166)', async () => {
