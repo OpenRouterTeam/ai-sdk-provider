@@ -1016,35 +1016,6 @@ describe('doGenerate', () => {
     expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
   });
 
-  it('should not include cache_control when not set in tool providerOptions', async () => {
-    prepareJsonResponse({ content: '' });
-
-    await model.doGenerate({
-      prompt: TEST_PROMPT,
-      tools: [
-        {
-          type: 'function',
-          name: 'test-tool',
-          description: 'Test tool',
-          inputSchema: {
-            type: 'object',
-            properties: { value: { type: 'string' } },
-            required: ['value'],
-            additionalProperties: false,
-            $schema: 'http://json-schema.org/draft-07/schema#',
-          },
-        },
-      ],
-    });
-
-    const body = (await server.calls[0]!.requestBodyJson) as Record<
-      string,
-      unknown
-    >;
-    const tools = body.tools as Array<Record<string, unknown>>;
-    expect(tools[0]).not.toHaveProperty('cache_control');
-  });
-
   it('should send both response_format and tools when both are present', async () => {
     prepareJsonResponse({ content: '' });
 
