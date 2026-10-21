@@ -3,6 +3,7 @@ import type {
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
 
+import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
 import { generateText, streamText } from 'ai';
@@ -432,6 +433,40 @@ describe('doGenerate', () => {
     });
     expect(call.requestUserAgent).toContain('ai-sdk/openrouter/0.0.0-test');
   });
+
+  it('should accept auto and none tool choices without tools', async () => {
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    for (const type of ['auto', 'none'] as const) {
+      const { content } = await model.doGenerate({
+        prompt: TEST_PROMPT,
+        toolChoice: { type },
+      });
+      expect(content).toStrictEqual([{ type: 'text', text: 'Hello, World!' }]);
+    }
+  });
+
+  it('should reject tool choices that require a tool call', async () => {
+    for (const toolChoice of [
+      { type: 'required' },
+      { type: 'tool', toolName: 'test' },
+    ] as const) {
+      await expect(
+        model.doGenerate({ prompt: TEST_PROMPT, toolChoice }),
+      ).rejects.toThrow(UnsupportedFunctionalityError);
+    }
+    expect(server.calls).toHaveLength(0);
+  });
+
+  it('should work with generateText from the AI SDK', async () => {
+    // generateText always passes toolChoice: { type: 'auto' }, even without
+    // tools, so the model must not reject it.
+    prepareJsonResponse({ content: 'Hello, World!' });
+
+    const result = await generateText({ model, prompt: 'Hello' });
+
+    expect(result.text).toBe('Hello, World!');
+  });
 });
 
 describe('doStream', () => {
@@ -857,6 +892,16 @@ describe('doStream', () => {
       'custom_value',
     );
   });
+
+  it('should work with streamText from the AI SDK', async () => {
+    // Without text-start/text-end the AI SDK drops every delta and the
+    // resulting text is empty.
+    prepareStreamResponse({ content: ['Hello', ', World!'] });
+
+    const result = streamText({ model, prompt: 'Hello' });
+
+    expect(await result.text).toBe('Hello, World!');
+  });
 });
 
 describe('includeRawChunks', () => {
@@ -979,76 +1024,5 @@ describe('includeRawChunks', () => {
     // Raw chunk is emitted before error handling, useful for debugging
     expect(rawChunks.length).toBe(1);
     expect(errorChunks.length).toBe(1);
-  });
-});
-
-describe('AI SDK v7 usage (generateText/streamText)', () => {
-  const server = createTestServer({
-    'https://openrouter.ai/api/v1/completions': {
-      response: { type: 'json-value', body: {} },
-    },
-  });
-
-  beforeAll(() => server.server.start());
-  afterEach(() => server.server.reset());
-  afterAll(() => server.server.stop());
-
-  it('should generate text without tools despite the default toolChoice', async () => {
-    // The AI SDK always sends toolChoice: { type: 'auto' }, even when no
-    // tools are configured. The completion model must not reject it.
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
-      type: 'json-value',
-      body: {
-        id: 'cmpl-96cAM1v77r4jXa4qb2NSmRREV5oWB',
-        object: 'text_completion',
-        created: 1711363706,
-        model: 'openai/gpt-3.5-turbo-instruct',
-        choices: [
-          {
-            text: 'Hello, World!',
-            index: 0,
-            logprobs: null,
-            finish_reason: 'stop',
-          },
-        ],
-        usage: { prompt_tokens: 4, total_tokens: 34, completion_tokens: 30 },
-      },
-    };
-
-    const result = await generateText({
-      model,
-      prompt: 'Hello',
-    });
-
-    expect(result.text).toBe('Hello, World!');
-  });
-
-  it('should stream text with start/delta/end lifecycle events', async () => {
-    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
-      type: 'stream-chunks',
-      chunks: [
-        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"choices":[{"text":"Hello","index":0,"logprobs":null,"finish_reason":null}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
-        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"choices":[{"text":", World!","index":0,"logprobs":null,"finish_reason":"stop"}],"model":"openai/gpt-3.5-turbo-instruct"}\n\n`,
-        `data: {"id":"cmpl-test","object":"text_completion","created":1711363440,"model":"openai/gpt-3.5-turbo-instruct","usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15},"choices":[]}\n\n`,
-        'data: [DONE]\n\n',
-      ],
-    };
-
-    const result = streamText({
-      model,
-      prompt: 'Hello',
-    });
-
-    const partTypes: string[] = [];
-    for await (const part of result.fullStream) {
-      partTypes.push(part.type);
-    }
-
-    // Without text-start/text-end the AI SDK drops every delta and the
-    // resulting text is empty.
-    expect(partTypes).toContain('text-start');
-    expect(partTypes).toContain('text-delta');
-    expect(partTypes).toContain('text-end');
-    expect(await result.text).toBe('Hello, World!');
   });
 });

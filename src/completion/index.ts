@@ -100,10 +100,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       });
     }
 
-    // The AI SDK always sends a default toolChoice of { type: 'auto' },
-    // even when no tools are provided. Only reject tool choices that
-    // actually request tool usage, since completions don't support tools.
-    if (toolChoice && toolChoice.type !== 'auto') {
+    // The AI SDK always sends a toolChoice (default { type: 'auto' }), even
+    // without tools. 'auto' and 'none' are satisfiable without tools; only
+    // reject choices that require a tool call, which completions can't make.
+    if (toolChoice?.type === 'required' || toolChoice?.type === 'tool') {
       throw new UnsupportedFunctionalityError({
         functionality: 'toolChoice',
       });
@@ -318,7 +318,6 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Track raw usage from the API response for usage.raw
     let rawUsage: JSONObject | undefined;
-    let textStarted = false;
     let textId: string | undefined;
     let openrouterResponseId: string | undefined;
     const warnings: Array<SharedV4Warning> = [];
@@ -409,18 +408,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
             }
 
             if (choice?.text != null) {
-              if (!textStarted) {
+              if (textId === undefined) {
                 textId = openrouterResponseId || generateId();
                 controller.enqueue({
                   type: 'text-start',
                   id: textId,
                 });
-                textStarted = true;
               }
               controller.enqueue({
                 type: 'text-delta',
                 delta: choice.text,
-                id: textId || generateId(),
+                id: textId,
               });
             }
           },
@@ -431,10 +429,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
               controller.enqueue({ type: 'error', error: streamError });
             }
 
-            if (textStarted) {
+            if (textId !== undefined) {
               controller.enqueue({
                 type: 'text-end',
-                id: textId || generateId(),
+                id: textId,
               });
             }
 
