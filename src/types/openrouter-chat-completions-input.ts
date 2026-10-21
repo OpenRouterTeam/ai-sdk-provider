@@ -61,6 +61,7 @@ export interface ChatCompletionContentPartVideo {
   type: 'video_url';
   video_url: {
     url: string;
+    processing?: 'agentic' | 'static';
   };
   cache_control?: OpenRouterCacheControl;
 }

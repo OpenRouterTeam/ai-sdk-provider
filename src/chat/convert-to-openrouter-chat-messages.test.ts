@@ -352,6 +352,47 @@ describe('user messages', () => {
     ]);
   });
 
+  it.each([
+    { videoProcessing: 'agentic', expected: 'agentic' },
+    { videoProcessing: 'static', expected: 'static' },
+    { videoProcessing: 'dynamic', expected: undefined },
+  ])('should map videoProcessing $videoProcessing to video_url.processing', ({
+    videoProcessing,
+    expected,
+  }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/video.mp4'),
+            },
+            mediaType: 'video/mp4',
+            providerOptions: { openrouter: { videoProcessing } },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'video_url',
+            video_url: {
+              url: 'https://example.com/video.mp4',
+              ...(expected && { processing: expected }),
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('should convert base64 video to video_url content part', () => {
     const result = convertToOpenRouterChatMessages([
       {
@@ -2960,6 +3001,44 @@ describe('multimodal tool result content (issue #181)', () => {
       {
         type: 'video_url',
         video_url: { url: 'data:video/mp4;base64,dmlkZW9fZGF0YQ==' },
+      },
+    ]);
+  });
+
+  it('should forward providerOptions.openrouter.videoProcessing on tool result videos', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-video',
+            toolName: 'video_tool',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file',
+                  data: { type: 'data', data: 'dmlkZW9fZGF0YQ==' },
+                  mediaType: 'video/mp4',
+                  providerOptions: {
+                    openrouter: { videoProcessing: 'static' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'video_url',
+        video_url: {
+          url: 'data:video/mp4;base64,dmlkZW9fZGF0YQ==',
+          processing: 'static',
+        },
       },
     ]);
   });
