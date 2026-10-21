@@ -1,8 +1,9 @@
-import type { Experimental_EvaluationModelV4 } from '@ai-sdk/provider';
 import type {
-  OpenRouterDecisionStatePart,
-  OpenRouterEvaluationCallOptions,
-} from './index';
+  Experimental_EvaluationModelV4,
+  JSONValue,
+  LanguageModelV4FilePart,
+  LanguageModelV4TextPart,
+} from '@ai-sdk/provider';
 import type { EvaluationModelV4 } from './types';
 
 import {
@@ -519,6 +520,10 @@ describe('OpenRouterEvaluationModel', () => {
 
   // `ai` 7.0.133+ normalizes state into parts before calling the provider.
   describe('state parts', () => {
+    type State = Parameters<
+      OpenRouterEvaluationModel['doEvaluate']
+    >[0]['state'];
+
     async function sentState(state: unknown): Promise<unknown> {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
@@ -526,16 +531,21 @@ describe('OpenRouterEvaluationModel', () => {
         fetch: mockFetch,
       });
       await provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
-        state: state as OpenRouterEvaluationCallOptions['state'],
+        state: state as State,
         questions: QUESTIONS,
       });
       return parseBody(calls[0]?.init).state;
     }
 
     it('should accept the state parts newer AI SDK releases pass', () => {
-      expectTypeOf<readonly OpenRouterDecisionStatePart[]>().toExtend<
-        OpenRouterEvaluationCallOptions['state']
-      >();
+      // Mirrors `DecisionModelV4State` from newer `@ai-sdk/provider` releases.
+      expectTypeOf<
+        readonly (
+          | LanguageModelV4TextPart
+          | LanguageModelV4FilePart
+          | { type: 'json'; value: JSONValue }
+        )[]
+      >().toExtend<State>();
     });
 
     it('should send the value of a single json part as the state', async () => {
@@ -595,9 +605,14 @@ describe('OpenRouterEvaluationModel', () => {
             data: { type: 'data', data: 'aGVsbG8=' },
           },
           {
+            // The SDK downloads URLs (supportedUrls is empty), so image
+            // state usually arrives as bytes.
             type: 'file',
             mediaType: 'image/jpeg',
-            data: { type: 'url', url: new URL('https://example.com/a.jpg') },
+            data: {
+              type: 'data',
+              data: new Uint8Array([104, 101, 108, 108, 111]),
+            },
           },
         ]),
       ).toEqual([
@@ -608,7 +623,7 @@ describe('OpenRouterEvaluationModel', () => {
         },
         {
           type: 'image_url',
-          image_url: { url: 'https://example.com/a.jpg' },
+          image_url: { url: 'data:image/jpeg;base64,aGVsbG8=' },
         },
       ]);
     });
@@ -618,14 +633,14 @@ describe('OpenRouterEvaluationModel', () => {
         await sentState([
           {
             type: 'file',
-            mediaType: 'image',
+            mediaType: 'image/png',
             data: { type: 'data', data: 'aGVsbG8=' },
           },
         ]),
       ).toEqual([
         {
           type: 'image_url',
-          image_url: { url: 'data:image;base64,aGVsbG8=' },
+          image_url: { url: 'data:image/png;base64,aGVsbG8=' },
         },
       ]);
     });
@@ -637,18 +652,21 @@ describe('OpenRouterEvaluationModel', () => {
         fetch: mockFetch,
       });
 
-      await expect(
-        provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
-          state: [
-            {
-              type: 'file',
-              mediaType: 'application/pdf',
-              data: { type: 'data', data: 'aGVsbG8=' },
-            },
-          ],
-          questions: QUESTIONS,
-        }),
-      ).rejects.toBeInstanceOf(UnsupportedFunctionalityError);
+      // A bare `image` media type has no subtype to build a data URL from.
+      for (const mediaType of ['application/pdf', 'image']) {
+        await expect(
+          provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+            state: [
+              {
+                type: 'file',
+                mediaType,
+                data: { type: 'data', data: 'aGVsbG8=' },
+              },
+            ],
+            questions: QUESTIONS,
+          }),
+        ).rejects.toBeInstanceOf(UnsupportedFunctionalityError);
+      }
       expect(calls).toHaveLength(0);
     });
   });

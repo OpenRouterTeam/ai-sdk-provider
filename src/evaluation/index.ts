@@ -1,4 +1,8 @@
-import type { JSONValue, LanguageModelV4FilePart } from '@ai-sdk/provider';
+import type {
+  JSONValue,
+  LanguageModelV4FilePart,
+  LanguageModelV4TextPart,
+} from '@ai-sdk/provider';
 import type {
   OpenRouterEvaluationModelId,
   OpenRouterEvaluationSettings,
@@ -47,22 +51,17 @@ type OpenRouterEvaluationConfig = {
 /**
  * A part of the state as `ai` 7.0.133 and later pass it: the SDK normalizes
  * every state into an ordered array of these before calling a provider.
- * Declared structurally so the model type-checks against any `ai@7` release.
  */
-export type OpenRouterDecisionStatePart =
-  | { readonly type: 'text'; readonly text: string }
-  | { readonly type: 'json'; readonly value: JSONValue }
-  | {
-      readonly type: 'file';
-      readonly mediaType: string;
-      readonly data: unknown;
-    };
+type OpenRouterDecisionStatePart =
+  | LanguageModelV4TextPart
+  | LanguageModelV4FilePart
+  | { type: 'json'; value: JSONValue };
 
 /**
  * `doEvaluate` options across `ai@7` releases: the raw state older releases
  * pass through, or the state parts newer ones produce.
  */
-export type OpenRouterEvaluationCallOptions = Omit<
+type OpenRouterEvaluationCallOptions = Omit<
   EvaluationModelV4CallOptions,
   'state'
 > & {
@@ -196,20 +195,12 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
 }
 
 function isStatePart(value: unknown): value is OpenRouterDecisionStatePart {
-  if (typeof value !== 'object' || value === null) {
+  if (typeof value !== 'object' || value === null || !('type' in value)) {
     return false;
   }
-  const part = value as Record<string, unknown>;
-  switch (part.type) {
-    case 'text':
-      return typeof part.text === 'string';
-    case 'json':
-      return 'value' in part;
-    case 'file':
-      return 'data' in part && 'mediaType' in part;
-    default:
-      return false;
-  }
+  return (
+    value.type === 'text' || value.type === 'json' || value.type === 'file'
+  );
 }
 
 /**
@@ -241,7 +232,7 @@ function toDecisionsState(
       case 'json':
         return part.value;
       case 'file':
-        return toImageUrlEntry(part as LanguageModelV4FilePart);
+        return toImageUrlEntry(part);
       default:
         return part satisfies never;
     }
@@ -260,7 +251,7 @@ function toDecisionsState(
 
 /** The Decisions API takes images in state as chat-style `image_url` entries. */
 function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
-  if (part.mediaType.split('/')[0] !== 'image') {
+  if (!part.mediaType.startsWith('image/')) {
     throw new UnsupportedFunctionalityError({
       functionality: `${part.mediaType} files in decision state`,
     });
@@ -268,7 +259,8 @@ function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
   return {
     type: 'image_url',
     image_url: {
-      url: getFileUrl({ part, defaultMediaType: 'image/jpeg' }),
+      // mediaType is always set on file parts, so no default ever applies.
+      url: getFileUrl({ part, defaultMediaType: part.mediaType }),
     },
   };
 }
