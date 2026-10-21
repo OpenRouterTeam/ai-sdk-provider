@@ -3674,6 +3674,7 @@ describe('doStream', () => {
   it('should keep separately signed reasoning.text blocks as separate details (issue #582)', async () => {
     // Two signed thinking blocks in one answer. Both repeat `index: 0`, so
     // the split must be driven by the signature, not the index.
+    // The real trace in #582 used index 0 then 1; 0/0 is the stricter case.
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
