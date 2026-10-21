@@ -793,10 +793,15 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     lastDetail.text =
                       (lastDetail.text || '') + (detail.text || '');
 
-                    lastDetail.signature =
-                      lastDetail.signature || detail.signature;
+                    // Only copy defined values: assigning `undefined` keys
+                    // breaks AI SDK prompt validation on replay (#540).
+                    if (!lastDetail.signature && detail.signature) {
+                      lastDetail.signature = detail.signature;
+                    }
 
-                    lastDetail.format = lastDetail.format || detail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
+                    }
                   } else {
                     // Start a new text detail
                     accumulatedReasoningDetails.push({ ...detail });
@@ -807,7 +812,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     lastDetail.summary =
                       (lastDetail.summary || '') + (detail.summary || '');
 
-                    lastDetail.format = lastDetail.format || detail.format;
+                    if (!lastDetail.format && detail.format) {
+                      lastDetail.format = detail.format;
+                    }
                   } else {
                     // Start a new summary detail
                     accumulatedReasoningDetails.push({ ...detail });
