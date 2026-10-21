@@ -124,6 +124,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -164,6 +166,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: 42,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -204,6 +208,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -237,6 +243,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {
           openrouter: {
@@ -289,6 +297,8 @@ describe('OpenRouterVideoModel', () => {
           type: 'url',
           url: 'https://example.com/first-frame.png',
         },
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -327,6 +337,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -364,6 +376,8 @@ describe('OpenRouterVideoModel', () => {
           fps: undefined,
           seed: undefined,
           image: undefined,
+          frameImages: undefined,
+          inputReferences: undefined,
           generateAudio: undefined,
           providerOptions: {},
         }),
@@ -405,6 +419,8 @@ describe('OpenRouterVideoModel', () => {
           fps: undefined,
           seed: undefined,
           image: undefined,
+          frameImages: undefined,
+          inputReferences: undefined,
           generateAudio: undefined,
           providerOptions: {},
         }),
@@ -436,6 +452,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -472,6 +490,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
@@ -506,6 +526,8 @@ describe('OpenRouterVideoModel', () => {
         fps: undefined,
         seed: undefined,
         image: undefined,
+        frameImages: undefined,
+        inputReferences: undefined,
         generateAudio: undefined,
         providerOptions: {},
       });
