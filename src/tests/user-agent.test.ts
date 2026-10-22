@@ -164,6 +164,16 @@ describe('user agent through the AI SDK', () => {
     expectBothUserAgents(userAgents[0]);
   });
 
+  it('sends a custom call-level User-Agent verbatim on a direct model call', async () => {
+    const { provider, userAgents } = createProvider();
+    await provider.chat('openai/gpt-4o-mini').doGenerate({
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'Hi' }] }],
+      headers: { 'user-agent': 'my-app/1.0' },
+    });
+    expect(userAgents[0]).toMatch(/^my-app\/1\.0\b/);
+    expect(userAgents[0]).not.toContain(PROVIDER_USER_AGENT);
+  });
+
   it('still sends a user-specified provider User-Agent through generateText', async () => {
     const userAgents: string[] = [];
     const provider = createOpenRouter({
