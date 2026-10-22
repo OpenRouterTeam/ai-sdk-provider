@@ -5606,6 +5606,36 @@ describe('includeRawChunks', () => {
       expect(toolEvents.some((el) => el.type === 'tool-call')).toBe(false);
     });
 
+    it('should emit a {} delta for a no-argument tool call finished at flush', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: [
+          `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+            `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+            `"tool_calls":[{"index":0,"id":"call_noargs","type":"function","function":{"name":"ping","arguments":""}}]},` +
+            `"finish_reason":null}]}\n\n`,
+          `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+            `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+          'data: [DONE]\n\n',
+        ],
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+
+      expect(toolEvents).toStrictEqual([
+        { type: 'tool-input-start', id: 'call_noargs', toolName: 'ping' },
+        { type: 'tool-input-delta', id: 'call_noargs', delta: '{}' },
+        { type: 'tool-input-end', id: 'call_noargs' },
+        expect.objectContaining({
+          type: 'tool-call',
+          toolCallId: 'call_noargs',
+          input: '{}',
+        }),
+      ]);
+    });
+
     it('should surface the tool part in the UI message stream via streamText', async () => {
       server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
         type: 'stream-chunks',

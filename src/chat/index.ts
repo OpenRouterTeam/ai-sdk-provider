@@ -1235,13 +1235,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   // If inputStarted is false, the tool call was never partially
                   // streamed — emit start + delta + end.
                   // If inputStarted is true, start and deltas were already
-                  // emitted during streaming — only emit end.
+                  // emitted during streaming — only emit end, plus the '{}'
+                  // delta for no-argument calls so the deltas match the input.
                   if (!toolCall.inputStarted) {
                     controller.enqueue({
                       type: 'tool-input-start',
                       id: toolCall.id,
                       toolName: toolCall.function.name,
                     });
+                  }
+                  if (
+                    !toolCall.inputStarted ||
+                    input !== toolCall.function.arguments
+                  ) {
                     controller.enqueue({
                       type: 'tool-input-delta',
                       id: toolCall.id,
