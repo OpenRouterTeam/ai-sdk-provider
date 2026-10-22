@@ -10,6 +10,11 @@ export type OpenRouterModelConfig = {
   provider: string;
   compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
+  /**
+   * The `headers` without `Authorization`. Used for workflow serialization so
+   * that serializing a model never loads the API key.
+   */
+  headersWithoutApiKey?: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
   extraBody?: Record<string, unknown>;
@@ -63,7 +68,11 @@ export function serializeOpenRouterModel<MODEL_ID extends string, SETTINGS>({
   const headers: Record<string, string> = {};
   let providerApiKeysOmitted = false;
 
-  for (const [key, value] of Object.entries(config.headers())) {
+  // Prefer the headers without `Authorization`: `config.headers()` loads the
+  // API key, which is never persisted and may not be available here.
+  const sourceHeaders = (config.headersWithoutApiKey ?? config.headers)();
+
+  for (const [key, value] of Object.entries(sourceHeaders)) {
     const name = key.toLowerCase();
     if (name === PROVIDER_API_KEYS_HEADER) {
       providerApiKeysOmitted = true;
