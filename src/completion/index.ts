@@ -37,6 +37,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
@@ -198,11 +199,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const { provider: runtimeProvider, ...openrouterOptions } =
+      providerOptions.openrouter || {};
+
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       ...this.getArgs(options),
       ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -306,11 +315,19 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doStream']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const { provider: runtimeProvider, ...openrouterOptions } =
+      providerOptions.openrouter || {};
+
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       ...this.getArgs(options),
       ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
