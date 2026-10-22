@@ -22,6 +22,7 @@ import type {
 } from '../types/openrouter-chat-settings';
 import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
 import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
+import type { ReasoningReplayMode } from './reasoning-replay';
 
 import {
   APICallError,
@@ -193,7 +194,21 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       top_k: topK ?? this.settings.topK,
 
       // messages:
-      messages: convertToOpenRouterChatMessages(prompt),
+      messages: convertToOpenRouterChatMessages(prompt, {
+        // Call-level providerOptions override model/models in the request
+        // body, so they also decide which families are targeted.
+        modelIds: [
+          (providerOptions?.openrouter?.model as string | undefined) ??
+            this.modelId,
+          ...((providerOptions?.openrouter?.models as string[] | undefined) ??
+            this.settings.models ??
+            []),
+        ],
+        reasoningReplay:
+          (providerOptions?.openrouter?.reasoningReplay as
+            | ReasoningReplayMode
+            | undefined) ?? this.settings.reasoningReplay,
+      }),
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
@@ -283,8 +298,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const openrouterOptions = providerOptions.openrouter || {};
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      reasoningReplay: _reasoningReplay,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
@@ -596,8 +614,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const openrouterOptions = providerOptions.openrouter || {};
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      reasoningReplay: _reasoningReplay,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
