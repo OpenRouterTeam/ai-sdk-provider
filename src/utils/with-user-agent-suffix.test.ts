@@ -182,6 +182,24 @@ describe('combineHeadersWithUserAgent', () => {
     ).toStrictEqual({ 'user-agent': `ai/7.0.0 ${SDK_SUFFIX}` });
   });
 
+  it('uses a call-level user agent without the AI SDK token verbatim', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'user-agent': 'my-app/1.0' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': 'my-app/1.0' });
+    // `ai-sdk/...` and `openai/...` are not the AI SDK's `ai/<version>` token.
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'user-agent': 'my-ai-sdk/1.0 openai/2' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': 'my-ai-sdk/1.0 openai/2' });
+  });
+
   it('does not append the identifier to a user-specified provider User-Agent', () => {
     expect(
       combineHeadersWithUserAgent(
