@@ -2605,6 +2605,44 @@ describe('bare top-level media types', () => {
     expect(result[1]?.content).toEqual([wavPart]);
   });
 
+  it.each([
+    'audio',
+    'audio/mpeg',
+  ])('should keep a remote %s tool result URL as a file part', (mediaType) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'record',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file',
+                  mediaType,
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/clip.mp3'),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'file',
+        file: { filename: '', file_data: 'https://example.com/clip.mp3' },
+      },
+    ]);
+  });
+
   it('should send bare audio parts as input_audio with the detected format', () => {
     const result = convertToOpenRouterChatMessages([
       {

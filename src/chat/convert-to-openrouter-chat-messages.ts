@@ -515,7 +515,13 @@ function mapToolResultContentParts(
           };
         }
 
-        if (topLevelType === 'audio' && mediaType) {
+        // input_audio needs inline base64 data; remote audio URLs fall
+        // through to a file part.
+        if (
+          topLevelType === 'audio' &&
+          mediaType &&
+          dataUrl.startsWith('data:')
+        ) {
           const rawFormat = mediaType.replace('audio/', '');
           const format = MIME_TO_FORMAT[rawFormat];
           if (format !== undefined) {
