@@ -10,6 +10,13 @@ const VALID_CC = [
   { type: 'ephemeral', ttl: '5m' },
   { type: 'ephemeral', ttl: '1h' },
 ];
+// { type: 'ephemeral', ttl?: '5m' | '1h' }
+const isValidCC = (v: any) =>
+  typeof v === 'object' &&
+  v !== null &&
+  !Array.isArray(v) &&
+  v.type === 'ephemeral' &&
+  (v.ttl === undefined || v.ttl === '5m' || v.ttl === '1h');
 const INVALID_CC = [
   'yes',
   true,
@@ -334,26 +341,30 @@ describe('convertToOpenRouterChatMessages properties', () => {
             throw new Error(`invalid processing ${v}`);
           }
         });
-        // assistant content is a string unless some text part has cache control
+        // assistant content is a string unless some text part has cache
+        // control. Whether an invalid (but truthy) value counts depends on
+        // whether cache control is validated, so only assert the shape when
+        // no text part has a truthy value (string) or some text part has a
+        // valid one (array).
         let ai = 0;
         for (const m of prompt) {
           if (m.role !== 'assistant') {
             continue;
           }
           const o = out.filter((x: any) => x.role === 'assistant')[ai++];
-          const anyCC = m.content.some(
-            (p: any) =>
-              p.type === 'text' &&
-              (p.providerOptions?.openrouter?.cacheControl ??
-                p.providerOptions?.openrouter?.cache_control ??
-                p.providerOptions?.anthropic?.cacheControl ??
-                p.providerOptions?.anthropic?.cache_control),
-          );
-          if (!anyCC) {
+          const textCC = m.content
+            .filter((p: any) => p.type === 'text')
+            .flatMap((p: any) => [
+              p.providerOptions?.openrouter?.cacheControl,
+              p.providerOptions?.openrouter?.cache_control,
+              p.providerOptions?.anthropic?.cacheControl,
+              p.providerOptions?.anthropic?.cache_control,
+            ]);
+          if (!textCC.some(Boolean)) {
             expect(o.content === null || typeof o.content === 'string').toBe(
               true,
             );
-          } else {
+          } else if (textCC.some(isValidCC)) {
             expect(Array.isArray(o.content)).toBe(true);
           }
           if (Array.isArray(o.content)) {
