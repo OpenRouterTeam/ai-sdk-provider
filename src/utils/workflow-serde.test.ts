@@ -227,6 +227,37 @@ describe('Issue #525: durable-execution model serialization', () => {
       expect(server.calls).toHaveLength(0);
     });
 
+    it('re-serializes a restored model without loading the API key', () => {
+      vi.stubEnv('OPENROUTER_API_KEY', undefined);
+      const serialized = OpenRouterChatLanguageModel[WORKFLOW_SERIALIZE](
+        roundTripChat(customProvider.chat('anthropic/claude-3.5-sonnet')),
+      );
+
+      expect(serialized.config.headers).toEqual({
+        'X-OpenRouter-Title': 'My App',
+        'HTTP-Referer': 'https://myapp.example.com',
+      });
+      expect(serialized.config.providerApiKeysOmitted).toBeUndefined();
+    });
+
+    it('keeps the BYOK marker across repeated round trips', async () => {
+      vi.stubEnv('OPENROUTER_API_KEY', undefined);
+      const serialized = OpenRouterChatLanguageModel[WORKFLOW_SERIALIZE](
+        roundTripChat(byokProvider.chat('anthropic/claude-3.5-sonnet')),
+      );
+      expect(serialized.config.providerApiKeysOmitted).toBe(true);
+      expect(serialized.config.headers).toEqual({});
+
+      const restored = OpenRouterChatLanguageModel[WORKFLOW_DESERIALIZE](
+        structuredClone(serialized),
+      );
+      vi.stubEnv('OPENROUTER_API_KEY', 'env-api-key');
+      await expect(restored.doGenerate({ prompt })).rejects.toThrow(
+        /BYOK `api_keys`/,
+      );
+      expect(server.calls).toHaveLength(0);
+    });
+
     it('flags BYOK api_keys without loading the API key', () => {
       vi.stubEnv('OPENROUTER_API_KEY', undefined);
       const model = createOpenRouter({
@@ -305,6 +336,26 @@ describe('Issue #525: durable-execution model serialization', () => {
         'OpenRouter model was restored from workflow storage; set OPENROUTER_API_KEY',
       );
       expect(server.calls).toHaveLength(0);
+    });
+
+    it('re-serializes a restored model without loading the API key, keeping the BYOK marker', () => {
+      vi.stubEnv('OPENROUTER_API_KEY', undefined);
+      const plain = OpenRouterCompletionLanguageModel[WORKFLOW_SERIALIZE](
+        roundTripCompletion(
+          customProvider.completion('openai/gpt-3.5-turbo-instruct'),
+        ),
+      );
+      expect(plain.config.headers).toEqual({
+        'X-OpenRouter-Title': 'My App',
+        'HTTP-Referer': 'https://myapp.example.com',
+      });
+
+      const byok = OpenRouterCompletionLanguageModel[WORKFLOW_SERIALIZE](
+        roundTripCompletion(
+          byokProvider.completion('openai/gpt-3.5-turbo-instruct'),
+        ),
+      );
+      expect(byok.config.providerApiKeysOmitted).toBe(true);
     });
 
     it('runs doGenerate against the original baseURL after restoring', async () => {

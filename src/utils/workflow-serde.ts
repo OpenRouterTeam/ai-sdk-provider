@@ -110,6 +110,13 @@ export function restoreOpenRouterConfig(
     ...rest,
     url: ({ path }) => `${baseURL}${path}`,
     headers: withEnvironmentApiKey(headers, { providerApiKeysOmitted }),
+    // Lets a restored model cross another workflow boundary without loading
+    // the API key. The BYOK header value is a placeholder that is only used to
+    // carry the `providerApiKeysOmitted` marker; it is never sent.
+    headersWithoutApiKey: () => ({
+      ...headers,
+      ...(providerApiKeysOmitted && { 'X-Provider-API-Keys': 'omitted' }),
+    }),
   };
 }
 
