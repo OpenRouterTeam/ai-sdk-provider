@@ -186,6 +186,7 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
         reasoning,
         settingsReasoning: this.settings.reasoning,
         providerOptions,
+        extraBodies: [this.config.extraBody, this.settings.extraBody],
       }),
 
       // extra body:
