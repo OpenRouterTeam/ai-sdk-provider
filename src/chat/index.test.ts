@@ -3,12 +3,14 @@ import type {
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
+import type { UIMessage } from 'ai';
 import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
+import { jsonSchema, readUIMessageStream, streamText, tool } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
@@ -5015,6 +5017,97 @@ describe('includeRawChunks', () => {
     });
   });
 
+  describe('deltas after a tool call is complete', () => {
+    const toolCallChunk = (args: string) =>
+      `data: {"id":"chatcmpl-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+      `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(args)}}}]},` +
+      `"logprobs":null,"finish_reason":null}]}\n\n`;
+
+    const lateDeltaChunks = [
+      `data: {"id":"chatcmpl-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+        `"tool_calls":[{"index":0,"id":"call_late_001","type":"function","function":{"name":"lookup","arguments":""}}]},` +
+        `"logprobs":null,"finish_reason":null}]}\n\n`,
+      toolCallChunk('{"a":'),
+      toolCallChunk('1}'),
+      // Trailing delta after the arguments are already complete JSON.
+      toolCallChunk('\n'),
+      `data: {"id":"chatcmpl-late","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"tool_calls"}]}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    it('should not emit tool-input-delta after tool-input-end', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: lateDeltaChunks,
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+
+      const toolEvents = elements.filter((el) =>
+        [
+          'tool-input-start',
+          'tool-input-delta',
+          'tool-input-end',
+          'tool-call',
+        ].includes(el.type),
+      );
+
+      expect(toolEvents).toStrictEqual([
+        { type: 'tool-input-start', id: 'call_late_001', toolName: 'lookup' },
+        { type: 'tool-input-delta', id: 'call_late_001', delta: '{"a":' },
+        { type: 'tool-input-delta', id: 'call_late_001', delta: '1}' },
+        { type: 'tool-input-end', id: 'call_late_001' },
+        {
+          type: 'tool-call',
+          toolCallId: 'call_late_001',
+          toolName: 'lookup',
+          input: '{"a":1}',
+          providerMetadata: { openrouter: { reasoning_details: [] } },
+        },
+      ]);
+    });
+
+    it('should leave the UI tool part in input-available state', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: lateDeltaChunks,
+      };
+
+      const result = streamText({
+        model,
+        prompt: 'Hello',
+        tools: {
+          lookup: tool({
+            inputSchema: jsonSchema<{ a: number }>({
+              type: 'object',
+              properties: { a: { type: 'number' } },
+            }),
+          }),
+        },
+      });
+
+      let lastMessage: UIMessage | undefined;
+      for await (const message of readUIMessageStream({
+        stream: result.toUIMessageStream(),
+      })) {
+        lastMessage = message;
+      }
+
+      const toolPart = lastMessage?.parts.find(
+        (part) => part.type === 'tool-lookup',
+      );
+      expect(toolPart).toMatchObject({
+        type: 'tool-lookup',
+        toolCallId: 'call_late_001',
+        state: 'input-available',
+        input: { a: 1 },
+      });
+    });
+  });
+
   it('should emit tool-input-start, tool-input-delta, and tool-input-end in flush path for unsent tool calls', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
@@ -5491,7 +5584,6 @@ describe('includeRawChunks', () => {
         'tool-input-delta',
         'tool-input-end',
         'tool-call',
-        'tool-input-delta',
       ]);
       expect(toolEvents.find((el) => el.type === 'tool-call')).toMatchObject({
         toolCallId: 'call_581',
