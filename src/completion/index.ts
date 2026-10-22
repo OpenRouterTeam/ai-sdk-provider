@@ -199,7 +199,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     const { provider: runtimeProvider, ...restOpenrouterOptions } =
       openrouterOptions as Record<string, unknown>;
@@ -321,7 +323,9 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doStream']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     const { provider: runtimeProvider, ...restOpenrouterOptions } =
       openrouterOptions as Record<string, unknown>;
