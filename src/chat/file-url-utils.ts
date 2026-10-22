@@ -4,7 +4,12 @@ import type {
 } from '@ai-sdk/provider';
 import type { OpenRouterAudioFormat } from '../types/openrouter-chat-completions-input';
 
-import { convertUint8ArrayToBase64 } from '@ai-sdk/provider-utils';
+import {
+  convertUint8ArrayToBase64,
+  detectMediaType,
+  getTopLevelMediaType,
+  isFullMediaType,
+} from '@ai-sdk/provider-utils';
 import { OPENROUTER_AUDIO_FORMATS } from '../types/openrouter-chat-completions-input';
 import { isUrl } from './is-url';
 
@@ -38,6 +43,39 @@ export function buildFileDataUrl({
     : `data:${mediaType ?? defaultMediaType};base64,${stringData}`;
 }
 
+/** Subtypes assumed when a bare top-level media type can't be detected. */
+const DEFAULT_FULL_MEDIA_TYPES: Record<string, string> = {
+  image: 'image/jpeg',
+  video: 'video/mp4',
+  audio: 'audio/mpeg',
+};
+
+/**
+ * Resolves a file's media type to the full `type/subtype` form.
+ *
+ * AI SDK v7 allows a bare top-level media type (`image`) or a wildcard
+ * (`image/*`). For those, the subtype is detected from inline bytes, falling
+ * back to a default for `image`, `video` and `audio`. Full media types and
+ * other top-level types are returned unchanged.
+ */
+export function getFullMediaType({
+  data,
+  mediaType,
+}: {
+  data: SharedV4FileData;
+  mediaType: string | undefined;
+}): string | undefined {
+  if (mediaType == null || isFullMediaType(mediaType)) {
+    return mediaType;
+  }
+  const topLevelType = getTopLevelMediaType(mediaType);
+  const detected =
+    data.type === 'data'
+      ? detectMediaType({ data: data.data, topLevelType })
+      : undefined;
+  return detected ?? DEFAULT_FULL_MEDIA_TYPES[topLevelType] ?? mediaType;
+}
+
 export function getFileUrl({
   part,
   defaultMediaType,
@@ -61,6 +99,7 @@ export function getFileDataUrl({
   mediaType?: string;
   defaultMediaType: string;
 }): string {
+  mediaType = getFullMediaType({ data, mediaType });
   switch (data.type) {
     case 'data':
       return buildFileDataUrl({
@@ -203,7 +242,9 @@ export function getInputAudioData(part: LanguageModelV4FilePart): {
   const data = getBase64FromDataUrl(fileData);
 
   // Map media type to format
-  const mediaType = part.mediaType || 'audio/mpeg';
+  const mediaType =
+    getFullMediaType({ data: part.data, mediaType: part.mediaType }) ||
+    'audio/mpeg';
   const rawFormat = mediaType.replace('audio/', '');
 
   // Normalize format names for OpenRouter using MIME type mapping

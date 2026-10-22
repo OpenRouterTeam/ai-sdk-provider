@@ -2443,6 +2443,214 @@ describe('signature stripping warning respects AI_SDK_LOG_WARNINGS', () => {
   });
 });
 
+describe('bare top-level media types', () => {
+  const PNG_BASE64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  const WAV_BYTES = new Uint8Array([
+    82, 73, 70, 70, 0, 0, 0, 0, 87, 65, 86, 69, 1, 2, 3, 4,
+  ]);
+
+  it('should send a bare image URL as image_url with imageDetail', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            mediaType: 'image',
+            data: {
+              type: 'url',
+              url: new URL('https://example.com/bird.webp'),
+            },
+            providerOptions: { openrouter: { imageDetail: 'low' } },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/bird.webp', detail: 'low' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should detect the subtype of bare image bytes for the data URL', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            mediaType: 'image',
+            data: { type: 'data', data: PNG_BASE64 },
+          },
+          {
+            type: 'file',
+            mediaType: 'image/*',
+            data: { type: 'data', data: 'AAECAw==' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: `data:image/png;base64,${PNG_BASE64}` },
+          },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/jpeg;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should send bare video parts as video_url', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            mediaType: 'video',
+            data: { type: 'url', url: new URL('https://example.com/clip.mp4') },
+            providerOptions: { openrouter: { videoProcessing: 'static' } },
+          },
+          {
+            type: 'file',
+            mediaType: 'video',
+            data: { type: 'data', data: 'AAECAw==' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'video_url',
+            video_url: {
+              url: 'https://example.com/clip.mp4',
+              processing: 'static',
+            },
+          },
+          {
+            type: 'video_url',
+            video_url: { url: 'data:video/mp4;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should send bare audio parts as input_audio with the detected format', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            mediaType: 'audio',
+            data: { type: 'data', data: WAV_BYTES },
+          },
+          {
+            type: 'file',
+            mediaType: 'audio',
+            data: { type: 'data', data: new Uint8Array([255, 251, 0, 0]) },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_audio',
+            input_audio: { data: 'UklGRgAAAABXQVZFAQIDBA==', format: 'wav' },
+          },
+          {
+            type: 'input_audio',
+            input_audio: { data: '//sAAA==', format: 'mp3' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should map bare media types in tool result content', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'capture',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file',
+                  mediaType: 'image',
+                  data: { type: 'data', data: PNG_BASE64 },
+                  providerOptions: { openrouter: { imageDetail: 'high' } },
+                },
+                {
+                  type: 'file',
+                  mediaType: 'video',
+                  data: {
+                    type: 'url',
+                    url: new URL('https://example.com/clip.mp4'),
+                  },
+                },
+                {
+                  type: 'file',
+                  mediaType: 'audio',
+                  data: { type: 'data', data: WAV_BYTES },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]?.content).toEqual([
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${PNG_BASE64}`,
+          detail: 'high',
+        },
+      },
+      {
+        type: 'video_url',
+        video_url: { url: 'https://example.com/clip.mp4' },
+      },
+      {
+        type: 'input_audio',
+        input_audio: { data: 'UklGRgAAAABXQVZFAQIDBA==', format: 'wav' },
+      },
+    ]);
+  });
+});
+
 describe('multimodal tool result content (issue #181)', () => {
   it('should convert tool result with text + image-data to structured content array', () => {
     const result = convertToOpenRouterChatMessages([
