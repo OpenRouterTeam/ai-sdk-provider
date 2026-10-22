@@ -277,25 +277,35 @@ function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
 }
 
 /**
- * Converts one AI SDK question into its Decisions counterpart. Criteria the
- * Decisions API would reject (a `null` score level, a boolean with only one
- * side described) throw before any request is sent.
+ * Converts one AI SDK question into its Decisions counterpart. Inputs the
+ * Decisions API would reject (missing `instructions`, a `null` score level, a
+ * boolean with only one side described) throw before any request is sent.
  */
 function toDecisionsQuestion(
   id: string,
   question: EvaluationModelV4Question,
 ): OpenRouterDecisionsQuestion {
+  // Newer `ai` releases make `instructions` optional and nullable, but the
+  // Decisions API requires it for every question type.
+  const instructions = question.instructions;
+  if (instructions == null) {
+    throw new InvalidArgumentError({
+      argument: `questions.${id}.instructions`,
+      message: `Question "${id}": the OpenRouter Decisions API requires \`instructions\` for every question.`,
+    });
+  }
+
   switch (question.type) {
     case 'choice':
       return {
         type: 'choice',
-        instructions: question.instructions,
+        instructions,
         criteria: question.criteria,
       };
     case 'score':
       return {
         type: 'score',
-        instructions: question.instructions,
+        instructions,
         criteria: question.criteria.map((criterion, index) => {
           if (criterion == null) {
             throw new InvalidArgumentError({
@@ -310,7 +320,7 @@ function toDecisionsQuestion(
       const trueCriterion = question.criteria?.true;
       const falseCriterion = question.criteria?.false;
       if (trueCriterion == null && falseCriterion == null) {
-        return { type: 'noul', instructions: question.instructions };
+        return { type: 'noul', instructions };
       }
       if (trueCriterion == null || falseCriterion == null) {
         throw new InvalidArgumentError({
@@ -320,10 +330,15 @@ function toDecisionsQuestion(
       }
       return {
         type: 'noul',
-        instructions: question.instructions,
+        instructions,
         criteria: { true: trueCriterion, false: falseCriterion },
       };
     }
+    case 'box':
+      // Not in supportedQuestionTypes, so the AI SDK rejects it first.
+      throw new UnsupportedFunctionalityError({
+        functionality: 'box questions',
+      });
     default:
       return question satisfies never;
   }

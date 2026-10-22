@@ -1,10 +1,15 @@
 import type {
   Experimental_EvaluationModelV4,
+  Experimental_EvaluationModelV4CallOptions,
+  Experimental_EvaluationModelV4Result,
   JSONValue,
   LanguageModelV4FilePart,
   LanguageModelV4TextPart,
 } from '@ai-sdk/provider';
-import type { EvaluationModelV4 } from './types';
+import type {
+  EvaluationModelV4CallOptions,
+  EvaluationModelV4Result,
+} from './types';
 
 import {
   InvalidArgumentError,
@@ -108,7 +113,11 @@ function parseBody(init: RequestInit | undefined): Record<string, unknown> {
 describe('OpenRouterEvaluationModel', () => {
   it('should satisfy the AI SDK evaluation model contract', () => {
     expectTypeOf<OpenRouterEvaluationModel>().toExtend<Experimental_EvaluationModelV4>();
-    expectTypeOf<EvaluationModelV4>().toEqualTypeOf<Experimental_EvaluationModelV4>();
+    // The local copy is wider than the pinned upstream type (newer `ai`
+    // releases made `instructions` optional), so it must accept everything
+    // the pinned release passes.
+    expectTypeOf<Experimental_EvaluationModelV4CallOptions>().toExtend<EvaluationModelV4CallOptions>();
+    expectTypeOf<EvaluationModelV4Result>().toEqualTypeOf<Experimental_EvaluationModelV4Result>();
   });
 
   describe('provider methods', () => {
@@ -444,6 +453,30 @@ describe('OpenRouterEvaluationModel', () => {
           },
         }),
       ).rejects.toBeInstanceOf(InvalidArgumentError);
+      expect(calls).toHaveLength(0);
+    });
+
+    it.each([
+      null,
+      undefined,
+    ])('should reject %s instructions without calling the API', async (instructions) => {
+      const { mockFetch, calls } = createMockFetch();
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
+        state: 'x',
+        questions: {
+          q: { type: 'choice', instructions, criteria: { a: null, b: null } },
+        },
+      });
+
+      await expect(result).rejects.toBeInstanceOf(InvalidArgumentError);
+      await expect(result).rejects.toThrow(
+        'the OpenRouter Decisions API requires `instructions` for every question',
+      );
       expect(calls).toHaveLength(0);
     });
 
