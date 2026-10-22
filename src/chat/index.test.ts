@@ -401,12 +401,18 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Let me analyze this request...',
+        // The first reasoning part carries the full reasoning_details so
+        // they are all replayed on the next turn.
         providerMetadata: {
           openrouter: {
             reasoning_details: [
               {
                 type: 'reasoning.text',
                 text: 'Let me analyze this request...',
+              },
+              {
+                type: 'reasoning.summary',
+                summary: 'The user wants a greeting response.',
               },
             ],
           },
@@ -433,7 +439,7 @@ describe('doGenerate', () => {
     ]);
   });
 
-  it('should not emit reasoning content for encrypted reasoning details', async () => {
+  it('should carry encrypted-only reasoning details on an empty reasoning part', async () => {
     prepareJsonResponse({
       content: 'Hello!',
       reasoning_details: [
@@ -448,10 +454,24 @@ describe('doGenerate', () => {
       prompt: TEST_PROMPT,
     });
 
-    // Encrypted reasoning should not produce a reasoning content part.
-    // The encrypted data is preserved in response-level providerMetadata
-    // for multi-turn conversation continuity.
+    // Encrypted reasoning has no visible text, so it is carried on an empty
+    // reasoning part: the AI SDK copies part metadata (not response-level
+    // metadata) into the assistant message that is replayed next turn.
     expect(result.content).toStrictEqual([
+      {
+        type: 'reasoning',
+        text: '',
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              {
+                type: 'reasoning.encrypted',
+                data: 'encrypted_reasoning_data_here',
+              },
+            ],
+          },
+        },
+      },
       {
         type: 'text',
         text: 'Hello!',
@@ -491,12 +511,18 @@ describe('doGenerate', () => {
       {
         type: 'reasoning',
         text: 'Processing from reasoning_details...',
+        // The first reasoning part carries the full reasoning_details so
+        // they are all replayed on the next turn.
         providerMetadata: {
           openrouter: {
             reasoning_details: [
               {
                 type: 'reasoning.text',
                 text: 'Processing from reasoning_details...',
+              },
+              {
+                type: 'reasoning.summary',
+                summary: 'Summary from reasoning_details',
               },
             ],
           },
@@ -1991,10 +2017,10 @@ describe('doStream', () => {
     expect(reasoningStart?.providerMetadata).toBeUndefined();
   });
 
-  it('should not emit reasoning events when only encrypted details arrive in stream', async () => {
+  it('should carry encrypted-only reasoning details on an empty reasoning part in stream', async () => {
     // Edge case: stream contains ONLY encrypted reasoning details (no text/summary).
-    // No reasoning-start/reasoning-delta/reasoning-end events should be emitted,
-    // but the encrypted data must still be preserved in the finish event's providerMetadata.
+    // No reasoning-delta is emitted, but an empty reasoning-start/end pair
+    // carries the details so they are replayed on the next turn.
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
@@ -2028,15 +2054,28 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
 
-    // No reasoning events should be emitted
+    // No visible reasoning deltas
     const reasoningDeltaElements = elements.filter(isReasoningDeltaPart);
     expect(reasoningDeltaElements).toHaveLength(0);
 
-    const reasoningStart = elements.find(isReasoningStartPart);
-    expect(reasoningStart).toBeUndefined();
-
-    const reasoningEnd = elements.find((el) => el.type === 'reasoning-end');
-    expect(reasoningEnd).toBeUndefined();
+    // One empty reasoning part carrying the encrypted details
+    const reasoningStarts = elements.filter(isReasoningStartPart);
+    expect(reasoningStarts).toHaveLength(1);
+    const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
+    expect(reasoningEnds).toStrictEqual([
+      {
+        type: 'reasoning-end',
+        id: reasoningStarts[0]!.id,
+        providerMetadata: {
+          openrouter: {
+            reasoning_details: [
+              { type: ReasoningDetailType.Encrypted, data: 'opaque_blob_1' },
+              { type: ReasoningDetailType.Encrypted, data: 'opaque_blob_2' },
+            ],
+          },
+        },
+      },
+    ]);
 
     // Text content should still work
     const textDeltas = elements.filter(isTextDeltaPart);
@@ -4107,9 +4146,10 @@ describe('doStream', () => {
     });
   });
 
-  it('should not emit reasoning events when reasoning_details arrive only after text has started', async () => {
+  it('should not stream reasoning deltas when reasoning_details arrive only after text has started', async () => {
     // Edge case: model sends text FIRST, then reasoning_details later.
-    // No reasoning block should be created — data is only in finish metadata.
+    // No reasoning is streamed; a single empty reasoning part emitted at the
+    // end carries the details so they are replayed on the next turn.
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
       chunks: [
@@ -4135,13 +4175,22 @@ describe('doStream', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    // NO reasoning events at all
+    // No streamed reasoning, only one empty reasoning part carrying the details
     expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
-      0,
+      1,
     );
-    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
-      0,
+    const reasoningEnds = elements.filter(
+      (
+        el,
+      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
     );
+    expect(reasoningEnds).toHaveLength(1);
+    expect(reasoningEnds[0]?.providerMetadata).toMatchObject({
+      openrouter: {
+        reasoning_details: [{ text: 'Late reasoning', signature: 'sig-late' }],
+      },
+    });
     expect(elements.filter(isReasoningDeltaPart)).toHaveLength(0);
 
     // Text block exists
