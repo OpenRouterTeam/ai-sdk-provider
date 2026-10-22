@@ -1,3 +1,5 @@
+import type { JSONValue } from '@ai-sdk/provider';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { convertToOpenRouterChatMessages } from './convert-to-openrouter-chat-messages';
@@ -3508,5 +3510,278 @@ describe('deterministic tool call argument serialization', () => {
     expect(result[0]).toMatchObject({
       tool_calls: [{ function: { arguments: '{"a":1,"b":2,"c":3}' } }],
     });
+  });
+});
+
+describe('cache control validation', () => {
+  const invalidValues = (
+    [
+      { type: 'bogus' },
+      { type: 'ephemeral', ttl: '10m' },
+      'yes',
+      0,
+      '',
+      null,
+      [],
+    ] satisfies JSONValue[]
+  ).map((value) => ({ value }));
+
+  it.each(
+    invalidValues,
+  )('should drop invalid system message cache control $value', ({ value }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
+        content: 'System prompt',
+        providerOptions: { openrouter: { cacheControl: value } },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: [{ type: 'text', text: 'System prompt' }],
+      },
+    ]);
+  });
+
+  it.each(
+    invalidValues,
+  )('should drop invalid user message-level cache control $value', ({
+    value,
+  }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [{ type: 'text', text: 'Hello' }],
+        providerOptions: { openrouter: { cacheControl: value } },
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'First' },
+          { type: 'text', text: 'Second' },
+        ],
+        providerOptions: { anthropic: { cache_control: value } },
+      },
+    ]);
+
+    expect(result).toEqual([
+      { role: 'user', content: 'Hello' },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'First' },
+          { type: 'text', text: 'Second' },
+        ],
+      },
+    ]);
+  });
+
+  it.each(
+    invalidValues,
+  )('should drop invalid user part-level cache control $value', ({ value }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Text',
+            providerOptions: { openrouter: { cache_control: value } },
+          },
+          {
+            type: 'file',
+            data: { type: 'data', data: 'AAECAw==' },
+            mediaType: 'image/png',
+            providerOptions: { anthropic: { cacheControl: value } },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'Text' },
+          {
+            type: 'image_url',
+            image_url: { url: 'data:image/png;base64,AAECAw==' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it.each(
+    invalidValues,
+  )('should drop invalid assistant part and message-level cache control $value', ({
+    value,
+  }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'text',
+            text: 'Assistant response',
+            providerOptions: { openrouter: { cacheControl: value } },
+          },
+        ],
+        providerOptions: { openrouter: { cacheControl: value } },
+      },
+    ]);
+
+    expect(result).toStrictEqual([
+      {
+        role: 'assistant',
+        content: 'Assistant response',
+        tool_calls: undefined,
+        reasoning: undefined,
+        reasoning_details: undefined,
+        annotations: undefined,
+        cache_control: undefined,
+      },
+    ]);
+  });
+
+  it.each(
+    invalidValues,
+  )('should drop invalid tool message cache control $value', ({ value }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-123',
+            toolName: 'calculator',
+            output: { type: 'text', value: '42' },
+            providerOptions: { openrouter: { cacheControl: value } },
+          },
+        ],
+        providerOptions: { anthropic: { cacheControl: value } },
+      },
+    ]);
+
+    expect(result).toStrictEqual([
+      {
+        role: 'tool',
+        tool_call_id: 'call-123',
+        content: '42',
+        name: 'calculator',
+        cache_control: undefined,
+      },
+    ]);
+  });
+
+  it.each(
+    ([0, '', null, { type: 'bogus' }] satisfies JSONValue[]).map((value) => ({
+      value,
+    })),
+  )('should fall back to a valid anthropic cache control when openrouter cache control is $value', ({
+    value,
+  }) => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
+        content: 'System prompt',
+        providerOptions: {
+          openrouter: { cacheControl: value },
+          anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+            cache_control: { type: 'ephemeral', ttl: '1h' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should take the first valid source in order', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'system',
+        content: 'System prompt',
+        providerOptions: {
+          openrouter: {
+            cacheControl: 'yes',
+            cache_control: { type: 'ephemeral', ttl: '5m' },
+          },
+          anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+        },
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'system',
+        content: [
+          {
+            type: 'text',
+            text: 'System prompt',
+            cache_control: { type: 'ephemeral', ttl: '5m' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('should emit assistant text blocks alongside tool_calls when a text part has cache control', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me check. ' },
+          {
+            type: 'text',
+            text: 'Cached part.',
+            providerOptions: {
+              openrouter: { cacheControl: { type: 'ephemeral' } },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'get-weather',
+            input: { location: 'Paris' },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me check. ' },
+          {
+            type: 'text',
+            text: 'Cached part.',
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        tool_calls: [
+          {
+            id: 'call-1',
+            type: 'function',
+            function: {
+              name: 'get-weather',
+              arguments: JSON.stringify({ location: 'Paris' }),
+            },
+          },
+        ],
+      },
+    ]);
   });
 });
