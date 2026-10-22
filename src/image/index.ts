@@ -22,6 +22,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { OpenRouterImageResponseSchema } from './schemas';
 
 type OpenRouterImageConfig = {
@@ -95,19 +96,12 @@ export class OpenRouterImageModel implements ImageModelV4 {
     const { provider: runtimeProvider, ...restOpenrouterOptions } =
       openrouterOptions;
 
-    // Shallow merge provider routing preferences instead of replacing them,
-    // keeping the same precedence as the rest of the body (later wins).
-    // Non-object values (null, arrays, primitives) are ignored.
-    const providerSources = [
+    const provider = mergeProviderRouting(
       this.settings.provider,
       this.config.extraBody?.provider,
       this.settings.extraBody?.provider,
       runtimeProvider,
-    ].filter((p) => typeof p === 'object' && p !== null && !Array.isArray(p));
-    const provider =
-      providerSources.length > 0
-        ? Object.assign({}, ...providerSources)
-        : undefined;
+    );
 
     const body: Record<string, unknown> = {
       model: this.modelId,
