@@ -104,6 +104,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/tests/scenarios/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ],
   "javascript": {
