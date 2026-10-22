@@ -9,12 +9,12 @@ import type {
 } from '../types/openrouter-embedding-settings';
 
 import {
-  combineHeaders,
   createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import { OpenRouterEmbeddingResponseSchema } from './schemas';
 
 type OpenRouterEmbeddingConfig = {
@@ -75,7 +75,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
         path: '/embeddings',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), headers),
+      headers: combineHeadersWithUserAgent(this.config.headers(), headers),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(

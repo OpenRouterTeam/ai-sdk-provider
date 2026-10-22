@@ -1,4 +1,6 @@
+import { combineHeaders } from '@ai-sdk/provider-utils';
 import { removeUndefinedEntries } from '@/src/utils/remove-undefined';
+import { VERSION } from '../version';
 
 /**
  * Normalizes HeadersInit to a plain object.
@@ -75,4 +77,53 @@ export function withUserAgentSuffix(
     ...headersWithoutUserAgent,
     'user-agent': userAgent,
   };
+}
+
+/**
+ * Combines the model's config headers with call-level headers, keeping the
+ * provider's user agent identifier.
+ *
+ * The AI SDK passes its own `user-agent` (e.g. `ai/7.0.0`) in the call-level
+ * headers, which would otherwise replace the `ai-sdk/openrouter/<version>`
+ * identifier set by the provider. When the config headers carry the default
+ * identifier, it is appended to the call-level user agent instead. A
+ * user-specified provider-level User-Agent keeps its current behavior.
+ */
+export function combineHeadersWithUserAgent(
+  configHeaders: Record<string, string | undefined>,
+  callHeaders: Record<string, string | undefined> | undefined,
+  userAgentSuffix = `ai-sdk/openrouter/${VERSION}`,
+): Record<string, string | undefined> {
+  const combined = combineHeaders(configHeaders, callHeaders);
+  const configUserAgent = getUserAgent(configHeaders);
+  const callUserAgent = getUserAgent(callHeaders);
+
+  if (
+    configUserAgent !== userAgentSuffix ||
+    !callUserAgent?.trim() ||
+    callUserAgent.includes(userAgentSuffix)
+  ) {
+    return combined;
+  }
+
+  return {
+    ...Object.fromEntries(
+      Object.entries(combined).filter(
+        ([key]) => key.toLowerCase() !== 'user-agent',
+      ),
+    ),
+    'user-agent': `${callUserAgent} ${userAgentSuffix}`,
+  };
+}
+
+function getUserAgent(
+  headers: Record<string, string | undefined> | undefined,
+): string | undefined {
+  let userAgent: string | undefined;
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (key.toLowerCase() === 'user-agent') {
+      userAgent = value;
+    }
+  }
+  return userAgent;
 }
