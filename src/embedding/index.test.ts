@@ -1,6 +1,26 @@
+import { embed } from 'ai';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterEmbeddingModel } from './index';
+
+function createCapturingMockFetch() {
+  const requestBodies: Array<Record<string, unknown>> = [];
+  const fetch = async (
+    _url: URL | RequestInfo,
+    init?: RequestInit,
+  ): Promise<Response> => {
+    requestBodies.push(JSON.parse(String(init?.body)));
+    return new Response(
+      JSON.stringify({
+        object: 'list',
+        data: [{ object: 'embedding', embedding: [0.1, 0.2], index: 0 }],
+        model: 'openai/text-embedding-3-small',
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  };
+  return { fetch, requestBodies };
+}
 
 describe('OpenRouterEmbeddingModel', () => {
   const mockFetch = async (
@@ -205,6 +225,41 @@ describe('OpenRouterEmbeddingModel', () => {
       });
       expect(capturedRequest?.model).toBe('openai/text-embedding-3-small');
       expect(capturedRequest?.input).toEqual(['test input']);
+    });
+
+    it('should forward providerOptions.openrouter from embed() into the request body', async () => {
+      const { fetch, requestBodies } = createCapturingMockFetch();
+      const provider = createOpenRouter({ apiKey: 'test-key', fetch });
+
+      await embed({
+        model: provider.embeddingModel('openai/text-embedding-3-small'),
+        value: 'test input',
+        providerOptions: {
+          openrouter: { user: 'user-123', session_id: 'session-abc' },
+        },
+      });
+
+      expect(requestBodies[0]?.user).toBe('user-123');
+      expect(requestBodies[0]?.session_id).toBe('session-abc');
+    });
+
+    it('should merge runtime provider routing with configured preferences', async () => {
+      const { fetch, requestBodies } = createCapturingMockFetch();
+      const provider = createOpenRouter({ apiKey: 'test-key', fetch });
+
+      await provider
+        .embeddingModel('openai/text-embedding-3-small', {
+          provider: { order: ['openai'], allow_fallbacks: false },
+        })
+        .doEmbed({
+          values: ['test input'],
+          providerOptions: { openrouter: { provider: { order: ['mistral'] } } },
+        });
+
+      expect(requestBodies[0]?.provider).toEqual({
+        order: ['mistral'],
+        allow_fallbacks: false,
+      });
     });
 
     it('should handle response without usage information', async () => {

@@ -2,6 +2,7 @@ import type {
   EmbeddingModelV4,
   SharedV4Headers,
   SharedV4ProviderMetadata,
+  SharedV4ProviderOptions,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterEmbeddingModelId,
@@ -15,6 +16,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { OpenRouterEmbeddingResponseSchema } from './schemas';
 
 type OpenRouterEmbeddingConfig = {
@@ -49,6 +51,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
     values: Array<string>;
     abortSignal?: AbortSignal;
     headers?: Record<string, string | undefined>;
+    providerOptions?: SharedV4ProviderOptions;
   }): Promise<{
     embeddings: Array<Array<number>>;
     usage?: { tokens: number };
@@ -59,7 +62,17 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
     };
     warnings: Array<import('@ai-sdk/provider').SharedV4Warning>;
   }> {
-    const { values, abortSignal, headers } = options;
+    const { values, abortSignal, headers, providerOptions } = options;
+
+    const { provider: runtimeProvider, ...openrouterOptions } =
+      (providerOptions?.openrouter as Record<string, unknown>) || {};
+
+    const providerRouting = mergeProviderRouting(
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       model: this.modelId,
@@ -68,6 +81,8 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
       provider: this.settings.provider,
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
