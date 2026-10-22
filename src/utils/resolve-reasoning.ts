@@ -34,10 +34,14 @@ export function resolveReasoning({
   if (!isCustomReasoning(reasoning)) {
     return settingsReasoning;
   }
-  if (
-    providerOptions?.openrouter?.reasoning_effort !== undefined ||
-    extraBodies.some((body) => body?.reasoning_effort !== undefined)
-  ) {
+  // Merge the layers in request-body order, so a later explicit `undefined`
+  // clears an earlier value just as it does in the request body.
+  const effectiveBody: Record<string, unknown> = Object.assign(
+    {},
+    ...extraBodies,
+    providerOptions?.openrouter,
+  );
+  if (effectiveBody.reasoning_effort !== undefined) {
     return settingsReasoning;
   }
   return {

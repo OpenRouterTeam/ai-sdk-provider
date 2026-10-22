@@ -101,6 +101,20 @@ describe('resolveReasoning', () => {
     ).toStrictEqual({ max_tokens: 1000, exclude: true });
   });
 
+  it('maps call-level reasoning when a later layer clears reasoning_effort', () => {
+    expect(
+      resolveReasoning({
+        reasoning: 'high',
+        settingsReasoning: undefined,
+        providerOptions: undefined,
+        extraBodies: [
+          { reasoning_effort: 'low' },
+          { reasoning_effort: undefined },
+        ],
+      }),
+    ).toStrictEqual({ effort: 'high' });
+  });
+
   it('does not emit undefined enabled/exclude keys', () => {
     expect(
       resolveReasoning({

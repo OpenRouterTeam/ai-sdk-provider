@@ -6558,4 +6558,21 @@ describe('reasoning call option', () => {
     expect(body.reasoning).toBeUndefined();
     expect(body.reasoning_effort).toBe('low');
   });
+
+  it('sends reasoning.effort when the model extraBody clears the provider reasoning_effort', async () => {
+    await createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { reasoning_effort: 'low' },
+    })
+      .chat('anthropic/claude-3.5-sonnet', {
+        extraBody: { reasoning_effort: undefined },
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'high' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'anthropic/claude-3.5-sonnet',
+      messages: [{ role: 'user', content: 'Hello' }],
+      reasoning: { effort: 'high' },
+    });
+  });
 });
