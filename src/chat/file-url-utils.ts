@@ -54,9 +54,9 @@ const DEFAULT_FULL_MEDIA_TYPES: Record<string, string> = {
  * Resolves a file's media type to the full `type/subtype` form.
  *
  * AI SDK v7 allows a bare top-level media type (`image`) or a wildcard
- * (`image/*`). For those, the subtype is detected from inline bytes, falling
- * back to a default for `image`, `video` and `audio`. Full media types and
- * other top-level types are returned unchanged.
+ * (`image/*`). For those, the subtype is taken from a `data:` URL, or detected
+ * from inline bytes, falling back to a default for `image`, `video` and
+ * `audio`. Full media types and other top-level types are returned unchanged.
  */
 export function getFullMediaType({
   data,
@@ -69,6 +69,23 @@ export function getFullMediaType({
     return mediaType;
   }
   const topLevelType = getTopLevelMediaType(mediaType);
+
+  const dataUrl =
+    data.type === 'url'
+      ? data.url.toString()
+      : data.type === 'data' && typeof data.data === 'string'
+        ? data.data
+        : undefined;
+  if (dataUrl?.startsWith('data:')) {
+    const dataUrlMediaType = getMediaType(dataUrl, '');
+    if (
+      isFullMediaType(dataUrlMediaType) &&
+      getTopLevelMediaType(dataUrlMediaType) === topLevelType
+    ) {
+      return dataUrlMediaType;
+    }
+  }
+
   const detected =
     data.type === 'data'
       ? detectMediaType({ data: data.data, topLevelType })

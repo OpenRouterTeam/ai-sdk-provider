@@ -2557,6 +2557,54 @@ describe('bare top-level media types', () => {
     ]);
   });
 
+  it('should take the subtype of bare media types from a data URL', () => {
+    const wavDataUrl = 'data:audio/wav;base64,UklGRgAAAABXQVZFAQIDBA==';
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'file',
+            mediaType: 'audio',
+            data: { type: 'url', url: new URL(wavDataUrl) },
+          },
+          {
+            type: 'file',
+            mediaType: 'audio',
+            data: { type: 'data', data: wavDataUrl },
+          },
+        ],
+      },
+      {
+        role: 'tool',
+        content: [
+          {
+            type: 'tool-result',
+            toolCallId: 'call-1',
+            toolName: 'record',
+            output: {
+              type: 'content',
+              value: [
+                {
+                  type: 'file',
+                  mediaType: 'audio',
+                  data: { type: 'url', url: new URL(wavDataUrl) },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ]);
+
+    const wavPart = {
+      type: 'input_audio',
+      input_audio: { data: 'UklGRgAAAABXQVZFAQIDBA==', format: 'wav' },
+    };
+    expect(result[0]?.content).toEqual([wavPart, wavPart]);
+    expect(result[1]?.content).toEqual([wavPart]);
+  });
+
   it('should send bare audio parts as input_audio with the detected format', () => {
     const result = convertToOpenRouterChatMessages([
       {
