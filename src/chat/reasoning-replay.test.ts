@@ -263,6 +263,21 @@ describe('reasoningReplay request plumbing', () => {
     expect(messages[1]?.reasoning_details).toEqual(OPENAI_DETAILS);
   });
 
+  it('extraBody model overrides decide the target family', async () => {
+    const { provider, bodies } = createCapturingProvider();
+    await generateText({
+      model: provider.chat('deepseek/deepseek-v4-pro', {
+        reasoningReplay: 'same-family',
+        extraBody: { model: 'openai/gpt-5.5' },
+      }),
+      messages: MESSAGES,
+    });
+
+    expect(bodies[0]?.model).toBe('openai/gpt-5.5');
+    const messages = bodies[0]!.messages as Array<Record<string, unknown>>;
+    expect(messages[1]?.reasoning_details).toEqual(OPENAI_DETAILS);
+  });
+
   it('is not leaked into completion model request bodies', async () => {
     const { provider, bodies } = createCapturingProvider();
     await generateText({

@@ -127,6 +127,27 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     this.config = config;
   }
 
+  /**
+   * The `model` and `models` that end up in the request body, honouring
+   * the same override order: call-level providerOptions, then model and
+   * factory `extraBody`, then the model id and settings.
+   */
+  private getTargetModelIds(
+    providerOptions: LanguageModelV4CallOptions['providerOptions'],
+  ): string[] {
+    const overrides = [
+      providerOptions?.openrouter,
+      this.settings.extraBody,
+      this.config.extraBody,
+    ];
+    const pick = (key: 'model' | 'models') =>
+      overrides.find((o) => o != null && o[key] != null)?.[key];
+    const model = (pick('model') as string | undefined) ?? this.modelId;
+    const models =
+      (pick('models') as string[] | undefined) ?? this.settings.models ?? [];
+    return [model, ...models];
+  }
+
   private getArgs({
     prompt,
     maxOutputTokens,
@@ -195,15 +216,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
       // messages:
       messages: convertToOpenRouterChatMessages(prompt, {
-        // Call-level providerOptions override model/models in the request
-        // body, so they also decide which families are targeted.
-        modelIds: [
-          (providerOptions?.openrouter?.model as string | undefined) ??
-            this.modelId,
-          ...((providerOptions?.openrouter?.models as string[] | undefined) ??
-            this.settings.models ??
-            []),
-        ],
+        modelIds: this.getTargetModelIds(providerOptions),
         reasoningReplay:
           (providerOptions?.openrouter?.reasoningReplay as
             | ReasoningReplayMode
