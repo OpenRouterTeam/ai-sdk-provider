@@ -3,13 +3,16 @@ import type {
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
 } from '@ai-sdk/provider';
+import type { UIMessage } from 'ai';
 import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
+import { readUIMessageStream, streamText, tool } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { z } from 'zod/v4';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 
@@ -2285,17 +2288,17 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
+        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
+        toolName: 'test-tool',
+        type: 'tool-input-start',
+      },
+      {
         type: 'response-metadata',
         id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
       },
       {
         type: 'response-metadata',
         modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
-        toolName: 'test-tool',
-        type: 'tool-input-start',
       },
       {
         type: 'tool-input-delta',
@@ -5529,6 +5532,139 @@ describe('includeRawChunks', () => {
       } finally {
         parseSpy.mockRestore();
       }
+    });
+  });
+
+  describe('tool call whose first chunk carries partial arguments', () => {
+    const partialFirstChunks = (
+      argumentDeltas: string[],
+      finishReason: string,
+    ) => [
+      `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+        `"tool_calls":[{"index":0,"id":"call_partial","type":"function","function":{"name":"write","arguments":"{\\"a\\":"}}]},` +
+        `"finish_reason":null}]}\n\n`,
+      ...argumentDeltas.map(
+        (delta) =>
+          `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(delta)}}}]},` +
+          `"finish_reason":null}]}\n\n`,
+      ),
+      `data: {"id":"chatcmpl-partial","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+        `"choices":[{"index":0,"delta":{},"finish_reason":"${finishReason}"}]}\n\n`,
+      'data: [DONE]\n\n',
+    ];
+
+    it('should emit tool-input-start and the first chunk arguments as the first delta', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: partialFirstChunks(['1}'], 'tool_calls'),
+      };
+
+      // Raw chunks show which chunk each tool event was emitted for: the
+      // start and first delta must not wait for the second chunk.
+      const { stream } = await model.doStream({
+        prompt: TEST_PROMPT,
+        includeRawChunks: true,
+      });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements
+        .filter((el) => el.type === 'raw' || el.type.startsWith('tool-'))
+        .map((el) => (el.type === 'raw' ? { type: 'raw' } : el));
+
+      expect(toolEvents).toStrictEqual([
+        { type: 'raw' },
+        { type: 'tool-input-start', id: 'call_partial', toolName: 'write' },
+        { type: 'tool-input-delta', id: 'call_partial', delta: '{"a":' },
+        { type: 'raw' },
+        { type: 'tool-input-delta', id: 'call_partial', delta: '1}' },
+        { type: 'tool-input-end', id: 'call_partial' },
+        expect.objectContaining({
+          type: 'tool-call',
+          toolCallId: 'call_partial',
+          toolName: 'write',
+          input: '{"a":1}',
+        }),
+        { type: 'raw' },
+      ]);
+    });
+
+    it('should emit tool-input-start and the delta when the stream ends after the first chunk', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: partialFirstChunks([], 'length'),
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+
+      expect(toolEvents.slice(0, 2)).toStrictEqual([
+        { type: 'tool-input-start', id: 'call_partial', toolName: 'write' },
+        { type: 'tool-input-delta', id: 'call_partial', delta: '{"a":' },
+      ]);
+      expect(toolEvents.some((el) => el.type === 'tool-call')).toBe(false);
+    });
+
+    it('should emit a {} delta for a no-argument tool call finished at flush', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: [
+          `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+            `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+            `"tool_calls":[{"index":0,"id":"call_noargs","type":"function","function":{"name":"ping","arguments":""}}]},` +
+            `"finish_reason":null}]}\n\n`,
+          `data: {"id":"chatcmpl-noargs","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+            `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+          'data: [DONE]\n\n',
+        ],
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+
+      expect(toolEvents).toStrictEqual([
+        { type: 'tool-input-start', id: 'call_noargs', toolName: 'ping' },
+        { type: 'tool-input-delta', id: 'call_noargs', delta: '{}' },
+        { type: 'tool-input-end', id: 'call_noargs' },
+        expect.objectContaining({
+          type: 'tool-call',
+          toolCallId: 'call_noargs',
+          input: '{}',
+        }),
+      ]);
+    });
+
+    it('should surface the tool part in the UI message stream via streamText', async () => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: partialFirstChunks([], 'length'),
+      };
+
+      const result = streamText({
+        model,
+        prompt: 'Write something',
+        tools: {
+          write: tool({
+            inputSchema: z.object({ a: z.number() }),
+          }),
+        },
+      });
+
+      let lastMessage: UIMessage | undefined;
+      for await (const message of readUIMessageStream({
+        stream: result.toUIMessageStream(),
+      })) {
+        lastMessage = message;
+      }
+
+      expect(lastMessage?.parts).toContainEqual(
+        expect.objectContaining({
+          type: 'tool-write',
+          toolCallId: 'call_partial',
+        }),
+      );
     });
   });
 
