@@ -161,10 +161,14 @@ describe('reasoningReplay request plumbing', () => {
     { role: 'user' as const, content: 'Thanks' },
   ];
 
-  const createCapturingProvider = (stream = false) => {
+  const createCapturingProvider = (
+    stream = false,
+    extraBody?: Record<string, unknown>,
+  ) => {
     const bodies: Array<Record<string, unknown>> = [];
     const provider = createOpenRouter({
       apiKey: 'test',
+      extraBody,
       fetch: (async (_url: string, init: RequestInit) => {
         bodies.push(JSON.parse(String(init.body)));
         if (stream) {
@@ -276,6 +280,23 @@ describe('reasoningReplay request plumbing', () => {
     expect(bodies[0]?.model).toBe('openai/gpt-5.5');
     const messages = bodies[0]!.messages as Array<Record<string, unknown>>;
     expect(messages[1]?.reasoning_details).toEqual(OPENAI_DETAILS);
+  });
+
+  it('an explicit undefined extraBody override clears factory fallbacks', async () => {
+    const { provider, bodies } = createCapturingProvider(false, {
+      models: ['openai/gpt-5.5'],
+    });
+    await generateText({
+      model: provider.chat('deepseek/deepseek-v4-pro', {
+        reasoningReplay: 'same-family',
+        extraBody: { models: undefined },
+      }),
+      messages: MESSAGES,
+    });
+
+    expect(bodies[0]).not.toHaveProperty('models');
+    const messages = bodies[0]!.messages as Array<Record<string, unknown>>;
+    expect(messages[1]?.reasoning_details).toEqual([]);
   });
 
   it('is not leaked into completion model request bodies', async () => {

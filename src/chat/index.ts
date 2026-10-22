@@ -135,17 +135,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
   private getTargetModelIds(
     providerOptions: LanguageModelV4CallOptions['providerOptions'],
   ): string[] {
-    const overrides = [
-      providerOptions?.openrouter,
-      this.settings.extraBody,
-      this.config.extraBody,
-    ];
-    const pick = (key: 'model' | 'models') =>
-      overrides.find((o) => o != null && o[key] != null)?.[key];
-    const model = (pick('model') as string | undefined) ?? this.modelId;
-    const models =
-      (pick('models') as string[] | undefined) ?? this.settings.models ?? [];
-    return [model, ...models];
+    const { model, models } = {
+      model: this.modelId as string | undefined,
+      models: this.settings.models,
+      ...this.config.extraBody,
+      ...this.settings.extraBody,
+      ...providerOptions?.openrouter,
+    } as { model?: string; models?: string[] };
+    return [...(model != null ? [model] : []), ...(models ?? [])];
   }
 
   private getArgs({
