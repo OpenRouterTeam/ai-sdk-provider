@@ -13,9 +13,10 @@ type ReasoningSettings = OpenRouterProviderOptions['reasoning'];
  * `reasoning` option and the model-level `reasoning` settings.
  *
  * Call-level `reasoning` replaces the model-level effort/max_tokens but keeps
- * the model-level `enabled`/`exclude`. It is ignored when
- * `providerOptions.openrouter.reasoning_effort` is set, because OpenRouter
- * rejects conflicting `reasoning_effort` and `reasoning.effort` values.
+ * the model-level `enabled`/`exclude`. It is ignored when `reasoning_effort`
+ * is set via `providerOptions.openrouter` or either `extraBody` (provider or
+ * model settings), because OpenRouter rejects conflicting `reasoning_effort`
+ * and `reasoning.effort` values.
  * `providerOptions.openrouter.reasoning` is spread over the request body later,
  * so it overrides the result of this function.
  */
@@ -23,20 +24,29 @@ export function resolveReasoning({
   reasoning,
   settingsReasoning,
   providerOptions,
+  extraBodies = [],
 }: {
   reasoning: LanguageModelV4CallOptions['reasoning'];
   settingsReasoning: ReasoningSettings;
   providerOptions: SharedV4ProviderOptions | undefined;
+  extraBodies?: Array<Record<string, unknown> | undefined>;
 }): ReasoningSettings {
   if (!isCustomReasoning(reasoning)) {
     return settingsReasoning;
   }
-  if (providerOptions?.openrouter?.reasoning_effort !== undefined) {
+  if (
+    providerOptions?.openrouter?.reasoning_effort !== undefined ||
+    extraBodies.some((body) => body?.reasoning_effort !== undefined)
+  ) {
     return settingsReasoning;
   }
   return {
-    enabled: settingsReasoning?.enabled,
-    exclude: settingsReasoning?.exclude,
+    ...(settingsReasoning?.enabled !== undefined && {
+      enabled: settingsReasoning.enabled,
+    }),
+    ...(settingsReasoning?.exclude !== undefined && {
+      exclude: settingsReasoning.exclude,
+    }),
     effort: reasoning,
   };
 }
