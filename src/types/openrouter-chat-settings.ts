@@ -230,4 +230,14 @@ monitor and detect abuse. Learn more.
      */
     zdr?: boolean;
   };
+
+  /**
+   * Which historical `reasoning_details` to replay on follow-up requests.
+   * `all` (default) replays everything; `same-family` drops
+   * provider-specific details (e.g. OpenAI encrypted reasoning) when the
+   * target model belongs to a different provider family; `none` never
+   * replays reasoning. Can also be set per call via
+   * `providerOptions.openrouter.reasoningReplay`.
+   */
+  reasoningReplay?: 'all' | 'same-family' | 'none';
 } & OpenRouterSharedSettings;
