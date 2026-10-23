@@ -329,6 +329,7 @@ export function convertToOpenRouterChatMessages(
           messageReasoningDetails && Array.isArray(messageReasoningDetails)
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
+
         const candidateReasoningDetails =
           options.reasoningReplay === 'none'
             ? undefined
