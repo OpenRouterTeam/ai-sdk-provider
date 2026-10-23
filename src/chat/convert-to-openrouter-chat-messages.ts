@@ -14,6 +14,7 @@ import type {
 } from '../types/openrouter-chat-completions-input';
 import type { ReasoningReplayMode } from './reasoning-replay';
 
+import { getTopLevelMediaType } from '@ai-sdk/provider-utils';
 import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
@@ -23,6 +24,7 @@ import {
   getBase64FromDataUrl,
   getFileDataUrl,
   getFileUrl,
+  getFullMediaType,
   getInputAudioData,
   MIME_TO_FORMAT,
 } from './file-url-utils';
@@ -175,7 +177,9 @@ export function convertToOpenRouterChatMessages(
                   ...(cacheControl && { cache_control: cacheControl }),
                 };
               case 'file': {
-                if (part.mediaType?.startsWith('image/')) {
+                const topLevelType = getTopLevelMediaType(part.mediaType ?? '');
+
+                if (topLevelType === 'image') {
                   const url = getFileUrl({
                     part,
                     defaultMediaType: 'image/jpeg',
@@ -192,7 +196,7 @@ export function convertToOpenRouterChatMessages(
                 }
 
                 // Handle video files for video_url format
-                if (part.mediaType?.startsWith('video/')) {
+                if (topLevelType === 'video') {
                   const url = getFileUrl({
                     part,
                     defaultMediaType: 'video/mp4',
@@ -209,7 +213,7 @@ export function convertToOpenRouterChatMessages(
                 }
 
                 // Handle audio files for input_audio format
-                if (part.mediaType?.startsWith('audio/')) {
+                if (topLevelType === 'audio') {
                   return {
                     type: 'input_audio' as const,
                     input_audio: getInputAudioData(part),
@@ -525,7 +529,13 @@ function mapToolResultContentParts(
           defaultMediaType: 'application/octet-stream',
         });
 
-        if (part.mediaType?.startsWith('image/')) {
+        const mediaType = getFullMediaType({
+          data: part.data,
+          mediaType: part.mediaType,
+        });
+        const topLevelType = getTopLevelMediaType(mediaType ?? '');
+
+        if (topLevelType === 'image') {
           const detail = getImageDetail(part.providerOptions);
           return {
             type: 'image_url',
@@ -533,7 +543,7 @@ function mapToolResultContentParts(
           };
         }
 
-        if (part.mediaType?.startsWith('video/')) {
+        if (topLevelType === 'video') {
           const processing = getVideoProcessing(part.providerOptions);
           return {
             type: 'video_url',
@@ -544,8 +554,14 @@ function mapToolResultContentParts(
           };
         }
 
-        if (part.mediaType?.startsWith('audio/')) {
-          const rawFormat = part.mediaType.replace('audio/', '');
+        // input_audio needs inline base64 data; remote audio URLs fall
+        // through to a file part.
+        if (
+          topLevelType === 'audio' &&
+          mediaType &&
+          dataUrl.startsWith('data:')
+        ) {
+          const rawFormat = mediaType.replace('audio/', '');
           const format = MIME_TO_FORMAT[rawFormat];
           if (format !== undefined) {
             return {
