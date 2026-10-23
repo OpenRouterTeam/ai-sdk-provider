@@ -15,6 +15,9 @@
  *
  * Commenter report: "whatever I send as image_size it's always generating
  * 1024x1024 px, it does not work."
+ *
+ * These tests use the documented uppercase tiers ("1K", "2K", "4K"; "0.5K"
+ * on Gemini 3.1 Flash Image only). The SDK forwards image_config unchanged.
  */
 import { generateText } from 'ai';
 import { describe, expect, it, vi } from 'vitest';
@@ -79,13 +82,13 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
   });
 
   describe('Feature request: image_size should produce different resolutions', () => {
-    it('should generate higher resolution image with 4k vs 1k image_size', async () => {
+    it('should generate higher resolution image with 4K vs 1K image_size', async () => {
       const model = openrouter('google/gemini-3-pro-image-preview', {
         extraBody: {
           modalities: ['image', 'text'],
           image_config: {
             aspect_ratio: '1:1',
-            image_size: '1k',
+            image_size: '1K',
           },
         },
       });
@@ -105,7 +108,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
           modalities: ['image', 'text'],
           image_config: {
             aspect_ratio: '1:1',
-            image_size: '4k',
+            image_size: '4K',
           },
         },
       });
@@ -149,7 +152,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
           modalities: ['image', 'text'],
           image_config: {
             aspect_ratio: '16:9',
-            image_size: '4k',
+            image_size: '4K',
           },
         },
       });
@@ -191,7 +194,7 @@ describe('Issue #269: image_size parameter for google/gemini-3-pro-image-preview
           openrouter: {
             image_config: {
               aspect_ratio: '1:1',
-              image_size: '1k',
+              image_size: '1K',
             },
           },
         },

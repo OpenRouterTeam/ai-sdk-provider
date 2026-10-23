@@ -337,6 +337,32 @@ const { text } = await generateText({
 });
 ```
 
+## Image Generation Options
+
+Image-capable chat models (for example Gemini image models) take
+`image_config` through `providerOptions.openrouter`. The provider forwards it
+unchanged to the request body. Use the documented uppercase resolution tiers
+for `image_size`: `'1K'`, `'2K'` or `'4K'`, and `'0.5K'` on models that
+support it. See the
+[image generation documentation](https://openrouter.ai/docs/guides/overview/multimodal/image-generation)
+for which values each model accepts.
+
+```ts
+const result = await generateText({
+  model: openrouter('google/gemini-3-pro-image-preview', {
+    extraBody: { modalities: ['image', 'text'] },
+  }),
+  prompt: 'A watercolor lighthouse at dusk',
+  providerOptions: {
+    openrouter: {
+      image_config: { aspect_ratio: '16:9', image_size: '4K' },
+    },
+  },
+});
+
+const image = result.files[0];
+```
+
 ## Anthropic Prompt Caching
 
 You can include Anthropic-specific options directly in your messages when using functions like `streamText`. The OpenRouter provider will automatically convert these messages to the correct format internally.
