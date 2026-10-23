@@ -114,8 +114,12 @@ export function getMediaType(
 }
 
 export function getBase64FromDataUrl(dataUrl: string): string {
-  const match = dataUrl.match(/^data:[^;]*;base64,(.+)$/);
-  return match ? match[1]! : dataUrl;
+  // Match only the prefix: a regex over a multi-MB payload (e.g. a generated
+  // 4K image) can throw "RangeError: Maximum call stack size exceeded" in V8.
+  const prefix = /^data:[^;,]*;base64,/.exec(dataUrl.slice(0, 256));
+  return prefix && dataUrl.length > prefix[0].length
+    ? dataUrl.slice(prefix[0].length)
+    : dataUrl;
 }
 
 /** MIME type to format mapping for normalization */
