@@ -2043,6 +2043,111 @@ describe('multi-turn reasoning_details deduplication (issue #254)', () => {
   });
 });
 
+describe('late reasoning_details carrier selection', () => {
+  const unsigned = {
+    type: ReasoningDetailType.Text,
+    text: 'Thinking.',
+    format: 'anthropic-claude-v1',
+  } as const;
+  const signed = { ...unsigned, signature: 'sig-late' };
+  const summary = {
+    type: ReasoningDetailType.Summary,
+    summary: 'Summary.',
+  } as const;
+  const encrypted = {
+    type: ReasoningDetailType.Encrypted,
+    id: 'rs_late',
+    data: 'blob',
+  } as const;
+
+  it('replays the later carrier when a late detail was merged in place', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking.',
+            providerOptions: {
+              openrouter: { reasoning_details: [unsigned] },
+            },
+          },
+          { type: 'text', text: 'Answer' },
+          {
+            type: 'reasoning',
+            text: '',
+            providerOptions: { openrouter: { reasoning_details: [signed] } },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({ reasoning_details: [signed] });
+  });
+
+  it('keeps the first of equally sized carriers that hold different details', () => {
+    const first = { ...signed, text: 'First.', signature: 'sig-1' };
+    const second = { ...signed, text: 'Second.', signature: 'sig-2' };
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First.',
+            providerOptions: { openrouter: { reasoning_details: [first] } },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second.',
+            providerOptions: { openrouter: { reasoning_details: [second] } },
+          },
+          { type: 'text', text: 'Answer' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({ reasoning_details: [first] });
+  });
+
+  it('replays the most complete carrier over an earlier tool call', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Summary.',
+            providerOptions: {
+              openrouter: { reasoning_details: [summary] },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'lookup',
+            input: {},
+            providerOptions: {
+              openrouter: { reasoning_details: [summary] },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: '',
+            providerOptions: {
+              openrouter: { reasoning_details: [summary, encrypted] },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      reasoning_details: [summary, encrypted],
+    });
+  });
+});
+
 describe('issue #423: strip reasoning without valid signatures', () => {
   it('should strip reasoning text when providerOptions exist but reasoning_details are empty', () => {
     const result = convertToOpenRouterChatMessages([
@@ -3507,111 +3612,6 @@ describe('deterministic tool call argument serialization', () => {
 
     expect(result[0]).toMatchObject({
       tool_calls: [{ function: { arguments: '{"a":1,"b":2,"c":3}' } }],
-    });
-  });
-});
-
-describe('late reasoning_details carrier selection', () => {
-  const unsigned = {
-    type: ReasoningDetailType.Text,
-    text: 'Thinking.',
-    format: 'anthropic-claude-v1',
-  } as const;
-  const signed = { ...unsigned, signature: 'sig-late' };
-  const summary = {
-    type: ReasoningDetailType.Summary,
-    summary: 'Summary.',
-  } as const;
-  const encrypted = {
-    type: ReasoningDetailType.Encrypted,
-    id: 'rs_late',
-    data: 'blob',
-  } as const;
-
-  it('replays the later carrier when a late detail was merged in place', () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'assistant',
-        content: [
-          {
-            type: 'reasoning',
-            text: 'Thinking.',
-            providerOptions: {
-              openrouter: { reasoning_details: [unsigned] },
-            },
-          },
-          { type: 'text', text: 'Answer' },
-          {
-            type: 'reasoning',
-            text: '',
-            providerOptions: { openrouter: { reasoning_details: [signed] } },
-          },
-        ],
-      },
-    ]);
-
-    expect(result[0]).toMatchObject({ reasoning_details: [signed] });
-  });
-
-  it('keeps the first of equally sized carriers that hold different details', () => {
-    const first = { ...signed, text: 'First.', signature: 'sig-1' };
-    const second = { ...signed, text: 'Second.', signature: 'sig-2' };
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'assistant',
-        content: [
-          {
-            type: 'reasoning',
-            text: 'First.',
-            providerOptions: { openrouter: { reasoning_details: [first] } },
-          },
-          {
-            type: 'reasoning',
-            text: 'Second.',
-            providerOptions: { openrouter: { reasoning_details: [second] } },
-          },
-          { type: 'text', text: 'Answer' },
-        ],
-      },
-    ]);
-
-    expect(result[0]).toMatchObject({ reasoning_details: [first] });
-  });
-
-  it('replays the most complete carrier over an earlier tool call', () => {
-    const result = convertToOpenRouterChatMessages([
-      {
-        role: 'assistant',
-        content: [
-          {
-            type: 'reasoning',
-            text: 'Summary.',
-            providerOptions: {
-              openrouter: { reasoning_details: [summary] },
-            },
-          },
-          {
-            type: 'tool-call',
-            toolCallId: 'call-1',
-            toolName: 'lookup',
-            input: {},
-            providerOptions: {
-              openrouter: { reasoning_details: [summary] },
-            },
-          },
-          {
-            type: 'reasoning',
-            text: '',
-            providerOptions: {
-              openrouter: { reasoning_details: [summary, encrypted] },
-            },
-          },
-        ],
-      },
-    ]);
-
-    expect(result[0]).toMatchObject({
-      reasoning_details: [summary, encrypted],
     });
   });
 });
