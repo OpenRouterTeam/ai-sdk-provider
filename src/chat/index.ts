@@ -438,6 +438,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   // the full reasoning_details are attached below.
                   break;
                 }
+                case ReasoningDetailType.ServerToolCall: {
+                  // Server-tool call records are replayed via
+                  // providerMetadata.openrouter.reasoning_details only.
+                  break;
+                }
                 default: {
                   detail satisfies never;
                 }
@@ -968,8 +973,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     accumulatedReasoningDetails.push({ ...detail });
                   }
                 } else {
-                  // Encrypted details are opaque blobs (each has its own id);
-                  // they are discrete and must be pushed as-is, never merged.
+                  // Encrypted and server-tool-call details are discrete
+                  // records; they must be pushed as-is, never merged.
                   accumulatedReasoningDetails.push(detail);
                 }
               }
@@ -995,6 +1000,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                       // roundtripping. It is accumulated in
                       // accumulatedReasoningDetails but does not produce a
                       // visible reasoning delta.
+                      break;
+                    }
+                    case ReasoningDetailType.ServerToolCall: {
+                      // Accumulated for replay; not visible reasoning text.
                       break;
                     }
                     case ReasoningDetailType.Summary: {
