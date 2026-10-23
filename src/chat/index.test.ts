@@ -10,8 +10,9 @@ import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
-import { jsonSchema, readUIMessageStream, streamText, tool } from 'ai';
+import { readUIMessageStream, streamText, tool } from 'ai';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
+import { z } from 'zod/v4';
 import { createOpenRouter } from '../provider';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 
@@ -5081,10 +5082,7 @@ describe('includeRawChunks', () => {
         prompt: 'Hello',
         tools: {
           lookup: tool({
-            inputSchema: jsonSchema<{ a: number }>({
-              type: 'object',
-              properties: { a: { type: 'number' } },
-            }),
+            inputSchema: z.object({ a: z.number() }),
           }),
         },
       });

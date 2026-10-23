@@ -1114,7 +1114,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     message: `Tool call at index ${index} is missing during merge.`,
                   });
                 }
-
                 // Once the tool call has been emitted, ignore further deltas
                 // (e.g. a trailing "\n"): a tool-input-delta after
                 // tool-input-end flips the UI tool part back to
