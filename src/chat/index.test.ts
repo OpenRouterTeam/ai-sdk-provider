@@ -1,4 +1,5 @@
 import type {
+  JSONValue,
   LanguageModelV4Content,
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
@@ -1070,6 +1071,72 @@ describe('doGenerate', () => {
     >;
     const tools = body.tools as Array<Record<string, unknown>>;
     expect(tools[0]).toHaveProperty('cache_control', { type: 'ephemeral' });
+  });
+
+  it.each(
+    (
+      [
+        { type: 'bogus' },
+        { type: 'ephemeral', ttl: '10m' },
+        'yes',
+        0,
+        '',
+        null,
+        [],
+      ] satisfies JSONValue[]
+    ).map((value) => ({ value })),
+  )('should not send invalid tool cache control $value', async ({ value }) => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          inputSchema: { type: 'object', properties: {} },
+          providerOptions: {
+            openrouter: { cacheControl: value },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<Record<string, unknown>>;
+    expect(tools[0]).not.toHaveProperty('cache_control');
+  });
+
+  it('should fall back to a valid anthropic tool cache control when the openrouter one is empty', async () => {
+    prepareJsonResponse({ content: '' });
+
+    await model.doGenerate({
+      prompt: TEST_PROMPT,
+      tools: [
+        {
+          type: 'function',
+          name: 'get-weather',
+          inputSchema: { type: 'object', properties: {} },
+          providerOptions: {
+            openrouter: { cacheControl: '' },
+            anthropic: { cacheControl: { type: 'ephemeral', ttl: '1h' } },
+          },
+        },
+      ],
+    });
+
+    const body = (await server.calls[0]!.requestBodyJson) as Record<
+      string,
+      unknown
+    >;
+    const tools = body.tools as Array<Record<string, unknown>>;
+    expect(tools[0]).toHaveProperty('cache_control', {
+      type: 'ephemeral',
+      ttl: '1h',
+    });
   });
 
   it('should send both response_format and tools when both are present', async () => {

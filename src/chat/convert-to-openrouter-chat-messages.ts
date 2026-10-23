@@ -30,17 +30,35 @@ import { isUrl } from './is-url';
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
 
+function isCacheControl(value: unknown): value is OpenRouterCacheControl {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const { type, ttl } = value as Record<string, unknown>;
+  return (
+    type === 'ephemeral' && (ttl === undefined || ttl === '5m' || ttl === '1h')
+  );
+}
+
+/**
+ * Resolves cache control from provider options. Checks, in order,
+ * `openrouter.cacheControl`, `openrouter.cache_control`,
+ * `anthropic.cacheControl` and `anthropic.cache_control`, and returns the
+ * first value that is a valid `{ type: 'ephemeral', ttl?: '5m' | '1h' }`.
+ * Invalid values are skipped so they never reach the wire.
+ */
 export function getCacheControl(
   providerMetadata: SharedV4ProviderMetadata | undefined,
 ): OpenRouterCacheControl | undefined {
   const anthropic = providerMetadata?.anthropic;
   const openrouter = providerMetadata?.openrouter;
 
-  // Allow both cacheControl and cache_control:
-  return (openrouter?.cacheControl ??
-    openrouter?.cache_control ??
-    anthropic?.cacheControl ??
-    anthropic?.cache_control) as OpenRouterCacheControl | undefined;
+  return [
+    openrouter?.cacheControl,
+    openrouter?.cache_control,
+    anthropic?.cacheControl,
+    anthropic?.cache_control,
+  ].find(isCacheControl);
 }
 
 function getImageDetail(
