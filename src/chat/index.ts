@@ -1301,6 +1301,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               }
             }
 
+            // Close the input of tool calls that started streaming but never
+            // completed (e.g. finish reason 'length' or 'stop'), so every
+            // tool-input-start has a matching tool-input-end. No tool-call is
+            // emitted: the arguments are incomplete.
+            for (const toolCall of toolCalls) {
+              if (toolCall?.inputStarted && !toolCall.sent) {
+                controller.enqueue({
+                  type: 'tool-input-end',
+                  id: toolCall.id,
+                });
+              }
+            }
+
             // End reasoning first if it was started, to maintain proper order
             if (reasoningStarted) {
               controller.enqueue({
