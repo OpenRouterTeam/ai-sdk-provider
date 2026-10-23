@@ -3737,6 +3737,35 @@ describe('cache control validation', () => {
     ]);
   });
 
+  it('should not let an empty openrouter cache control on a user part mask a valid anthropic one', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a' },
+          {
+            type: 'text',
+            text: 'b',
+            providerOptions: {
+              openrouter: { cacheControl: '' },
+              anthropic: { cacheControl: { type: 'ephemeral' } },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result).toEqual([
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: 'a' },
+          { type: 'text', text: 'b', cache_control: { type: 'ephemeral' } },
+        ],
+      },
+    ]);
+  });
+
   it('should emit assistant text blocks alongside tool_calls when a text part has cache control', () => {
     const result = convertToOpenRouterChatMessages([
       {
