@@ -94,6 +94,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       /^data:image\/[a-zA-Z]+;base64,/,
       /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)(?:[?#].*)?$/i,
     ],
+    // OpenRouter accepts video URLs directly (direct file URLs, and YouTube
+    // links for providers that support them), so don't download them.
+    'video/*': [/^https?:\/\/.+$/],
     // 'text/*': [/^data:text\//, /^https?:\/\/.+$/],
     'application/*': [/^data:application\//, /^https?:\/\/.+$/],
   };
