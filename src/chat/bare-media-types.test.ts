@@ -67,4 +67,50 @@ describe('bare top-level media types through generateText', () => {
       },
     ]);
   });
+
+  it("should send a file part URL with mediaType 'image' as image_url without downloading it", async () => {
+    const { mockFetch, bodies } = createMockFetch();
+    const openrouter = createOpenRouter({ apiKey: 'test', fetch: mockFetch });
+    const downloaded: string[] = [];
+
+    await generateText({
+      model: openrouter('openai/gpt-4o'),
+      // Record (and never perform) downloads of URLs the model does not
+      // support.
+      experimental_download: async (requestedDownloads) =>
+        requestedDownloads.map(({ url, isUrlSupportedByModel }) => {
+          if (isUrlSupportedByModel) {
+            return null;
+          }
+          downloaded.push(url.toString());
+          return { data: new Uint8Array([1, 2, 3]), mediaType: 'image/webp' };
+        }),
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'file',
+              mediaType: 'image',
+              data: new URL('https://example.com/bird.webp'),
+              providerOptions: { openrouter: { imageDetail: 'low' } },
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(downloaded).toEqual([]);
+    expect(bodies[0]?.messages).toEqual([
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/bird.webp', detail: 'low' },
+          },
+        ],
+      },
+    ]);
+  });
 });
