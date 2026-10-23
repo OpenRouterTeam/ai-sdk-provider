@@ -1131,7 +1131,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                       name: toolCallDelta.function.name,
                       arguments: toolCallDelta.function.arguments ?? '',
                     },
-                    inputStarted: false,
+                    inputStarted: true,
                     sent: false,
                     argumentsScanner: createJsonCompletenessScanner(),
                   };
@@ -1145,6 +1145,22 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     });
                   }
 
+                  // Start the tool input as soon as the id and name are known,
+                  // even when the first chunk's arguments are partial JSON.
+                  controller.enqueue({
+                    type: 'tool-input-start',
+                    id: toolCall.id,
+                    toolName: toolCall.function.name,
+                  });
+
+                  if (toolCall.function.arguments) {
+                    controller.enqueue({
+                      type: 'tool-input-delta',
+                      id: toolCall.id,
+                      delta: toolCall.function.arguments,
+                    });
+                  }
+
                   // check if tool call is complete (some providers send the full tool call in one chunk)
                   if (
                     toolCall.function?.name != null &&
@@ -1155,21 +1171,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     ) &&
                     isParsableJson(toolCall.function.arguments)
                   ) {
-                    toolCall.inputStarted = true;
-
-                    controller.enqueue({
-                      type: 'tool-input-start',
-                      id: toolCall.id,
-                      toolName: toolCall.function.name,
-                    });
-
-                    // send delta
-                    controller.enqueue({
-                      type: 'tool-input-delta',
-                      id: toolCall.id,
-                      delta: toolCall.function.arguments,
-                    });
-
                     controller.enqueue({
                       type: 'tool-input-end',
                       id: toolCall.id,
@@ -1218,25 +1219,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 // input-streaming.
                 if (toolCall.sent) {
                   continue;
-                }
-
-                if (!toolCall.inputStarted) {
-                  toolCall.inputStarted = true;
-                  controller.enqueue({
-                    type: 'tool-input-start',
-                    id: toolCall.id,
-                    toolName: toolCall.function.name,
-                  });
-
-                  // Emit the initial chunk's arguments as a delta so they are
-                  // not silently dropped when the tool call spans multiple chunks.
-                  if (toolCall.function.arguments) {
-                    controller.enqueue({
-                      type: 'tool-input-delta',
-                      id: toolCall.id,
-                      delta: toolCall.function.arguments,
-                    });
-                  }
                 }
 
                 // Scan only the new delta so the full accumulated arguments
@@ -1358,13 +1340,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   // If inputStarted is false, the tool call was never partially
                   // streamed — emit start + delta + end.
                   // If inputStarted is true, start and deltas were already
-                  // emitted during streaming — only emit end.
+                  // emitted during streaming — only emit end, plus the '{}'
+                  // delta for no-argument calls so the deltas match the input.
                   if (!toolCall.inputStarted) {
                     controller.enqueue({
                       type: 'tool-input-start',
                       id: toolCall.id,
                       toolName: toolCall.function.name,
                     });
+                  }
+                  if (
+                    !toolCall.inputStarted ||
+                    input !== toolCall.function.arguments
+                  ) {
                     controller.enqueue({
                       type: 'tool-input-delta',
                       id: toolCall.id,
