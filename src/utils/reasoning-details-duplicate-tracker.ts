@@ -1,5 +1,6 @@
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
+import { ReasoningFormat } from '../schemas/format';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 
 /**
@@ -12,10 +13,19 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
  *
  * The canonical key logic matches the OpenRouter API's deduplication exactly
  * (see openrouter-web/packages/llm-interfaces/reasonings/duplicate-tracker.ts):
+ * - Every key is prefixed with the detail `type`, so details of different
+ *   types never collide even when their identifying values are equal.
  * - Summary: key = summary field
- * - Encrypted: key = id field (if truthy) or data field
- * - Text: key = text field (if truthy) or signature field (if truthy)
+ * - Encrypted: key = data field for `google-gemini-v1`, otherwise id field
+ *   (if truthy) or data field
+ * - Text: key = signature field (if truthy) or text field (if truthy)
+ *
  * - ServerToolCall: key = tool_call_id (if truthy) or `${tool_name}:${arguments}`
+ *
+ * `format` is deliberately NOT part of the key: it is nullish and gets
+ * defaulted during extraction, so the same item can arrive with and without
+ * it, and splitting those would re-send duplicates (OpenAI Responses rejects a
+ * repeated `rs_` id with "Duplicate item found").
  */
 export class ReasoningDetailsDuplicateTracker {
   readonly #seenKeys = new Set<string>();
@@ -40,6 +50,14 @@ export class ReasoningDetailsDuplicateTracker {
   }
 
   private getCanonicalKey(detail: ReasoningDetailUnion): string | null {
+    const identity = this.getIdentity(detail);
+    if (identity === null) {
+      return null;
+    }
+    return `${detail.type}:${identity}`;
+  }
+
+  private getIdentity(detail: ReasoningDetailUnion): string | null {
     // This logic matches the OpenRouter API's deduplication exactly.
     // See: openrouter-web/packages/llm-interfaces/reasonings/duplicate-tracker.ts
     switch (detail.type) {
@@ -47,17 +65,22 @@ export class ReasoningDetailsDuplicateTracker {
         return detail.summary;
 
       case ReasoningDetailType.Encrypted:
-        if (detail.id) {
+        // Gemini encrypted ids are derived from tool-call ids, which can repeat
+        // across turns, so the blob itself is the identity. Every other format
+        // (notably OpenAI `rs_` ids) keeps id-based dedupe.
+        if (detail.id && detail.format !== ReasoningFormat.GoogleGeminiV1) {
           return detail.id;
         }
         return detail.data;
 
       case ReasoningDetailType.Text: {
-        if (detail.text) {
-          return detail.text;
-        }
+        // A signature identifies one signed block; identical text can appear in
+        // distinct signed blocks. Fall back to text only for unsigned blocks.
         if (detail.signature) {
           return detail.signature;
+        }
+        if (detail.text) {
+          return detail.text;
         }
         return null;
       }
