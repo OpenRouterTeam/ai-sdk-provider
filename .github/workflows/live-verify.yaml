@@ -1,0 +1,232 @@
+# Live OpenRouter API verification: main (baseline) vs this branch
+# (integration of open follow-up PRs). Temporary, do not merge.
+#
+# The OPENROUTER_API_KEY secret is only written to .env.e2e (mode 600) and
+# read by the vitest configs. It is never echoed. Every JSON result is scanned
+# for the key before upload; a match deletes the results and fails the job.
+name: Live API verification
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Probe cost guards (see live-verify/probes/lib/harness.ts).
+  MAX_PROBES: "30"
+  MAX_REQUESTS: "90"
+
+jobs:
+  baseline:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'claude/live-verify-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    env:
+      LIVE_VERIFY_RESULTS: ${{ github.workspace }}/lv-results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Write .env.e2e
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +x
+          if [ -z "$KEY" ]; then
+            echo "::error::OPENROUTER_API_KEY secret is not available to this run"
+            exit 1
+          fi
+          umask 077
+          printf 'OPENROUTER_API_KEY=%s\n' "$KEY" > .env.e2e
+          chmod 600 .env.e2e
+          printf 'OPENROUTER_API_BASE=https://openrouter.ai\n' >> .env.e2e
+          mkdir -p "$LIVE_VERIFY_RESULTS"
+      - name: pnpm test:e2e
+        continue-on-error: true
+        # Veo video generation is excluded (cost, about $1.60 per run).
+        run: >-
+          pnpm exec vitest --config vitest.e2e.config.ts --run
+          --reporter=default --reporter=json
+          --outputFile.json="$LIVE_VERIFY_RESULTS/main-e2e.json"
+          --exclude=e2e/video-generation.test.ts
+      - name: pnpm test:issues
+        continue-on-error: true
+        # issue-422 hard-codes an invalid API key on purpose.
+        run: >-
+          pnpm exec vitest --config vitest.issues.config.ts --run
+          --reporter=default --reporter=json
+          --outputFile.json="$LIVE_VERIFY_RESULTS/main-issues.json"
+          '--exclude=e2e/issues/issue-422-*.test.ts'
+      - name: Remove .env.e2e
+        if: always()
+        run: rm -f .env.e2e
+      - name: Scan results for the key
+        id: scan
+        if: always()
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +x
+          [ -n "$KEY" ] || { echo "no key to scan for"; exit 1; }
+          mkdir -p "$LIVE_VERIFY_RESULTS"
+          if grep -rlF -- "$KEY" "$LIVE_VERIFY_RESULTS" > /dev/null; then
+            echo "::error::API key found in results; deleting them"
+            rm -rf "$LIVE_VERIFY_RESULTS"
+            exit 1
+          fi
+          echo "key not found in results"
+          ls -la "$LIVE_VERIFY_RESULTS"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scan.outcome == 'success'
+        with:
+          name: baseline-results
+          path: lv-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  integration:
+    if: github.event_name == 'workflow_dispatch' || github.head_ref == 'claude/live-verify-ci'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+    env:
+      LIVE_VERIFY_RESULTS: ${{ github.workspace }}/lv-results
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - id: sha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Check probe model slugs (public endpoints, no key)
+        continue-on-error: true
+        run: node --experimental-strip-types live-verify/scripts/check-models.mjs
+      - name: Typecheck probes
+        continue-on-error: true
+        run: pnpm exec tsc -p live-verify/probes/tsconfig.json
+      - name: Write .env.e2e
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +x
+          if [ -z "$KEY" ]; then
+            echo "::error::OPENROUTER_API_KEY secret is not available to this run"
+            exit 1
+          fi
+          umask 077
+          printf 'OPENROUTER_API_KEY=%s\n' "$KEY" > .env.e2e
+          chmod 600 .env.e2e
+          printf 'OPENROUTER_API_BASE=https://openrouter.ai\n' >> .env.e2e
+          mkdir -p "$LIVE_VERIFY_RESULTS"
+      - name: pnpm test:e2e
+        continue-on-error: true
+        # Veo video generation is excluded (cost, about $1.60 per run).
+        run: >-
+          pnpm exec vitest --config vitest.e2e.config.ts --run
+          --reporter=default --reporter=json
+          --outputFile.json="$LIVE_VERIFY_RESULTS/int-e2e.json"
+          --exclude=e2e/video-generation.test.ts
+      - name: pnpm test:issues
+        continue-on-error: true
+        # issue-422 hard-codes an invalid API key on purpose.
+        run: >-
+          pnpm exec vitest --config vitest.issues.config.ts --run
+          --reporter=default --reporter=json
+          --outputFile.json="$LIVE_VERIFY_RESULTS/int-issues.json"
+          '--exclude=e2e/issues/issue-422-*.test.ts'
+      - name: Probe suite
+        continue-on-error: true
+        # SKIP_VIDEO is unset: the YouTube video probes (#601, #584) are cheap
+        # (about $0.003 each).
+        run: >-
+          pnpm exec vitest --config live-verify/probes/vitest.probes.config.ts
+          --run --reporter=default --reporter=json
+          --outputFile.json="$LIVE_VERIFY_RESULTS/int-probes-vitest.json"
+      - name: Remove .env.e2e
+        if: always()
+        run: rm -f .env.e2e
+      - name: Scan results for the key
+        id: scan
+        if: always()
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +x
+          [ -n "$KEY" ] || { echo "no key to scan for"; exit 1; }
+          mkdir -p "$LIVE_VERIFY_RESULTS"
+          if grep -rlF -- "$KEY" "$LIVE_VERIFY_RESULTS" > /dev/null; then
+            echo "::error::API key found in results; deleting them"
+            rm -rf "$LIVE_VERIFY_RESULTS"
+            exit 1
+          fi
+          echo "key not found in results"
+          ls -la "$LIVE_VERIFY_RESULTS"
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.scan.outcome == 'success'
+        with:
+          name: integration-results
+          path: lv-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  summary:
+    needs: [baseline, integration]
+    if: always() && (github.event_name == 'workflow_dispatch' || github.head_ref == 'claude/live-verify-ci')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-results"
+          path: lv-results
+          merge-multiple: true
+      - name: Summarize
+        env:
+          MAIN_SHA: ${{ needs.baseline.outputs.sha }}
+          INT_SHA: ${{ needs.integration.outputs.sha }}
+          INT_REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          node live-verify/scripts/summarize.mjs lv-results \
+            "$MAIN_SHA" "$INT_SHA" "$INT_REF"
+      - name: Scan summary for the key
+        env:
+          KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set +x
+          [ -n "$KEY" ] || { echo "no key to scan for"; exit 1; }
+          if grep -qF -- "$KEY" lv-results/summary.md; then
+            echo "::error::API key found in summary; deleting it"
+            rm -f lv-results/summary.md
+            exit 1
+          fi
+          echo "key not found in summary"
+          cat lv-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: summary
+          path: lv-results/summary.md
+          retention-days: 7
