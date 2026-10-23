@@ -301,20 +301,19 @@ export function convertToOpenRouterChatMessages(
           ? parsedProviderOptions.data?.openrouter?.annotations
           : undefined;
 
-        // Use message-level reasoning_details if available, otherwise find from parts
-        // Priority: message-level > first tool call > first reasoning part
-        // This prevents duplicate thinking blocks when Claude makes parallel tool calls
+        // Use message-level reasoning_details if available, otherwise the most
+        // complete carrier among the parts (see findMostCompleteReasoningDetails)
         //
         // NOTE: treat an empty array as a meaningful signal — some providers (e.g.
         // DeepSeek V4) return `reasoning_details: []` on turns where they produced no
         // visible reasoning tokens, and they expect to receive that empty array back in
         // subsequent turns to maintain the conversation state.  Falling back to
-        // `findFirstReasoningDetails` when the array exists-but-is-empty would silently
+        // `findMostCompleteReasoningDetails` when the array exists-but-is-empty would silently
         // drop this signal and cause those providers to error on follow-up requests.
         const candidateReasoningDetails =
           messageReasoningDetails && Array.isArray(messageReasoningDetails)
             ? messageReasoningDetails
-            : findFirstReasoningDetails(content);
+            : findMostCompleteReasoningDetails(content);
 
         // Strip reasoning.text entries that would cause signature errors
         // when sent back to the upstream provider.
@@ -540,49 +539,41 @@ function mapToolResultContentParts(
 }
 
 /**
- * Find the first reasoning_details from content parts.
- * Priority: tool calls (complete accumulated data) > reasoning parts (delta data)
+ * Find the most complete reasoning_details carried by the content parts.
  *
- * This prevents duplicate thinking blocks when Claude makes parallel tool calls,
- * as each tool call may have the same reasoning_details attached.
+ * Streamed carriers (reasoning parts and the first tool call) each hold a
+ * cumulative snapshot, and an empty reasoning part emitted at the end of the
+ * stream carries details that arrived after the earlier carriers. Picking the
+ * carrier with the most entries (the later one on a tie, since in-place merges
+ * such as a late signature keep the length) replays every detail exactly once.
+ * Parallel tool calls after the first carry none, so thinking blocks are not
+ * duplicated.
  */
-function findFirstReasoningDetails(
+function findMostCompleteReasoningDetails(
   content: Array<{
     type: string;
     providerOptions?: Record<string, unknown>;
   }>,
 ): ReasoningDetailUnion[] | undefined {
-  // First, try tool calls - they have complete accumulated reasoning_details
+  let mostComplete: ReasoningDetailUnion[] | undefined;
   for (const part of content) {
-    if (part.type === 'tool-call') {
-      const parsed = OpenRouterProviderOptionsSchema.safeParse(
-        part.providerOptions,
-      );
-      if (
-        parsed.success &&
-        parsed.data?.openrouter?.reasoning_details &&
-        parsed.data.openrouter.reasoning_details.length > 0
-      ) {
-        return parsed.data.openrouter.reasoning_details;
-      }
+    if (part.type !== 'tool-call' && part.type !== 'reasoning') {
+      continue;
+    }
+    const parsed = OpenRouterProviderOptionsSchema.safeParse(
+      part.providerOptions,
+    );
+    const details = parsed.success
+      ? parsed.data?.openrouter?.reasoning_details
+      : undefined;
+    if (
+      details &&
+      details.length > 0 &&
+      details.length >= (mostComplete?.length ?? 0)
+    ) {
+      mostComplete = details;
     }
   }
 
-  // Fall back to reasoning parts - they have delta reasoning_details
-  for (const part of content) {
-    if (part.type === 'reasoning') {
-      const parsed = OpenRouterProviderOptionsSchema.safeParse(
-        part.providerOptions,
-      );
-      if (
-        parsed.success &&
-        parsed.data?.openrouter?.reasoning_details &&
-        parsed.data.openrouter.reasoning_details.length > 0
-      ) {
-        return parsed.data.openrouter.reasoning_details;
-      }
-    }
-  }
-
-  return undefined;
+  return mostComplete;
 }
