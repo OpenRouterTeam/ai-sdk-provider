@@ -1,6 +1,7 @@
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
 import { describe, expect, it } from 'vitest';
+import { ReasoningFormat } from '../schemas/format';
 import { ReasoningDetailType } from '../schemas/reasoning-details';
 import { ReasoningDetailsDuplicateTracker } from './reasoning-details-duplicate-tracker';
 
@@ -129,8 +130,102 @@ describe('ReasoningDetailsDuplicateTracker', () => {
     });
   });
 
+  describe('Encrypted format handling', () => {
+    it('should keep Gemini encrypted details that reuse a tool-call-derived id', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const turn1: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'tool_getWeather_0',
+        data: 'gemini-signature-turn-1',
+        format: ReasoningFormat.GoogleGeminiV1,
+      };
+
+      const turn2: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'tool_getWeather_0',
+        data: 'gemini-signature-turn-2',
+        format: ReasoningFormat.GoogleGeminiV1,
+      };
+
+      expect(tracker.upsert(turn1)).toBe(true);
+      expect(tracker.upsert(turn2)).toBe(true);
+    });
+
+    it('should deduplicate an identical Gemini encrypted detail', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'tool_getWeather_0',
+        data: 'gemini-signature',
+        format: ReasoningFormat.GoogleGeminiV1,
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+      expect(tracker.upsert({ ...detail, index: 0 })).toBe(false);
+    });
+
+    it('should deduplicate OpenAI encrypted details by rs_ id even when data differs', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail1: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'rs_abc123',
+        data: 'encrypted-a',
+        format: ReasoningFormat.OpenAIResponsesV1,
+      };
+
+      const detail2: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'rs_abc123',
+        data: 'encrypted-b',
+        format: ReasoningFormat.OpenAIResponsesV1,
+      };
+
+      expect(tracker.upsert(detail1)).toBe(true);
+      expect(tracker.upsert(detail2)).toBe(false);
+    });
+
+    it('should deduplicate an rs_ id regardless of whether format is present', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const withFormat: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'rs_abc123',
+        data: 'encrypted-a',
+        format: ReasoningFormat.OpenAIResponsesV1,
+      };
+
+      const withoutFormat: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'rs_abc123',
+        data: 'encrypted-a',
+        format: null,
+      };
+
+      expect(tracker.upsert(withFormat)).toBe(true);
+      expect(tracker.upsert(withoutFormat)).toBe(false);
+    });
+  });
+
   describe('Text type deduplication', () => {
-    it('should deduplicate using text field when present', () => {
+    it('should deduplicate unsigned text using text field', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail1: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same text',
+        id: 'id1',
+      };
+
+      const detail2: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same text',
+        signature: null,
+        id: 'id2',
+      };
+
+      expect(tracker.upsert(detail1)).toBe(true);
+      expect(tracker.upsert(detail2)).toBe(false);
+    });
+
+    it('should keep signed blocks with identical text but different signatures', () => {
       const tracker = new ReasoningDetailsDuplicateTracker();
       const detail1: ReasoningDetailUnion = {
         type: ReasoningDetailType.Text,
@@ -142,6 +237,25 @@ describe('ReasoningDetailsDuplicateTracker', () => {
         type: ReasoningDetailType.Text,
         text: 'same text',
         signature: 'sig2',
+      };
+
+      expect(tracker.upsert(detail1)).toBe(true);
+      expect(tracker.upsert(detail2)).toBe(true);
+    });
+
+    it('should deduplicate signed blocks with the same signature', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail1: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same text',
+        signature: 'same-signature',
+      };
+
+      const detail2: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'same text',
+        signature: 'same-signature',
+        id: 'id2',
       };
 
       expect(tracker.upsert(detail1)).toBe(true);
@@ -222,12 +336,31 @@ describe('ReasoningDetailsDuplicateTracker', () => {
       expect(tracker.upsert({ ...detail })).toBe(false);
       expect(tracker.upsert({ ...detail, arguments: '{"q":"b"}' })).toBe(true);
     });
+
+    it('should not collide with an encrypted detail that shares its id', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const serverToolCall: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        tool_call_id: 'call_1',
+        arguments: '{}',
+        result: 'r',
+      };
+      const encrypted: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'call_1',
+        data: 'blob',
+      };
+
+      expect(tracker.upsert(serverToolCall)).toBe(true);
+      expect(tracker.upsert(encrypted)).toBe(true);
+    });
   });
 
-  describe('cross-type collision behavior (matches API)', () => {
-    it('should collide when different types have same field value', () => {
-      // This matches the OpenRouter API behavior - keys are not type-prefixed
-      // so different types with the same value will collide
+  describe('cross-type key scoping (matches API)', () => {
+    it('should keep details of different types that share an identifying value', () => {
+      // This matches the OpenRouter API behavior - keys are type-prefixed
+      // so different types with the same value never collide
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const summary: ReasoningDetailUnion = {
@@ -246,13 +379,31 @@ describe('ReasoningDetailsDuplicateTracker', () => {
       };
 
       expect(tracker.upsert(summary)).toBe(true);
-      expect(tracker.upsert(encrypted)).toBe(false); // Collides with summary
-      expect(tracker.upsert(text)).toBe(false); // Collides with summary
+      expect(tracker.upsert(encrypted)).toBe(true);
+      expect(tracker.upsert(text)).toBe(true);
+    });
+
+    it('should not merge a summary and a text detail with the same string', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const summary: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Summary,
+        summary: 'X',
+        id: 'rs_1',
+      };
+
+      const text: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Text,
+        text: 'X',
+      };
+
+      expect(tracker.upsert(summary)).toBe(true);
+      expect(tracker.upsert(text)).toBe(true);
     });
 
     it('should collide text field with signature field having same value', () => {
-      // This matches the OpenRouter API behavior - text and signature use
-      // the same key space, so they will collide if they have the same value
+      // This matches the OpenRouter API behavior - within reasoning.text,
+      // text and signature share one key space, so they will collide if they
+      // have the same value
       const tracker = new ReasoningDetailsDuplicateTracker();
 
       const textWithText: ReasoningDetailUnion = {
@@ -273,26 +424,26 @@ describe('ReasoningDetailsDuplicateTracker', () => {
   });
 
   describe('empty string handling (matches API)', () => {
-    it('should treat empty string text as falsy and fall through to signature', () => {
+    it('should treat empty string signature as falsy and fall through to text', () => {
       // This matches the OpenRouter API behavior - empty strings are falsy
       // so they fall through to the next field
       const tracker = new ReasoningDetailsDuplicateTracker();
 
-      const detailWithEmptyText: ReasoningDetailUnion = {
+      const detailWithEmptySignature: ReasoningDetailUnion = {
         type: ReasoningDetailType.Text,
-        text: '',
-        signature: 'some-signature',
+        text: 'some-text',
+        signature: '',
       };
 
-      const detailWithSignatureOnly: ReasoningDetailUnion = {
+      const detailWithTextOnly: ReasoningDetailUnion = {
         type: ReasoningDetailType.Text,
-        text: null,
-        signature: 'some-signature',
+        text: 'some-text',
+        signature: null,
       };
 
-      // Empty string text falls through to signature, so both use 'some-signature' as key
-      expect(tracker.upsert(detailWithEmptyText)).toBe(true);
-      expect(tracker.upsert(detailWithSignatureOnly)).toBe(false); // Collides
+      // Empty string signature falls through to text, so both use 'some-text' as key
+      expect(tracker.upsert(detailWithEmptySignature)).toBe(true);
+      expect(tracker.upsert(detailWithTextOnly)).toBe(false); // Collides
     });
 
     it('should treat empty string encrypted id as falsy and fall through to data', () => {
