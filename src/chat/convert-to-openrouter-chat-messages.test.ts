@@ -3553,6 +3553,31 @@ describe('late reasoning_details carrier selection', () => {
     expect(result[0]).toMatchObject({ reasoning_details: [signed] });
   });
 
+  it('keeps the first of equally sized carriers that hold different details', () => {
+    const first = { ...signed, text: 'First.', signature: 'sig-1' };
+    const second = { ...signed, text: 'Second.', signature: 'sig-2' };
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'First.',
+            providerOptions: { openrouter: { reasoning_details: [first] } },
+          },
+          {
+            type: 'reasoning',
+            text: 'Second.',
+            providerOptions: { openrouter: { reasoning_details: [second] } },
+          },
+          { type: 'text', text: 'Answer' },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({ reasoning_details: [first] });
+  });
+
   it('replays the most complete carrier over an earlier tool call', () => {
     const result = convertToOpenRouterChatMessages([
       {

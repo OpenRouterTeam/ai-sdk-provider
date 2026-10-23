@@ -543,11 +543,11 @@ function mapToolResultContentParts(
  *
  * Streamed carriers (reasoning parts and the first tool call) each hold a
  * cumulative snapshot, and an empty reasoning part emitted at the end of the
- * stream carries details that arrived after the earlier carriers. Picking the
- * carrier with the most entries (the later one on a tie, since in-place merges
- * such as a late signature keep the length) replays every detail exactly once.
- * Parallel tool calls after the first carry none, so thinking blocks are not
- * duplicated.
+ * stream carries details that arrived after the earlier carriers. The carrier
+ * with the most entries wins; on a tie, a later carrier wins only when it
+ * continues the current one (e.g. a late signature merged in place), so
+ * separate per-detail parts keep the first one. Parallel tool calls after the
+ * first carry none, so thinking blocks are not duplicated.
  */
 function findMostCompleteReasoningDetails(
   content: Array<{
@@ -566,14 +566,48 @@ function findMostCompleteReasoningDetails(
     const details = parsed.success
       ? parsed.data?.openrouter?.reasoning_details
       : undefined;
+    if (!details || details.length === 0) {
+      continue;
+    }
     if (
-      details &&
-      details.length > 0 &&
-      details.length >= (mostComplete?.length ?? 0)
+      mostComplete === undefined ||
+      details.length > mostComplete.length ||
+      (details.length === mostComplete.length &&
+        mostComplete.every((detail, i) =>
+          continuesReasoningDetail(detail, details[i]),
+        ))
     ) {
       mostComplete = details;
     }
   }
 
   return mostComplete;
+}
+
+/**
+ * Whether `next` is the same reasoning detail as `prev`, possibly extended
+ * by later deltas merged in place (more text, or a signature added).
+ */
+function continuesReasoningDetail(
+  prev: ReasoningDetailUnion,
+  next: ReasoningDetailUnion | undefined,
+): boolean {
+  if (next?.type !== prev.type) {
+    return false;
+  }
+  switch (next.type) {
+    case ReasoningDetailType.Text: {
+      const prevText = prev as typeof next;
+      return (
+        (next.text ?? '').startsWith(prevText.text ?? '') &&
+        (!prevText.signature || prevText.signature === next.signature)
+      );
+    }
+    case ReasoningDetailType.Summary:
+      return next.summary.startsWith((prev as typeof next).summary);
+    case ReasoningDetailType.Encrypted:
+      return next.data === (prev as typeof next).data;
+    default:
+      return false;
+  }
 }
