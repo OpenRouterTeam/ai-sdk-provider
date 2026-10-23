@@ -308,6 +308,55 @@ describe('ReasoningDetailsDuplicateTracker', () => {
     });
   });
 
+  describe('ServerToolCall type deduplication', () => {
+    it('should deduplicate using tool_call_id when present', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        tool_call_id: 'call_1',
+        arguments: '{}',
+        result: 'first',
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+      expect(tracker.upsert({ ...detail, result: 'second' })).toBe(false);
+    });
+
+    it('should deduplicate using tool_name and arguments when tool_call_id is absent', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        arguments: '{"q":"a"}',
+        result: 'r',
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+      expect(tracker.upsert({ ...detail })).toBe(false);
+      expect(tracker.upsert({ ...detail, arguments: '{"q":"b"}' })).toBe(true);
+    });
+
+    it('should not collide with an encrypted detail that shares its id', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const serverToolCall: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        tool_call_id: 'call_1',
+        arguments: '{}',
+        result: 'r',
+      };
+      const encrypted: ReasoningDetailUnion = {
+        type: ReasoningDetailType.Encrypted,
+        id: 'call_1',
+        data: 'blob',
+      };
+
+      expect(tracker.upsert(serverToolCall)).toBe(true);
+      expect(tracker.upsert(encrypted)).toBe(true);
+    });
+  });
+
   describe('cross-type key scoping (matches API)', () => {
     it('should keep details of different types that share an identifying value', () => {
       // This matches the OpenRouter API behavior - keys are type-prefixed

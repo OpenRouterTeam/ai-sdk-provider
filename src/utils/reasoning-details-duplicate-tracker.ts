@@ -20,6 +20,8 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
  *   (if truthy) or data field
  * - Text: key = signature field (if truthy) or text field (if truthy)
  *
+ * - ServerToolCall: key = tool_call_id (if truthy) or `${tool_name}:${arguments}`
+ *
  * `format` is deliberately NOT part of the key: it is nullish and gets
  * defaulted during extraction, so the same item can arrive with and without
  * it, and splitting those would re-send duplicates (OpenAI Responses rejects a
@@ -81,6 +83,13 @@ export class ReasoningDetailsDuplicateTracker {
           return detail.text;
         }
         return null;
+      }
+
+      case ReasoningDetailType.ServerToolCall: {
+        if (detail.tool_call_id) {
+          return detail.tool_call_id;
+        }
+        return `${detail.tool_name}:${detail.arguments}`;
       }
 
       default: {
