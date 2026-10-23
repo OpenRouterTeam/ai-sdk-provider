@@ -95,10 +95,27 @@ describe('reasoning.server_tool_call reasoning details', () => {
 
     const result = await model.doGenerate({ prompt: TEST_MESSAGES as never });
 
-    expect(result.content).toStrictEqual([{ type: 'text', text: 'Done.' }]);
-    expect(result.providerMetadata?.openrouter?.reasoning_details).toEqual([
-      SERVER_TOOL_CALL_DETAIL,
-    ]);
+    // The text is unchanged. Other parts (e.g. an empty reasoning part that
+    // carries the details for replay) may be present too.
+    expect(result.content).toContainEqual({ type: 'text', text: 'Done.' });
+    for (const part of result.content) {
+      if (part.type === 'reasoning') {
+        expect(part.text).toBe('');
+      }
+    }
+
+    // The details are reachable from part or response metadata.
+    const reachable = [
+      ...result.content.map((part) =>
+        'providerMetadata' in part ? part.providerMetadata : undefined,
+      ),
+      result.providerMetadata,
+    ].flatMap(
+      (metadata) =>
+        (metadata?.openrouter?.reasoning_details as unknown[] | undefined) ??
+        [],
+    );
+    expect(reachable).toContainEqual(SERVER_TOOL_CALL_DETAIL);
   });
 
   it('accumulates server_tool_call details in streams without merging into text', async () => {
