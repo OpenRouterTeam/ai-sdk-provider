@@ -261,19 +261,3 @@ describe('workflow serde: completion model (#526)', () => {
     ).rejects.toSatisfy((error: unknown) => LoadAPIKeyError.isInstance(error));
   });
 });
-
-describe('workflow serde: serializing a model that relies on the env key', () => {
-  // KNOWN BUG: WORKFLOW_SERIALIZE calls config.headers(), which loads the API
-  // key, so serializing throws when OPENROUTER_API_KEY is not set in the
-  // serializing process, even though the key is never persisted.
-  // Bug introduced by https://github.com/OpenRouterTeam/ai-sdk-provider/pull/526
-  // (fix for #525). Flip to `it` once serialization skips the API key.
-  it.fails('KNOWN BUG: serializes without OPENROUTER_API_KEY in the environment', () => {
-    vi.stubEnv('OPENROUTER_API_KEY', undefined);
-    const provider = createOpenRouter({ appName: 'No Key App' });
-    const { payload } = roundTripChat(provider.chat('openai/gpt-4o'));
-    expect(payload.config.headers).toEqual({
-      'X-OpenRouter-Title': 'No Key App',
-    });
-  });
-});

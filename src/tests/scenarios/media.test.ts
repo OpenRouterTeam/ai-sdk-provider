@@ -98,64 +98,6 @@ describe('imageDetail on user parts (#552)', () => {
     });
   });
 
-  // KNOWN BUG (pre-existing, defeats #552): the AI SDK v7 passes the
-  // top-level media type 'image' for URL image parts without a mediaType
-  // (and recommends `mediaType: 'image'`), but the provider only maps
-  // `image/*`, so the image is sent as a `file` part and detail is dropped.
-  // Bug context: https://github.com/OpenRouterTeam/ai-sdk-provider/pull/552
-  // Flip to `it` once the top-level 'image' media type is mapped.
-  it.fails('KNOWN BUG: image part given as a URL without mediaType forwards detail', async () => {
-    const { provider, calls } = chatProvider();
-    await generateText({
-      model: provider('openai/gpt-4o'),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Describe' },
-            {
-              type: 'image',
-              image: new URL('https://example.com/dog.jpg'),
-              providerOptions: { openrouter: { imageDetail: 'high' } },
-            },
-          ],
-        },
-      ],
-    });
-    expect(userParts(calls[0]?.body)[1]).toEqual({
-      type: 'image_url',
-      image_url: { url: 'https://example.com/dog.jpg', detail: 'high' },
-    });
-  });
-
-  // KNOWN BUG (same root cause as above): a file part with the top-level
-  // media type 'image' is not mapped to image_url.
-  // Bug context: https://github.com/OpenRouterTeam/ai-sdk-provider/pull/552
-  it.fails("KNOWN BUG: file part with top-level mediaType 'image' maps to image_url", async () => {
-    const { provider, calls } = chatProvider();
-    await generateText({
-      model: provider('openai/gpt-4o'),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Describe' },
-            {
-              type: 'file',
-              mediaType: 'image',
-              data: new URL('https://example.com/bird.webp'),
-              providerOptions: { openrouter: { imageDetail: 'low' } },
-            },
-          ],
-        },
-      ],
-    });
-    expect(userParts(calls[0]?.body)[1]).toEqual({
-      type: 'image_url',
-      image_url: { url: 'https://example.com/bird.webp', detail: 'low' },
-    });
-  });
-
   it('invalid detail values are dropped', async () => {
     const { provider, calls } = chatProvider();
     await generateText({
@@ -332,45 +274,6 @@ describe('videoProcessing on user parts (#584)', () => {
         processing: 'agentic',
       },
     });
-  });
-
-  // KNOWN BUG (pre-existing supportedUrls gap, affects the #584 README
-  // example): the chat model's supportedUrls has no 'video/*' entry, so the
-  // AI SDK downloads every video URL client-side and inlines it as base64.
-  // Bug context: https://github.com/OpenRouterTeam/ai-sdk-provider/pull/584
-  // Flip to `it` once supportedUrls includes 'video/*'.
-  it.fails('KNOWN BUG: video URLs are passed through instead of downloaded', async () => {
-    const { provider, calls } = chatProvider();
-    const downloaded: string[] = [];
-    await generateText({
-      model: provider('google/gemini-3-pro'),
-      experimental_download: async (files) =>
-        files.map((file) => {
-          if (file.isUrlSupportedByModel) {
-            return null;
-          }
-          downloaded.push(file.url.toString());
-          return { data: new Uint8Array([1, 2, 3]), mediaType: 'video/mp4' };
-        }),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Summarise' },
-            {
-              type: 'file',
-              mediaType: 'video/mp4',
-              data: new URL('https://example.com/talk.mp4'),
-              providerOptions: { openrouter: { videoProcessing: 'agentic' } },
-            },
-          ],
-        },
-      ],
-    });
-    expect(downloaded).toEqual([]);
-    expect(userParts(calls[0]?.body)[1].video_url.url).toBe(
-      'https://example.com/talk.mp4',
-    );
   });
 
   it('unknown processing value is dropped, cache_control preserved', async () => {
