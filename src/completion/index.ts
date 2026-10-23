@@ -36,6 +36,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
@@ -204,11 +205,20 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const { provider: runtimeProvider, ...openrouterOptions } =
+      providerOptions.openrouter || {};
+
+    // Shallow merge provider routing preferences instead of replacing them.
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     // `reasoningReplay` is a chat-model SDK option, never sent to the API.
@@ -319,11 +329,20 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doStream']>>> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    const { provider: runtimeProvider, ...openrouterOptions } =
+      providerOptions.openrouter || {};
+
+    // Shallow merge provider routing preferences instead of replacing them.
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     // `reasoningReplay` is a chat-model SDK option, never sent to the API.

@@ -50,6 +50,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
@@ -319,12 +320,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      provider: runtimeProvider,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
+
+    // Shallow merge provider routing preferences instead of replacing them.
+    const providerRouting = mergeProviderRouting(
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
       // Support both cacheControl (camelCase) and cache_control (snake_case)
       // from providerOptions, in addition to settings.cache_control
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
@@ -657,12 +670,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      provider: runtimeProvider,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
+
+    // Shallow merge provider routing preferences instead of replacing them.
+    const providerRouting = mergeProviderRouting(
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
       // Support both cacheControl (camelCase) and cache_control (snake_case)
       // from providerOptions, in addition to settings.cache_control
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
