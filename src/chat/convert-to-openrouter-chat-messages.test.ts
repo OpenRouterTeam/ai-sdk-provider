@@ -3510,3 +3510,83 @@ describe('deterministic tool call argument serialization', () => {
     });
   });
 });
+
+describe('late reasoning_details carrier selection', () => {
+  const unsigned = {
+    type: ReasoningDetailType.Text,
+    text: 'Thinking.',
+    format: 'anthropic-claude-v1',
+  } as const;
+  const signed = { ...unsigned, signature: 'sig-late' };
+  const summary = {
+    type: ReasoningDetailType.Summary,
+    summary: 'Summary.',
+  } as const;
+  const encrypted = {
+    type: ReasoningDetailType.Encrypted,
+    id: 'rs_late',
+    data: 'blob',
+  } as const;
+
+  it('replays the later carrier when a late detail was merged in place', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Thinking.',
+            providerOptions: {
+              openrouter: { reasoning_details: [unsigned] },
+            },
+          },
+          { type: 'text', text: 'Answer' },
+          {
+            type: 'reasoning',
+            text: '',
+            providerOptions: { openrouter: { reasoning_details: [signed] } },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({ reasoning_details: [signed] });
+  });
+
+  it('replays the most complete carrier over an earlier tool call', () => {
+    const result = convertToOpenRouterChatMessages([
+      {
+        role: 'assistant',
+        content: [
+          {
+            type: 'reasoning',
+            text: 'Summary.',
+            providerOptions: {
+              openrouter: { reasoning_details: [summary] },
+            },
+          },
+          {
+            type: 'tool-call',
+            toolCallId: 'call-1',
+            toolName: 'lookup',
+            input: {},
+            providerOptions: {
+              openrouter: { reasoning_details: [summary] },
+            },
+          },
+          {
+            type: 'reasoning',
+            text: '',
+            providerOptions: {
+              openrouter: { reasoning_details: [summary, encrypted] },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(result[0]).toMatchObject({
+      reasoning_details: [summary, encrypted],
+    });
+  });
+});
