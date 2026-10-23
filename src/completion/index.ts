@@ -198,14 +198,16 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doGenerate']>>> {
     const providerOptions = options.providerOptions || {};
-    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
-    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
-      (providerOptions.openrouter || {}) as Record<string, unknown>;
+    const openrouterOptions = providerOptions.openrouter || {};
 
-    const args = {
+    const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...openrouterOptions,
     };
+
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...args } =
+      argsWithSdkOptions as Record<string, unknown>;
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
@@ -308,14 +310,16 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     options: LanguageModelV4CallOptions,
   ): Promise<Awaited<ReturnType<LanguageModelV4['doStream']>>> {
     const providerOptions = options.providerOptions || {};
-    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
-    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
-      (providerOptions.openrouter || {}) as Record<string, unknown>;
+    const openrouterOptions = providerOptions.openrouter || {};
 
-    const args = {
+    const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...openrouterOptions,
     };
+
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...args } =
+      argsWithSdkOptions as Record<string, unknown>;
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({

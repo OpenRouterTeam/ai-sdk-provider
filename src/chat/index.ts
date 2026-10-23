@@ -305,14 +305,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is an SDK-only option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const {
-      cacheControl,
-      reasoningReplay: _reasoningReplay,
-      ...restOpenrouterOptions
-    } = openrouterOptions as Record<string, unknown>;
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
@@ -621,14 +620,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is an SDK-only option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const {
-      cacheControl,
-      reasoningReplay: _reasoningReplay,
-      ...restOpenrouterOptions
-    } = openrouterOptions as Record<string, unknown>;
+    const { cacheControl, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
 
     const args = {
       ...this.getArgs(options),
