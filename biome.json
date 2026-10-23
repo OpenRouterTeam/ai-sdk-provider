@@ -104,6 +104,27 @@
           }
         }
       }
+    },
+    {
+      "includes": ["src/tests/scenarios/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/tests/properties/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off",
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ],
   "javascript": {
