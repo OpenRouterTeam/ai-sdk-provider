@@ -661,7 +661,8 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Step 2.',
-                    signature: FAKE_SIGNATURE,
+                    // A distinct block has its own signature
+                    signature: `${FAKE_SIGNATURE}-2`,
                     // Unknown format — must not kill the array
                     format: 'some-future-provider-v1' as 'anthropic-claude-v1',
                     index: 1,
