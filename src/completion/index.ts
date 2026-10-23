@@ -50,6 +50,11 @@ type OpenRouterCompletionConfig = {
   provider: string;
   compatibility: 'strict' | 'compatible';
   headers: () => Record<string, string | undefined>;
+  /**
+   * The `headers` without `Authorization`. Used for workflow serialization so
+   * that serializing a model never loads the API key.
+   */
+  headersWithoutApiKey?: () => Record<string, string | undefined>;
   url: (options: { modelId: string; path: string }) => string;
   fetch?: typeof fetch;
   extraBody?: Record<string, unknown>;
