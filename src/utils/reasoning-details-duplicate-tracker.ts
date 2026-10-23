@@ -15,6 +15,7 @@ import { ReasoningDetailType } from '../schemas/reasoning-details';
  * - Summary: key = summary field
  * - Encrypted: key = id field (if truthy) or data field
  * - Text: key = text field (if truthy) or signature field (if truthy)
+ * - ServerToolCall: key = tool_call_id (if truthy) or `${tool_name}:${arguments}`
  */
 export class ReasoningDetailsDuplicateTracker {
   readonly #seenKeys = new Set<string>();
@@ -59,6 +60,13 @@ export class ReasoningDetailsDuplicateTracker {
           return detail.signature;
         }
         return null;
+      }
+
+      case ReasoningDetailType.ServerToolCall: {
+        if (detail.tool_call_id) {
+          return detail.tool_call_id;
+        }
+        return `${detail.tool_name}:${detail.arguments}`;
       }
 
       default: {
