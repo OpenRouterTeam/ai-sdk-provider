@@ -253,7 +253,11 @@ describe('single signed block with a signature-only final delta', () => {
       prompt: 'q',
     });
     expect(await result.text).toBe('Answer.');
-    expect(await result.reasoning).toHaveLength(1);
+    // One visible reasoning block. An empty carrier part for late details is
+    // allowed, so only count reasoning parts that have text.
+    expect(
+      (await result.reasoning).filter((part) => part.text !== ''),
+    ).toHaveLength(1);
     expect(finishDetails(await result.providerMetadata)).toEqual([
       { type: TEXT, text: 'Hmm.', format: ANTHROPIC, signature: 'late-sig' },
     ]);
