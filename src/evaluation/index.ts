@@ -26,7 +26,6 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import {
-  combineHeaders,
   createJsonResponseHandler,
   getTopLevelMediaType,
   parseProviderOptions,
@@ -35,6 +34,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { getFileUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import {
   OpenRouterDecisionsProviderOptionsSchema,
   OpenRouterDecisionsResponseSchema,
@@ -142,7 +142,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
       responseHeaders,
     } = await postJsonToApi({
       url: this.config.url({ path: '/decisions' }),
-      headers: combineHeaders(this.config.headers(), headers),
+      headers: combineHeadersWithUserAgent(this.config.headers(), headers),
       body,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
