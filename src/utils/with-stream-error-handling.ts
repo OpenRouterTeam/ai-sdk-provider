@@ -19,7 +19,7 @@ export function withStreamErrorHandling<T>(
       }
     },
     cancel(reason) {
-      reader.cancel(reason);
+      return reader.cancel(reason).catch(() => {});
     },
   });
 }
