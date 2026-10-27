@@ -6531,3 +6531,103 @@ describe('reasoning call option', () => {
     });
   });
 });
+
+// https://github.com/OpenRouterTeam/ai-sdk-provider/issues/587
+describe('provider routing merge', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'chatcmpl-test',
+          object: 'chat.completion',
+          created: 1711115037,
+          model: 'google/gemini-2.5-flash',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello!' },
+              finish_reason: 'stop',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  const settings = {
+    provider: {
+      order: ['google'],
+      allow_fallbacks: false,
+      sort: 'price' as const,
+    },
+  };
+  const providerOptions = {
+    openrouter: { provider: { order: ['anthropic'] } },
+  };
+
+  it('merges runtime provider routing into the model settings in doGenerate', async () => {
+    await provider
+      .chat('google/gemini-2.5-flash', settings)
+      .doGenerate({ prompt: TEST_PROMPT, providerOptions });
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual({
+      order: ['anthropic'],
+      allow_fallbacks: false,
+      sort: 'price',
+    });
+  });
+
+  it('merges runtime provider routing into the model settings in doStream', async () => {
+    await provider
+      .chat('google/gemini-2.5-flash', settings)
+      .doStream({ prompt: TEST_PROMPT, providerOptions })
+      .catch(() => undefined);
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual({
+      order: ['anthropic'],
+      allow_fallbacks: false,
+      sort: 'price',
+    });
+  });
+
+  it('merges settings, provider extraBody, model extraBody, then runtime', async () => {
+    await createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { sort: 'latency', only: ['google'] } },
+    })
+      .chat('google/gemini-2.5-flash', {
+        ...settings,
+        extraBody: { provider: { only: ['anthropic'], ignore: ['openai'] } },
+      })
+      .doGenerate({
+        prompt: TEST_PROMPT,
+        providerOptions: {
+          openrouter: { provider: { ignore: ['azure'] } },
+        },
+      });
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual({
+      order: ['google'],
+      allow_fallbacks: false,
+      sort: 'latency',
+      only: ['anthropic'],
+      ignore: ['azure'],
+    });
+  });
+
+  it('ignores a null runtime provider', async () => {
+    await provider.chat('google/gemini-2.5-flash', settings).doGenerate({
+      prompt: TEST_PROMPT,
+      providerOptions: { openrouter: { provider: null } },
+    });
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual(
+      settings.provider,
+    );
+  });
+});

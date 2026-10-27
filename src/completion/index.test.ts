@@ -1108,3 +1108,55 @@ describe('reasoning call option', () => {
     });
   });
 });
+
+// https://github.com/OpenRouterTeam/ai-sdk-provider/issues/587
+describe('provider routing merge', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-test',
+          object: 'text_completion',
+          created: 1711363706,
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [{ index: 0, text: 'Hello!', finish_reason: 'stop' }],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  const model = () =>
+    createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { order: ['openai'], allow_fallbacks: false } },
+    }).completion('openai/gpt-3.5-turbo-instruct', {
+      extraBody: { provider: { sort: 'price' } },
+    });
+  const providerOptions = {
+    openrouter: { provider: { order: ['azure'] } },
+  };
+  const expected = { order: ['azure'], allow_fallbacks: false, sort: 'price' };
+
+  it('merges runtime provider routing into extraBody routing in doGenerate', async () => {
+    await model().doGenerate({ prompt: TEST_PROMPT, providerOptions });
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual(
+      expected,
+    );
+  });
+
+  it('merges runtime provider routing into extraBody routing in doStream', async () => {
+    await model()
+      .doStream({ prompt: TEST_PROMPT, providerOptions })
+      .catch(() => undefined);
+
+    expect((await server.calls[0]!.requestBodyJson).provider).toStrictEqual(
+      expected,
+    );
+  });
+});
