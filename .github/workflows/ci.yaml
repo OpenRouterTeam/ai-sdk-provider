@@ -22,3 +22,19 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm stylecheck
+
+  # Typechecks the built package against the latest published `ai` release,
+  # which can be newer than the pinned devDependency.
+  ai-latest-types:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: ./compat/ai-latest/check.sh

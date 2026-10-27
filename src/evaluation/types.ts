@@ -9,8 +9,10 @@ import type {
 
 /**
  * Copy of `Experimental_EvaluationModelV4*` from `@ai-sdk/provider@4.0.16`,
- * which older `ai@7` installs do not ship. `index.test.ts` asserts the copy
- * stays identical to upstream.
+ * which older `ai@7` installs do not ship. Question `instructions` are
+ * optional and nullable, as in newer `@ai-sdk/provider` releases, so the model
+ * also type-checks against the latest `ai`. `index.test.ts` asserts the copy
+ * still accepts everything the pinned upstream release passes.
  */
 export type EvaluationModelV4Input =
   | string
@@ -20,7 +22,8 @@ export type EvaluationModelV4Input =
 export type EvaluationModelV4Question =
   | {
       readonly type: 'choice';
-      readonly instructions: EvaluationModelV4Input;
+      /** Optional in newer `ai` releases. The Decisions API requires it. */
+      readonly instructions?: EvaluationModelV4Input | null;
       /** Nonempty map of option names to descriptions. Null means no description. */
       readonly criteria: Readonly<
         Record<string, EvaluationModelV4Input | null>
@@ -28,13 +31,23 @@ export type EvaluationModelV4Question =
     }
   | {
       readonly type: 'score';
-      readonly instructions: EvaluationModelV4Input;
+      /** Optional in newer `ai` releases. The Decisions API requires it. */
+      readonly instructions?: EvaluationModelV4Input | null;
       /** At least two ordered levels, indexed from zero. */
       readonly criteria: readonly (EvaluationModelV4Input | null)[];
     }
   | {
-      readonly type: 'boolean';
+      /**
+       * Added in newer `@ai-sdk/provider` releases. Not supported by this model
+       * yet; it is not in `supportedQuestionTypes`.
+       */
+      readonly type: 'box';
       readonly instructions: EvaluationModelV4Input;
+    }
+  | {
+      readonly type: 'boolean';
+      /** Optional in newer `ai` releases. The Decisions API requires it. */
+      readonly instructions?: EvaluationModelV4Input | null;
       readonly criteria?: {
         readonly true?: EvaluationModelV4Input | null;
         readonly false?: EvaluationModelV4Input | null;
