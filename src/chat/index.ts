@@ -22,6 +22,7 @@ import type {
 } from '../types/openrouter-chat-settings';
 import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
 import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
+import type { ReasoningReplayMode } from './reasoning-replay';
 
 import {
   APICallError,
@@ -126,6 +127,24 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     this.config = config;
   }
 
+  /**
+   * The `model` and `models` that end up in the request body, honouring
+   * the same override order: call-level providerOptions, then model and
+   * factory `extraBody`, then the model id and settings.
+   */
+  private getTargetModelIds(
+    providerOptions: LanguageModelV4CallOptions['providerOptions'],
+  ): string[] {
+    const { model, models } = {
+      model: this.modelId as string | undefined,
+      models: this.settings.models,
+      ...this.config.extraBody,
+      ...this.settings.extraBody,
+      ...providerOptions?.openrouter,
+    } as { model?: string; models?: string[] };
+    return [...(model != null ? [model] : []), ...(models ?? [])];
+  }
+
   private getArgs({
     prompt,
     maxOutputTokens,
@@ -193,7 +212,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       top_k: topK ?? this.settings.topK,
 
       // messages:
-      messages: convertToOpenRouterChatMessages(prompt),
+      messages: convertToOpenRouterChatMessages(prompt, {
+        modelIds: this.getTargetModelIds(providerOptions),
+        reasoningReplay:
+          (providerOptions?.openrouter?.reasoningReplay as
+            | ReasoningReplayMode
+            | undefined) ?? this.settings.reasoningReplay,
+      }),
 
       // OpenRouter specific settings:
       include_reasoning: this.settings.includeReasoning,
@@ -280,7 +305,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is an SDK-only option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
     const { cacheControl, ...restOpenrouterOptions } =
@@ -593,7 +620,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     };
   }> {
     const providerOptions = options.providerOptions || {};
-    const openrouterOptions = providerOptions.openrouter || {};
+    // `reasoningReplay` is an SDK-only option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...openrouterOptions } =
+      (providerOptions.openrouter || {}) as Record<string, unknown>;
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
     const { cacheControl, ...restOpenrouterOptions } =

@@ -478,6 +478,76 @@ for await (const partialComponent of result.partialObjectStream) {
 }
 ```
 
+## Switching Models Mid-Conversation (Reasoning Replay)
+
+Assistant messages keep the model's `reasoning_details` in
+`providerOptions.openrouter.reasoning_details`, and the provider sends them
+back on the next turn so reasoning models keep their continuity. Many of
+these details are provider-specific: OpenAI encrypted reasoning, Anthropic
+signed thinking, Gemini thought signatures. If a conversation switches to a
+model from another provider family (e.g. from `openai/gpt-5.5` to
+`deepseek/deepseek-v4-pro`), the new upstream can reject them (see
+[#542](https://github.com/OpenRouterTeam/ai-sdk-provider/issues/542)).
+
+The opt-in `reasoningReplay` option controls what is replayed:
+
+- `'all'` (default): replay every detail verbatim. Same behaviour as before.
+- `'same-family'`: drop details whose `format` belongs to a different
+  provider family than the target model. The family is the author prefix of
+  the slug (`openai/`, `anthropic/`, `google/`, `x-ai/`, `meta/`), and any
+  `models` fallbacks count as well. Details with an unknown or missing
+  format are kept. `openrouter/*` router slugs are never filtered.
+- `'none'`: never replay `reasoning` or `reasoning_details`.
+
+```ts
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
+
+const openrouter = createOpenRouter();
+
+// Per model:
+const model = openrouter('deepseek/deepseek-v4-pro', {
+  reasoningReplay: 'same-family',
+});
+
+// Or per call:
+await generateText({
+  model: openrouter('deepseek/deepseek-v4-pro'),
+  messages, // history produced by an OpenAI model
+  providerOptions: { openrouter: { reasoningReplay: 'same-family' } },
+});
+```
+
+`reasoningReplay` is handled by the SDK and is never sent to the API.
+
+Trade-offs: the family is inferred from the slug, so a model served by a
+different vendor than its author (e.g. open-weight `openai/gpt-oss-*` on
+third-party providers) may still receive details it cannot validate. Dropped
+reasoning is lost, so switching back to the original model will not see it
+either.
+
+**Manual workaround** (any version): when you switch models, strip the
+stored reasoning from the history yourself:
+
+```ts
+const cleaned = messages.map((message) => {
+  if (message.role !== 'assistant' || !message.providerOptions?.openrouter) {
+    return message;
+  }
+  const { reasoning_details, ...openrouter } =
+    message.providerOptions.openrouter;
+  return {
+    ...message,
+    providerOptions: { ...message.providerOptions, openrouter },
+  };
+});
+```
+
+If reasoning parts or tool calls in `message.content` carry their own
+`providerOptions.openrouter.reasoning_details`, strip those as well. If you
+don't switch models, you can avoid the problem by pinning the upstream
+provider with `provider: { order: [...], allow_fallbacks: false }`.
+
 ## Durable execution (AI SDK Workflow)
 
 Chat and completion models implement the `WORKFLOW_SERIALIZE` /

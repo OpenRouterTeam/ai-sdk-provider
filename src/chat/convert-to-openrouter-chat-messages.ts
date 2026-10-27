@@ -12,6 +12,7 @@ import type {
   ChatCompletionContentPartText,
   OpenRouterChatCompletionsInput,
 } from '../types/openrouter-chat-completions-input';
+import type { ReasoningReplayMode } from './reasoning-replay';
 
 import { DEFAULT_REASONING_FORMAT, ReasoningFormat } from '../schemas/format';
 import { OpenRouterProviderOptionsSchema } from '../schemas/provider-metadata';
@@ -26,6 +27,7 @@ import {
   MIME_TO_FORMAT,
 } from './file-url-utils';
 import { isUrl } from './is-url';
+import { createReasoningReplayFilter } from './reasoning-replay';
 
 // Type for OpenRouter Cache Control following Anthropic's pattern
 export type OpenRouterCacheControl = { type: 'ephemeral'; ttl?: '5m' | '1h' };
@@ -63,8 +65,20 @@ function getVideoProcessing(
 
 export function convertToOpenRouterChatMessages(
   prompt: LanguageModelV4Prompt,
+  options: {
+    /** Target model slug(s): the primary model plus any `models` fallbacks. */
+    modelIds?: ReadonlyArray<string>;
+    reasoningReplay?: ReasoningReplayMode;
+  } = {},
 ): OpenRouterChatCompletionsInput {
   const messages: OpenRouterChatCompletionsInput = [];
+
+  // Optionally drop reasoning_details that the target model cannot
+  // validate, e.g. OpenAI encrypted blobs replayed to DeepSeek (#542).
+  const replayFilter = createReasoningReplayFilter({
+    mode: options.reasoningReplay,
+    modelIds: options.modelIds ?? [],
+  });
 
   // Track reasoning_details across all messages in this conversion to prevent duplicates.
   // This fixes issue #254 where the same reasoning ID appears in multiple
@@ -311,10 +325,17 @@ export function convertToOpenRouterChatMessages(
         // subsequent turns to maintain the conversation state.  Falling back to
         // `findFirstReasoningDetails` when the array exists-but-is-empty would silently
         // drop this signal and cause those providers to error on follow-up requests.
-        const candidateReasoningDetails =
+        const allCandidateReasoningDetails =
           messageReasoningDetails && Array.isArray(messageReasoningDetails)
             ? messageReasoningDetails
             : findFirstReasoningDetails(content);
+
+        const candidateReasoningDetails =
+          options.reasoningReplay === 'none'
+            ? undefined
+            : replayFilter && allCandidateReasoningDetails
+              ? allCandidateReasoningDetails.filter(replayFilter)
+              : allCandidateReasoningDetails;
 
         // Strip reasoning.text entries that would cause signature errors
         // when sent back to the upstream provider.
