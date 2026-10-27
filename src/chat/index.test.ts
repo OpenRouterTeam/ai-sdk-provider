@@ -1436,6 +1436,32 @@ describe('doGenerate', () => {
     ]);
   });
 
+  it('should pass a multi-megabyte generated image', async () => {
+    // About the size of a 4K image a model returns.
+    const base64 = 'A'.repeat(13_000_000);
+    prepareJsonResponse({
+      content: '',
+      images: [
+        {
+          type: 'image_url',
+          image_url: { url: `data:image/jpeg;base64,${base64}` },
+        },
+      ],
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(result.content).toStrictEqual([
+      {
+        type: 'file',
+        mediaType: 'image/jpeg',
+        data: { type: 'data', data: base64 },
+      },
+    ]);
+  });
+
   it('should generate unique toolCallIds when provider returns duplicate IDs', async () => {
     prepareJsonResponse({
       content: '',
