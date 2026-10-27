@@ -1,5 +1,53 @@
 # @openrouter/ai-sdk-provider
 
+## 3.2.0
+
+### Minor Changes
+
+- [#518](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/518) [`32fd6d9`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/32fd6d93c1782d85bef14eaeaf70eb55a596bfdd) Thanks [@taku0](https://github.com/taku0)! - Support `reasoning` parameter introduced in AI SDK v7
+
+- [#564](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/564) [`1b22b05`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/1b22b05352cb0f9243a6c3fdd326038dd3705544) Thanks [@louisgv](https://github.com/louisgv)! - Add `openrouter.decisionModel()` as the preferred name for the Decisions API model. It shares one implementation with `evaluationModel()`, which is kept as the AI SDK-compatible name (the AI SDK calls `evaluationModel()` when resolving string model IDs through a default provider).
+
+- [#553](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/553) [`59fe494`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/59fe4942033bbfe296f47b7a806a72b73b512778) Thanks [@warun7](https://github.com/warun7)! - Implement `rerankingModel` on the provider. `createOpenRouter()` and the default `openrouter` instance now expose `rerankingModel(modelId, settings?)`, which calls the OpenRouter `/rerank` endpoint and works with the AI SDK `rerank()` function. Previously the method existed in the typings but was undefined at runtime.
+
+- [#552](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/552) [`5577361`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/55773610ffb0b6d058edcc05f4c5dab6892c9da5) Thanks [@warun7](https://github.com/warun7)! - Forward image part `providerOptions.openrouter.imageDetail` (`'auto' | 'low' | 'high'`) as `image_url.detail`
+
+- [#584](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/584) [`9a47373`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9a4737333e201df0497cd7aeacc84278fc1e03cd) Thanks [@LukasParke](https://github.com/LukasParke)! - Forward video file parts' `providerOptions.openrouter.videoProcessing` (`'agentic' | 'static'`) as `video_url.processing`
+
+- [#526](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/526) [`d8edda0`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d8edda07b62de696d613ae0115823382465665cd) Thanks [@Leonezz](https://github.com/Leonezz)! - Implement `WORKFLOW_SERIALIZE` / `WORKFLOW_DESERIALIZE` hooks on the chat and completion language models so model instances can be used with `@ai-sdk/workflow` durable execution. Fixes the `WorkflowRuntimeError: Failed to serialize step arguments` thrown when a model is passed as a durable step argument (#525).
+
+  Secrets are never written to workflow storage. Only `modelId`, settings, `baseURL`, `compatibility`, `extraBody` and the `appName` / `appUrl` headers (`X-OpenRouter-Title`, `HTTP-Referer`) are persisted; all other custom headers are dropped and the SDK user agent is re-applied on restore. A restored model re-reads its API key from `OPENROUTER_API_KEY` at request time, and a model created with BYOK `api_keys` throws a clear error at request time instead of silently falling back to OpenRouter credits.
+
+### Patch Changes
+
+- [#585](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/585) [`b76b19b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b76b19b83edfe26d4e4bb3d66baed1cb62d81f76) Thanks [@LukasParke](https://github.com/LukasParke)! - Honour part-level `cacheControl` on assistant text parts instead of silently dropping it, consistent with user messages. When an assistant text part carries cache control, the assistant `content` is sent as an array of text blocks with `cache_control` on that specific block; otherwise the content stays a plain string. Message-level assistant cache control is unchanged (related to #498).
+
+- [#566](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/566) [`b701273`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b7012730f1123d0ecc2a56212796b4a0d7eac3ff) Thanks [@pedro757](https://github.com/pedro757)! - Accept `max` in the reasoning effort type so supported models can use it through typed model settings and provider options without an `extraBody` workaround.
+
+- [#577](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/577) [`4013aa7`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/4013aa76cbd5b668d3f9f401d8d8bc46c83b6afb) Thanks [@5h0ov](https://github.com/5h0ov)! - Fix `decisionModel()` / `evaluationModel()` with `ai` 7.0.133 and later, which wrap decision state in typed parts that were forwarded to the Decisions API as-is. Text and json parts are now unwrapped and image file parts are sent as `image_url` entries, while raw state from older `ai@7` releases is passed through unchanged.
+
+- [#547](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/547) [`92961e4`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/92961e42dfef9254b73a27bbf96f262d91f34cee) Thanks [@warun7](https://github.com/warun7)! - fix: prevent assigning undefined keys during streaming reasoning_details accumulation (#540)
+
+- [#575](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/575) [`9ded35b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9ded35b74ff4a498cd67c80a2bf02ff0534a9b60) Thanks [@cpruijsen](https://github.com/cpruijsen)! - Forward complete-but-invalid streamed tool arguments to the AI SDK instead of replacing them with `'{}'` in the stream flush path. The SDK can now surface the model's real payload via `InvalidToolInputError` and run `experimental_repairToolCall`; `'{}'` is only substituted when nothing was streamed (no-argument tool calls).
+
+- [#548](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/548) [`f54b359`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f54b359f6f9bea44910b470f28713c50e1d52a08) Thanks [@warun7](https://github.com/warun7)! - Forward tool `strict` setting to function definitions in API requests
+
+- [#586](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/586) [`cd86f5d`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/cd86f5da5cc975a978218358f6b9abbe0b036226) Thanks [@LukasParke](https://github.com/LukasParke)! - Stop re-parsing the whole accumulated tool-call arguments on every streamed delta. A small incremental scanner now only lets the provider attempt a JSON parse once the arguments may be complete, removing quadratic CPU use for large streamed tool inputs. Emitted events are unchanged.
+
+- [#551](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/551) [`bacdd1a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/bacdd1afc9f11caebc5708a936d7200a1e0f116a) Thanks [@warun7](https://github.com/warun7)! - Merge runtime provider routing options with configured image model provider preferences
+
+- [#550](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/550) [`a76ca9f`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a76ca9ff8e2d49dbe24a9e32d92e8098ccaab75e) Thanks [@warun7](https://github.com/warun7)! - Preserve `is_byok` as `isByok` in `providerMetadata.openrouter.usage`
+
+- [#549](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/549) [`d9d01b5`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d9d01b50f4802feca2ced9876364116315f6cb57) Thanks [@warun7](https://github.com/warun7)! - Declare specificationVersion 'v4' and embeddingModel on provider object returned by createOpenRouter
+
+- [#583](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/583) [`5fe77f6`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/5fe77f6c79d16ff025fc22c3fae228ba256a6659) Thanks [@LukasParke](https://github.com/LukasParke)! - Fix streaming: keep separately signed `reasoning.text` blocks (e.g. multiple Anthropic thinking blocks in one answer) as separate `reasoning_details` entries instead of merging them under the first signature, which made replay fail with "Invalid signature in thinking block".
+
+- [#517](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/517) [`b5f253f`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b5f253f74b3d158e86f213d0087c4de98d3d3277) Thanks [@noobshow](https://github.com/noobshow)! - Support `cache_control` on a tool's `providerOptions` (`openrouter` or `anthropic` namespace, snake_case or camelCase, same resolution as message-level cache control). It is now attached to that tool's entry in the outgoing `tools` array.
+
+  Tool-level `cache_control` is passed through as-is. OpenRouter does not document it for the OpenAI-format `tools` array; Anthropic supports it on the last tool definition, so place the breakpoint there. `OpenRouterCacheControl` now also types the optional `ttl` (`'5m' | '1h'`), which was already passed through.
+
+- [#536](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/536) [`0ad203a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/0ad203a0e50a40a8237f2da0a5a0ea2f619f3404) Thanks [@shoemoney](https://github.com/shoemoney)! - Fix completion model under AI SDK v7: accept the default toolChoice and emit text-start/text-delta/text-end lifecycle events
+
 ## 3.1.0
 
 ### Minor Changes
