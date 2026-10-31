@@ -407,7 +407,7 @@ const provider = createOpenRouter({
   },
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 const result = await streamObject({
   model,
@@ -430,7 +430,7 @@ const provider = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 await generateText({
   model,
@@ -465,7 +465,7 @@ const provider = createOpenRouter({
   },
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 const result = await streamObject({
   model,
