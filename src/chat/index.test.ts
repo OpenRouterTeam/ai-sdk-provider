@@ -6464,6 +6464,135 @@ describe('includeRawChunks', () => {
     expect(toolCallEvent?.toolCallId).toBe('call_unique_abc');
   });
 
+  describe('tool calls streamed without an index', () => {
+    const toolCallChunk = (toolCalls: unknown[], finishReason?: string) =>
+      `data: ${JSON.stringify({
+        id: 'chatcmpl-noindex',
+        object: 'chat.completion.chunk',
+        created: 1711357598,
+        model: 'gemini-2.0',
+        choices: [
+          {
+            index: 0,
+            delta: { role: 'assistant', content: null, tool_calls: toolCalls },
+            finish_reason: finishReason ?? null,
+          },
+        ],
+      })}\n\n`;
+
+    const streamToolCalls = async (chunks: string[]) => {
+      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+        type: 'stream-chunks',
+        chunks: [...chunks, 'data: [DONE]\n\n'],
+      };
+
+      const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+      const elements = await convertReadableStreamToArray(stream);
+
+      return elements.filter(
+        (el): el is Extract<LanguageModelV4StreamPart, { type: 'tool-call' }> =>
+          el.type === 'tool-call',
+      );
+    };
+
+    it('should keep two complete tool calls apart', async () => {
+      const toolCalls = await streamToolCalls([
+        toolCallChunk([
+          {
+            id: 'call_a',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":"Paris"}' },
+          },
+        ]),
+        toolCallChunk([
+          {
+            id: 'call_b',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":"Tokyo"}' },
+          },
+        ]),
+        toolCallChunk([], 'tool_calls'),
+      ]);
+
+      expect(
+        toolCalls.map((c) => [c.toolCallId, c.toolName, c.input]),
+      ).toStrictEqual([
+        ['call_a', 'get_weather', '{"city":"Paris"}'],
+        ['call_b', 'get_weather', '{"city":"Tokyo"}'],
+      ]);
+    });
+
+    it('should keep calls with different names apart when they have no ids', async () => {
+      const toolCalls = await streamToolCalls([
+        toolCallChunk([
+          {
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":"Paris"}' },
+          },
+        ]),
+        toolCallChunk([
+          {
+            type: 'function',
+            function: { name: 'get_time', arguments: '{"zone":"UTC"}' },
+          },
+        ]),
+        toolCallChunk([], 'tool_calls'),
+      ]);
+
+      expect(toolCalls.map((c) => [c.toolName, c.input])).toStrictEqual([
+        ['get_weather', '{"city":"Paris"}'],
+        ['get_time', '{"zone":"UTC"}'],
+      ]);
+    });
+
+    it('should merge id-less fragments into the call they follow', async () => {
+      const toolCalls = await streamToolCalls([
+        toolCallChunk([
+          {
+            id: 'call_a',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":"Paris"}' },
+          },
+        ]),
+        toolCallChunk([
+          {
+            id: 'call_b',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '{"city":' },
+          },
+        ]),
+        toolCallChunk([{ function: { arguments: '"Tokyo"}' } }]),
+        toolCallChunk([], 'tool_calls'),
+      ]);
+
+      expect(
+        toolCalls.map((c) => [c.toolCallId, c.toolName, c.input]),
+      ).toStrictEqual([
+        ['call_a', 'get_weather', '{"city":"Paris"}'],
+        ['call_b', 'get_weather', '{"city":"Tokyo"}'],
+      ]);
+    });
+
+    it('should still merge fragments of a single call', async () => {
+      const toolCalls = await streamToolCalls([
+        toolCallChunk([
+          {
+            id: 'call_a',
+            type: 'function',
+            function: { name: 'get_weather', arguments: '' },
+          },
+        ]),
+        toolCallChunk([{ function: { arguments: '{"city":' } }]),
+        toolCallChunk([{ function: { arguments: '"Paris"}' } }]),
+        toolCallChunk([], 'tool_calls'),
+      ]);
+
+      expect(
+        toolCalls.map((c) => [c.toolCallId, c.toolName, c.input]),
+      ).toStrictEqual([['call_a', 'get_weather', '{"city":"Paris"}']]);
+    });
+  });
+
   it('should emit raw chunk even when parsing fails (for debugging malformed responses)', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',

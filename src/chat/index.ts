@@ -999,7 +999,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
-                const index = toolCallDelta.index ?? toolCalls.length - 1;
+                // Some providers omit `index`. A delta that names or identifies a
+                // different call than the last one starts a new call; id-less,
+                // name-less fragments continue the last one.
+                let index = toolCallDelta.index;
+                if (index == null) {
+                  const lastToolCall = toolCalls[toolCalls.length - 1];
+                  const startsNewToolCall =
+                    lastToolCall == null ||
+                    (!!toolCallDelta.id &&
+                      toolCallDelta.id !== lastToolCall.id) ||
+                    (!!toolCallDelta.function?.name &&
+                      toolCallDelta.function.name !==
+                        lastToolCall.function.name);
+                  index = startsNewToolCall
+                    ? toolCalls.length
+                    : toolCalls.length - 1;
+                }
 
                 // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
                 if (toolCalls[index] == null) {
