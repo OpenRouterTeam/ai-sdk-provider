@@ -19,7 +19,10 @@ export function withStreamErrorHandling<T>(
       }
     },
     cancel(reason) {
-      reader.cancel(reason);
+      // The source may already have errored (e.g. the fetch was aborted), in
+      // which case reader.cancel() rejects. Swallow it so it doesn't surface
+      // as an unhandled rejection.
+      return reader.cancel(reason).catch(() => {});
     },
   });
 }
