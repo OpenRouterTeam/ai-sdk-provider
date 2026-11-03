@@ -20,5 +20,7 @@ jobs:
       - run: pnpm install
       - run: pnpm test
       - run: pnpm build
+      - name: Type-check packed tarball in a consumer project
+        run: pnpm check:consumer-types pnpm-isolated pnpm-hoisted npm
       - run: pnpm typecheck
       - run: pnpm stylecheck

@@ -28,6 +28,7 @@
     "test:node": "vitest --config vitest.node.config.ts --run",
     "test:e2e": "vitest --config vitest.e2e.config.ts --run",
     "test:issues": "vitest --config vitest.issues.config.ts --run",
+    "check:consumer-types": "node scripts/check-consumer-types.mjs",
     "changeset": "changeset",
     "changeset-version": "changeset version",
     "changeset-publish": "pnpm build && pnpm test && changeset publish --provenance"
@@ -45,9 +46,11 @@
       "default": "./dist/internal/index.js"
     }
   },
+  "dependencies": {
+    "@ai-sdk/provider": "^4.0.16",
+    "@ai-sdk/provider-utils": "^5.0.42"
+  },
   "devDependencies": {
-    "@ai-sdk/provider": "4.0.16",
-    "@ai-sdk/provider-utils": "5.0.42",
     "@ai-sdk/test-server": "2.0.0",
     "@biomejs/biome": "2.3.7",
     "@changesets/changelog-github": "0.5.1",

@@ -95,6 +95,16 @@
   },
   "overrides": [
     {
+      "includes": ["scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    },
+    {
       "includes": ["e2e/**/*.test.ts", "*.test.ts"],
       "linter": {
         "rules": {
