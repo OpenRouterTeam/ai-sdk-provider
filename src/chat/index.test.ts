@@ -2491,22 +2491,6 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
         type: 'tool-input-start',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
@@ -2515,6 +2499,22 @@ describe('doStream', () => {
         type: 'tool-input-delta',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         delta: '{"value":"Sparkle Day"}',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'tool-input-end',
@@ -5596,6 +5596,26 @@ describe('includeRawChunks', () => {
         toolCallId: 'call_574_0',
         input: '{"a":1}',
       });
+    });
+
+    it('should stream single-chunk arguments immediately but finalize them at the end', async () => {
+      const { elements } = await streamToolEvents([
+        toolCallStart(0, 'write', '{"a":1}'),
+        chunk('{"content":"after"}'),
+        chunk('{}', 'tool_calls'),
+        'data: [DONE]\n\n',
+      ]);
+
+      const types = elements
+        .map((el) => el.type)
+        .filter((type) => type.startsWith('tool-') || type === 'text-delta');
+      expect(types).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'text-delta',
+        'tool-input-end',
+        'tool-call',
+      ]);
     });
 
     it('should finalize interleaved parallel tool calls once each with their full arguments', async () => {

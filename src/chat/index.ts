@@ -1031,10 +1031,25 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     sent: false,
                   };
 
-                  // Do not finalize the tool call here, even if the arguments
-                  // already parse as JSON: more argument fragments may follow
-                  // (#574). Tool calls are finalized in flush() once the
-                  // stream is complete, using the full accumulated arguments.
+                  // Stream the initial arguments right away, but do not
+                  // finalize the tool call here even if they already parse as
+                  // JSON: more argument fragments may follow (#574). Tool
+                  // calls are finalized in flush() once the stream is
+                  // complete, using the full accumulated arguments.
+                  const toolCall = toolCalls[index];
+                  if (toolCall.function.arguments) {
+                    toolCall.inputStarted = true;
+                    controller.enqueue({
+                      type: 'tool-input-start',
+                      id: toolCall.id,
+                      toolName: toolCall.function.name,
+                    });
+                    controller.enqueue({
+                      type: 'tool-input-delta',
+                      id: toolCall.id,
+                      delta: toolCall.function.arguments,
+                    });
+                  }
                   continue;
                 }
 
