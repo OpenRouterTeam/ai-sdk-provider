@@ -37,6 +37,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
@@ -200,9 +201,21 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    const { provider: runtimeProvider, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
+
+    // Shallow merge provider routing preferences instead of replacing them,
+    // keeping the same precedence as the rest of the body (later wins).
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -308,9 +321,21 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
     const providerOptions = options.providerOptions || {};
     const openrouterOptions = providerOptions.openrouter || {};
 
+    const { provider: runtimeProvider, ...restOpenrouterOptions } =
+      openrouterOptions as Record<string, unknown>;
+
+    // Shallow merge provider routing preferences instead of replacing them,
+    // keeping the same precedence as the rest of the body (later wins).
+    const providerRouting = mergeProviderRouting(
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
+
     const args = {
       ...this.getArgs(options),
-      ...openrouterOptions,
+      ...restOpenrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({

@@ -1108,3 +1108,98 @@ describe('reasoning call option', () => {
     });
   });
 });
+
+describe('provider routing merge', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'cmpl-provider-merge',
+          object: 'text_completion',
+          created: 1711363706,
+          model: 'openai/gpt-3.5-turbo-instruct',
+          choices: [
+            { text: 'Hi', index: 0, logprobs: null, finish_reason: 'stop' },
+          ],
+          usage: { prompt_tokens: 1, total_tokens: 2, completion_tokens: 1 },
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  function useStreamResponse() {
+    server.urls['https://openrouter.ai/api/v1/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"cmpl-provider-merge","object":"text_completion","created":1711363706,"model":"openai/gpt-3.5-turbo-instruct","choices":[{"text":"Hi","index":0,"logprobs":null,"finish_reason":"stop"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+  }
+
+  for (const mode of ['doGenerate', 'doStream'] as const) {
+    async function call(
+      completionModel: ReturnType<typeof provider.completion>,
+      providerOptions?: Record<string, Record<string, unknown>>,
+    ) {
+      if (mode === 'doStream') {
+        useStreamResponse();
+        const { stream } = await completionModel.doStream({
+          prompt: TEST_PROMPT,
+          providerOptions: providerOptions as never,
+        });
+        await convertReadableStreamToArray(stream);
+      } else {
+        await completionModel.doGenerate({
+          prompt: TEST_PROMPT,
+          providerOptions: providerOptions as never,
+        });
+      }
+      return (await server.calls[0]!.requestBodyJson) as Record<
+        string,
+        unknown
+      >;
+    }
+
+    describe(mode, () => {
+      it('merges in precedence order config.extraBody < settings.extraBody < runtime', async () => {
+        const customProvider = createOpenRouter({
+          apiKey: 'test-api-key',
+          extraBody: {
+            provider: { order: ['openai'], sort: 'latency' },
+          },
+        });
+
+        const body = await call(
+          customProvider.completion('openai/gpt-3.5-turbo-instruct', {
+            extraBody: { provider: { sort: 'price', allow_fallbacks: false } },
+          }),
+          { openrouter: { provider: { order: ['azure'] } } },
+        );
+
+        expect(body.provider).toStrictEqual({
+          order: ['azure'],
+          sort: 'price',
+          allow_fallbacks: false,
+        });
+      });
+
+      it('passes runtime-only provider unchanged', async () => {
+        const body = await call(model, {
+          openrouter: { provider: { order: ['openai'] } },
+        });
+        expect(body.provider).toStrictEqual({ order: ['openai'] });
+      });
+
+      it('omits provider when none is configured', async () => {
+        const body = await call(model);
+        expect(body).not.toHaveProperty('provider');
+      });
+    });
+  }
+});
