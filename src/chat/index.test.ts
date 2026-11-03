@@ -2381,6 +2381,22 @@ describe('doStream', () => {
         delta: '"}',
       },
       {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-input-end',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
       },
@@ -2394,22 +2410,6 @@ describe('doStream', () => {
             reasoning_details: [],
           },
         },
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',
@@ -2491,6 +2491,22 @@ describe('doStream', () => {
         modelId: 'gpt-3.5-turbo-0125',
       },
       {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
+        type: 'response-metadata',
+        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
+      },
+      {
+        type: 'response-metadata',
+        modelId: 'gpt-3.5-turbo-0125',
+      },
+      {
         type: 'tool-input-start',
         id: 'call_O17Uplv4lJvD6DVdIvFFeRMw',
         toolName: 'test-tool',
@@ -2514,22 +2530,6 @@ describe('doStream', () => {
             reasoning_details: [],
           },
         },
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
-      },
-      {
-        type: 'response-metadata',
-        id: 'chatcmpl-96aZqmeDpA9IPD6tACY8djkMsJCMP',
-      },
-      {
-        type: 'response-metadata',
-        modelId: 'gpt-3.5-turbo-0125',
       },
       {
         type: 'finish',
@@ -5011,7 +5011,7 @@ describe('includeRawChunks', () => {
       type: 'tool-call',
       toolCallId: 'functions.send:0',
       toolName: 'send',
-      input: '{"hello":"world"}',
+      input: '{"hello":"world"} ',
     });
   });
 
@@ -5456,32 +5456,110 @@ describe('includeRawChunks', () => {
     expect(toolInputDeltas.at(0)).toMatchObject({ delta: '{"city":"Berlin"}' });
   });
 
-  describe('streamed tool-call argument completion (#581)', () => {
-    const toolCallChunks = (argumentDeltas: string[]) => [
-      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
-        `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
-        `"tool_calls":[{"index":0,"id":"call_581","type":"function","function":{"name":"write","arguments":""}}]},` +
-        `"finish_reason":null}]}\n\n`,
-      ...argumentDeltas.map(
-        (delta) =>
-          `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
-          `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(delta)}}}]},` +
-          `"finish_reason":null}]}\n\n`,
+  describe('streamed tool-call finalization (#574)', () => {
+    type ArgumentDelta = { index: number; arguments: string };
+
+    const chunk = (delta: string, finishReason: string | null = null) =>
+      `data: {"id":"chatcmpl-574","object":"chat.completion.chunk","created":1711357598,"model":"anthropic/claude-haiku-5.5",` +
+      `"choices":[{"index":0,"delta":${delta},"finish_reason":${JSON.stringify(finishReason)}}]}\n\n`;
+
+    const toolCallStart = (index: number, name: string, args = '') =>
+      chunk(
+        `{"role":"assistant","content":null,"tool_calls":[{"index":${index},"id":"call_574_${index}","type":"function","function":{"name":"${name}","arguments":${JSON.stringify(args)}}}]}`,
+      );
+
+    const argumentChunk = ({ index, arguments: args }: ArgumentDelta) =>
+      chunk(
+        `{"tool_calls":[{"index":${index},"function":{"arguments":${JSON.stringify(args)}}}]}`,
+      );
+
+    const streamChunks = ({
+      starts,
+      deltas,
+      finishReason = 'tool_calls',
+    }: {
+      starts: Array<{ index: number; name: string; args?: string }>;
+      deltas: ArgumentDelta[];
+      finishReason?: string | null;
+    }) => [
+      ...starts.map(({ index, name, args }) =>
+        toolCallStart(index, name, args),
       ),
-      `data: {"id":"chatcmpl-581","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
-        `"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}\n\n`,
+      ...deltas.map(argumentChunk),
+      ...(finishReason != null ? [chunk('{}', finishReason)] : []),
       'data: [DONE]\n\n',
     ];
 
-    it('should emit the tool call as soon as the arguments close, ignoring braces in strings', async () => {
+    const streamToolEvents = async (chunks: string[]) => {
       server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
         type: 'stream-chunks',
-        chunks: toolCallChunks(['{"text":"a}', '\\"]{', '"', '}', ' ']),
+        chunks,
       };
-
       const { stream } = await model.doStream({ prompt: TEST_PROMPT });
       const elements = await convertReadableStreamToArray(stream);
-      const toolEvents = elements.filter((el) => el.type.startsWith('tool-'));
+      return {
+        elements,
+        toolEvents: elements.filter((el) => el.type.startsWith('tool-')),
+        toolCalls: elements.filter(
+          (el): el is LanguageModelV4StreamPart & { type: 'tool-call' } =>
+            el.type === 'tool-call',
+        ),
+      };
+    };
+
+    // Every tool call is emitted exactly once, and nothing for that tool
+    // call follows its `tool-call` event.
+    const expectFinalizedOnce = (
+      toolEvents: LanguageModelV4StreamPart[],
+      toolCallIds: string[],
+    ) => {
+      for (const id of toolCallIds) {
+        const own = toolEvents.filter(
+          (el) =>
+            ('id' in el && el.id === id) ||
+            (el.type === 'tool-call' && el.toolCallId === id),
+        );
+        expect(own.filter((el) => el.type === 'tool-call')).toHaveLength(1);
+        expect(own.at(-1)?.type).toBe('tool-call');
+        expect(own.at(-2)?.type).toBe('tool-input-end');
+      }
+    };
+
+    it('should not emit a truncated tool call when a valid JSON prefix is followed by more fragments', async () => {
+      const fragments = ['{"a":[1]}', '</a>\n<b>', '[2]}'];
+      const { toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write' }],
+          deltas: fragments.map((args) => ({ index: 0, arguments: args })),
+        }),
+      );
+
+      expect(toolEvents.map((el) => el.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ]);
+      // The full (invalid) arguments are forwarded so the AI SDK can report
+      // them or run experimental_repairToolCall.
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0]).toMatchObject({
+        toolCallId: 'call_574_0',
+        toolName: 'write',
+        input: fragments.join(''),
+      });
+    });
+
+    it('should finalize multi-chunk arguments once, ignoring braces in strings', async () => {
+      const fragments = ['{"text":"a}', '\\"]{', '"', '}', ' '];
+      const { toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write' }],
+          deltas: fragments.map((args) => ({ index: 0, arguments: args })),
+        }),
+      );
 
       expect(toolEvents.map((el) => el.type)).toStrictEqual([
         'tool-input-start',
@@ -5489,43 +5567,145 @@ describe('includeRawChunks', () => {
         'tool-input-delta',
         'tool-input-delta',
         'tool-input-delta',
+        'tool-input-delta',
         'tool-input-end',
         'tool-call',
-        'tool-input-delta',
       ]);
-      expect(toolEvents.find((el) => el.type === 'tool-call')).toMatchObject({
-        toolCallId: 'call_581',
-        input: '{"text":"a}\\"]{"}',
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0]).toMatchObject({
+        toolCallId: 'call_574_0',
+        input: '{"text":"a}\\"]{"} ',
       });
     });
 
-    it('should not re-parse the accumulated arguments on every delta', async () => {
-      const deltaCount = 2000;
-      server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
-        type: 'stream-chunks',
-        chunks: toolCallChunks([
-          '{"text":"',
-          ...Array.from({ length: deltaCount }, () => 'abcdefgh'),
-          '"}',
-        ]),
-      };
+    it('should finalize arguments sent in a single chunk', async () => {
+      const { toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write', args: '{"a":1}' }],
+          deltas: [],
+        }),
+      );
 
-      const input = `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`;
+      expect(toolEvents.map((el) => el.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ]);
+      expect(toolCalls[0]).toMatchObject({
+        toolCallId: 'call_574_0',
+        input: '{"a":1}',
+      });
+    });
+
+    it('should finalize interleaved parallel tool calls once each with their full arguments', async () => {
+      const { toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [
+            { index: 0, name: 'first' },
+            { index: 1, name: 'second' },
+          ],
+          deltas: [
+            { index: 0, arguments: '{"x":1}' },
+            { index: 1, arguments: '{"y":' },
+            { index: 0, arguments: ' ' },
+            { index: 1, arguments: '2}' },
+          ],
+        }),
+      );
+
+      expectFinalizedOnce(toolEvents, ['call_574_0', 'call_574_1']);
+      expect(toolCalls).toHaveLength(2);
+      expect(toolCalls[0]).toMatchObject({
+        toolCallId: 'call_574_0',
+        toolName: 'first',
+        input: '{"x":1} ',
+      });
+      expect(toolCalls[1]).toMatchObject({
+        toolCallId: 'call_574_1',
+        toolName: 'second',
+        input: '{"y":2}',
+      });
+      // reasoning_details are attached only to the first tool call.
+      expect(toolCalls[0]?.providerMetadata).toBeDefined();
+      expect(toolCalls[1]?.providerMetadata).toBeUndefined();
+    });
+
+    it('should still emit every tool call exactly once when the stream ends without a finish_reason', async () => {
+      const { elements, toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [
+            { index: 0, name: 'first', args: '{"x":1}' },
+            { index: 1, name: 'second' },
+          ],
+          deltas: [
+            { index: 1, arguments: '{"y":' },
+            { index: 1, arguments: '2}' },
+          ],
+          finishReason: null,
+        }),
+      );
+
+      expectFinalizedOnce(toolEvents, ['call_574_0', 'call_574_1']);
+      expect(toolCalls.map((el) => el.input)).toStrictEqual([
+        '{"x":1}',
+        '{"y":2}',
+      ]);
+      expect(elements.find((el) => el.type === 'finish')).toMatchObject({
+        finishReason: { unified: 'tool-calls' },
+      });
+    });
+
+    it("should forward invalid arguments when the finish reason is 'stop'", async () => {
+      const { toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write' }],
+          deltas: [
+            { index: 0, arguments: '{"a":1}}' },
+            { index: 0, arguments: ', "b":2}' },
+          ],
+          finishReason: 'stop',
+        }),
+      );
+
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0]).toMatchObject({ input: '{"a":1}}, "b":2}' });
+    });
+
+    it("should not emit truncated arguments when the finish reason is 'length'", async () => {
+      const { toolEvents } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write' }],
+          deltas: [{ index: 0, arguments: '{"text":"unfinish' }],
+          finishReason: 'length',
+        }),
+      );
+
+      expect(toolEvents.some((el) => el.type === 'tool-call')).toBe(false);
+    });
+
+    it('should not parse the accumulated arguments on every delta', async () => {
+      const deltaCount = 2000;
       const parseSpy = vi.spyOn(JSON, 'parse');
       try {
-        const { stream } = await model.doStream({ prompt: TEST_PROMPT });
-        const elements = await convertReadableStreamToArray(stream);
+        const { toolCalls } = await streamToolEvents(
+          streamChunks({
+            starts: [{ index: 0, name: 'write' }],
+            deltas: [
+              '{"text":"',
+              ...Array.from({ length: deltaCount }, () => 'abcdefgh'),
+              '"}',
+            ].map((args) => ({ index: 0, arguments: args })),
+          }),
+        );
 
-        expect(elements.find((el) => el.type === 'tool-call')).toMatchObject({
-          input,
+        expect(toolCalls[0]).toMatchObject({
+          input: `{"text":"${'abcdefgh'.repeat(deltaCount)}"}`,
         });
-        // isParsableJson parses the accumulated arguments with JSON.parse.
-        // Exactly one such parse, for the complete arguments, shows the
-        // filter matches that path and that no partial prefix was parsed.
         const argumentParses = parseSpy.mock.calls
           .map(([text]) => text)
           .filter((text) => text.startsWith('{"text"'));
-        expect(argumentParses).toStrictEqual([input]);
+        expect(argumentParses.length).toBeLessThanOrEqual(1);
       } finally {
         parseSpy.mockRestore();
       }

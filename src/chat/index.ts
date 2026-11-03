@@ -20,7 +20,6 @@ import type {
   OpenRouterChatModelId,
   OpenRouterChatSettings,
 } from '../types/openrouter-chat-settings';
-import type { JsonCompletenessScanner } from '../utils/json-completeness-scanner';
 import type { SerializedOpenRouterModel } from '../utils/workflow-serde';
 
 import {
@@ -42,10 +41,6 @@ import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { computeTokenUsage, emptyUsage } from '../utils/compute-token-usage';
-import {
-  createJsonCompletenessScanner,
-  mayBeCompleteJson,
-} from '../utils/json-completeness-scanner';
 import {
   createFinishReason,
   mapOpenRouterFinishReason,
@@ -653,7 +648,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       };
       inputStarted: boolean;
       sent: boolean;
-      argumentsScanner: JsonCompletenessScanner;
     }> = [];
 
     // Track seen tool call IDs to ensure uniqueness. Some providers
@@ -1035,69 +1029,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     },
                     inputStarted: false,
                     sent: false,
-                    argumentsScanner: createJsonCompletenessScanner(),
                   };
 
-                  const toolCall = toolCalls[index];
-
-                  if (toolCall == null) {
-                    throw new InvalidResponseDataError({
-                      data: { index, toolCallsLength: toolCalls.length },
-                      message: `Tool call at index ${index} is missing after creation.`,
-                    });
-                  }
-
-                  // check if tool call is complete (some providers send the full tool call in one chunk)
-                  if (
-                    toolCall.function?.name != null &&
-                    toolCall.function?.arguments != null &&
-                    mayBeCompleteJson(
-                      toolCall.argumentsScanner,
-                      toolCall.function.arguments,
-                    ) &&
-                    isParsableJson(toolCall.function.arguments)
-                  ) {
-                    toolCall.inputStarted = true;
-
-                    controller.enqueue({
-                      type: 'tool-input-start',
-                      id: toolCall.id,
-                      toolName: toolCall.function.name,
-                    });
-
-                    // send delta
-                    controller.enqueue({
-                      type: 'tool-input-delta',
-                      id: toolCall.id,
-                      delta: toolCall.function.arguments,
-                    });
-
-                    controller.enqueue({
-                      type: 'tool-input-end',
-                      id: toolCall.id,
-                    });
-
-                    // send tool call
-                    // Only attach reasoning_details to the first tool call to avoid
-                    // duplicating thinking blocks for parallel tool calls (Claude)
-                    controller.enqueue({
-                      type: 'tool-call',
-                      toolCallId: toolCall.id,
-                      toolName: toolCall.function.name,
-                      input: toolCall.function.arguments,
-                      providerMetadata: !reasoningDetailsAttachedToToolCall
-                        ? {
-                            openrouter: {
-                              reasoning_details: accumulatedReasoningDetails,
-                            },
-                          }
-                        : undefined,
-                    });
-
-                    reasoningDetailsAttachedToToolCall = true;
-                    toolCall.sent = true;
-                  }
-
+                  // Do not finalize the tool call here, even if the arguments
+                  // already parse as JSON: more argument fragments may follow
+                  // (#574). Tool calls are finalized in flush() once the
+                  // stream is complete, using the full accumulated arguments.
                   continue;
                 }
 
@@ -1134,13 +1071,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   }
                 }
 
-                // Scan only the new delta so the full accumulated arguments
-                // are re-parsed only when they may be complete JSON (#581).
-                const argumentsMayBeComplete = mayBeCompleteJson(
-                  toolCall.argumentsScanner,
-                  toolCallDelta.function?.arguments ?? '',
-                );
-
                 if (toolCallDelta.function?.arguments != null) {
                   toolCall.function.arguments +=
                     toolCallDelta.function?.arguments ?? '';
@@ -1153,45 +1083,12 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   delta: toolCallDelta.function.arguments ?? '',
                 });
 
-                // check if tool call is complete. Skip if already sent so
-                // that trailing-whitespace or other no-op deltas after a
-                // complete tool call don't trigger a duplicate `tool-call`
-                // event with the same toolCallId. JSON.parse accepts trailing
-                // whitespace, so `'{...}'` and `'{...} '` are both parsable
-                // and the merge path would otherwise re-emit on each chunk.
-                if (
-                  !toolCall.sent &&
-                  toolCall.function?.name != null &&
-                  toolCall.function?.arguments != null &&
-                  argumentsMayBeComplete &&
-                  isParsableJson(toolCall.function.arguments)
-                ) {
-                  // Emit tool-input-end before tool-call to complete the
-                  // tool-input lifecycle (start → delta... → end → call).
-                  controller.enqueue({
-                    type: 'tool-input-end',
-                    id: toolCall.id,
-                  });
-
-                  // Only attach reasoning_details to the first tool call to avoid
-                  // duplicating thinking blocks for parallel tool calls (Claude)
-                  controller.enqueue({
-                    type: 'tool-call',
-                    toolCallId: toolCall.id,
-                    toolName: toolCall.function.name,
-                    input: toolCall.function.arguments,
-                    providerMetadata: !reasoningDetailsAttachedToToolCall
-                      ? {
-                          openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
-                          },
-                        }
-                      : undefined,
-                  });
-
-                  reasoningDetailsAttachedToToolCall = true;
-                  toolCall.sent = true;
-                }
+                // The tool call is intentionally not finalized here even when
+                // the accumulated arguments happen to parse as JSON: a valid
+                // prefix can be followed by more fragments (e.g. an early
+                // root close from the upstream), which would yield a
+                // truncated tool call followed by stray deltas (#574).
+                // Tool calls are finalized in flush().
               }
             }
 
@@ -1237,59 +1134,70 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               finishReason = createFinishReason('tool-calls', finishReason.raw);
             }
 
-            // Forward any unsent tool calls if finish reason is 'tool-calls'
-            if (finishReason.unified === 'tool-calls') {
-              for (const toolCall of toolCalls) {
-                if (toolCall && !toolCall.sent) {
-                  // Forward invalid JSON as-is so the AI SDK can report it or
-                  // run experimental_repairToolCall; '{}' only when nothing
-                  // was streamed (no-argument tool calls).
-                  const input =
-                    toolCall.function.arguments.trim() === ''
-                      ? '{}'
-                      : toolCall.function.arguments;
+            // Finalize tool calls now that the stream is complete, using the
+            // full accumulated arguments. When the model signalled completion
+            // ('tool-calls' or 'stop'), forward every tool call, including
+            // invalid JSON so the AI SDK can report it or run
+            // experimental_repairToolCall. Otherwise (e.g. 'length', 'error',
+            // 'content-filter') only forward tool calls whose arguments are
+            // complete, parsable JSON.
+            const modelCompleted =
+              finishReason.unified === 'tool-calls' ||
+              finishReason.unified === 'stop';
+            for (const toolCall of toolCalls) {
+              if (
+                toolCall &&
+                !toolCall.sent &&
+                (modelCompleted || isParsableJson(toolCall.function.arguments))
+              ) {
+                // Forward invalid JSON as-is so the AI SDK can report it or
+                // run experimental_repairToolCall; '{}' only when nothing
+                // was streamed (no-argument tool calls).
+                const input =
+                  toolCall.function.arguments.trim() === ''
+                    ? '{}'
+                    : toolCall.function.arguments;
 
-                  // Emit the full tool-input lifecycle for unsent tool calls.
-                  // If inputStarted is false, the tool call was never partially
-                  // streamed — emit start + delta + end.
-                  // If inputStarted is true, start and deltas were already
-                  // emitted during streaming — only emit end.
-                  if (!toolCall.inputStarted) {
-                    controller.enqueue({
-                      type: 'tool-input-start',
-                      id: toolCall.id,
-                      toolName: toolCall.function.name,
-                    });
-                    controller.enqueue({
-                      type: 'tool-input-delta',
-                      id: toolCall.id,
-                      delta: input,
-                    });
-                  }
-
+                // Emit the full tool-input lifecycle for unsent tool calls.
+                // If inputStarted is false, the tool call was never partially
+                // streamed — emit start + delta + end.
+                // If inputStarted is true, start and deltas were already
+                // emitted during streaming — only emit end.
+                if (!toolCall.inputStarted) {
                   controller.enqueue({
-                    type: 'tool-input-end',
+                    type: 'tool-input-start',
                     id: toolCall.id,
-                  });
-
-                  // Only attach reasoning_details to the first tool call to avoid
-                  // duplicating thinking blocks for parallel tool calls (Claude)
-                  controller.enqueue({
-                    type: 'tool-call',
-                    toolCallId: toolCall.id,
                     toolName: toolCall.function.name,
-                    input,
-                    providerMetadata: !reasoningDetailsAttachedToToolCall
-                      ? {
-                          openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
-                          },
-                        }
-                      : undefined,
                   });
-                  reasoningDetailsAttachedToToolCall = true;
-                  toolCall.sent = true;
+                  controller.enqueue({
+                    type: 'tool-input-delta',
+                    id: toolCall.id,
+                    delta: input,
+                  });
                 }
+
+                controller.enqueue({
+                  type: 'tool-input-end',
+                  id: toolCall.id,
+                });
+
+                // Only attach reasoning_details to the first tool call to avoid
+                // duplicating thinking blocks for parallel tool calls (Claude)
+                controller.enqueue({
+                  type: 'tool-call',
+                  toolCallId: toolCall.id,
+                  toolName: toolCall.function.name,
+                  input,
+                  providerMetadata: !reasoningDetailsAttachedToToolCall
+                    ? {
+                        openrouter: {
+                          reasoning_details: accumulatedReasoningDetails,
+                        },
+                      }
+                    : undefined,
+                });
+                reasoningDetailsAttachedToToolCall = true;
+                toolCall.sent = true;
               }
             }
 
