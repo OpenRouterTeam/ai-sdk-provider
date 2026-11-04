@@ -147,6 +147,24 @@ describe('withStreamErrorHandling', () => {
     }
   });
 
+  it('should not call onError when cancelled while a read is in flight', async () => {
+    // A source that never produces, so the wrapper's pull stays parked on
+    // reader.read() until the consumer cancels.
+    const source = new ReadableStream<string>();
+    const onError = vi.fn();
+    const wrapped = withStreamErrorHandling(source, onError);
+
+    const reader = wrapped.getReader();
+    const pending = reader.read();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await reader.cancel('user abort');
+    await expect(pending).resolves.toEqual({ done: true, value: undefined });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('should release the source reader lock on error', async () => {
     const error = new TypeError('terminated');
     const source = createFailingStream(['a'], error);
