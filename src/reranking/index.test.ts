@@ -225,6 +225,31 @@ describe('OpenRouterRerankingModel', () => {
       expect(requestBodies[0]?.session_id).toBe('session-abc');
     });
 
+    it('should merge runtime provider routing with configured preferences', async () => {
+      const { mockFetch, requestBodies } = createMockFetch(MINIMAL_RESPONSE);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await provider
+        .rerankingModel('cohere/rerank-v3.5', {
+          provider: { order: ['cohere'], allow_fallbacks: false },
+        })
+        .doRerank({
+          documents: { type: 'text', values: ['doc 1'] },
+          query: 'test query',
+          providerOptions: {
+            openrouter: { provider: { order: ['voyageai'] } },
+          },
+        });
+
+      expect(requestBodies[0]?.provider).toEqual({
+        order: ['voyageai'],
+        allow_fallbacks: false,
+      });
+    });
+
     it('should omit top_n when not provided', async () => {
       const { mockFetch, requestBodies } = createMockFetch(MINIMAL_RESPONSE);
       const provider = createOpenRouter({

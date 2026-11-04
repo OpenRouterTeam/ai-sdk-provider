@@ -1411,6 +1411,33 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should merge runtime provider routing with configured preferences (#587)', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { data_collection: 'deny' } },
+    });
+
+    await provider
+      .chat('anthropic/claude-3.5-sonnet', {
+        provider: { order: ['google'], allow_fallbacks: false, sort: 'price' },
+      })
+      .doGenerate({
+        prompt: TEST_PROMPT,
+        providerOptions: { openrouter: { provider: { order: ['anthropic'] } } },
+      });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+
+    expect(requestBody).toHaveProperty('provider', {
+      order: ['anthropic'],
+      allow_fallbacks: false,
+      sort: 'price',
+      data_collection: 'deny',
+    });
+  });
+
   it('should pass images', async () => {
     prepareJsonResponse({
       content: '',
@@ -3198,6 +3225,33 @@ describe('doStream', () => {
       'providers.anthropic.custom_field',
       'custom_value',
     );
+  });
+
+  it('should merge runtime provider routing with configured preferences (#587)', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { data_collection: 'deny' } },
+    });
+
+    await provider
+      .chat('anthropic/claude-3.5-sonnet', {
+        provider: { order: ['google'], allow_fallbacks: false, sort: 'price' },
+      })
+      .doStream({
+        prompt: TEST_PROMPT,
+        providerOptions: { openrouter: { provider: { order: ['anthropic'] } } },
+      });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+
+    expect(requestBody).toHaveProperty('provider', {
+      order: ['anthropic'],
+      allow_fallbacks: false,
+      sort: 'price',
+      data_collection: 'deny',
+    });
   });
 
   it('should pass responseFormat for JSON schema structured outputs', async () => {

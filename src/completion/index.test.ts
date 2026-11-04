@@ -427,6 +427,32 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should merge runtime provider routing with configured preferences (#587)', async () => {
+    prepareJsonResponse({ content: '' });
+
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { data_collection: 'deny' } },
+    });
+
+    await provider
+      .completion('openai/gpt-3.5-turbo-instruct', {
+        extraBody: { provider: { order: ['google'], allow_fallbacks: false } },
+      })
+      .doGenerate({
+        prompt: TEST_PROMPT,
+        providerOptions: { openrouter: { provider: { order: ['openai'] } } },
+      });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+
+    expect(requestBody).toHaveProperty('provider', {
+      order: ['openai'],
+      allow_fallbacks: false,
+      data_collection: 'deny',
+    });
+  });
+
   it('should pass headers', async () => {
     prepareJsonResponse({ content: '' });
 
@@ -938,6 +964,32 @@ describe('doStream', () => {
       'providers.anthropic.custom_field',
       'custom_value',
     );
+  });
+
+  it('should merge runtime provider routing with configured preferences (#587)', async () => {
+    prepareStreamResponse({ content: [] });
+
+    const provider = createOpenRouter({
+      apiKey: 'test-api-key',
+      extraBody: { provider: { data_collection: 'deny' } },
+    });
+
+    await provider
+      .completion('openai/gpt-4o', {
+        extraBody: { provider: { order: ['google'], allow_fallbacks: false } },
+      })
+      .doStream({
+        prompt: TEST_PROMPT,
+        providerOptions: { openrouter: { provider: { order: ['openai'] } } },
+      });
+
+    const requestBody = await server.calls[0]!.requestBodyJson;
+
+    expect(requestBody).toHaveProperty('provider', {
+      order: ['openai'],
+      allow_fallbacks: false,
+      data_collection: 'deny',
+    });
   });
 
   it('should work with streamText from the AI SDK', async () => {

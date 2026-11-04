@@ -17,6 +17,7 @@ import {
   removeUndefinedEntries,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { OpenRouterRerankingResponseSchema } from './schemas';
 
 type OpenRouterRerankingConfig = {
@@ -51,8 +52,15 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
     const { documents, query, topN, abortSignal, headers, providerOptions } =
       options;
 
-    const openrouterOptions =
+    const { provider: runtimeProvider, ...openrouterOptions } =
       (providerOptions?.openrouter as Record<string, unknown>) || {};
+
+    const providerRouting = mergeProviderRouting(
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const warnings: SharedV4Warning[] = [];
 
@@ -86,6 +94,7 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
       ...this.config.extraBody,
       ...this.settings.extraBody,
       ...openrouterOptions,
+      ...(providerRouting !== undefined && { provider: providerRouting }),
     };
 
     const {
