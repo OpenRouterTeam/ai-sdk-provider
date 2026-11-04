@@ -24,7 +24,12 @@ export function computeTokenUsage(usage: UsageData): LanguageModelV4Usage {
   return {
     inputTokens: {
       total: promptTokens,
-      noCache: promptTokens - cacheReadTokens,
+      // prompt_tokens includes both cache reads and cache writes, so the
+      // non-cached portion excludes both.
+      noCache: Math.max(
+        0,
+        promptTokens - cacheReadTokens - (cacheWriteTokens ?? 0),
+      ),
       cacheRead: cacheReadTokens,
       cacheWrite: cacheWriteTokens,
     },

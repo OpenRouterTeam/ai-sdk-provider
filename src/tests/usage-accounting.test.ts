@@ -515,7 +515,7 @@ describe('OpenRouter Usage Accounting', () => {
 
     expect(result.usage.inputTokens).toStrictEqual({
       total: 100,
-      noCache: 80,
+      noCache: 50,
       cacheRead: 20,
       cacheWrite: 30,
     });
