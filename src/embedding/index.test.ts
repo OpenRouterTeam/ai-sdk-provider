@@ -366,7 +366,7 @@ describe('OpenRouterEmbeddingModel', () => {
       });
     });
 
-    it('ignores non-object runtime provider values', async () => {
+    it('ignores non-object runtime provider values other than null', async () => {
       const { provider, bodies } = createCapturingProvider();
 
       await embed({
@@ -374,10 +374,40 @@ describe('OpenRouterEmbeddingModel', () => {
           provider: { order: ['openai'] },
         }),
         value: 'hello',
-        providerOptions: { openrouter: { provider: null } },
+        providerOptions: { openrouter: { provider: ['other'] } },
       });
 
       expect(bodies[0]?.provider).toEqual({ order: ['openai'] });
+    });
+
+    it('clears all provider routing when runtime provider is null', async () => {
+      const { provider, bodies } = createCapturingProvider({
+        extraBody: { provider: { sort: 'latency' } },
+      });
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          provider: { order: ['openai'] },
+          extraBody: { provider: { allow_fallbacks: false } },
+        }),
+        value: 'hello',
+        providerOptions: { openrouter: { provider: null } },
+      });
+
+      expect(bodies[0]).not.toHaveProperty('provider');
+    });
+
+    it('does not leak a non-object extraBody provider into the body', async () => {
+      const { provider, bodies } = createCapturingProvider({
+        extraBody: { provider: 'not-an-object' },
+      });
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small'),
+        value: 'hello',
+      });
+
+      expect(bodies[0]).not.toHaveProperty('provider');
     });
 
     it('passes through other runtime options, overriding settings and extraBody', async () => {

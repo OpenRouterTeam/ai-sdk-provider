@@ -132,14 +132,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
    * keeping the same precedence as the rest of the body (later wins):
    * settings.provider < config.extraBody.provider <
    * settings.extraBody.provider < providerOptions.openrouter.provider.
+   * A call-time `provider: null` clears routing entirely.
    */
   private getMergedProvider(
     runtimeProvider: unknown,
   ): Record<string, unknown> | undefined {
     return mergeProviderRouting(
-      this.settings.provider,
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+      [
+        this.settings.provider,
+        this.config.extraBody?.provider,
+        this.settings.extraBody?.provider,
+      ],
       runtimeProvider,
     );
   }
@@ -317,7 +320,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
-      ...(providerRouting !== undefined && { provider: providerRouting }),
+      // Always set so non-object `provider` values from getArgs never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
@@ -636,7 +641,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
-      ...(providerRouting !== undefined && { provider: providerRouting }),
+      // Always set so non-object `provider` values from getArgs never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({

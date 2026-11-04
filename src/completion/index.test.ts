@@ -1,6 +1,7 @@
 import type {
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
+  SharedV4ProviderOptions,
 } from '@ai-sdk/provider';
 
 import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
@@ -1145,19 +1146,19 @@ describe('provider routing merge', () => {
   for (const mode of ['doGenerate', 'doStream'] as const) {
     async function call(
       completionModel: ReturnType<typeof provider.completion>,
-      providerOptions?: Record<string, Record<string, unknown>>,
+      providerOptions?: SharedV4ProviderOptions,
     ) {
       if (mode === 'doStream') {
         useStreamResponse();
         const { stream } = await completionModel.doStream({
           prompt: TEST_PROMPT,
-          providerOptions: providerOptions as never,
+          providerOptions,
         });
         await convertReadableStreamToArray(stream);
       } else {
         await completionModel.doGenerate({
           prompt: TEST_PROMPT,
-          providerOptions: providerOptions as never,
+          providerOptions,
         });
       }
       return (await server.calls[0]!.requestBodyJson) as Record<
@@ -1198,6 +1199,30 @@ describe('provider routing merge', () => {
 
       it('omits provider when none is configured', async () => {
         const body = await call(model);
+        expect(body).not.toHaveProperty('provider');
+      });
+
+      it('clears all provider routing when runtime provider is null', async () => {
+        const customProvider = createOpenRouter({
+          apiKey: 'test-api-key',
+          extraBody: { provider: { order: ['openai'] } },
+        });
+
+        const body = await call(
+          customProvider.completion('openai/gpt-3.5-turbo-instruct', {
+            extraBody: { provider: { sort: 'price' } },
+          }),
+          { openrouter: { provider: null } },
+        );
+        expect(body).not.toHaveProperty('provider');
+      });
+
+      it('does not leak a non-object extraBody provider into the body', async () => {
+        const body = await call(
+          provider.completion('openai/gpt-3.5-turbo-instruct', {
+            extraBody: { provider: null },
+          }),
+        );
         expect(body).not.toHaveProperty('provider');
       });
     });

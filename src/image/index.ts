@@ -98,10 +98,13 @@ export class OpenRouterImageModel implements ImageModelV4 {
 
     // Shallow merge provider routing preferences instead of replacing them,
     // keeping the same precedence as the rest of the body (later wins).
+    // A call-time `provider: null` clears routing entirely.
     const provider = mergeProviderRouting(
-      this.settings.provider,
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+      [
+        this.settings.provider,
+        this.config.extraBody?.provider,
+        this.settings.extraBody?.provider,
+      ],
       runtimeProvider,
     );
 
@@ -119,7 +122,9 @@ export class OpenRouterImageModel implements ImageModelV4 {
       ...this.config.extraBody,
       ...this.settings.extraBody,
       ...restOpenrouterOptions,
-      ...(provider !== undefined && { provider }),
+      // Always set so non-object `provider` values from extraBody never leak;
+      // `undefined` is dropped from the JSON body.
+      provider,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({

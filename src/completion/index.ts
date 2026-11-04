@@ -206,16 +206,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Shallow merge provider routing preferences instead of replacing them,
     // keeping the same precedence as the rest of the body (later wins).
+    // A call-time `provider: null` clears routing entirely.
     const providerRouting = mergeProviderRouting(
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+      [this.config.extraBody?.provider, this.settings.extraBody?.provider],
       runtimeProvider,
     );
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
-      ...(providerRouting !== undefined && { provider: providerRouting }),
+      // Always set so non-object `provider` values from extraBody never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
@@ -326,16 +328,18 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
 
     // Shallow merge provider routing preferences instead of replacing them,
     // keeping the same precedence as the rest of the body (later wins).
+    // A call-time `provider: null` clears routing entirely.
     const providerRouting = mergeProviderRouting(
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+      [this.config.extraBody?.provider, this.settings.extraBody?.provider],
       runtimeProvider,
     );
 
     const args = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
-      ...(providerRouting !== undefined && { provider: providerRouting }),
+      // Always set so non-object `provider` values from extraBody never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({
