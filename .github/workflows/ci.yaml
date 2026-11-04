@@ -20,5 +20,9 @@ jobs:
       - run: pnpm install
       - run: pnpm test
       - run: pnpm build
+      - name: Type-check packed tarball in consumer projects
+        # Layouts: pnpm isolated (hoist=false), pnpm global virtual store,
+        # pnpm hoisted, npm. `ai` versions: peer floor, devDependency, latest.
+        run: pnpm check:consumer-types --concurrency=4
       - run: pnpm typecheck
       - run: pnpm stylecheck
