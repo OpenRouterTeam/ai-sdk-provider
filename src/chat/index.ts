@@ -1008,16 +1008,19 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 // Whether the delta, which carries no index of its own or an
                 // index not seen before, continues the most recent tool call:
                 // it repeats that call's id, or has no id and no new name. A
-                // repeated name alone is not trusted once the call's
-                // arguments are already a complete JSON object/array: then it
-                // is a separate call to the same tool.
+                // repeated name alone is ambiguous; it only starts a separate
+                // call to the same tool when it brings a new, different JSON
+                // object/array after the call's arguments are complete.
                 const continuesLast =
                   last != null &&
                   (deltaId != null
                     ? deltaId === last.providerId
                     : deltaName == null ||
                       (deltaName === last.function.name &&
-                        !isCompleteJsonContainer(last.function.arguments)));
+                        !startsSeparateCall(
+                          last.function.arguments,
+                          toolCallDelta.function?.arguments ?? '',
+                        )));
                 let slotIndex: number;
                 if (toolCallDelta.index != null) {
                   const slot = toolCallSlotByIndex.get(toolCallDelta.index);
@@ -1147,12 +1150,18 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
                 // Some providers resend the full arguments in a later chunk.
                 // When the accumulated arguments are already a complete JSON
-                // object/array and the delta is an identical copy, appending
-                // it could only produce invalid JSON, so ignore it.
+                // object/array and the delta is an identical copy (ignoring
+                // surrounding whitespace), appending it could only produce
+                // invalid JSON, so ignore it. The cheap checks on the delta
+                // run first to avoid touching the accumulated arguments on
+                // every fragment.
+                const trimmedDelta = deltaArguments.trim();
                 if (
-                  deltaArguments !== '' &&
-                  deltaArguments === toolCall.function.arguments &&
-                  isCompleteJsonContainer(deltaArguments)
+                  (trimmedDelta.startsWith('{') ||
+                    trimmedDelta.startsWith('[')) &&
+                  trimmedDelta.length <= toolCall.function.arguments.length &&
+                  trimmedDelta === toolCall.function.arguments.trim() &&
+                  isCompleteJsonContainer(trimmedDelta)
                 ) {
                   continue;
                 }
@@ -1421,5 +1430,26 @@ function isCompleteJsonContainer(text: string): boolean {
   return (
     (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
     isParsableJson(trimmed)
+  );
+}
+
+/**
+ * For a delta that repeats the previous tool call's name without an id or
+ * index: whether it is a separate call rather than a continuation. That is
+ * only the case when the previous arguments are a complete JSON object/array
+ * and the delta starts a new, different one. The cheap string checks run
+ * first so the full parse only happens at such a boundary.
+ */
+function startsSeparateCall(
+  previousArguments: string,
+  deltaArguments: string,
+): boolean {
+  const next = deltaArguments.trimStart();
+  const previous = previousArguments.trimEnd();
+  return (
+    (next.startsWith('{') || next.startsWith('[')) &&
+    (previous.endsWith('}') || previous.endsWith(']')) &&
+    next.trimEnd() !== previous.trimStart() &&
+    isCompleteJsonContainer(previous)
   );
 }

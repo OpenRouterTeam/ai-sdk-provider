@@ -5889,6 +5889,54 @@ describe('includeRawChunks', () => {
       }
     });
 
+    it('should continue a complete same-name tool call for whitespace, resends, and long streams', async () => {
+      const idlessDelta = (args: string) =>
+        chunk(
+          JSON.stringify({
+            tool_calls: [
+              {
+                type: 'function',
+                function: { name: 'write', arguments: args },
+              },
+            ],
+          }),
+        );
+
+      const { toolCalls } = await streamToolEvents([
+        idlessDelta('{"a":1}'),
+        idlessDelta(' '),
+        idlessDelta('{"a":1}'),
+        chunk('{}', 'tool_calls'),
+        'data: [DONE]\n\n',
+      ]);
+      // Trailing whitespace continues the call and the identical resend is
+      // ignored, so there is a single call with the original arguments.
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0]).toMatchObject({
+        toolName: 'write',
+        input: '{"a":1} ',
+      });
+
+      const parseSpy = vi.spyOn(JSON, 'parse');
+      try {
+        const deltaCount = 1000;
+        const { toolCalls: longCalls } = await streamToolEvents([
+          idlessDelta('{"text":"'),
+          ...Array.from({ length: deltaCount }, () => idlessDelta('abcdefgh')),
+          idlessDelta('"}'),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+        expect(longCalls).toHaveLength(1);
+        const argumentParses = parseSpy.mock.calls
+          .map(([text]) => text)
+          .filter((text) => text.startsWith('{"text"'));
+        expect(argumentParses.length).toBeLessThanOrEqual(1);
+      } finally {
+        parseSpy.mockRestore();
+      }
+    });
+
     it('should start a new tool call when a different id reuses an index', async () => {
       const { toolEvents, toolCalls } = await streamToolEvents([
         chunk(
