@@ -1007,12 +1007,17 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 const last = toolCalls[lastSlot];
                 // Whether the delta, which carries no index of its own or an
                 // index not seen before, continues the most recent tool call:
-                // it repeats that call's id, or has no id and no new name.
+                // it repeats that call's id, or has no id and no new name. A
+                // repeated name alone is not trusted once the call's
+                // arguments are already a complete JSON object/array: then it
+                // is a separate call to the same tool.
                 const continuesLast =
                   last != null &&
                   (deltaId != null
                     ? deltaId === last.providerId
-                    : deltaName == null || deltaName === last.function.name);
+                    : deltaName == null ||
+                      (deltaName === last.function.name &&
+                        !isCompleteJsonContainer(last.function.arguments)));
                 let slotIndex: number;
                 if (toolCallDelta.index != null) {
                   const slot = toolCallSlotByIndex.get(toolCallDelta.index);
@@ -1041,9 +1046,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 } else {
                   // No index (allowed by the schema): a delta with a new id
                   // or, without an id, a new function name starts a new tool
-                  // call; anything else continues the most recent one. Two
-                  // consecutive same-name calls without ids or indexes are
-                  // indistinguishable and are merged.
+                  // call; anything else continues the most recent one.
                   slotIndex = continuesLast ? lastSlot : toolCalls.length;
                 }
                 const index = slotIndex;

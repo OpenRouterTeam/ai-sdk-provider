@@ -5853,6 +5853,42 @@ describe('includeRawChunks', () => {
       });
     });
 
+    it('should not merge complete same-name tool calls across index boundaries', async () => {
+      const idlessDelta = (index: number | undefined, args: string) =>
+        chunk(
+          JSON.stringify({
+            tool_calls: [
+              {
+                ...(index != null ? { index } : {}),
+                type: 'function',
+                function: { name: 'write', arguments: args },
+              },
+            ],
+          }),
+        );
+
+      for (const order of [
+        [undefined, 0],
+        [0, undefined],
+      ] as const) {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          idlessDelta(order[0], '{"a":1}'),
+          idlessDelta(order[1], '{"b":2}'),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expect(toolCalls.map((el) => el.input)).toStrictEqual([
+          '{"a":1}',
+          '{"b":2}',
+        ]);
+        expectFinalizedOnce(
+          toolEvents,
+          toolCalls.map((el) => el.toolCallId),
+        );
+      }
+    });
+
     it('should start a new tool call when a different id reuses an index', async () => {
       const { toolEvents, toolCalls } = await streamToolEvents([
         chunk(
