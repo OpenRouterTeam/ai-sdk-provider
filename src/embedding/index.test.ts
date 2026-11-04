@@ -409,6 +409,28 @@ describe('OpenRouterEmbeddingModel', () => {
       });
     });
 
+    it('does not let runtime options override model or input', async () => {
+      const { provider, bodies } = createCapturingProvider();
+      const model = provider.textEmbeddingModel(
+        'openai/text-embedding-3-small',
+      );
+      const providerOptions = {
+        openrouter: { model: 'other/model', input: ['different text'] },
+      };
+
+      await embed({ model, value: 'invoice', providerOptions });
+      await embedMany({ model, values: ['a', 'b'], providerOptions });
+
+      expect(bodies[0]).toMatchObject({
+        model: 'openai/text-embedding-3-small',
+        input: ['invoice'],
+      });
+      expect(bodies[1]).toMatchObject({
+        model: 'openai/text-embedding-3-small',
+        input: ['a', 'b'],
+      });
+    });
+
     it('leaves the request body unchanged without providerOptions', async () => {
       const { provider, bodies } = createCapturingProvider();
 

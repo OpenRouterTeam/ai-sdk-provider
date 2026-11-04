@@ -68,9 +68,15 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
     const { values, abortSignal, headers } = options;
 
     // Call-time options (`providerOptions.openrouter`) are passed through to
-    // the request body, mirroring the chat and completion models.
-    const { provider: runtimeProvider, ...runtimeOptions } =
-      options.providerOptions?.openrouter ?? {};
+    // the request body, mirroring the chat and completion models. `model` and
+    // `input` are dropped so call-time options cannot change which model is
+    // used or which values are embedded.
+    const {
+      provider: runtimeProvider,
+      model: _ignoredModel,
+      input: _ignoredInput,
+      ...runtimeOptions
+    } = options.providerOptions?.openrouter ?? {};
 
     // Provider routing preferences are shallow merged rather than replaced,
     // with the same precedence as the rest of the body (later wins).
