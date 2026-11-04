@@ -1,7 +1,7 @@
 import type {
   EmbeddingModelV4,
-  SharedV4Headers,
-  SharedV4ProviderMetadata,
+  EmbeddingModelV4CallOptions,
+  EmbeddingModelV4Result,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterEmbeddingModelId,
@@ -25,6 +25,23 @@ type OpenRouterEmbeddingConfig = {
   extraBody?: Record<string, unknown>;
 };
 
+/**
+ * Shallow merges provider routing preferences in ascending precedence order.
+ * Non-object sources (`undefined`, `null`, arrays, primitives) are ignored.
+ *
+ * TODO(#628): replace with the shared `mergeProviderRouting` helper from
+ * `src/utils/merge-provider-routing.ts` once that PR is merged.
+ */
+function mergeProviderRouting(
+  ...sources: unknown[]
+): Record<string, unknown> | undefined {
+  const objects = sources.filter(
+    (source): source is Record<string, unknown> =>
+      typeof source === 'object' && source !== null && !Array.isArray(source),
+  );
+  return objects.length > 0 ? Object.assign({}, ...objects) : undefined;
+}
+
 export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
   readonly specificationVersion = 'v4' as const;
   readonly provider = 'openrouter';
@@ -45,29 +62,39 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
     this.config = config;
   }
 
-  async doEmbed(options: {
-    values: Array<string>;
-    abortSignal?: AbortSignal;
-    headers?: Record<string, string | undefined>;
-  }): Promise<{
-    embeddings: Array<Array<number>>;
-    usage?: { tokens: number };
-    providerMetadata?: SharedV4ProviderMetadata;
-    response?: {
-      headers?: SharedV4Headers;
-      body?: unknown;
-    };
-    warnings: Array<import('@ai-sdk/provider').SharedV4Warning>;
-  }> {
+  async doEmbed(
+    options: EmbeddingModelV4CallOptions,
+  ): Promise<EmbeddingModelV4Result> {
     const { values, abortSignal, headers } = options;
+
+    // Call-time options (`providerOptions.openrouter`) are passed through to
+    // the request body, mirroring the chat and completion models. `model` and
+    // `input` are dropped so call-time options cannot change which model is
+    // used or which values are embedded.
+    const {
+      provider: runtimeProvider,
+      model: _ignoredModel,
+      input: _ignoredInput,
+      ...runtimeOptions
+    } = options.providerOptions?.openrouter ?? {};
+
+    // Provider routing preferences are shallow merged rather than replaced,
+    // with the same precedence as the rest of the body (later wins).
+    const providerRouting = mergeProviderRouting(
+      this.settings.provider,
+      this.config.extraBody?.provider,
+      this.settings.extraBody?.provider,
+      runtimeProvider,
+    );
 
     const args = {
       model: this.modelId,
       input: values,
       user: this.settings.user,
-      provider: this.settings.provider,
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      ...runtimeOptions,
+      provider: providerRouting,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
