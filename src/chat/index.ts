@@ -1002,33 +1002,49 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
                 const deltaId = toolCallDelta.id || undefined;
+                const deltaName = toolCallDelta.function?.name || undefined;
+                const lastSlot = toolCalls.length - 1;
+                const last = toolCalls[lastSlot];
+                // Whether the delta, which carries no index of its own or an
+                // index not seen before, continues the most recent tool call:
+                // it repeats that call's id, or has no id and no new name.
+                const continuesLast =
+                  last != null &&
+                  (deltaId != null
+                    ? deltaId === last.providerId
+                    : deltaName == null || deltaName === last.function.name);
                 let slotIndex: number;
                 if (toolCallDelta.index != null) {
-                  // A delta at a known index continues that tool call, unless
-                  // it carries a different non-empty id: then it is a new
-                  // tool call reusing the index.
                   const slot = toolCallSlotByIndex.get(toolCallDelta.index);
                   const existing = slot != null ? toolCalls[slot] : undefined;
-                  const isNewCall =
-                    existing == null ||
-                    (deltaId != null &&
+                  if (slot != null && existing != null) {
+                    // A delta at a known index continues that tool call,
+                    // unless it carries a different non-empty id: then it is
+                    // a new tool call reusing the index.
+                    const isNewCall =
+                      deltaId != null &&
                       existing.providerId !== '' &&
-                      deltaId !== existing.providerId);
-                  slotIndex = isNewCall ? toolCalls.length : (slot as number);
+                      deltaId !== existing.providerId;
+                    slotIndex = isNewCall ? toolCalls.length : slot;
+                  } else {
+                    // First delta at this index. If the most recent tool call
+                    // started without an index, this may be its continuation.
+                    const lastIsUnindexed = ![
+                      ...toolCallSlotByIndex.values(),
+                    ].includes(lastSlot);
+                    slotIndex =
+                      continuesLast && lastIsUnindexed
+                        ? lastSlot
+                        : toolCalls.length;
+                  }
                   toolCallSlotByIndex.set(toolCallDelta.index, slotIndex);
                 } else {
                   // No index (allowed by the schema): a delta with a new id
-                  // (or, without an id, a function name) starts a new tool
-                  // call; anything else continues the most recent one.
-                  const last = toolCalls.at(-1);
-                  const isNewCall =
-                    last == null ||
-                    (deltaId != null
-                      ? deltaId !== last.providerId
-                      : toolCallDelta.function?.name != null);
-                  slotIndex = isNewCall
-                    ? toolCalls.length
-                    : Math.max(0, toolCalls.length - 1);
+                  // or, without an id, a new function name starts a new tool
+                  // call; anything else continues the most recent one. Two
+                  // consecutive same-name calls without ids or indexes are
+                  // indistinguishable and are merged.
+                  slotIndex = continuesLast ? lastSlot : toolCalls.length;
                 }
                 const index = slotIndex;
 

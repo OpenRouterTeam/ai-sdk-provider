@@ -5812,6 +5812,45 @@ describe('includeRawChunks', () => {
           '{"y":2}',
         ]);
       });
+
+      it('should continue the tool call when a continuation repeats its name', async () => {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          noIndexDelta({ id: 'call_a', name: 'write', arguments: '{"x":' }),
+          noIndexDelta({ name: 'write', arguments: '1}' }),
+          noIndexDelta({ name: 'read', arguments: '{"y":2}' }),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expect(
+          toolCalls.map(({ toolName, input }) => ({ toolName, input })),
+        ).toStrictEqual([
+          { toolName: 'write', input: '{"x":1}' },
+          { toolName: 'read', input: '{"y":2}' },
+        ]);
+        expectFinalizedOnce(
+          toolEvents,
+          toolCalls.map((el) => el.toolCallId),
+        );
+      });
+
+      it('should bind an indexed continuation to a tool call started without an index', async () => {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          noIndexDelta({ id: 'call_a', name: 'write', arguments: '{"x":' }),
+          argumentChunk({ index: 0, arguments: '1}' }),
+          toolCallStart(1, 'read', '{"y":2}'),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expectFinalizedOnce(toolEvents, ['call_a', 'call_574_1']);
+        expect(
+          toolCalls.map(({ toolCallId, input }) => ({ toolCallId, input })),
+        ).toStrictEqual([
+          { toolCallId: 'call_a', input: '{"x":1}' },
+          { toolCallId: 'call_574_1', input: '{"y":2}' },
+        ]);
+      });
     });
 
     it('should start a new tool call when a different id reuses an index', async () => {
