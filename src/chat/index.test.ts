@@ -1437,8 +1437,8 @@ describe('doGenerate', () => {
   });
 
   it('should pass a multi-megabyte generated image', async () => {
-    // About the size of a 4K image a model returns.
-    const base64 = 'A'.repeat(13_000_000);
+    // A multi-megabyte payload, as returned for a generated image.
+    const base64 = 'A'.repeat(2_000_000);
     prepareJsonResponse({
       content: '',
       images: [

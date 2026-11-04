@@ -105,21 +105,52 @@ export function getFileDataUrl({
   });
 }
 
+/**
+ * Returns the header of a data URL: everything between `data:` and the first
+ * comma (or the end of the string if there is no comma). Media types and
+ * parameters cannot contain a comma, so the first comma always ends the
+ * header. Only the header is ever inspected; the payload, which can be many
+ * megabytes for a generated image, is never scanned with a regex.
+ */
+function getDataUrlHeader(dataUrl: string): string | undefined {
+  if (!dataUrl.startsWith('data:')) {
+    return undefined;
+  }
+  const comma = dataUrl.indexOf(',');
+  return comma === -1 ? dataUrl.slice(5) : dataUrl.slice(5, comma);
+}
+
 export function getMediaType(
   dataUrl: string,
   defaultMediaType: string,
 ): string {
-  const match = dataUrl.match(/^data:([^;]+)/);
-  return match ? (match[1] ?? defaultMediaType) : defaultMediaType;
+  const header = getDataUrlHeader(dataUrl);
+  if (header === undefined) {
+    return defaultMediaType;
+  }
+  // The media type is the part of the header before the first parameter.
+  const semicolon = header.indexOf(';');
+  const mediaType = semicolon === -1 ? header : header.slice(0, semicolon);
+  return mediaType || defaultMediaType;
 }
 
+/**
+ * Extracts the base64 payload from a `data:[<mediatype>][;<param>]*;base64,`
+ * URL. Anything else (raw base64, http(s) URLs, non-base64 data URLs, data
+ * URLs with an empty payload) is returned unchanged.
+ *
+ * The payload is located with `indexOf` and `slice` rather than a regex: a
+ * regex over a multi-MB payload (e.g. a generated 4K image) can throw
+ * "RangeError: Maximum call stack size exceeded" in V8.
+ */
 export function getBase64FromDataUrl(dataUrl: string): string {
-  // Match only the prefix: a regex over a multi-MB payload (e.g. a generated
-  // 4K image) can throw "RangeError: Maximum call stack size exceeded" in V8.
-  const prefix = /^data:[^;,]*;base64,/.exec(dataUrl.slice(0, 256));
-  return prefix && dataUrl.length > prefix[0].length
-    ? dataUrl.slice(prefix[0].length)
-    : dataUrl;
+  const header = getDataUrlHeader(dataUrl);
+  if (header === undefined || !header.endsWith(';base64')) {
+    return dataUrl;
+  }
+  // Empty when there is no comma after the header.
+  const payload = dataUrl.slice(5 + header.length + 1);
+  return payload.length > 0 ? payload : dataUrl;
 }
 
 /** MIME type to format mapping for normalization */
