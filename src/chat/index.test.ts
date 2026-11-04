@@ -5704,6 +5704,191 @@ describe('includeRawChunks', () => {
       expect(toolEvents.some((el) => el.type === 'tool-call')).toBe(false);
     });
 
+    it("should close the input of dropped tool calls on 'length' with tool-input-end", async () => {
+      const { toolEvents } = await streamToolEvents(
+        streamChunks({
+          starts: [
+            { index: 0, name: 'complete', args: '{"a":1}' },
+            { index: 1, name: 'truncated' },
+          ],
+          deltas: [{ index: 1, arguments: '{"text":"unfinish' }],
+          finishReason: 'length',
+        }),
+      );
+
+      expect(
+        toolEvents.map((el) => [
+          el.type,
+          'id' in el ? el.id : 'toolCallId' in el ? el.toolCallId : undefined,
+        ]),
+      ).toStrictEqual([
+        ['tool-input-start', 'call_574_0'],
+        ['tool-input-delta', 'call_574_0'],
+        ['tool-input-start', 'call_574_1'],
+        ['tool-input-delta', 'call_574_1'],
+        ['tool-input-end', 'call_574_0'],
+        ['tool-call', 'call_574_0'],
+        ['tool-input-end', 'call_574_1'],
+      ]);
+    });
+
+    describe('tool call deltas without an index', () => {
+      const noIndexDelta = (toolCall: {
+        id?: string;
+        name?: string;
+        arguments: string;
+      }) =>
+        chunk(
+          JSON.stringify({
+            tool_calls: [
+              {
+                ...(toolCall.id != null ? { id: toolCall.id } : {}),
+                type: 'function',
+                function: {
+                  ...(toolCall.name != null ? { name: toolCall.name } : {}),
+                  arguments: toolCall.arguments,
+                },
+              },
+            ],
+          }),
+        );
+
+      it('should emit a single-chunk tool call', async () => {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          noIndexDelta({ id: 'call_a', name: 'first', arguments: '{"x":1}' }),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expect(toolEvents.map((el) => el.type)).toStrictEqual([
+          'tool-input-start',
+          'tool-input-delta',
+          'tool-input-end',
+          'tool-call',
+        ]);
+        expect(toolCalls[0]).toMatchObject({
+          toolCallId: 'call_a',
+          toolName: 'first',
+          input: '{"x":1}',
+        });
+      });
+
+      it('should emit two single-chunk tool calls separately', async () => {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          noIndexDelta({ id: 'call_a', name: 'first', arguments: '{"x":1}' }),
+          noIndexDelta({ id: 'call_b', name: 'second', arguments: '{"y":2}' }),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expectFinalizedOnce(toolEvents, ['call_a', 'call_b']);
+        expect(
+          toolCalls.map(({ toolCallId, toolName, input }) => ({
+            toolCallId,
+            toolName,
+            input,
+          })),
+        ).toStrictEqual([
+          { toolCallId: 'call_a', toolName: 'first', input: '{"x":1}' },
+          { toolCallId: 'call_b', toolName: 'second', input: '{"y":2}' },
+        ]);
+      });
+
+      it('should append continuation deltas to the most recent tool call', async () => {
+        const { toolEvents, toolCalls } = await streamToolEvents([
+          noIndexDelta({ id: 'call_a', name: 'first', arguments: '' }),
+          noIndexDelta({ arguments: '{"x":' }),
+          noIndexDelta({ arguments: '1}' }),
+          noIndexDelta({ id: 'call_b', name: 'second', arguments: '{"y"' }),
+          // Some providers repeat the id on every chunk.
+          noIndexDelta({ id: 'call_b', arguments: ':2}' }),
+          chunk('{}', 'tool_calls'),
+          'data: [DONE]\n\n',
+        ]);
+
+        expectFinalizedOnce(toolEvents, ['call_a', 'call_b']);
+        expect(toolCalls.map((el) => el.input)).toStrictEqual([
+          '{"x":1}',
+          '{"y":2}',
+        ]);
+      });
+    });
+
+    it('should start a new tool call when a different id reuses an index', async () => {
+      const { toolEvents, toolCalls } = await streamToolEvents([
+        chunk(
+          '{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"first","arguments":"{\\"x\\":1}"}}]}',
+        ),
+        chunk(
+          '{"tool_calls":[{"index":0,"id":"call_b","type":"function","function":{"name":"second","arguments":"{\\"y\\":"}}]}',
+        ),
+        // Continuation without an id goes to the tool call now at index 0.
+        argumentChunk({ index: 0, arguments: '2}' }),
+        chunk('{}', 'tool_calls'),
+        'data: [DONE]\n\n',
+      ]);
+
+      expectFinalizedOnce(toolEvents, ['call_a', 'call_b']);
+      expect(
+        toolCalls.map(({ toolCallId, toolName, input }) => ({
+          toolCallId,
+          toolName,
+          input,
+        })),
+      ).toStrictEqual([
+        { toolCallId: 'call_a', toolName: 'first', input: '{"x":1}' },
+        { toolCallId: 'call_b', toolName: 'second', input: '{"y":2}' },
+      ]);
+    });
+
+    it('should continue the tool call when a delta repeats its id at the same index', async () => {
+      const { toolCalls } = await streamToolEvents([
+        toolCallStart(0, 'write', '{"a":'),
+        chunk(
+          '{"tool_calls":[{"index":0,"id":"call_574_0","function":{"arguments":"1}"}}]}',
+        ),
+        chunk('{}', 'tool_calls'),
+        'data: [DONE]\n\n',
+      ]);
+
+      expect(toolCalls).toHaveLength(1);
+      expect(toolCalls[0]).toMatchObject({
+        toolCallId: 'call_574_0',
+        input: '{"a":1}',
+      });
+    });
+
+    it('should ignore an identical resend of already complete arguments', async () => {
+      const { toolEvents, toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write', args: '{"a":1}' }],
+          deltas: [{ index: 0, arguments: '{"a":1}' }],
+        }),
+      );
+
+      expect(toolEvents.map((el) => el.type)).toStrictEqual([
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ]);
+      expect(toolCalls[0]).toMatchObject({ input: '{"a":1}' });
+    });
+
+    it('should not drop a fragment that merely equals incomplete accumulated arguments', async () => {
+      const { toolCalls } = await streamToolEvents(
+        streamChunks({
+          starts: [{ index: 0, name: 'write' }],
+          deltas: [
+            { index: 0, arguments: '"' },
+            { index: 0, arguments: '"' },
+          ],
+        }),
+      );
+
+      expect(toolCalls[0]).toMatchObject({ input: '""' });
+    });
+
     it('should not parse the accumulated arguments on every delta', async () => {
       const deltaCount = 2000;
       const parseSpy = vi.spyOn(JSON, 'parse');

@@ -641,6 +641,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
     const toolCalls: Array<{
       id: string;
+      // The id as sent by the provider ('' when missing). Used to detect a new
+      // tool call that reuses an index; `id` may be regenerated for uniqueness.
+      providerId: string;
       type: 'function';
       function: {
         name: string;
@@ -653,6 +656,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     // Track seen tool call IDs to ensure uniqueness. Some providers
     // return empty, null, or duplicate IDs for parallel tool calls.
     const seenToolCallIds = new Set<string>();
+
+    // Maps the provider's tool call `index` to a slot in `toolCalls`. Slots
+    // are assigned densely in arrival order, so a provider index can be
+    // re-pointed at a new slot when a different tool call reuses it.
+    const toolCallSlotByIndex = new Map<number, number>();
 
     let finishReason: LanguageModelV4FinishReason = createFinishReason('other');
     const usage: LanguageModelV4Usage = {
@@ -993,7 +1001,36 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
             if (delta.tool_calls != null) {
               for (const toolCallDelta of delta.tool_calls) {
-                const index = toolCallDelta.index ?? toolCalls.length - 1;
+                const deltaId = toolCallDelta.id || undefined;
+                let slotIndex: number;
+                if (toolCallDelta.index != null) {
+                  // A delta at a known index continues that tool call, unless
+                  // it carries a different non-empty id: then it is a new
+                  // tool call reusing the index.
+                  const slot = toolCallSlotByIndex.get(toolCallDelta.index);
+                  const existing = slot != null ? toolCalls[slot] : undefined;
+                  const isNewCall =
+                    existing == null ||
+                    (deltaId != null &&
+                      existing.providerId !== '' &&
+                      deltaId !== existing.providerId);
+                  slotIndex = isNewCall ? toolCalls.length : (slot as number);
+                  toolCallSlotByIndex.set(toolCallDelta.index, slotIndex);
+                } else {
+                  // No index (allowed by the schema): a delta with a new id
+                  // (or, without an id, a function name) starts a new tool
+                  // call; anything else continues the most recent one.
+                  const last = toolCalls.at(-1);
+                  const isNewCall =
+                    last == null ||
+                    (deltaId != null
+                      ? deltaId !== last.providerId
+                      : toolCallDelta.function?.name != null);
+                  slotIndex = isNewCall
+                    ? toolCalls.length
+                    : Math.max(0, toolCalls.length - 1);
+                }
+                const index = slotIndex;
 
                 // Tool call start. OpenRouter returns all information except the arguments in the first chunk.
                 if (toolCalls[index] == null) {
@@ -1022,6 +1059,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
                   toolCalls[index] = {
                     id: toolCallId,
+                    providerId: toolCallDelta.id ?? '',
                     type: 'function',
                     function: {
                       name: toolCallDelta.function.name,
@@ -1086,16 +1124,27 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   }
                 }
 
-                if (toolCallDelta.function?.arguments != null) {
-                  toolCall.function.arguments +=
-                    toolCallDelta.function?.arguments ?? '';
+                const deltaArguments = toolCallDelta.function?.arguments ?? '';
+
+                // Some providers resend the full arguments in a later chunk.
+                // When the accumulated arguments are already a complete JSON
+                // object/array and the delta is an identical copy, appending
+                // it could only produce invalid JSON, so ignore it.
+                if (
+                  deltaArguments !== '' &&
+                  deltaArguments === toolCall.function.arguments &&
+                  isCompleteJsonContainer(deltaArguments)
+                ) {
+                  continue;
                 }
+
+                toolCall.function.arguments += deltaArguments;
 
                 // send delta
                 controller.enqueue({
                   type: 'tool-input-delta',
                   id: toolCall.id,
-                  delta: toolCallDelta.function.arguments ?? '',
+                  delta: deltaArguments,
                 });
 
                 // The tool call is intentionally not finalized here even when
@@ -1213,6 +1262,14 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 });
                 reasoningDetailsAttachedToToolCall = true;
                 toolCall.sent = true;
+              } else if (toolCall && !toolCall.sent && toolCall.inputStarted) {
+                // The tool call is dropped (incomplete arguments on e.g.
+                // 'length' or 'error'), but its input was already streamed:
+                // close it so consumers do not leave it in input-streaming.
+                controller.enqueue({
+                  type: 'tool-input-end',
+                  id: toolCall.id,
+                });
               }
             }
 
@@ -1334,4 +1391,16 @@ function mapProviderTool(
  */
 function camelToSnake(str: string): string {
   return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+/**
+ * Whether `text` is a complete JSON object or array. Appending any further
+ * non-whitespace text to such a value can never yield valid JSON.
+ */
+function isCompleteJsonContainer(text: string): boolean {
+  const trimmed = text.trim();
+  return (
+    (trimmed.startsWith('{') || trimmed.startsWith('[')) &&
+    isParsableJson(trimmed)
+  );
 }
