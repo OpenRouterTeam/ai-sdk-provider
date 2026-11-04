@@ -1,3 +1,4 @@
+import { embed, embedMany } from 'ai';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterEmbeddingModel } from './index';
@@ -257,6 +258,187 @@ describe('OpenRouterEmbeddingModel', () => {
           },
         },
       });
+    });
+  });
+
+  describe('providerOptions.openrouter', () => {
+    const createCapturingProvider = (
+      options: { extraBody?: Record<string, unknown> } = {},
+    ) => {
+      const bodies: Array<Record<string, unknown>> = [];
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        ...options,
+        fetch: async (_url, init) => {
+          const body = JSON.parse(String(init?.body));
+          bodies.push(body);
+          const inputs: unknown[] = Array.isArray(body.input) ? body.input : [];
+          return new Response(
+            JSON.stringify({
+              object: 'list',
+              data: inputs.map((_, index) => ({
+                object: 'embedding',
+                embedding: [0.1, 0.2],
+                index,
+              })),
+              model: 'openai/text-embedding-3-small',
+              usage: { prompt_tokens: 5, total_tokens: 5 },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        },
+      });
+      return { provider, bodies };
+    };
+
+    it('embed: forwards runtime-only provider routing', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small'),
+        value: 'hello',
+        providerOptions: { openrouter: { provider: { only: ['openai'] } } },
+      });
+
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0]?.provider).toEqual({ only: ['openai'] });
+    });
+
+    it('embedMany: forwards runtime-only provider routing', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embedMany({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small'),
+        values: ['a', 'b'],
+        providerOptions: { openrouter: { provider: { only: ['openai'] } } },
+      });
+
+      expect(bodies).toHaveLength(1);
+      expect(bodies[0]?.input).toEqual(['a', 'b']);
+      expect(bodies[0]?.provider).toEqual({ only: ['openai'] });
+    });
+
+    it('shallow merges runtime provider with settings.provider', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          provider: { order: ['openai'], allow_fallbacks: false },
+        }),
+        value: 'hello',
+        providerOptions: {
+          openrouter: { provider: { allow_fallbacks: true, sort: 'price' } },
+        },
+      });
+
+      expect(bodies[0]?.provider).toEqual({
+        order: ['openai'],
+        allow_fallbacks: true,
+        sort: 'price',
+      });
+    });
+
+    it('applies precedence settings < config.extraBody < settings.extraBody < runtime', async () => {
+      const { provider, bodies } = createCapturingProvider({
+        extraBody: {
+          provider: { order: ['config'], sort: 'latency', ignore: ['x'] },
+        },
+      });
+
+      await embedMany({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          provider: { order: ['settings'], data_collection: 'deny' },
+          extraBody: { provider: { sort: 'throughput', only: ['extra'] } },
+        }),
+        values: ['a'],
+        providerOptions: { openrouter: { provider: { only: ['runtime'] } } },
+      });
+
+      expect(bodies[0]?.provider).toEqual({
+        order: ['config'],
+        data_collection: 'deny',
+        sort: 'throughput',
+        ignore: ['x'],
+        only: ['runtime'],
+      });
+    });
+
+    it('ignores non-object runtime provider values', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          provider: { order: ['openai'] },
+        }),
+        value: 'hello',
+        providerOptions: { openrouter: { provider: null } },
+      });
+
+      expect(bodies[0]?.provider).toEqual({ order: ['openai'] });
+    });
+
+    it('passes through other runtime options, overriding settings and extraBody', async () => {
+      const { provider, bodies } = createCapturingProvider({
+        extraBody: { dimensions: 128 },
+      });
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          user: 'settings-user',
+          extraBody: { input_type: 'search_document' },
+        }),
+        value: 'hello',
+        providerOptions: {
+          openrouter: {
+            user: 'runtime-user',
+            dimensions: 256,
+            input_type: 'search_query',
+            session_id: 'session-1',
+          },
+        },
+      });
+
+      expect(bodies[0]).toMatchObject({
+        user: 'runtime-user',
+        dimensions: 256,
+        input_type: 'search_query',
+        session_id: 'session-1',
+      });
+    });
+
+    it('leaves the request body unchanged without providerOptions', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embedMany({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small', {
+          user: 'test-user',
+          provider: { order: ['openai'] },
+        }),
+        values: ['a', 'b'],
+      });
+
+      expect(bodies[0]).toEqual({
+        model: 'openai/text-embedding-3-small',
+        input: ['a', 'b'],
+        user: 'test-user',
+        provider: { order: ['openai'] },
+      });
+    });
+
+    it('omits provider when no source sets it', async () => {
+      const { provider, bodies } = createCapturingProvider();
+
+      await embed({
+        model: provider.textEmbeddingModel('openai/text-embedding-3-small'),
+        value: 'hello',
+        providerOptions: { openrouter: { user: 'u' } },
+      });
+
+      expect(bodies[0]).not.toHaveProperty('provider');
+      expect(bodies[0]?.user).toBe('u');
     });
   });
 });

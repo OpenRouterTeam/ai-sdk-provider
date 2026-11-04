@@ -107,6 +107,30 @@ const { embeddings } = await embedMany({
 console.log(embeddings); // Array of embedding arrays
 ```
 
+### Embedding Provider Options
+
+Pass OpenRouter request options per call with `providerOptions.openrouter`. They work with both `embed` and `embedMany` and are sent in the `/embeddings` request body (for example `provider`, `user`, `dimensions`, `input_type`):
+
+```ts
+import { embed } from 'ai';
+import { openrouter } from '@openrouter/ai-sdk-provider';
+
+const { embedding } = await embed({
+  model: openrouter.textEmbeddingModel('openai/text-embedding-3-small', {
+    provider: { order: ['openai'] },
+  }),
+  value: 'sunny day at the beach',
+  providerOptions: {
+    openrouter: {
+      provider: { allow_fallbacks: false },
+      dimensions: 256,
+    },
+  },
+});
+```
+
+Call-time options take precedence over model settings and `extraBody`. Provider routing preferences (`provider`) are shallow merged from model settings, `extraBody` and `providerOptions` instead of replacing each other, so the request above routes with `{ order: ['openai'], allow_fallbacks: false }`.
+
 ### Supported Embedding Models
 
 OpenRouter supports various embedding models including:
