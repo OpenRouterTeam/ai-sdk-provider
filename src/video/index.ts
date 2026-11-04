@@ -14,6 +14,7 @@ import type {
 import { APICallError } from '@ai-sdk/provider';
 import {
   combineHeaders,
+  createBinaryResponseHandler,
   createJsonResponseHandler,
   delay,
   getFromApi,
@@ -141,10 +142,15 @@ export class OpenRouterVideoModel implements VideoModelV4 {
 
     if (pollResult.unsigned_urls) {
       for (const url of pollResult.unsigned_urls) {
-        videos.push({
-          type: 'url',
+        const { data, mediaType } = await this.downloadVideo({
           url,
-          mediaType: 'video/mp4',
+          headers: mergedHeaders,
+          abortSignal,
+        });
+        videos.push({
+          type: 'binary',
+          data,
+          mediaType,
         });
       }
     }
@@ -248,6 +254,55 @@ export class OpenRouterVideoModel implements VideoModelV4 {
       isRetryable: true,
     });
   }
+
+  private async downloadVideo({
+    url,
+    headers,
+    abortSignal,
+  }: {
+    url: string;
+    headers: Record<string, string | undefined>;
+    abortSignal?: AbortSignal;
+  }): Promise<{ data: Uint8Array; mediaType: string }> {
+    const trustedOrigin = getOrigin(
+      this.config.url({
+        path: '/videos',
+        modelId: this.modelId,
+      }),
+    );
+
+    const { value, responseHeaders } = await getFromApi({
+      url,
+      headers,
+      failedResponseHandler: openrouterFailedResponseHandler,
+      successfulResponseHandler: createBinaryResponseHandler(),
+      abortSignal,
+      fetch: this.config.fetch,
+      validateUrl: true,
+      credentialedOrigin: trustedOrigin,
+      trustedOrigin,
+    });
+
+    return {
+      data: value,
+      mediaType: normalizeVideoMediaType(responseHeaders?.['content-type']),
+    };
+  }
+}
+
+function getOrigin(url: string): string {
+  return new URL(url).origin;
+}
+
+/**
+ * Strips parameters (e.g. `; codecs=...`) from a Content-Type header and falls
+ * back to `video/mp4` when it is missing or a generic binary type.
+ */
+function normalizeVideoMediaType(contentType: string | undefined): string {
+  const mediaType = contentType?.split(';')[0]?.trim().toLowerCase();
+  return mediaType && mediaType !== 'application/octet-stream'
+    ? mediaType
+    : 'video/mp4';
 }
 
 function convertImageToFrameImage(
