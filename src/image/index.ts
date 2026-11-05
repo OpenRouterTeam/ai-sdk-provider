@@ -22,6 +22,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { OpenRouterImageResponseSchema } from './schemas';
 
 type OpenRouterImageConfig = {
@@ -97,17 +98,15 @@ export class OpenRouterImageModel implements ImageModelV4 {
 
     // Shallow merge provider routing preferences instead of replacing them,
     // keeping the same precedence as the rest of the body (later wins).
-    // Non-object values (null, arrays, primitives) are ignored.
-    const providerSources = [
-      this.settings.provider,
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+    // A call-time `provider: null` clears routing entirely.
+    const provider = mergeProviderRouting(
+      [
+        this.settings.provider,
+        this.config.extraBody?.provider,
+        this.settings.extraBody?.provider,
+      ],
       runtimeProvider,
-    ].filter((p) => typeof p === 'object' && p !== null && !Array.isArray(p));
-    const provider =
-      providerSources.length > 0
-        ? Object.assign({}, ...providerSources)
-        : undefined;
+    );
 
     const body: Record<string, unknown> = {
       model: this.modelId,
@@ -123,7 +122,9 @@ export class OpenRouterImageModel implements ImageModelV4 {
       ...this.config.extraBody,
       ...this.settings.extraBody,
       ...restOpenrouterOptions,
-      ...(provider !== undefined && { provider }),
+      // Always set so non-object `provider` values from extraBody never leak;
+      // `undefined` is dropped from the JSON body.
+      provider,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({

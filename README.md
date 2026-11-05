@@ -129,7 +129,7 @@ const { embedding } = await embed({
 });
 ```
 
-Call-time options take precedence over model settings and `extraBody`. Provider routing preferences (`provider`) are shallow merged from model settings, `extraBody` and `providerOptions` instead of replacing each other, so the request above routes with `{ order: ['openai'], allow_fallbacks: false }`.
+Call-time options take precedence over model settings and `extraBody`. Provider routing preferences (`provider`) are shallow merged from model settings, `extraBody` and `providerOptions` instead of replacing each other, so the request above routes with `{ order: ['openai'], allow_fallbacks: false }`. See [Provider Routing](#provider-routing) for the full rules, including how to clear configured routing with `provider: null`.
 
 ### Supported Embedding Models
 
@@ -296,6 +296,38 @@ There are 3 ways to pass extra body to OpenRouter:
      messages: [{ role: 'user', content: 'Hello' }],
    });
    ```
+
+## Provider Routing
+
+[Provider routing](https://openrouter.ai/docs/features/provider-routing) preferences (`provider`) can be set in several places. Chat, completion, embedding and image models shallow merge them instead of letting one replace another, in ascending precedence order (later wins):
+
+1. typed model settings (`provider`, where the model supports it; completion models do not)
+2. factory `extraBody.provider`
+3. model `extraBody.provider`
+4. call-time `providerOptions.openrouter.provider`
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateText } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+const model = openrouter('anthropic/claude-sonnet-4', {
+  provider: { order: ['anthropic'], allow_fallbacks: false, sort: 'price' },
+});
+
+await generateText({
+  model,
+  prompt: 'Hello',
+  providerOptions: {
+    // Sent as { order: ['google'], allow_fallbacks: false, sort: 'price' }
+    openrouter: { provider: { order: ['google'] } },
+  },
+});
+```
+
+The merge is shallow. Only top-level keys are combined; nested values are replaced. Arrays such as `order`, `only` and `ignore`, and objects such as `max_price`, come whole from the highest-precedence source that sets them. For example, configured `{ only: ['a', 'b'], ignore: ['c'] }` plus call-time `{ only: ['c'] }` sends `{ only: ['c'], ignore: ['c'] }`.
+
+To override a configured key for one call, set it explicitly (for example `allow_fallbacks: true`, or `ignore: []`). To drop all configured routing for one call, pass `provider: null` in `providerOptions.openrouter`; the request is then sent without a `provider` field. Non-object values (arrays, primitives, or `null` in settings or `extraBody`) are ignored.
 
 ## Multimodal Inputs
 

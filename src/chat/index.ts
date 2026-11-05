@@ -50,6 +50,7 @@ import {
   createFinishReason,
   mapOpenRouterFinishReason,
 } from '../utils/map-finish-reason';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
 import {
@@ -124,6 +125,26 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     this.modelId = modelId;
     this.settings = settings;
     this.config = config;
+  }
+
+  /**
+   * Shallow merges provider routing preferences instead of replacing them,
+   * keeping the same precedence as the rest of the body (later wins):
+   * settings.provider < config.extraBody.provider <
+   * settings.extraBody.provider < providerOptions.openrouter.provider.
+   * A call-time `provider: null` clears routing entirely.
+   */
+  private getMergedProvider(
+    runtimeProvider: unknown,
+  ): Record<string, unknown> | undefined {
+    return mergeProviderRouting(
+      [
+        this.settings.provider,
+        this.config.extraBody?.provider,
+        this.settings.extraBody?.provider,
+      ],
+      runtimeProvider,
+    );
   }
 
   private getArgs({
@@ -283,8 +304,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const openrouterOptions = providerOptions.openrouter || {};
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      provider: runtimeProvider,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
+
+    const providerRouting = this.getMergedProvider(runtimeProvider);
 
     const args = {
       ...this.getArgs(options),
@@ -294,6 +320,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
+      // Always set so non-object `provider` values from getArgs never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: responseValue, responseHeaders } = await postJsonToApi({
@@ -596,8 +625,13 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     const openrouterOptions = providerOptions.openrouter || {};
 
     // Extract cacheControl (camelCase) and normalize to cache_control (snake_case)
-    const { cacheControl, ...restOpenrouterOptions } =
-      openrouterOptions as Record<string, unknown>;
+    const {
+      cacheControl,
+      provider: runtimeProvider,
+      ...restOpenrouterOptions
+    } = openrouterOptions as Record<string, unknown>;
+
+    const providerRouting = this.getMergedProvider(runtimeProvider);
 
     const args = {
       ...this.getArgs(options),
@@ -607,6 +641,9 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       ...(cacheControl != null && !('cache_control' in restOpenrouterOptions)
         ? { cache_control: cacheControl }
         : {}),
+      // Always set so non-object `provider` values from getArgs never leak;
+      // `undefined` is dropped from the JSON body.
+      provider: providerRouting,
     };
 
     const { value: response, responseHeaders } = await postJsonToApi({

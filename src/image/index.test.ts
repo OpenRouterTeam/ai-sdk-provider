@@ -861,12 +861,7 @@ describe('OpenRouterImageModel', () => {
       expect(mock.capturedBody?.custom_field).toBe('test');
     });
 
-    it.each([
-      { label: 'null', runtimeProvider: null },
-      { label: 'an array', runtimeProvider: ['black-forest-labs'] },
-    ])('should keep configured provider preferences when runtime provider is $label', async ({
-      runtimeProvider,
-    }) => {
+    it('should keep configured provider preferences when runtime provider is an array', async () => {
       const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -879,12 +874,46 @@ describe('OpenRouterImageModel', () => {
         },
       });
 
-      await generate(model, { openrouter: { provider: runtimeProvider } });
+      await generate(model, {
+        openrouter: { provider: ['black-forest-labs'] },
+      });
 
       expect(mock.capturedBody?.provider).toEqual({
         order: ['google'],
         allow_fallbacks: true,
       });
+    });
+
+    it('should clear all provider routing when runtime provider is null', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+        extraBody: { provider: { data_collection: 'deny' } },
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        provider: { order: ['google'] },
+        extraBody: { provider: { allow_fallbacks: false } },
+      });
+
+      await generate(model, { openrouter: { provider: null } });
+
+      expect(mock.capturedBody).not.toHaveProperty('provider');
+    });
+
+    it('should not leak a non-object extraBody provider into the body', async () => {
+      const mock = createCapturingMockFetch(TEST_IMAGE_BASE64);
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mock.fetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image', {
+        extraBody: { provider: null },
+      });
+
+      await generate(model, { openrouter: {} });
+
+      expect(mock.capturedBody).not.toHaveProperty('provider');
     });
 
     it('should merge config extraBody, model provider, and runtime provider options', async () => {

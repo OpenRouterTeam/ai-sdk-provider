@@ -2,6 +2,7 @@ import type {
   LanguageModelV4Content,
   LanguageModelV4Prompt,
   LanguageModelV4StreamPart,
+  SharedV4ProviderOptions,
 } from '@ai-sdk/provider';
 import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
@@ -6530,4 +6531,185 @@ describe('reasoning call option', () => {
       reasoning: { exclude: true, effort: 'medium' },
     });
   });
+});
+
+describe('provider routing merge', () => {
+  const server = createTestServer({
+    'https://openrouter.ai/api/v1/chat/completions': {
+      response: {
+        type: 'json-value',
+        body: {
+          id: 'chatcmpl-provider-merge',
+          object: 'chat.completion',
+          created: 1711115037,
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello!' },
+              finish_reason: 'stop',
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  beforeAll(() => server.server.start());
+  afterEach(() => server.server.reset());
+  afterAll(() => server.server.stop());
+
+  function useStreamResponse() {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-provider-merge","object":"chat.completion.chunk","created":1711115037,"model":"anthropic/claude-3.5-sonnet","choices":[{"index":0,"delta":{"role":"assistant","content":"Hi"},"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-provider-merge","object":"chat.completion.chunk","created":1711115037,"model":"anthropic/claude-3.5-sonnet","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+  }
+
+  const settingsProvider = {
+    order: ['google'],
+    allow_fallbacks: false,
+    sort: 'price' as const,
+  };
+
+  for (const mode of ['doGenerate', 'doStream'] as const) {
+    async function call(
+      model: ReturnType<typeof provider.chat>,
+      providerOptions?: SharedV4ProviderOptions,
+    ) {
+      if (mode === 'doStream') {
+        useStreamResponse();
+        const { stream } = await model.doStream({
+          prompt: TEST_PROMPT,
+          providerOptions,
+        });
+        await convertReadableStreamToArray(stream);
+      } else {
+        await model.doGenerate({
+          prompt: TEST_PROMPT,
+          providerOptions,
+        });
+      }
+      return (await server.calls[0]!.requestBodyJson) as Record<
+        string,
+        unknown
+      >;
+    }
+
+    describe(mode, () => {
+      it('shallow merges runtime provider over settings.provider', async () => {
+        const body = await call(
+          provider.chat('anthropic/claude-3.5-sonnet', {
+            provider: settingsProvider,
+          }),
+          { openrouter: { provider: { order: ['anthropic'] } } },
+        );
+
+        expect(body.provider).toStrictEqual({
+          order: ['anthropic'],
+          allow_fallbacks: false,
+          sort: 'price',
+        });
+      });
+
+      it('merges in precedence order settings < config.extraBody < settings.extraBody < runtime', async () => {
+        const customProvider = createOpenRouter({
+          apiKey: 'test-api-key',
+          extraBody: {
+            provider: { sort: 'latency', require_parameters: true },
+          },
+        });
+
+        const body = await call(
+          customProvider.chat('anthropic/claude-3.5-sonnet', {
+            provider: settingsProvider,
+            extraBody: {
+              provider: { require_parameters: false, data_collection: 'deny' },
+            },
+          }),
+          { openrouter: { provider: { data_collection: 'allow' } } },
+        );
+
+        expect(body.provider).toStrictEqual({
+          order: ['google'],
+          allow_fallbacks: false,
+          sort: 'latency',
+          require_parameters: false,
+          data_collection: 'allow',
+        });
+      });
+
+      it('passes runtime-only provider unchanged', async () => {
+        const body = await call(provider.chat('anthropic/claude-3.5-sonnet'), {
+          openrouter: { provider: { order: ['anthropic'] } },
+        });
+
+        expect(body.provider).toStrictEqual({ order: ['anthropic'] });
+      });
+
+      it('keeps settings.provider when no runtime provider is given', async () => {
+        const body = await call(
+          provider.chat('anthropic/claude-3.5-sonnet', {
+            provider: settingsProvider,
+          }),
+        );
+
+        expect(body.provider).toStrictEqual(settingsProvider);
+      });
+
+      it('clears all provider routing when runtime provider is null', async () => {
+        const customProvider = createOpenRouter({
+          apiKey: 'test-api-key',
+          extraBody: { provider: { sort: 'latency' } },
+        });
+
+        const body = await call(
+          customProvider.chat('anthropic/claude-3.5-sonnet', {
+            provider: settingsProvider,
+            extraBody: { provider: { data_collection: 'deny' } },
+          }),
+          { openrouter: { provider: null } },
+        );
+        expect(body).not.toHaveProperty('provider');
+      });
+
+      it('ignores non-object runtime provider values other than null', async () => {
+        const body = await call(
+          provider.chat('anthropic/claude-3.5-sonnet', {
+            provider: settingsProvider,
+          }),
+          { openrouter: { provider: ['anthropic'] } },
+        );
+        expect(body.provider).toStrictEqual(settingsProvider);
+      });
+
+      it('does not leak a non-object extraBody provider into the body', async () => {
+        const body = await call(
+          provider.chat('anthropic/claude-3.5-sonnet', {
+            extraBody: { provider: null },
+          }),
+        );
+        expect(body).not.toHaveProperty('provider');
+      });
+
+      it('replaces nested arrays instead of merging them', async () => {
+        const body = await call(
+          provider.chat('anthropic/claude-3.5-sonnet', {
+            provider: { only: ['a', 'b'], ignore: ['c'] },
+          }),
+          { openrouter: { provider: { only: ['c'] } } },
+        );
+        expect(body.provider).toStrictEqual({ only: ['c'], ignore: ['c'] });
+      });
+
+      it('omits provider when none is configured', async () => {
+        const body = await call(provider.chat('anthropic/claude-3.5-sonnet'));
+        expect(body).not.toHaveProperty('provider');
+      });
+    });
+  }
 });
