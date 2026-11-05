@@ -118,8 +118,8 @@ describe('Issue #413: tool-input-end missing in streaming tool calls', () => {
       ].includes(el.type),
     );
 
-    // Single-chunk tool call: complete in first chunk, so full lifecycle is
-    // emitted immediately (start -> delta -> end -> call)
+    // Single-chunk tool call: start + delta are streamed immediately; end and
+    // the tool call are finalized at stream end (#574)
     expect(toolEvents.map((e: LanguageModelV4StreamPart) => e.type)).toEqual([
       'tool-input-start',
       'tool-input-delta',
