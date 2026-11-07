@@ -262,6 +262,16 @@ export function createOpenRouter(
   // we default to compatible, because strict breaks providers like Groq:
   const compatibility = options.compatibility ?? 'compatible';
 
+  const getHeadersWithoutApiKey = () => ({
+    ...(options.appName && { 'X-OpenRouter-Title': options.appName }),
+    ...(options.appUrl && { 'HTTP-Referer': options.appUrl }),
+    ...options.headers,
+    ...(options.api_keys &&
+      Object.keys(options.api_keys).length > 0 && {
+        'X-Provider-API-Keys': JSON.stringify(options.api_keys),
+      }),
+  });
+
   const getHeaders = () =>
     withUserAgentSuffix(
       {
@@ -270,13 +280,7 @@ export function createOpenRouter(
           environmentVariableName: 'OPENROUTER_API_KEY',
           description: 'OpenRouter',
         })}`,
-        ...(options.appName && { 'X-OpenRouter-Title': options.appName }),
-        ...(options.appUrl && { 'HTTP-Referer': options.appUrl }),
-        ...options.headers,
-        ...(options.api_keys &&
-          Object.keys(options.api_keys).length > 0 && {
-            'X-Provider-API-Keys': JSON.stringify(options.api_keys),
-          }),
+        ...getHeadersWithoutApiKey(),
       },
       `ai-sdk/openrouter/${VERSION}`,
     );
@@ -289,6 +293,7 @@ export function createOpenRouter(
       provider: 'openrouter.chat',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
+      headersWithoutApiKey: getHeadersWithoutApiKey,
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
@@ -302,6 +307,7 @@ export function createOpenRouter(
       provider: 'openrouter.completion',
       url: ({ path }) => `${baseURL}${path}`,
       headers: getHeaders,
+      headersWithoutApiKey: getHeadersWithoutApiKey,
       compatibility,
       fetch: options.fetch,
       extraBody: options.extraBody,
