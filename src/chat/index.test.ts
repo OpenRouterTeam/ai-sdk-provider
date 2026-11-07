@@ -3809,13 +3809,20 @@ describe('doStream', () => {
 
     const elements = await convertReadableStreamToArray(stream);
 
-    // EXACTLY one reasoning block — the late signature must NOT create a second
+    // One visible reasoning block — the late signature must NOT create a
+    // second one. A trailing empty reasoning part (no deltas) carries the
+    // late signature for the next turn.
     const reasoningStarts = elements.filter(
       (el) => el.type === 'reasoning-start',
     );
     const reasoningEnds = elements.filter((el) => el.type === 'reasoning-end');
-    expect(reasoningStarts).toHaveLength(1);
-    expect(reasoningEnds).toHaveLength(1);
+    expect(reasoningStarts).toHaveLength(2);
+    expect(reasoningEnds).toHaveLength(2);
+    expect(
+      elements.filter(
+        (el) => isReasoningDeltaPart(el) && el.id === reasoningStarts[1]?.id,
+      ),
+    ).toHaveLength(0);
 
     // Only 2 reasoning deltas (from the text chunks), NOT 3
     const reasoningDeltas = elements.filter(isReasoningDeltaPart);
@@ -3858,16 +3865,35 @@ describe('doStream', () => {
       format: 'anthropic-claude-v1',
     });
 
-    // The reasoning-end providerMetadata should have the details as they
-    // were when reasoning ended (before the late signature arrived)
-    const reasoningEnd = elements.find(
-      (
-        el,
-      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
-        el.type === 'reasoning-end',
-    );
-
-    expect(reasoningEnd?.providerMetadata).toBeDefined();
+    // The first reasoning-end has the details as they were when reasoning
+    // ended (before the late signature); the trailing one has the signature.
+    expect(reasoningEnds.map((el) => el.providerMetadata)).toStrictEqual([
+      {
+        openrouter: {
+          reasoning_details: [
+            {
+              type: ReasoningDetailType.Text,
+              text: 'Let me think about this.',
+              index: 0,
+              format: 'anthropic-claude-v1',
+            },
+          ],
+        },
+      },
+      {
+        openrouter: {
+          reasoning_details: [
+            {
+              type: ReasoningDetailType.Text,
+              text: 'Let me think about this.',
+              index: 0,
+              format: 'anthropic-claude-v1',
+              signature: 'erX9OCAqSEO90HsfvNlBn5J3BQ9cEI/Hg2wHFo5iA8w3L+a',
+            },
+          ],
+        },
+      },
+    ]);
   });
 
   it('should keep separately signed reasoning.text blocks as separate details (issue #582)', async () => {
@@ -3987,13 +4013,18 @@ describe('doStream', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    // Still exactly one reasoning block
+    // One visible reasoning block plus a trailing empty one carrying the
+    // late details
     expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
-      1,
+      2,
     );
-    expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
-      1,
+    const reasoningEnds = elements.filter(
+      (
+        el,
+      ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
+        el.type === 'reasoning-end',
     );
+    expect(reasoningEnds).toHaveLength(2);
 
     // Only 1 reasoning delta (from before text started)
     const reasoningDeltas = elements.filter(isReasoningDeltaPart);
@@ -4033,6 +4064,11 @@ describe('doStream', () => {
       type: ReasoningDetailType.Summary,
       summary: 'Late summary',
     });
+
+    // The trailing reasoning part carries all of them
+    expect(
+      reasoningEnds[1]?.providerMetadata?.openrouter?.reasoning_details,
+    ).toStrictEqual(finishDetails);
   });
 
   it('should handle reasoning_details and content arriving in the same delta chunk', async () => {
@@ -4311,13 +4347,15 @@ describe('doStream', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    // Exactly one reasoning block
+    // One visible reasoning block plus a trailing empty one carrying the
+    // late signature
     expect(elements.filter((el) => el.type === 'reasoning-start')).toHaveLength(
-      1,
+      2,
     );
     expect(elements.filter((el) => el.type === 'reasoning-end')).toHaveLength(
-      1,
+      2,
     );
+    expect(elements.filter(isReasoningDeltaPart)).toHaveLength(1);
 
     // Text content is continuous — both deltas present
     const textDeltas = elements.filter(isTextDeltaPart);
@@ -4375,32 +4413,40 @@ describe('doStream', () => {
     const { stream } = await model.doStream({ prompt: TEST_PROMPT });
     const elements = await convertReadableStreamToArray(stream);
 
-    // reasoning-end metadata: has the text but NO signature (it arrived later)
-    const reasoningEnd = elements.find(
+    // reasoning-end metadata is a snapshot: it has the text but NO signature
+    // (it arrived later), even after the stream finished, because consumers
+    // may already have serialized it. A trailing empty reasoning part carries
+    // the signed detail for the next turn.
+    const reasoningEnds = elements.filter(
       (
         el,
       ): el is Extract<LanguageModelV4StreamPart, { type: 'reasoning-end' }> =>
         el.type === 'reasoning-end',
     );
-    const reasoningEndDetails = (
-      reasoningEnd?.providerMetadata?.openrouter as {
-        reasoning_details: ReasoningDetailUnion[];
-      }
-    )?.reasoning_details;
-
-    expect(reasoningEndDetails).toHaveLength(1);
-    expect(reasoningEndDetails[0]).toMatchObject({
-      type: ReasoningDetailType.Text,
-      text: 'My reasoning',
-    });
-    // Note: accumulatedReasoningDetails is passed by reference to reasoning-end,
-    // so the late signature mutation IS visible here. This is correct behavior —
-    // the AI SDK can use the signature from reasoning-end's providerMetadata
-    // to update the reasoning part even before the finish event.
-    const endDetail = reasoningEndDetails[0];
-    if (endDetail?.type === ReasoningDetailType.Text) {
-      expect(endDetail.signature).toBe('split-sig');
-    }
+    expect(reasoningEnds).toHaveLength(2);
+    expect(
+      reasoningEnds.map(
+        (el) => el.providerMetadata?.openrouter?.reasoning_details,
+      ),
+    ).toStrictEqual([
+      [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'My reasoning',
+          index: 0,
+          format: 'anthropic-claude-v1',
+        },
+      ],
+      [
+        {
+          type: ReasoningDetailType.Text,
+          text: 'My reasoning',
+          index: 0,
+          format: 'anthropic-claude-v1',
+          signature: 'split-sig',
+        },
+      ],
+    ]);
 
     // finish event metadata: has BOTH text AND signature (accumulated after text)
     const finishEvent = elements.find(

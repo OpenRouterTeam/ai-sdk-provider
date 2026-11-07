@@ -690,6 +690,16 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     // should have reasoning_details to avoid duplicating thinking blocks
     let reasoningDetailsAttachedToToolCall = false;
 
+    // Each part that carries reasoning_details (reasoning-end, first tool call)
+    // gets a snapshot, because consumers may serialize it immediately. Track
+    // whether details changed after the last snapshot so flush can emit a
+    // final carrier with the complete array.
+    let reasoningDetailsChangedSinceSnapshot = false;
+    const snapshotReasoningDetails = (): ReasoningDetailUnion[] => {
+      reasoningDetailsChangedSinceSnapshot = false;
+      return accumulatedReasoningDetails.map((detail) => ({ ...detail }));
+    };
+
     // Track file annotations to expose in providerMetadata
     const accumulatedFileAnnotations: FileAnnotation[] = [];
 
@@ -825,6 +835,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             };
 
             if (delta.reasoning_details && delta.reasoning_details.length > 0) {
+              reasoningDetailsChangedSinceSnapshot = true;
+
               // Accumulate reasoning_details to preserve for multi-turn conversations.
               // Merge consecutive same-type text/summary deltas into a single
               // entry. Providers (e.g. OpenAI `openai-responses-v1`) stream a
@@ -887,10 +899,10 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
 
               // Only emit reasoning events if text content has not started yet.
               // Late-arriving reasoning_details (e.g. a signature-only delta
-              // after text has begun) are still accumulated above for multi-turn
-              // roundtrip via the finish event's providerMetadata, but must not
-              // start a new reasoning block — doing so would create duplicate
-              // reasoning parts in the UIMessage.
+              // after text has begun) are still accumulated above and carried
+              // to the next turn by the empty reasoning part emitted in flush,
+              // but must not start a new visible reasoning block — doing so
+              // would create duplicate reasoning parts in the UIMessage.
               if (!textStarted) {
                 for (const detail of delta.reasoning_details) {
                   switch (detail.type) {
@@ -940,7 +952,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                   // no reasoning tokens this turn (e.g. DeepSeek V4).
                   providerMetadata: {
                     openrouter: {
-                      reasoning_details: accumulatedReasoningDetails,
+                      reasoning_details: snapshotReasoningDetails(),
                     },
                   },
                 });
@@ -1088,7 +1100,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                       providerMetadata: !reasoningDetailsAttachedToToolCall
                         ? {
                             openrouter: {
-                              reasoning_details: accumulatedReasoningDetails,
+                              reasoning_details: snapshotReasoningDetails(),
                             },
                           }
                         : undefined,
@@ -1183,7 +1195,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     providerMetadata: !reasoningDetailsAttachedToToolCall
                       ? {
                           openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
+                            reasoning_details: snapshotReasoningDetails(),
                           },
                         }
                       : undefined,
@@ -1282,7 +1294,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                     providerMetadata: !reasoningDetailsAttachedToToolCall
                       ? {
                           openrouter: {
-                            reasoning_details: accumulatedReasoningDetails,
+                            reasoning_details: snapshotReasoningDetails(),
                           },
                         }
                       : undefined,
@@ -1303,7 +1315,33 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 // intentional — it signals the provider produced no reasoning tokens.
                 providerMetadata: {
                   openrouter: {
-                    reasoning_details: accumulatedReasoningDetails,
+                    reasoning_details: snapshotReasoningDetails(),
+                  },
+                },
+              });
+            } else if (
+              (reasoningId !== undefined ||
+                reasoningDetailsAttachedToToolCall) &&
+              reasoningDetailsChangedSinceSnapshot
+            ) {
+              // reasoning_details that arrived after the last carrier (e.g. a
+              // late reasoning.encrypted blob or signature-only delta after
+              // text started) are in no persisted part yet: the finish metadata
+              // is not copied into the assistant message. Emit an empty
+              // reasoning part carrying the complete array; the message
+              // converter replays the most complete carrier, so nothing is
+              // sent twice.
+              const lateReasoningId = generateId();
+              controller.enqueue({
+                type: 'reasoning-start',
+                id: lateReasoningId,
+              });
+              controller.enqueue({
+                type: 'reasoning-end',
+                id: lateReasoningId,
+                providerMetadata: {
+                  openrouter: {
+                    reasoning_details: snapshotReasoningDetails(),
                   },
                 },
               });
