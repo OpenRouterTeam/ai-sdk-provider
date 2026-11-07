@@ -382,9 +382,8 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 }
                 case ReasoningDetailType.Encrypted: {
                   // Encrypted reasoning is an opaque blob for multi-turn
-                  // roundtripping. It is preserved in response-level
-                  // providerMetadata.openrouter.reasoning_details and does
-                  // not produce a visible reasoning content part.
+                  // roundtripping. It produces no reasoning part of its own;
+                  // the full reasoning_details are attached below.
                   break;
                 }
                 default: {
@@ -402,6 +401,27 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
               },
             ]
           : [];
+
+    // Carry the full reasoning_details on the first reasoning part, as the
+    // stream does on reasoning-end, so details without visible text (e.g.
+    // reasoning.encrypted) are replayed on the next turn. Without a visible
+    // reasoning part or a tool call to carry them, add an empty reasoning part
+    // (as @ai-sdk/openai does for encrypted-only reasoning).
+    if (reasoningDetails.length > 0) {
+      const reasoningDetailsMetadata = {
+        openrouter: { reasoning_details: reasoningDetails },
+      };
+      const firstReasoning = reasoning[0];
+      if (firstReasoning?.type === 'reasoning') {
+        firstReasoning.providerMetadata = reasoningDetailsMetadata;
+      } else if (!choice.message.tool_calls?.length) {
+        reasoning.push({
+          type: 'reasoning',
+          text: '',
+          providerMetadata: reasoningDetailsMetadata,
+        });
+      }
+    }
 
     const content: Array<LanguageModelV4Content> = [];
 
@@ -1301,6 +1321,30 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
                 // Always include accumulated reasoning_details so the AI SDK can
                 // update the reasoning part's providerMetadata.  An empty array is
                 // intentional — it signals the provider produced no reasoning tokens.
+                providerMetadata: {
+                  openrouter: {
+                    reasoning_details: accumulatedReasoningDetails,
+                  },
+                },
+              });
+            } else if (
+              reasoningId === undefined &&
+              !reasoningDetailsAttachedToToolCall &&
+              accumulatedReasoningDetails.length > 0
+            ) {
+              // Reasoning details without visible text (e.g. only
+              // reasoning.encrypted) produced no reasoning part. Emit an
+              // empty one carrying them: the finish metadata is not copied
+              // into the assistant message, so they would not be replayed
+              // on the next turn.
+              const emptyReasoningId = generateId();
+              controller.enqueue({
+                type: 'reasoning-start',
+                id: emptyReasoningId,
+              });
+              controller.enqueue({
+                type: 'reasoning-end',
+                id: emptyReasoningId,
                 providerMetadata: {
                   openrouter: {
                     reasoning_details: accumulatedReasoningDetails,
