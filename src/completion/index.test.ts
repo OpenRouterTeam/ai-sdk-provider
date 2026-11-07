@@ -1107,4 +1107,25 @@ describe('reasoning call option', () => {
       reasoning: { exclude: true, effort: 'medium' },
     });
   });
+
+  it.each([
+    'provider',
+    'model',
+  ] as const)('does not send reasoning.effort when the %s extraBody sets reasoning_effort', async (level) => {
+    const extraBody = { reasoning_effort: 'low' };
+    await createOpenRouter({
+      apiKey: 'test-api-key',
+      ...(level === 'provider' && { extraBody }),
+    })
+      .completion('openai/gpt-3.5-turbo-instruct', {
+        ...(level === 'model' && { extraBody }),
+      })
+      .doGenerate({ prompt: TEST_PROMPT, reasoning: 'high' });
+
+    expect(await server.calls[0]!.requestBodyJson).toStrictEqual({
+      model: 'openai/gpt-3.5-turbo-instruct',
+      prompt: 'Hello',
+      reasoning_effort: 'low',
+    });
+  });
 });
