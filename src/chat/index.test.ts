@@ -5184,6 +5184,56 @@ describe('includeRawChunks', () => {
     ]);
   });
 
+  it.each([
+    'length',
+    'stop',
+  ])('should close an incomplete tool call input when the stream finishes with %s', async (finishReason) => {
+    const toolCallChunk = (args: string) =>
+      `data: {"id":"chatcmpl-trunc","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+      `"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":${JSON.stringify(args)}}}]},` +
+      `"logprobs":null,"finish_reason":null}]}\n\n`;
+
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-trunc","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_trunc_001","type":"function","function":{"name":"lookup","arguments":""}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        toolCallChunk('{"a":'),
+        toolCallChunk('"x'),
+        `data: {"id":"chatcmpl-trunc","object":"chat.completion.chunk","created":1711357598,"model":"gpt-4.1",` +
+          `"choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"${finishReason}"}]}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({ prompt: TEST_PROMPT });
+    const elements = await convertReadableStreamToArray(stream);
+
+    const toolEvents = elements.filter((el) =>
+      [
+        'tool-input-start',
+        'tool-input-delta',
+        'tool-input-end',
+        'tool-call',
+      ].includes(el.type),
+    );
+
+    // The input lifecycle is closed, but no tool-call is emitted for the
+    // incomplete arguments.
+    expect(toolEvents).toStrictEqual([
+      { type: 'tool-input-start', id: 'call_trunc_001', toolName: 'lookup' },
+      { type: 'tool-input-delta', id: 'call_trunc_001', delta: '{"a":' },
+      { type: 'tool-input-delta', id: 'call_trunc_001', delta: '"x' },
+      { type: 'tool-input-end', id: 'call_trunc_001' },
+    ]);
+    expect(elements.at(-1)).toMatchObject({
+      type: 'finish',
+      finishReason: { unified: finishReason, raw: finishReason },
+    });
+  });
+
   it('should emit initial chunk arguments as tool-input-delta in multi-chunk merge path', async () => {
     server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
       type: 'stream-chunks',
