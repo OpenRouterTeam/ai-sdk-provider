@@ -651,6 +651,34 @@ describe('OpenRouterEvaluationModel', () => {
       ]);
     });
 
+    it('should accept bare image media types and detect the subtype', async () => {
+      const png =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      expect(
+        await sentState([
+          {
+            type: 'file',
+            mediaType: 'image',
+            data: { type: 'data', data: png },
+          },
+          {
+            type: 'file',
+            mediaType: 'image/*',
+            data: { type: 'data', data: 'aGVsbG8=' },
+          },
+        ]),
+      ).toEqual([
+        {
+          type: 'image_url',
+          image_url: { url: `data:image/png;base64,${png}` },
+        },
+        {
+          type: 'image_url',
+          image_url: { url: 'data:image/jpeg;base64,aGVsbG8=' },
+        },
+      ]);
+    });
+
     it('should reject files that are not images before sending a request', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
@@ -658,8 +686,7 @@ describe('OpenRouterEvaluationModel', () => {
         fetch: mockFetch,
       });
 
-      // A bare `image` media type has no subtype to build a data URL from.
-      for (const mediaType of ['application/pdf', 'image']) {
+      for (const mediaType of ['application/pdf', 'video']) {
         await expect(
           provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
             state: [
