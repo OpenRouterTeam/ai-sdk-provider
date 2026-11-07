@@ -22,7 +22,6 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import {
-  combineHeaders,
   createEventSourceResponseHandler,
   createJsonResponseHandler,
   generateId,
@@ -39,6 +38,7 @@ import {
 } from '../utils/map-finish-reason';
 import { resolveReasoning } from '../utils/resolve-reasoning';
 import { withStreamErrorHandling } from '../utils/with-stream-error-handling';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import {
   restoreOpenRouterConfig,
   serializeOpenRouterModel,
@@ -210,7 +210,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
         path: '/completions',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), options.headers),
+      headers: combineHeadersWithUserAgent(
+        this.config.headers(),
+        options.headers,
+      ),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
@@ -318,7 +321,10 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
         path: '/completions',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), options.headers),
+      headers: combineHeadersWithUserAgent(
+        this.config.headers(),
+        options.headers,
+      ),
       body: {
         ...args,
         stream: true,

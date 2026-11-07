@@ -11,12 +11,12 @@ import type {
 } from '../types/openrouter-reranking-settings';
 
 import {
-  combineHeaders,
   createJsonResponseHandler,
   postJsonToApi,
   removeUndefinedEntries,
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import { OpenRouterRerankingResponseSchema } from './schemas';
 
 type OpenRouterRerankingConfig = {
@@ -97,7 +97,7 @@ export class OpenRouterRerankingModel implements RerankingModelV4 {
         path: '/rerank',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), headers),
+      headers: combineHeadersWithUserAgent(this.config.headers(), headers),
       body: args,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
