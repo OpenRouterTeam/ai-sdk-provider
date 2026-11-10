@@ -135,6 +135,9 @@ export const OpenRouterDecisionsResponseSchema = z.object({
       cost_details: z
         .object({
           upstream_inference_cost: z.number().nullish(),
+          upstream_inference_prompt_cost: z.number().nullish(),
+          upstream_inference_completions_cost: z.number().nullish(),
+          server_tool_cost: z.number().nullish(),
         })
         .nullish(),
       input_tokens_details: z

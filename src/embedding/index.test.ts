@@ -469,7 +469,16 @@ describe('OpenRouterEmbeddingModel', () => {
         providerOptions: { openrouter: { dimensions: 512 } },
       });
 
-      expect(bodies.map((body) => body.dimensions)).toEqual([128, 256, 512]);
+      await embed({
+        model,
+        value: 'hello',
+        dimensions: 256,
+        providerOptions: { openrouter: { dimensions: undefined } },
+      });
+
+      expect(bodies.map((body) => body.dimensions)).toEqual([
+        128, 256, 512, 256,
+      ]);
     });
 
     it('does not let runtime options override model or input', async () => {

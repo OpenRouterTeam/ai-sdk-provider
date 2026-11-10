@@ -425,13 +425,28 @@ function toAnswerMetadata(answer: OpenRouterDecisionsAnswer): JSONValue {
 function toUsageMetadata(
   usage: OpenRouterDecisionsResponse['usage'],
 ): JSONObject | undefined {
-  const upstreamInferenceCost = usage?.cost_details?.upstream_inference_cost;
+  const details = usage?.cost_details;
+  const costDetails: JSONObject = {
+    ...(details?.upstream_inference_cost != null
+      ? { upstreamInferenceCost: details.upstream_inference_cost }
+      : {}),
+    ...(details?.upstream_inference_prompt_cost != null
+      ? { upstreamInferencePromptCost: details.upstream_inference_prompt_cost }
+      : {}),
+    ...(details?.upstream_inference_completions_cost != null
+      ? {
+          upstreamInferenceCompletionsCost:
+            details.upstream_inference_completions_cost,
+        }
+      : {}),
+    ...(details?.server_tool_cost != null
+      ? { serverToolCost: details.server_tool_cost }
+      : {}),
+  };
   const cachedTokens = usage?.input_tokens_details?.cached_tokens;
   const metadata: JSONObject = {
     ...(usage?.cost != null ? { cost: usage.cost } : {}),
-    ...(upstreamInferenceCost != null
-      ? { costDetails: { upstreamInferenceCost } }
-      : {}),
+    ...(Object.keys(costDetails).length > 0 ? { costDetails } : {}),
     ...(cachedTokens != null ? { inputTokensDetails: { cachedTokens } } : {}),
     ...(usage?.is_byok != null ? { isByok: usage.is_byok } : {}),
   };

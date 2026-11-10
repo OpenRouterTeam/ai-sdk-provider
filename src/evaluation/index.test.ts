@@ -655,7 +655,12 @@ describe('OpenRouterEvaluationModel', () => {
           input_tokens: 10,
           output_tokens: 2,
           cost: 0.00001,
-          cost_details: { upstream_inference_cost: 0.000008 },
+          cost_details: {
+            upstream_inference_cost: 0.000008,
+            upstream_inference_prompt_cost: 0.000006,
+            upstream_inference_completions_cost: 0.000002,
+            server_tool_cost: 0,
+          },
           input_tokens_details: { cached_tokens: 4 },
           is_byok: true,
         },
@@ -679,11 +684,43 @@ describe('OpenRouterEvaluationModel', () => {
           annotations,
           usage: {
             cost: 0.00001,
-            costDetails: { upstreamInferenceCost: 0.000008 },
+            costDetails: {
+              upstreamInferenceCost: 0.000008,
+              upstreamInferencePromptCost: 0.000006,
+              upstreamInferenceCompletionsCost: 0.000002,
+              serverToolCost: 0,
+            },
             inputTokensDetails: { cachedTokens: 4 },
             isByok: true,
           },
         },
+      });
+    });
+
+    it('should omit empty annotations and cost details from metadata', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+        annotations: [],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 2,
+          cost_details: { upstream_inference_cost: null },
+        },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.13')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { q: {} } },
       });
     });
 

@@ -80,10 +80,11 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
       user: this.settings.user,
       ...this.config.extraBody,
       ...this.settings.extraBody,
-      // The call-level `dimensions` option overrides configured values;
-      // `providerOptions.openrouter.dimensions` overrides both.
-      ...(dimensions != null && { dimensions }),
       ...runtimeOptions,
+      // The call-level `dimensions` option overrides configured values;
+      // a defined `providerOptions.openrouter.dimensions` overrides both.
+      ...(dimensions != null &&
+        runtimeOptions.dimensions === undefined && { dimensions }),
       provider: providerRouting,
     };
 
