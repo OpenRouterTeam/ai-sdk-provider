@@ -16,12 +16,10 @@
 //     --layouts=<list>        default: pnpm-isolated, pnpm-global-virtual-store,
 //                             pnpm-hoisted, npm. Extra: pnpm-isolated-no-auto-peers,
 //                             npm-legacy-peer-deps
-//     --ai=<list>             `ai` versions to test. `floor` = minimum of
-//                             peerDependencies.ai, `decide-min` = first release
-//                             the decision model is type-checked against,
-//                             `dev` = devDependencies.ai, anything else is
-//                             passed to the package manager.
-//                             (default: floor,decide-min,dev,latest)
+//     --ai=floor,dev,latest   `ai` versions to test. `floor` = minimum of
+//                             peerDependencies.ai, `dev` = devDependencies.ai,
+//                             anything else is passed to the package manager.
+//                             (default: floor,dev,latest)
 //     --tarball=<path>        test this tarball instead of packing the repo
 //                             (e.g. a published release, for baselines)
 //     --concurrency=<n>       parallel consumer installs (default: 3)
@@ -106,20 +104,12 @@ for (const layout of layouts) {
   }
 }
 
-// The decision model spec is experimental and changes in `ai` patch releases,
-// so the decision model is only type-checked from the first `ai` release whose
-// spec it satisfies. Earlier releases still work at runtime.
-const DECIDE_MIN_AI_VERSION = '7.0.144';
-
 const aiFloor = /(\d+\.\d+\.\d+)/.exec(pkg.peerDependencies.ai)?.[1];
 const aiVersions = [
   ...new Set(
-    (options.ai ?? 'floor,decide-min,dev,latest').split(',').map((v) => {
+    (options.ai ?? 'floor,dev,latest').split(',').map((v) => {
       if (v === 'floor') {
         return aiFloor;
-      }
-      if (v === 'decide-min') {
-        return DECIDE_MIN_AI_VERSION;
       }
       if (v === 'dev') {
         return pkg.devDependencies.ai;
@@ -196,6 +186,9 @@ export const notAny: [
 ] = [false, false, false, false, false, false, false, false, false];
 `;
 
+// The decision model spec is experimental and changes in `ai` patch releases.
+// The peer floor is the first release whose spec the decision model satisfies,
+// so this is checked for every tested version.
 const DECIDE_TS = `import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { experimental_decide as decide } from 'ai';
 
@@ -225,24 +218,10 @@ export async function userCode() {
 export const notAny: [IsAny<typeof decision>] = [false];
 `;
 
-function compareVersions(a, b) {
-  // A prerelease (`7.0.200-beta.1`) is compared by its release version.
-  const [partsA, partsB] = [a, b].map((v) =>
-    v.split('-')[0].split('.').map(Number),
-  );
-  for (let i = 0; i < 3; i++) {
-    if (partsA[i] !== partsB[i]) {
-      return partsA[i] - partsB[i];
-    }
-  }
-  return 0;
-}
-
 // Runtime smoke test: both entry points load, and a real `generateText` call
 // through the consumer's \`ai\` copy works end to end against a stub fetch.
-// When that copy exports a decide function, a decision call is run as well.
-const SMOKE_MJS = `import * as ai from 'ai';
-const { generateText } = ai;
+// A decision call is run the same way.
+const SMOKE_MJS = `import { experimental_decide as decide, generateText } from 'ai';
 const main = await import('@openrouter/ai-sdk-provider');
 const internal = await import('@openrouter/ai-sdk-provider/internal');
 if (typeof main.createOpenRouter !== 'function') throw new Error('main entry');
@@ -274,17 +253,13 @@ const openrouter = main.createOpenRouter({
 const result = await generateText({ model: openrouter.chat('openai/gpt-4o-mini'), prompt: 'ping' });
 if (result.text !== 'pong') throw new Error('unexpected text: ' + result.text);
 if (result.finishReason !== 'stop') throw new Error('unexpected finishReason: ' + result.finishReason);
-const decide = ai.experimental_decide ?? ai.experimental_evaluate;
-if (decide) {
-  const decision = await decide({
-    model: openrouter.decisionModel('typesafe/jev-1.14'),
-    state: 'hi',
-    questions: { ok: { type: 'boolean', instructions: 'Is it?' } },
-  });
-  if (decision.answers?.ok?.probability !== 0.75) {
-    throw new Error('unexpected decision: ' + JSON.stringify(decision.answers));
-  }
-  console.log('decide: ok');
+const decision = await decide({
+  model: openrouter.decisionModel('typesafe/jev-1.14'),
+  state: 'hi',
+  questions: { ok: { type: 'boolean', instructions: 'Is it?' } },
+});
+if (decision.answers?.ok?.probability !== 0.75) {
+  throw new Error('unexpected decision: ' + JSON.stringify(decision.answers));
 }
 `;
 
@@ -363,16 +338,10 @@ async function checkConsumer(workDir, tarballPath, layout, aiVersion) {
     ),
   );
   writeFileSync(join(dir, 'index.ts'), CONSUMER_TS);
+  writeFileSync(join(dir, 'decide.ts'), DECIDE_TS);
   writeFileSync(join(dir, 'smoke.mjs'), SMOKE_MJS);
 
-  const result = {
-    layout,
-    ai: aiVersion,
-    install: 'ok',
-    tsc: '',
-    smoke: '',
-    decide: '',
-  };
+  const result = { layout, ai: aiVersion, install: 'ok', tsc: '', smoke: '' };
   const log = [];
   const install =
     pm === 'pnpm'
@@ -386,13 +355,6 @@ async function checkConsumer(workDir, tarballPath, layout, aiVersion) {
     result.install = 'FAILED';
     log.push(install.output);
     return { ...result, ok: false, log, dir };
-  }
-  const installedAi = JSON.parse(
-    readFileSync(join(dir, 'node_modules', 'ai', 'package.json'), 'utf8'),
-  ).version;
-  const decideTypes = compareVersions(installedAi, DECIDE_MIN_AI_VERSION) >= 0;
-  if (decideTypes) {
-    writeFileSync(join(dir, 'decide.ts'), DECIDE_TS);
   }
   const tsc = await runAsync(
     join(dir, 'node_modules', '.bin', 'tsc'),
@@ -415,11 +377,6 @@ async function checkConsumer(workDir, tarballPath, layout, aiVersion) {
   }
   const smoke = await runAsync('node', ['smoke.mjs'], dir);
   result.smoke = smoke.code === 0 ? 'ok' : 'FAIL';
-  const decideRuntime = smoke.output.includes('decide: ok');
-  result.decide =
-    [decideTypes && 'types', decideRuntime && 'runtime']
-      .filter(Boolean)
-      .join(' + ') || 'not checked';
   if (smoke.code !== 0) {
     log.push(smoke.output);
   }
@@ -475,11 +432,11 @@ try {
     console.error(`\n=== ${result.layout} ai@${result.ai}: FAILED ===`);
     console.error(result.log.join('\n').trim());
   }
-  console.log('\n| layout | ai | install | tsc | runtime | decide |');
-  console.log('| --- | --- | --- | --- | --- | --- |');
+  console.log('\n| layout | ai | install | tsc | runtime |');
+  console.log('| --- | --- | --- | --- | --- |');
   for (const r of results) {
     console.log(
-      `| ${r.layout} | ${r.ai} | ${r.install} | ${r.tsc || '-'} | ${r.smoke || '-'} | ${r.decide || '-'} |`,
+      `| ${r.layout} | ${r.ai} | ${r.install} | ${r.tsc || '-'} | ${r.smoke || '-'} |`,
     );
   }
   failed = results.some((r) => !r.ok);

@@ -6,7 +6,7 @@ The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https:
 
 ## Setup for AI SDK v7
 
-This release line supports `ai@^7.0.0`, requires Node.js 22 or newer, and is ESM-only.
+This release line supports `ai@^7.0.144`, requires Node.js 22 or newer, and is ESM-only.
 
 ```bash
 # For pnpm
@@ -129,7 +129,7 @@ const { embedding } = await embed({
 });
 ```
 
-The AI SDK `dimensions` option (`embed({ model, value, dimensions: 256 })`, in `ai` releases that have it) is sent as `dimensions` too. `providerOptions.openrouter.dimensions` takes precedence when both are set.
+The AI SDK `dimensions` option (`embed({ model, value, dimensions: 256 })`) is sent as `dimensions` too. `providerOptions.openrouter.dimensions` takes precedence when both are set.
 
 Call-time options take precedence over model settings and `extraBody`. Provider routing preferences (`provider`) are shallow merged from model settings, `extraBody` and `providerOptions` instead of replacing each other, so the request above routes with `{ order: ['openai'], allow_fallbacks: false }`. See [Provider Routing](#provider-routing) for the full rules, including how to clear configured routing with `provider: null`.
 
@@ -172,7 +172,7 @@ OpenRouter supports various reranking models including:
 
 ## Decisions (Jev with AI SDK through OpenRouter)
 
-`openrouter.decisionModel()` implements the AI SDK decision model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_decide` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `decide()`. The decision model types match `ai@7.0.144` and newer. `experimental_evaluate` (`ai@7.0.103` and newer) and earlier `experimental_decide` releases still work at runtime, but their types predate `box` questions and refusal answers, so passing the model to them does not type-check. The rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
+`openrouter.decisionModel()` implements the AI SDK decision model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_decide` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `decide()`. The decision model types match `ai@7.0.144`, the first release with `box` questions and refusal answers, which is why it is the minimum `ai` version this package supports. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
 
 ```ts
 import { openrouter } from '@openrouter/ai-sdk-provider';

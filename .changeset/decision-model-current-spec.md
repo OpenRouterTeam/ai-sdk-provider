@@ -10,4 +10,4 @@ Align `decisionModel()` / `evaluationModel()` with the decision model spec in `a
 - Report `maxOutputTokens` and `reasoning` as `unsupported` warnings, since the Decisions API has neither.
 - Add response `annotations` and the usage `costDetails`, `inputTokensDetails`, and `isByok` to `providerMetadata.openrouter`.
 
-The decision model types now require `ai` 7.0.144 or later. Earlier releases still work at runtime, but their decision types predate `box` and `refusal`, so passing the model to `experimental_evaluate` or an earlier `experimental_decide` does not type-check.
+The `ai` peer dependency is now `^7.0.144` (was `^7.0.0`), and the optional `@ai-sdk/provider` and `@ai-sdk/provider-utils` peers are raised to the versions that release pins (`^4.0.30` and `^5.0.63`). Decision types in earlier `ai` releases predate `box` and `refusal`, so the model no longer type-checks against them.
