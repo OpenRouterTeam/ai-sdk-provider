@@ -10,3 +10,6 @@ dist
 reference/
 
 /tmp
+
+# Claude Code local settings can store secrets from approved commands
+.claude/settings.local.json
