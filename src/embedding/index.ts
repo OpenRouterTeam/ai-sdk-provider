@@ -15,6 +15,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
+import { mergeProviderRouting } from '../utils/merge-provider-routing';
 import { OpenRouterEmbeddingResponseSchema } from './schemas';
 
 type OpenRouterEmbeddingConfig = {
@@ -24,23 +25,6 @@ type OpenRouterEmbeddingConfig = {
   fetch?: typeof fetch;
   extraBody?: Record<string, unknown>;
 };
-
-/**
- * Shallow merges provider routing preferences in ascending precedence order.
- * Non-object sources (`undefined`, `null`, arrays, primitives) are ignored.
- *
- * TODO(#628): replace with the shared `mergeProviderRouting` helper from
- * `src/utils/merge-provider-routing.ts` once that PR is merged.
- */
-function mergeProviderRouting(
-  ...sources: unknown[]
-): Record<string, unknown> | undefined {
-  const objects = sources.filter(
-    (source): source is Record<string, unknown> =>
-      typeof source === 'object' && source !== null && !Array.isArray(source),
-  );
-  return objects.length > 0 ? Object.assign({}, ...objects) : undefined;
-}
 
 export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
   readonly specificationVersion = 'v4' as const;
@@ -80,10 +64,13 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
 
     // Provider routing preferences are shallow merged rather than replaced,
     // with the same precedence as the rest of the body (later wins).
+    // A call-time `provider: null` clears routing entirely.
     const providerRouting = mergeProviderRouting(
-      this.settings.provider,
-      this.config.extraBody?.provider,
-      this.settings.extraBody?.provider,
+      [
+        this.settings.provider,
+        this.config.extraBody?.provider,
+        this.settings.extraBody?.provider,
+      ],
       runtimeProvider,
     );
 
