@@ -320,7 +320,11 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
       provider: providerRouting,
     };
 
-    const { value: responseValue, responseHeaders } = await postJsonToApi({
+    const {
+      value: responseValue,
+      rawValue: rawResponse,
+      responseHeaders,
+    } = await postJsonToApi({
       url: this.config.url({
         path: '/chat/completions',
         modelId: this.modelId,
@@ -362,6 +366,23 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     if (!choice) {
       throw new NoContentGeneratedError({
         message: 'No choice in response',
+      });
+    }
+
+    // A provider failure after generation started arrives as HTTP 200 with
+    // the error on the choice, next to whatever output was produced.
+    if (choice.error != null) {
+      throw new APICallError({
+        message: choice.error.message,
+        url: this.config.url({
+          path: '/chat/completions',
+          modelId: this.modelId,
+        }),
+        requestBodyValues: args,
+        statusCode: 200,
+        responseHeaders,
+        responseBody: JSON.stringify(rawResponse),
+        data: choice.error,
       });
     }
 

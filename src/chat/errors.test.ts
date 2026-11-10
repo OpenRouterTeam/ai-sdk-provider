@@ -1,7 +1,16 @@
 import type { LanguageModelV4Prompt } from '@ai-sdk/provider';
 
+import { APICallError } from '@ai-sdk/provider';
 import { createTestServer } from '@ai-sdk/test-server';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  assert,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 import { createOpenRouter } from '../provider';
 
 const TEST_PROMPT: LanguageModelV4Prompt = [
@@ -92,6 +101,88 @@ describe('HTTP 200 Error Response Handling', () => {
         (result.usage.inputTokens?.total ?? 0) +
           (result.usage.outputTokens?.total ?? 0),
       ).toBe(18);
+    });
+
+    it('should throw APICallError when the choice carries an error next to partial output', async () => {
+      const error = {
+        code: 502,
+        message: 'Provider disconnected mid-stream',
+        metadata: { error_type: 'provider_unavailable' },
+      };
+      server.urls[
+        'https://test.openrouter.ai/api/v1/chat/completions'
+      ]!.response = {
+        type: 'json-value',
+        body: {
+          id: 'gen-123',
+          model: 'anthropic/claude-3.5-sonnet',
+          provider: 'Anthropic',
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: 'partial output...',
+                tool_calls: [
+                  {
+                    id: 'call_1',
+                    type: 'function',
+                    function: {
+                      name: 'get_weather',
+                      arguments: '{"city":"Tokyo"}',
+                    },
+                  },
+                ],
+              },
+              finish_reason: 'error',
+              error,
+            },
+          ],
+        },
+      };
+
+      const model = provider('anthropic/claude-3.5-sonnet');
+
+      const thrown = await model
+        .doGenerate({ prompt: TEST_PROMPT })
+        .catch((e: unknown) => e);
+
+      assert(APICallError.isInstance(thrown));
+      expect(thrown.message).toBe('Provider disconnected mid-stream');
+      expect(thrown.statusCode).toBe(200);
+      expect(thrown.isRetryable).toBe(false);
+      expect(thrown.data).toMatchObject(error);
+      // The partial output stays reachable through the raw body.
+      expect(JSON.parse(thrown.responseBody ?? '')).toMatchObject({
+        choices: [{ message: { content: 'partial output...' } }],
+      });
+    });
+
+    it('should parse responses whose choice has a null error', async () => {
+      server.urls[
+        'https://test.openrouter.ai/api/v1/chat/completions'
+      ]!.response = {
+        type: 'json-value',
+        body: {
+          id: 'gen-123',
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: 'Hello!' },
+              finish_reason: 'stop',
+              error: null,
+            },
+          ],
+        },
+      };
+
+      const model = provider('anthropic/claude-3.5-sonnet');
+
+      const result = await model.doGenerate({ prompt: TEST_PROMPT });
+
+      expect(result.content).toMatchObject([{ type: 'text', text: 'Hello!' }]);
+      expect(result.finishReason.unified).toBe('stop');
     });
   });
 });
