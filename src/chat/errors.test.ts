@@ -158,6 +158,42 @@ describe('HTTP 200 Error Response Handling', () => {
       });
     });
 
+    it('should use the upstream error detail from a choice error', async () => {
+      server.urls[
+        'https://test.openrouter.ai/api/v1/chat/completions'
+      ]!.response = {
+        type: 'json-value',
+        body: {
+          id: 'gen-123',
+          model: 'anthropic/claude-3.5-sonnet',
+          choices: [
+            {
+              index: 0,
+              message: { role: 'assistant', content: '' },
+              finish_reason: 'error',
+              error: {
+                code: 502,
+                message: 'Provider returned error',
+                metadata: {
+                  provider_name: 'Anthropic',
+                  raw: '{"error":{"message":"Overloaded"}}',
+                },
+              },
+            },
+          ],
+        },
+      };
+
+      const model = provider('anthropic/claude-3.5-sonnet');
+
+      const thrown = await model
+        .doGenerate({ prompt: TEST_PROMPT })
+        .catch((e: unknown) => e);
+
+      assert(APICallError.isInstance(thrown));
+      expect(thrown.message).toBe('[Anthropic] Overloaded');
+    });
+
     it('should parse responses whose choice has a null error', async () => {
       server.urls[
         'https://test.openrouter.ai/api/v1/chat/completions'

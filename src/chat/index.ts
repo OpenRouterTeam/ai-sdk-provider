@@ -38,7 +38,10 @@ import {
   WORKFLOW_SERIALIZE,
 } from '@ai-sdk/provider-utils';
 import { ReasoningDetailType } from '@/src/schemas/reasoning-details';
-import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import {
+  extractErrorMessage,
+  openrouterFailedResponseHandler,
+} from '../schemas/error-response';
 import { OpenRouterProviderMetadataSchema } from '../schemas/provider-metadata';
 import { computeTokenUsage, emptyUsage } from '../utils/compute-token-usage';
 import {
@@ -373,7 +376,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     // the error on the choice, next to whatever output was produced.
     if (choice.error != null) {
       throw new APICallError({
-        message: choice.error.message,
+        message: extractErrorMessage({ error: choice.error }),
         url: this.config.url({
           path: '/chat/completions',
           modelId: this.modelId,
