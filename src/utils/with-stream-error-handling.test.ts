@@ -107,9 +107,9 @@ describe('withStreamErrorHandling', () => {
   });
 
   it('should not leak an unhandled rejection when cancelled after the source errored', async () => {
-    // Regression test for #615 / #625: an aborted fetch errors the response
-    // body while the consumer cancels the wrapper. Cancelling an errored
-    // reader rejects, and that rejection must not escape as unhandled.
+    // An aborted fetch errors the response body while the consumer cancels
+    // the wrapper. Cancelling an errored reader rejects, and that rejection
+    // must not escape as unhandled.
     const unhandled: unknown[] = [];
     const onUnhandled = (reason: unknown) => {
       unhandled.push(reason);
