@@ -11,6 +11,7 @@ describe('mapOpenRouterFinishReason', () => {
     ['content_filter', 'content-filter'],
     ['function_call', 'tool-calls'],
     ['tool_calls', 'tool-calls'],
+    ['error', 'error'],
   ] as const)('maps %s to %s', (raw, unified) => {
     expect(mapOpenRouterFinishReason(raw)).toEqual({ unified, raw });
   });

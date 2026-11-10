@@ -439,6 +439,39 @@ describe('OpenRouterEmbeddingModel', () => {
       });
     });
 
+    it('forwards the call-level dimensions option', async () => {
+      const { provider, bodies } = createCapturingProvider();
+      const model = provider.textEmbeddingModel(
+        'openai/text-embedding-3-small',
+      );
+
+      await embed({ model, value: 'hello', dimensions: 256 });
+      await embedMany({ model, values: ['a', 'b'], dimensions: 512 });
+
+      expect(bodies[0]?.dimensions).toBe(256);
+      expect(bodies[1]?.dimensions).toBe(512);
+    });
+
+    it('applies precedence extraBody < dimensions option < runtime dimensions', async () => {
+      const { provider, bodies } = createCapturingProvider({
+        extraBody: { dimensions: 128 },
+      });
+      const model = provider.textEmbeddingModel(
+        'openai/text-embedding-3-small',
+      );
+
+      await embed({ model, value: 'hello' });
+      await embed({ model, value: 'hello', dimensions: 256 });
+      await embed({
+        model,
+        value: 'hello',
+        dimensions: 256,
+        providerOptions: { openrouter: { dimensions: 512 } },
+      });
+
+      expect(bodies.map((body) => body.dimensions)).toEqual([128, 256, 512]);
+    });
+
     it('does not let runtime options override model or input', async () => {
       const { provider, bodies } = createCapturingProvider();
       const model = provider.textEmbeddingModel(

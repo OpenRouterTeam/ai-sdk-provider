@@ -117,6 +117,13 @@ describe('OpenRouterImageModel', () => {
       const model = provider.imageModel('google/gemini-2.5-flash-image');
       expect(model.maxImagesPerCall).toBe(10);
     });
+
+    it('should declare file input support and no mask support', () => {
+      const provider = createOpenRouter({ apiKey: 'test-key' });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+      expect(model.supportsFileInputs).toBe(true);
+      expect(model.supportsMaskInputs).toBe(false);
+    });
   });
 
   describe('doGenerate', () => {

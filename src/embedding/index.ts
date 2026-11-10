@@ -49,7 +49,7 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
   async doEmbed(
     options: EmbeddingModelV4CallOptions,
   ): Promise<EmbeddingModelV4Result> {
-    const { values, abortSignal, headers } = options;
+    const { values, dimensions, abortSignal, headers } = options;
 
     // Call-time options (`providerOptions.openrouter`) are passed through to
     // the request body, mirroring the chat and completion models. `model` and
@@ -80,6 +80,9 @@ export class OpenRouterEmbeddingModel implements EmbeddingModelV4 {
       user: this.settings.user,
       ...this.config.extraBody,
       ...this.settings.extraBody,
+      // The call-level `dimensions` option overrides configured values;
+      // `providerOptions.openrouter.dimensions` overrides both.
+      ...(dimensions != null && { dimensions }),
       ...runtimeOptions,
       provider: providerRouting,
     };
