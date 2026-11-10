@@ -106,6 +106,65 @@ describe('withStreamErrorHandling', () => {
     expect(cancelFn).toHaveBeenCalledWith('user abort');
   });
 
+  it('should not leak an unhandled rejection when cancelled after the source errored', async () => {
+    // An aborted fetch errors the response body while the consumer cancels
+    // the wrapper. Cancelling an errored reader rejects, and that rejection
+    // must not escape as unhandled.
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+
+    try {
+      let sourceController!: ReadableStreamDefaultController<string>;
+      const source = new ReadableStream<string>({
+        start(controller) {
+          sourceController = controller;
+        },
+      });
+      const onError = vi.fn();
+      const wrapped = withStreamErrorHandling(source, onError);
+
+      // Fill the wrapper's queue so it has no pull in flight.
+      sourceController.enqueue('a');
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const abortError = new DOMException(
+        'This operation was aborted',
+        'AbortError',
+      );
+      sourceController.error(abortError);
+      await expect(wrapped.cancel(abortError)).resolves.toBeUndefined();
+
+      // Give Node a chance to report any unhandled rejection.
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(unhandled).toEqual([]);
+      expect(onError).not.toHaveBeenCalled();
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
+  it('should not call onError when cancelled while a read is in flight', async () => {
+    // A source that never produces, so the wrapper's pull stays parked on
+    // reader.read() until the consumer cancels.
+    const source = new ReadableStream<string>();
+    const onError = vi.fn();
+    const wrapped = withStreamErrorHandling(source, onError);
+
+    const reader = wrapped.getReader();
+    const pending = reader.read();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    await reader.cancel('user abort');
+    await expect(pending).resolves.toEqual({ done: true, value: undefined });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('should release the source reader lock on error', async () => {
     const error = new TypeError('terminated');
     const source = createFailingStream(['a'], error);
