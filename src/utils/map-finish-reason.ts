@@ -21,6 +21,8 @@ function mapToUnified(
     case 'function_call':
     case 'tool_calls':
       return 'tool-calls';
+    case 'error':
+      return 'error';
     default:
       return 'other';
   }

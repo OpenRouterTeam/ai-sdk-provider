@@ -6,7 +6,7 @@ The [OpenRouter](https://openrouter.ai/) provider for the [Vercel AI SDK](https:
 
 ## Setup for AI SDK v7
 
-This release line supports `ai@^7.0.0`, requires Node.js 22 or newer, and is ESM-only.
+This release line supports `ai@^7.0.144`, requires Node.js 22 or newer, and is ESM-only.
 
 ```bash
 # For pnpm
@@ -129,6 +129,8 @@ const { embedding } = await embed({
 });
 ```
 
+The AI SDK `dimensions` option (`embed({ model, value, dimensions: 256 })`) is sent as `dimensions` too. `providerOptions.openrouter.dimensions` takes precedence when both are set.
+
 Call-time options take precedence over model settings and `extraBody`. Provider routing preferences (`provider`) are shallow merged from model settings, `extraBody` and `providerOptions` instead of replacing each other, so the request above routes with `{ order: ['openai'], allow_fallbacks: false }`. See [Provider Routing](#provider-routing) for the full rules, including how to clear configured routing with `provider: null`.
 
 ### Supported Embedding Models
@@ -168,15 +170,15 @@ OpenRouter supports various reranking models including:
 - `cohere/rerank-v3.5`
 - And more available on [OpenRouter](https://openrouter.ai/collections/rerank-models)
 
-## Evaluation (Jev with AI SDK through OpenRouter)
+## Decisions (Jev with AI SDK through OpenRouter)
 
-`openrouter.decisionModel()` implements the AI SDK evaluation model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_evaluate` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `evaluate()`. `experimental_evaluate` itself ships in `ai@7.0.103` and newer; the rest of this package keeps working with any `ai@7`. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
+`openrouter.decisionModel()` implements the AI SDK decision model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_decide` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `decide()`. The decision model types match `ai@7.0.144`, the first release with `box` questions and refusal answers, which is why it is the minimum `ai` version this package supports. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
 
 ```ts
 import { openrouter } from '@openrouter/ai-sdk-provider';
-import { experimental_evaluate as evaluate } from 'ai';
+import { experimental_decide as decide } from 'ai';
 
-const result = await evaluate({
+const result = await decide({
   model: openrouter.decisionModel('typesafe/jev-1.13'),
   state: {
     ticket: 'My checkout page shows a blank screen after I click Pay.',
@@ -216,9 +218,11 @@ result.answers.urgency.probabilities; // { '0': 0, '1': 0, '2': 1 }
 result.providerMetadata?.openrouter; // { provider: 'TypeSafe', answers: { team: { confidence: 0.8 }, ... }, usage: { cost: 0.000018228 } }
 ```
 
-Question types map as follows: AI SDK `boolean` becomes an OpenRouter `noul` question and the returned `noul` value is exposed as `probability`, while `choice` and `score` map directly and keep their probability distributions. The Decisions API rounds probabilities and scores to two decimals, and the model declares that rounding on every result so the AI SDK accepts scores that differ from the exact probability-weighted mean by rounding alone. Per-answer `confidence` and score `legend` values that have no field in the AI SDK contract are preserved under `result.providerMetadata.openrouter.answers[questionId]`, and the request `cost` is under `result.providerMetadata.openrouter.usage.cost`.
+Question types map as follows: AI SDK `boolean` becomes an OpenRouter `noul` question and the returned `noul` value is exposed as `probability`, `choice` and `score` map directly and keep their probability distributions, and `box` returns a bounding box whose `top`, `bottom`, `left`, and `right` are fractions of the image size between 0 and 1. Which question types and state inputs a request may use depends on the model serving it, and the API returns an error for a combination the model does not support. The Decisions API rounds probabilities and scores to two decimals, and the model declares that rounding on every result so the AI SDK accepts scores that differ from the exact probability-weighted mean by rounding alone. Per-answer `confidence` and score `legend` values that have no field in the AI SDK contract are preserved under `result.providerMetadata.openrouter.answers[questionId]`. `result.providerMetadata.openrouter.usage` holds the request `cost` plus `costDetails`, `inputTokensDetails`, and `isByok` when the API returns them, and `result.providerMetadata.openrouter.annotations` holds the response annotations (for example `url_citation` entries).
 
-The Decisions API rejects a `score` question whose `criteria` contains `null` and a `boolean` question whose `criteria` describes only one of `true` and `false`, so the model throws an `InvalidArgumentError` for those inputs before sending anything (and before anything is billed). A `boolean` question with no criteria descriptions at all is sent without `criteria`.
+`instructions` is optional on `boolean`, `choice`, and `score` questions, and a `boolean` question may describe `true`, `false`, both, or neither. Whether a question may leave these out depends on the model, so they are sent as given and the API rejects what the model cannot answer. The Decisions API rejects a `score` question whose `criteria` contains `null` and a `box` question without `instructions` for every model, so the model throws an `InvalidArgumentError` for those inputs before sending anything (and before anything is billed).
+
+When a model declines to answer a question, the API returns a refusal answer and `decide()` throws `Experimental_DecisionRefusalError`. The Decisions API has no output token limit or reasoning setting, so `maxOutputTokens` and `reasoning` are not sent and each produces an `unsupported` warning.
 
 Model settings accept `user`, `provider` (routing preferences), `session_id`, `trace`, and `extraBody`; call-level `providerOptions.openrouter` accepts the same Decisions request fields plus arbitrary pass-through keys. Precedence, lowest to highest, is factory `extraBody`, model `extraBody`, typed model settings, then `providerOptions.openrouter`; `model`, `state`, and `questions` always come from the call and cannot be overridden.
 

@@ -156,6 +156,7 @@ export const OpenRouterNonStreamChatCompletionResponseSchema = z.union([
             .nullable()
             .optional(),
           finish_reason: z.string().optional().nullable(),
+          error: OpenRouterErrorResponseSchema.shape.error.nullish(),
         })
         .passthrough(),
     ),

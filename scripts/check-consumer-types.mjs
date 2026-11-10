@@ -128,7 +128,10 @@ import {
   createProviderRegistry,
   embed,
   embedMany,
+  experimental_generateVideo as generateVideo,
+  generateImage,
   generateText,
+  rerank,
   streamText,
   wrapLanguageModel,
 } from 'ai';
@@ -139,6 +142,9 @@ const openrouter = createOpenRouter({ apiKey: 'sk-or-placeholder' });
 const chat = openrouter.chat('openai/gpt-4o-mini');
 const completion = openrouter.completion('openai/gpt-3.5-turbo-instruct');
 const embedding = openrouter.textEmbeddingModel('openai/text-embedding-3-small');
+const reranking = openrouter.rerankingModel('cohere/rerank-v3.5');
+const image = openrouter.imageModel('google/gemini-2.5-flash-image');
+const video = openrouter.videoModel('google/veo-3.1');
 const internalChat = new OpenRouterChatLanguageModel(
   'openai/gpt-4o-mini',
   {},
@@ -161,6 +167,9 @@ export async function userCode() {
   await generateText({ model: wrapped, prompt: 'hi' });
   await embed({ model: embedding, value: 'hi' });
   await embedMany({ model: embedding, values: ['a', 'b'] });
+  await rerank({ model: reranking, query: 'hi', documents: ['a', 'b'] });
+  await generateImage({ model: image, prompt: 'hi' });
+  await generateVideo({ model: video, prompt: 'hi' });
   createProviderRegistry({ openrouter });
 }
 
@@ -169,36 +178,89 @@ export const notAny: [
   IsAny<typeof chat>,
   IsAny<typeof completion>,
   IsAny<typeof embedding>,
+  IsAny<typeof reranking>,
+  IsAny<typeof image>,
+  IsAny<typeof video>,
   IsAny<typeof internalChat>,
   IsAny<Awaited<ReturnType<typeof chat.doGenerate>>['finishReason']>,
-] = [false, false, false, false, false, false];
+] = [false, false, false, false, false, false, false, false, false];
+`;
+
+// The decision model spec is experimental and changes in `ai` patch releases.
+// The peer floor is the first release whose spec the decision model satisfies,
+// so this is checked for every tested version.
+const DECIDE_TS = `import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { experimental_decide as decide } from 'ai';
+
+type IsAny<T> = 0 extends 1 & T ? true : false;
+
+const openrouter = createOpenRouter({ apiKey: 'sk-or-placeholder' });
+const decision = openrouter.decisionModel('typesafe/jev-1.14');
+
+export async function userCode() {
+  const result = await decide({
+    model: decision,
+    state: 'hi',
+    questions: {
+      ok: { type: 'boolean', instructions: 'Is it?' },
+      kind: { type: 'choice', criteria: { a: 'First', b: null } },
+      level: { type: 'score', criteria: ['low', 'high'] },
+      where: { type: 'box', instructions: 'Locate it' },
+    },
+  });
+  const probability: number = result.answers.ok.probability;
+  const choice: 'a' | 'b' = result.answers.kind.choice;
+  const score: number = result.answers.level.score;
+  const top: number = result.answers.where.box.top;
+  return { probability, choice, score, top };
+}
+
+export const notAny: [IsAny<typeof decision>] = [false];
 `;
 
 // Runtime smoke test: both entry points load, and a real `generateText` call
 // through the consumer's \`ai\` copy works end to end against a stub fetch.
-const SMOKE_MJS = `import { generateText } from 'ai';
+// A decision call is run the same way.
+const SMOKE_MJS = `import { experimental_decide as decide, generateText } from 'ai';
 const main = await import('@openrouter/ai-sdk-provider');
 const internal = await import('@openrouter/ai-sdk-provider/internal');
 if (typeof main.createOpenRouter !== 'function') throw new Error('main entry');
 if (typeof internal.OpenRouterChatLanguageModel !== 'function') throw new Error('internal entry');
 const openrouter = main.createOpenRouter({
   apiKey: 'x',
-  fetch: async () =>
+  fetch: async (url) =>
     new Response(
-      JSON.stringify({
-        id: 'gen-1',
-        object: 'chat.completion',
-        created: 0,
-        model: 'openai/gpt-4o-mini',
-        choices: [{ index: 0, message: { role: 'assistant', content: 'pong' }, finish_reason: 'stop' }],
-        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
-      }),
+      JSON.stringify(
+        String(url).endsWith('/decisions')
+          ? {
+              id: 'gen-2',
+              model: 'typesafe/jev-1.14',
+              answers: { ok: { type: 'noul', noul: 0.75 } },
+              usage: { input_tokens: 1, output_tokens: 1 },
+            }
+          : {
+              id: 'gen-1',
+              object: 'chat.completion',
+              created: 0,
+              model: 'openai/gpt-4o-mini',
+              choices: [{ index: 0, message: { role: 'assistant', content: 'pong' }, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+            },
+      ),
       { headers: { 'content-type': 'application/json' } },
     ),
 });
 const result = await generateText({ model: openrouter.chat('openai/gpt-4o-mini'), prompt: 'ping' });
 if (result.text !== 'pong') throw new Error('unexpected text: ' + result.text);
 if (result.finishReason !== 'stop') throw new Error('unexpected finishReason: ' + result.finishReason);
+const decision = await decide({
+  model: openrouter.decisionModel('typesafe/jev-1.14'),
+  state: 'hi',
+  questions: { ok: { type: 'boolean', instructions: 'Is it?' } },
+});
+if (decision.answers?.ok?.probability !== 0.75) {
+  throw new Error('unexpected decision: ' + JSON.stringify(decision.answers));
+}
 `;
 
 function runAsync(cmd, args, cwd) {
@@ -269,13 +331,14 @@ async function checkConsumer(workDir, tarballPath, layout, aiVersion) {
           skipLibCheck: false,
           types: ['node'],
         },
-        include: ['index.ts'],
+        include: ['index.ts', 'decide.ts'],
       },
       null,
       2,
     ),
   );
   writeFileSync(join(dir, 'index.ts'), CONSUMER_TS);
+  writeFileSync(join(dir, 'decide.ts'), DECIDE_TS);
   writeFileSync(join(dir, 'smoke.mjs'), SMOKE_MJS);
 
   const result = { layout, ai: aiVersion, install: 'ok', tsc: '', smoke: '' };

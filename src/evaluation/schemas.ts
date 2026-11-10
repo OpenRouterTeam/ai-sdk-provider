@@ -1,5 +1,5 @@
 import type { JSONValue } from '@ai-sdk/provider';
-import type { EvaluationModelV4Input } from './types';
+import type { DecisionModelV4Input } from './types';
 
 import { z } from 'zod/v4';
 
@@ -27,26 +27,30 @@ const OpenRouterDecisionsTextSchema = z.union([
 export type OpenRouterDecisionsQuestion =
   | {
       type: 'noul';
-      instructions: EvaluationModelV4Input;
+      instructions?: DecisionModelV4Input | null;
       criteria?: {
-        true: EvaluationModelV4Input;
-        false: EvaluationModelV4Input;
+        true?: DecisionModelV4Input | null;
+        false?: DecisionModelV4Input | null;
       };
     }
   | {
       type: 'choice';
-      instructions: EvaluationModelV4Input;
-      criteria: Readonly<Record<string, EvaluationModelV4Input | null>>;
+      instructions?: DecisionModelV4Input | null;
+      criteria: Readonly<Record<string, DecisionModelV4Input | null>>;
     }
   | {
       type: 'score';
-      instructions: EvaluationModelV4Input;
-      criteria: readonly EvaluationModelV4Input[];
+      instructions?: DecisionModelV4Input | null;
+      criteria: readonly DecisionModelV4Input[];
+    }
+  | {
+      type: 'box';
+      instructions: DecisionModelV4Input;
     };
 
 export type OpenRouterDecisionsRequest = Record<string, unknown> & {
   model: string;
-  state: EvaluationModelV4Input;
+  state: DecisionModelV4Input;
   questions: Record<string, OpenRouterDecisionsQuestion>;
 };
 
@@ -68,6 +72,7 @@ export const OpenRouterDecisionsProviderOptionsSchema = z
 const OpenRouterDecisionsNoulAnswerSchema = z.object({
   type: z.literal('noul'),
   noul: z.number(),
+  confidence: z.number().optional(),
 });
 
 const OpenRouterDecisionsChoiceAnswerSchema = z.object({
@@ -85,10 +90,27 @@ const OpenRouterDecisionsScoreAnswerSchema = z.object({
   confidence: z.number().optional(),
 });
 
+const OpenRouterDecisionsBoxAnswerSchema = z.object({
+  type: z.literal('box'),
+  box: z.object({
+    top: z.number(),
+    bottom: z.number(),
+    left: z.number(),
+    right: z.number(),
+  }),
+  confidence: z.number().optional(),
+});
+
+const OpenRouterDecisionsRefusalAnswerSchema = z.object({
+  type: z.literal('refusal'),
+});
+
 export const OpenRouterDecisionsAnswerSchema = z.discriminatedUnion('type', [
   OpenRouterDecisionsNoulAnswerSchema,
   OpenRouterDecisionsChoiceAnswerSchema,
   OpenRouterDecisionsScoreAnswerSchema,
+  OpenRouterDecisionsBoxAnswerSchema,
+  OpenRouterDecisionsRefusalAnswerSchema,
 ]);
 
 export type OpenRouterDecisionsAnswer = z.infer<
@@ -104,11 +126,26 @@ export const OpenRouterDecisionsResponseSchema = z.object({
   model: z.string().optional(),
   provider: z.string().optional(),
   answers: z.record(z.string(), OpenRouterDecisionsAnswerSchema),
+  annotations: z.array(JsonValueSchema).nullish(),
   usage: z
     .object({
       input_tokens: z.number().optional(),
       output_tokens: z.number().optional(),
-      cost: z.number().optional(),
+      cost: z.number().nullish(),
+      cost_details: z
+        .object({
+          upstream_inference_cost: z.number().nullish(),
+          upstream_inference_prompt_cost: z.number().nullish(),
+          upstream_inference_completions_cost: z.number().nullish(),
+          server_tool_cost: z.number().nullish(),
+        })
+        .nullish(),
+      input_tokens_details: z
+        .object({
+          cached_tokens: z.number().nullish(),
+        })
+        .nullish(),
+      is_byok: z.boolean().nullish(),
     })
     .optional(),
 });

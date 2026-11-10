@@ -1,17 +1,22 @@
 import type {
+  Experimental_DecisionModelV4,
   Experimental_EvaluationModelV4,
   JSONValue,
   LanguageModelV4FilePart,
   LanguageModelV4TextPart,
 } from '@ai-sdk/provider';
-import type { EvaluationModelV4 } from './types';
+import type { DecisionModelV4, EvaluationModelV4 } from './types';
 
 import {
   InvalidArgumentError,
   LoadSettingError,
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
-import { experimental_evaluate as evaluate } from 'ai';
+import {
+  experimental_decide as decide,
+  Experimental_DecisionRefusalError,
+  experimental_evaluate as evaluate,
+} from 'ai';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterEvaluationModel } from './index';
@@ -106,7 +111,12 @@ function parseBody(init: RequestInit | undefined): Record<string, unknown> {
 }
 
 describe('OpenRouterEvaluationModel', () => {
-  it('should satisfy the AI SDK evaluation model contract', () => {
+  it('should satisfy the AI SDK decision model contract', () => {
+    expectTypeOf<OpenRouterEvaluationModel>().toExtend<Experimental_DecisionModelV4>();
+    expectTypeOf<DecisionModelV4>().toEqualTypeOf<Experimental_DecisionModelV4>();
+  });
+
+  it('should satisfy the deprecated AI SDK evaluation model contract', () => {
     expectTypeOf<OpenRouterEvaluationModel>().toExtend<Experimental_EvaluationModelV4>();
     expectTypeOf<EvaluationModelV4>().toEqualTypeOf<Experimental_EvaluationModelV4>();
   });
@@ -122,6 +132,7 @@ describe('OpenRouterEvaluationModel', () => {
       expect(model.supportedQuestionTypes).toEqual([
         'choice',
         'score',
+        'box',
         'boolean',
       ]);
     });
@@ -447,7 +458,95 @@ describe('OpenRouterEvaluationModel', () => {
       expect(calls).toHaveLength(0);
     });
 
-    it('should reject one-sided boolean criteria without calling the API', async () => {
+    it('should send only the described side of boolean criteria', async () => {
+      const { mockFetch, calls } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await provider.decisionModel('typesafe/jev-1.14').doDecide({
+        state: [{ type: 'text', text: 'x' }],
+        questions: {
+          q: { type: 'boolean', criteria: { true: 'yes', false: null } },
+        },
+      });
+
+      expect(parseBody(calls[0]?.init).questions).toEqual({
+        q: { type: 'noul', criteria: { true: 'yes' } },
+      });
+    });
+
+    it('should leave out missing and null instructions', async () => {
+      const { mockFetch, calls } = createMockFetch({
+        answers: {
+          a: { type: 'noul', noul: 0.5 },
+          b: { type: 'choice', choice: 'x' },
+          c: { type: 'score', score: 1 },
+        },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await provider.decisionModel('typesafe/jev-1.14').doDecide({
+        state: [{ type: 'text', text: 'x' }],
+        questions: {
+          a: { type: 'boolean', instructions: null, criteria: null },
+          b: { type: 'choice', criteria: { x: 'first', y: null } },
+          c: { type: 'score', instructions: null, criteria: ['low', 'high'] },
+        },
+      });
+
+      expect(parseBody(calls[0]?.init).questions).toEqual({
+        a: { type: 'noul' },
+        b: { type: 'choice', criteria: { x: 'first', y: null } },
+        c: { type: 'score', criteria: ['low', 'high'] },
+      });
+    });
+
+    it('should send box questions and map box answers', async () => {
+      const { mockFetch, calls } = createMockFetch({
+        answers: {
+          where: {
+            type: 'box',
+            box: { top: 0.3, bottom: 0.69, left: 0.18, right: 0.59 },
+            confidence: 0.82,
+          },
+        },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.14')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: {
+            where: { type: 'box', instructions: 'Locate the red square' },
+          },
+        });
+
+      expect(parseBody(calls[0]?.init).questions).toEqual({
+        where: { type: 'box', instructions: 'Locate the red square' },
+      });
+      expect(result.answers).toEqual({
+        where: {
+          type: 'box',
+          box: { top: 0.3, bottom: 0.69, left: 0.18, right: 0.59 },
+        },
+      });
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { where: { confidence: 0.82 } } },
+      });
+    });
+
+    it('should reject box questions without instructions without calling the API', async () => {
       const { mockFetch, calls } = createMockFetch();
       const provider = createOpenRouter({
         apiKey: 'test-key',
@@ -455,18 +554,174 @@ describe('OpenRouterEvaluationModel', () => {
       });
 
       await expect(
-        provider.evaluationModel('typesafe/jev-1.13').doEvaluate({
-          state: 'x',
-          questions: {
-            q: {
-              type: 'boolean',
-              instructions: 'Is it?',
-              criteria: { true: 'yes', false: null },
-            },
-          },
+        provider.decisionModel('typesafe/jev-1.14').doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { where: { type: 'box' } },
         }),
       ).rejects.toBeInstanceOf(InvalidArgumentError);
       expect(calls).toHaveLength(0);
+    });
+
+    it('should map refusal answers', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'refusal' } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.14')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.answers).toEqual({ q: { type: 'refusal' } });
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { q: {} } },
+      });
+    });
+
+    it('should warn that maxOutputTokens and reasoning are not sent', async () => {
+      const { mockFetch, calls } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.14')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+          maxOutputTokens: 50,
+          reasoning: 'low',
+        });
+
+      expect(parseBody(calls[0]?.init)).toEqual({
+        model: 'typesafe/jev-1.14',
+        state: 'x',
+        questions: { q: { type: 'noul', instructions: 'Is it?' } },
+      });
+      expect(result.warnings).toEqual([
+        {
+          type: 'unsupported',
+          feature: 'maxOutputTokens',
+          details: 'The OpenRouter Decisions API has no output token limit.',
+        },
+        {
+          type: 'unsupported',
+          feature: 'reasoning',
+          details: 'The OpenRouter Decisions API has no reasoning setting.',
+        },
+      ]);
+    });
+
+    it('should not warn for the provider-default reasoning setting', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.14')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+          reasoning: 'provider-default',
+        });
+
+      expect(result.warnings).toEqual([]);
+    });
+
+    it('should expose annotations, confidence and usage accounting as metadata', async () => {
+      const annotations = [
+        {
+          type: 'url_citation',
+          url_citation: { url: 'https://example.com', title: 'Example' },
+        },
+      ];
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.95, confidence: 0.9 } },
+        annotations,
+        usage: {
+          input_tokens: 10,
+          output_tokens: 2,
+          cost: 0.00001,
+          cost_details: {
+            upstream_inference_cost: 0.000008,
+            upstream_inference_prompt_cost: 0.000006,
+            upstream_inference_completions_cost: 0.000002,
+            server_tool_cost: 0,
+          },
+          input_tokens_details: { cached_tokens: 4 },
+          is_byok: true,
+        },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('parallel/decisions-fast')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.usage).toEqual({ inputTokens: 10, outputTokens: 2 });
+      expect(result.providerMetadata).toEqual({
+        openrouter: {
+          answers: { q: { confidence: 0.9 } },
+          annotations,
+          usage: {
+            cost: 0.00001,
+            costDetails: {
+              upstreamInferenceCost: 0.000008,
+              upstreamInferencePromptCost: 0.000006,
+              upstreamInferenceCompletionsCost: 0.000002,
+              serverToolCost: 0,
+            },
+            inputTokensDetails: { cachedTokens: 4 },
+            isByok: true,
+          },
+        },
+      });
+    });
+
+    it('should omit empty annotations and cost details from metadata', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'noul', noul: 0.5 } },
+        annotations: [],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 2,
+          cost_details: { upstream_inference_cost: null },
+        },
+      });
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await provider
+        .decisionModel('typesafe/jev-1.13')
+        .doDecide({
+          state: [{ type: 'text', text: 'x' }],
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        });
+
+      expect(result.providerMetadata).toEqual({
+        openrouter: { answers: { q: {} } },
+      });
     });
 
     it('should omit boolean criteria when no description is given', async () => {
@@ -674,6 +929,62 @@ describe('OpenRouterEvaluationModel', () => {
         ).rejects.toBeInstanceOf(UnsupportedFunctionalityError);
       }
       expect(calls).toHaveLength(0);
+    });
+  });
+
+  describe('experimental_decide integration', () => {
+    it('should pass AI SDK answer validation and expose typed results', async () => {
+      const { mockFetch } = createMockFetch({
+        ...DECISIONS_RESPONSE,
+        answers: {
+          ...DECISIONS_RESPONSE.answers,
+          where: {
+            type: 'box',
+            box: { top: 0.3, bottom: 0.69, left: 0.18, right: 0.59 },
+          },
+        },
+      });
+      const openrouter = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await decide({
+        model: openrouter.decisionModel('typesafe/jev-1.14'),
+        state: { ticket: 'Checkout is blank after Pay.' },
+        questions: {
+          ...QUESTIONS,
+          where: { type: 'box', instructions: 'Locate the Pay button' },
+        },
+      });
+
+      expect(result.answers.is_bug.probability).toBe(0.96);
+      expect(result.answers.team.choice).toBe('payments');
+      expect(result.answers.urgency.score).toBe(1.99);
+      expect(result.answers.where.box).toEqual({
+        top: 0.3,
+        bottom: 0.69,
+        left: 0.18,
+        right: 0.59,
+      });
+    });
+
+    it('should surface a refusal as the AI SDK refusal error', async () => {
+      const { mockFetch } = createMockFetch({
+        answers: { q: { type: 'refusal' } },
+      });
+      const openrouter = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      await expect(
+        decide({
+          model: openrouter.decisionModel('typesafe/jev-1.14'),
+          state: 'x',
+          questions: { q: { type: 'boolean', instructions: 'Is it?' } },
+        }),
+      ).rejects.toBeInstanceOf(Experimental_DecisionRefusalError);
     });
   });
 

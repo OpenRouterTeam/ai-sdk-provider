@@ -610,6 +610,34 @@ describe('doGenerate', () => {
     );
   });
 
+  it('should keep the error finishReason when tool calls are present in doGenerate', async () => {
+    prepareJsonResponse({
+      content: '',
+      tool_calls: [
+        {
+          id: 'call_err_001',
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            arguments: '{"city":"Tokyo"}',
+          },
+        },
+      ],
+      finish_reason: 'error',
+    });
+
+    const result = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    // An upstream error is not a completed tool-call turn, so it must not be
+    // rewritten to 'tool-calls' the way unknown finish reasons are.
+    expect(result.finishReason).toStrictEqual({
+      unified: 'error',
+      raw: 'error',
+    });
+  });
+
   it('should infer tool-calls finishReason when finish_reason is null and tool calls are present in doGenerate (#166)', async () => {
     // Simulate the exact #166 scenario: provider returns null finish_reason
     // with tool calls. mapOpenRouterFinishReason maps null to 'other'.
@@ -2709,6 +2737,52 @@ describe('doStream', () => {
         el.type === 'tool-call',
     );
     expect(toolCallEvent?.toolName).toBe('get_weather');
+  });
+
+  it('should keep the error finishReason when tool calls are present in streaming', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-err","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_err","choices":[{"index":0,"delta":{"role":"assistant","content":null,` +
+          `"tool_calls":[{"index":0,"id":"call_err_001","type":"function","function":{"name":"get_weather","arguments":"{\\"city\\":\\"Tokyo\\"}"}}]},` +
+          `"logprobs":null,"finish_reason":null}]}\n\n`,
+        `data: {"id":"chatcmpl-err","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_err","choices":[{"index":0,"delta":{},"logprobs":null,"finish_reason":"error"}]}\n\n`,
+        `data: {"id":"chatcmpl-err","object":"chat.completion.chunk","created":1711357598,"model":"some-model",` +
+          `"system_fingerprint":"fp_err","choices":[],"usage":{"prompt_tokens":100,"completion_tokens":25,"total_tokens":125}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      tools: [
+        {
+          type: 'function',
+          name: 'get_weather',
+          inputSchema: {
+            type: 'object',
+            properties: { city: { type: 'string' } },
+            required: ['city'],
+            additionalProperties: false,
+            $schema: 'http://json-schema.org/draft-07/schema#',
+          },
+        },
+      ],
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    expect(finishEvent?.finishReason).toStrictEqual({
+      unified: 'error',
+      raw: 'error',
+    });
   });
 
   it('should keep finishReason as other when finish_reason is null and no tool calls are present in streaming (#166)', async () => {

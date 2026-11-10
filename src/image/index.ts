@@ -39,6 +39,10 @@ export class OpenRouterImageModel implements ImageModelV4 {
   readonly modelId: OpenRouterImageModelId;
   readonly settings: OpenRouterImageSettings;
   readonly maxImagesPerCall = 10;
+  // Files are sent as `input_references`; whether a model accepts them is
+  // decided by the API. `mask` has no API equivalent and is rejected.
+  readonly supportsFileInputs = true;
+  readonly supportsMaskInputs = false;
 
   private readonly config: OpenRouterImageConfig;
 

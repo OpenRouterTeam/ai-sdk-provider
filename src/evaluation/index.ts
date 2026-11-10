@@ -1,7 +1,8 @@
 import type {
+  JSONObject,
   JSONValue,
   LanguageModelV4FilePart,
-  LanguageModelV4TextPart,
+  SharedV4Warning,
 } from '@ai-sdk/provider';
 import type {
   OpenRouterEvaluationModelId,
@@ -11,14 +12,17 @@ import type {
   OpenRouterDecisionsAnswer,
   OpenRouterDecisionsQuestion,
   OpenRouterDecisionsRequest,
+  OpenRouterDecisionsResponse,
 } from './schemas';
 import type {
+  DecisionModelV4,
+  DecisionModelV4Answer,
+  DecisionModelV4CallOptions,
+  DecisionModelV4Input,
+  DecisionModelV4Question,
+  DecisionModelV4Result,
+  DecisionModelV4StatePart,
   EvaluationModelV4,
-  EvaluationModelV4Answer,
-  EvaluationModelV4CallOptions,
-  EvaluationModelV4Input,
-  EvaluationModelV4Question,
-  EvaluationModelV4Result,
 } from './types';
 
 import {
@@ -49,23 +53,14 @@ type OpenRouterEvaluationConfig = {
 };
 
 /**
- * A part of the state as `ai` 7.0.133 and later pass it: the SDK normalizes
- * every state into an ordered array of these before calling a provider.
+ * Call options across `ai@7` releases: the state parts `ai` 7.0.133 and later
+ * produce, or the raw state older releases pass through.
  */
-type OpenRouterDecisionStatePart =
-  | LanguageModelV4TextPart
-  | LanguageModelV4FilePart
-  | { type: 'json'; value: JSONValue };
-
-/**
- * `doEvaluate` options across `ai@7` releases: the raw state older releases
- * pass through, or the state parts newer ones produce.
- */
-type OpenRouterEvaluationCallOptions = Omit<
-  EvaluationModelV4CallOptions,
+type OpenRouterDecisionCallOptions = Omit<
+  DecisionModelV4CallOptions,
   'state'
 > & {
-  state: EvaluationModelV4Input | readonly OpenRouterDecisionStatePart[];
+  state: DecisionModelV4Input | readonly DecisionModelV4StatePart[];
 };
 
 /**
@@ -79,18 +74,29 @@ const DECISIONS_ROUNDING = {
 } as const;
 
 /**
- * Evaluation model backed by the OpenRouter Decisions API.
+ * Decision model backed by the OpenRouter Decisions API.
  *
- * Maps AI SDK `choice`, `score`, and `boolean` questions onto OpenRouter
- * `choice`, `score`, and `noul` questions, and surfaces per-answer
- * `confidence` and score `legend` through `providerMetadata.openrouter`.
+ * Maps AI SDK `choice`, `score`, `box`, and `boolean` questions onto
+ * OpenRouter `choice`, `score`, `box`, and `noul` questions, and surfaces
+ * per-answer `confidence` and score `legend`, annotations, and usage
+ * accounting through `providerMetadata.openrouter`.
+ *
+ * Which question types and inputs a request may use depends on the model
+ * serving it; the API rejects unsupported combinations with an error.
  */
-export class OpenRouterEvaluationModel implements EvaluationModelV4 {
+export class OpenRouterEvaluationModel
+  implements DecisionModelV4, EvaluationModelV4
+{
   readonly specificationVersion = 'v4' as const;
   readonly provider = 'openrouter';
   readonly modelId: OpenRouterEvaluationModelId;
   readonly settings: OpenRouterEvaluationSettings;
-  readonly supportedQuestionTypes = ['choice', 'score', 'boolean'] as const;
+  readonly supportedQuestionTypes = [
+    'choice',
+    'score',
+    'box',
+    'boolean',
+  ] as const;
 
   private readonly config: OpenRouterEvaluationConfig;
 
@@ -104,11 +110,41 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
     this.config = config;
   }
 
-  async doEvaluate(
-    options: OpenRouterEvaluationCallOptions,
-  ): Promise<EvaluationModelV4Result> {
-    const { questions, abortSignal, headers, providerOptions } = options;
+  /** @deprecated `ai` releases before 7.0.133 call this; use `doDecide`. */
+  doEvaluate(
+    options: OpenRouterDecisionCallOptions,
+  ): Promise<DecisionModelV4Result> {
+    return this.doDecide(options);
+  }
+
+  async doDecide(
+    options: OpenRouterDecisionCallOptions,
+  ): Promise<DecisionModelV4Result> {
+    const {
+      questions,
+      maxOutputTokens,
+      reasoning,
+      abortSignal,
+      headers,
+      providerOptions,
+    } = options;
     const state = toDecisionsState(options.state);
+
+    const warnings: SharedV4Warning[] = [];
+    if (maxOutputTokens != null) {
+      warnings.push({
+        type: 'unsupported',
+        feature: 'maxOutputTokens',
+        details: 'The OpenRouter Decisions API has no output token limit.',
+      });
+    }
+    if (reasoning != null && reasoning !== 'provider-default') {
+      warnings.push({
+        type: 'unsupported',
+        feature: 'reasoning',
+        details: 'The OpenRouter Decisions API has no reasoning setting.',
+      });
+    }
 
     const decisionsQuestions = Object.fromEntries(
       Object.entries(questions).map(([id, question]) => [
@@ -154,7 +190,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
     const answers = Object.fromEntries(
       Object.entries(response.answers).map(([id, answer]) => [
         id,
-        toEvaluationAnswer(answer),
+        toDecisionAnswer(answer),
       ]),
     );
 
@@ -165,6 +201,8 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
       ]),
     );
 
+    const usageMetadata = toUsageMetadata(response.usage);
+
     return {
       answers,
       rounding: DECISIONS_ROUNDING,
@@ -174,14 +212,15 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
             outputTokens: response.usage.output_tokens,
           }
         : undefined,
-      warnings: [],
+      warnings,
       providerMetadata: {
         openrouter: {
           ...(response.provider != null ? { provider: response.provider } : {}),
           answers: answerMetadata,
-          ...(response.usage?.cost != null
-            ? { usage: { cost: response.usage.cost } }
+          ...(response.annotations != null && response.annotations.length > 0
+            ? { annotations: response.annotations }
             : {}),
+          ...(usageMetadata != null ? { usage: usageMetadata } : {}),
         },
       },
       response: {
@@ -194,7 +233,7 @@ export class OpenRouterEvaluationModel implements EvaluationModelV4 {
   }
 }
 
-function isStatePart(value: unknown): value is OpenRouterDecisionStatePart {
+function isStatePart(value: unknown): value is DecisionModelV4StatePart {
   if (typeof value !== 'object' || value === null || !('type' in value)) {
     return false;
   }
@@ -226,14 +265,14 @@ function isStatePart(value: unknown): value is OpenRouterDecisionStatePart {
  * parts and is unwrapped too.
  */
 function toDecisionsState(
-  state: OpenRouterEvaluationCallOptions['state'],
-): EvaluationModelV4Input {
+  state: OpenRouterDecisionCallOptions['state'],
+): DecisionModelV4Input {
   if (!Array.isArray(state) || state.length === 0) {
-    return state as EvaluationModelV4Input;
+    return state as DecisionModelV4Input;
   }
   const parts: readonly unknown[] = state;
   if (!parts.every(isStatePart)) {
-    return state as EvaluationModelV4Input;
+    return state as DecisionModelV4Input;
   }
 
   const values = parts.map((part): JSONValue => {
@@ -277,25 +316,28 @@ function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
 }
 
 /**
- * Converts one AI SDK question into its Decisions counterpart. Criteria the
- * Decisions API would reject (a `null` score level, a boolean with only one
- * side described) throw before any request is sent.
+ * Converts one AI SDK question into its Decisions counterpart. Missing or
+ * `null` instructions and descriptions are left out of the request: whether a
+ * question may omit them depends on the model serving it, so the API decides.
+ * Only what the API rejects for every model (a `null` score level, a box
+ * question without instructions) throws before a request is sent.
  */
 function toDecisionsQuestion(
   id: string,
-  question: EvaluationModelV4Question,
+  question: DecisionModelV4Question,
 ): OpenRouterDecisionsQuestion {
+  const instructions =
+    question.instructions != null
+      ? { instructions: question.instructions }
+      : {};
+
   switch (question.type) {
     case 'choice':
-      return {
-        type: 'choice',
-        instructions: question.instructions,
-        criteria: question.criteria,
-      };
+      return { type: 'choice', ...instructions, criteria: question.criteria };
     case 'score':
       return {
         type: 'score',
-        instructions: question.instructions,
+        ...instructions,
         criteria: question.criteria.map((criterion, index) => {
           if (criterion == null) {
             throw new InvalidArgumentError({
@@ -306,22 +348,27 @@ function toDecisionsQuestion(
           return criterion;
         }),
       };
-    case 'boolean': {
-      const trueCriterion = question.criteria?.true;
-      const falseCriterion = question.criteria?.false;
-      if (trueCriterion == null && falseCriterion == null) {
-        return { type: 'noul', instructions: question.instructions };
-      }
-      if (trueCriterion == null || falseCriterion == null) {
+    case 'box':
+      if (question.instructions == null) {
         throw new InvalidArgumentError({
-          argument: `questions.${id}.criteria`,
-          message: `Question "${id}": the OpenRouter Decisions API requires both "true" and "false" descriptions when boolean criteria are given.`,
+          argument: `questions.${id}.instructions`,
+          message: `Question "${id}": the OpenRouter Decisions API requires instructions for box questions.`,
         });
       }
+      return { type: 'box', instructions: question.instructions };
+    case 'boolean': {
+      const criteria = {
+        ...(question.criteria?.true != null
+          ? { true: question.criteria.true }
+          : {}),
+        ...(question.criteria?.false != null
+          ? { false: question.criteria.false }
+          : {}),
+      };
       return {
         type: 'noul',
-        instructions: question.instructions,
-        criteria: { true: trueCriterion, false: falseCriterion },
+        ...instructions,
+        ...(Object.keys(criteria).length > 0 ? { criteria } : {}),
       };
     }
     default:
@@ -329,9 +376,9 @@ function toDecisionsQuestion(
   }
 }
 
-function toEvaluationAnswer(
+function toDecisionAnswer(
   answer: OpenRouterDecisionsAnswer,
-): EvaluationModelV4Answer {
+): DecisionModelV4Answer {
   switch (answer.type) {
     case 'noul':
       return { type: 'boolean', probability: answer.noul };
@@ -347,6 +394,10 @@ function toEvaluationAnswer(
         score: answer.score,
         probabilities: answer.probabilities,
       };
+    case 'box':
+      return { type: 'box', box: answer.box };
+    case 'refusal':
+      return { type: 'refusal' };
     default:
       return answer satisfies never;
   }
@@ -355,15 +406,49 @@ function toEvaluationAnswer(
 function toAnswerMetadata(answer: OpenRouterDecisionsAnswer): JSONValue {
   switch (answer.type) {
     case 'noul':
-      return {};
     case 'choice':
+    case 'box':
       return answer.confidence != null ? { confidence: answer.confidence } : {};
     case 'score':
       return {
         ...(answer.confidence != null ? { confidence: answer.confidence } : {}),
         ...(answer.legend != null ? { legend: answer.legend } : {}),
       };
+    case 'refusal':
+      return {};
     default:
       return answer satisfies never;
   }
+}
+
+/** Usage accounting beyond token counts, or undefined when none was returned. */
+function toUsageMetadata(
+  usage: OpenRouterDecisionsResponse['usage'],
+): JSONObject | undefined {
+  const details = usage?.cost_details;
+  const costDetails: JSONObject = {
+    ...(details?.upstream_inference_cost != null
+      ? { upstreamInferenceCost: details.upstream_inference_cost }
+      : {}),
+    ...(details?.upstream_inference_prompt_cost != null
+      ? { upstreamInferencePromptCost: details.upstream_inference_prompt_cost }
+      : {}),
+    ...(details?.upstream_inference_completions_cost != null
+      ? {
+          upstreamInferenceCompletionsCost:
+            details.upstream_inference_completions_cost,
+        }
+      : {}),
+    ...(details?.server_tool_cost != null
+      ? { serverToolCost: details.server_tool_cost }
+      : {}),
+  };
+  const cachedTokens = usage?.input_tokens_details?.cached_tokens;
+  const metadata: JSONObject = {
+    ...(usage?.cost != null ? { cost: usage.cost } : {}),
+    ...(Object.keys(costDetails).length > 0 ? { costDetails } : {}),
+    ...(cachedTokens != null ? { inputTokensDetails: { cachedTokens } } : {}),
+    ...(usage?.is_byok != null ? { isByok: usage.is_byok } : {}),
+  };
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
 }
