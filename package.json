@@ -28,6 +28,7 @@
     "test:node": "vitest --config vitest.node.config.ts --run",
     "test:e2e": "vitest --config vitest.e2e.config.ts --run",
     "test:issues": "vitest --config vitest.issues.config.ts --run",
+    "check:consumer-types": "node scripts/check-consumer-types.mjs",
     "changeset": "changeset",
     "changeset-version": "changeset version",
     "changeset-publish": "pnpm build && pnpm test && changeset publish --provenance"
@@ -64,8 +65,18 @@
     "vitest": "3.2.4"
   },
   "peerDependencies": {
+    "@ai-sdk/provider": "^4.0.0",
+    "@ai-sdk/provider-utils": "^5.0.0",
     "ai": "^7.0.0",
     "zod": "^3.25.76 || ^4.1.8"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/provider": {
+      "optional": true
+    },
+    "@ai-sdk/provider-utils": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22"
