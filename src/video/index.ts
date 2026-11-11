@@ -13,7 +13,6 @@ import type {
 
 import { APICallError } from '@ai-sdk/provider';
 import {
-  combineHeaders,
   createJsonResponseHandler,
   delay,
   getFromApi,
@@ -21,6 +20,7 @@ import {
 } from '@ai-sdk/provider-utils';
 import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import {
   VideoGenerationPollResponseSchema,
   VideoGenerationSubmitResponseSchema,
@@ -107,7 +107,10 @@ export class OpenRouterVideoModel implements VideoModelV4 {
       ...providerOptions.openrouter,
     };
 
-    const mergedHeaders = combineHeaders(this.config.headers(), headers);
+    const mergedHeaders = combineHeadersWithUserAgent(
+      this.config.headers(),
+      headers,
+    );
 
     const { value: submitResponse, responseHeaders } = await postJsonToApi({
       url: this.config.url({
