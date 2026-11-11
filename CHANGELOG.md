@@ -1,5 +1,107 @@
 # @openrouter/ai-sdk-provider
 
+## 3.2.0
+
+### Minor Changes
+
+- [#518](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/518) [`32fd6d9`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/32fd6d93c1782d85bef14eaeaf70eb55a596bfdd) Thanks [@taku0](https://github.com/taku0)! - Support `reasoning` parameter introduced in AI SDK v7
+
+- [#564](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/564) [`1b22b05`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/1b22b05352cb0f9243a6c3fdd326038dd3705544) Thanks [@louisgv](https://github.com/louisgv)! - Add `openrouter.decisionModel()` as the preferred name for the Decisions API model. It shares one implementation with `evaluationModel()`, which is kept as the AI SDK-compatible name (the AI SDK calls `evaluationModel()` when resolving string model IDs through a default provider).
+
+- [#636](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/636) [`9f6ca11`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f6ca117194725fe57f6922ff5377bb5ae839384) Thanks [@mattapperson](https://github.com/mattapperson)! - Align `decisionModel()` / `evaluationModel()` with the decision model spec in `ai` 7.0.144 and later, where passing the model to `experimental_decide` was a type error.
+
+  - Implement `doDecide`; `doEvaluate` is kept as an alias for older `ai` releases.
+  - Support `box` questions and answers, and return `refusal` answers instead of failing to parse the response, so `decide()` throws its refusal error.
+  - Make `instructions` optional on `boolean`, `choice`, and `score` questions and allow one-sided `boolean` criteria. Whether a question may omit them depends on the model, so the API decides. A `box` question without `instructions` and a `score` question with a `null` level are still rejected before a request is sent.
+  - Report `maxOutputTokens` and `reasoning` as `unsupported` warnings, since the Decisions API has neither.
+  - Add response `annotations` and the usage `costDetails`, `inputTokensDetails`, and `isByok` to `providerMetadata.openrouter`.
+
+  The `ai` peer dependency is now `^7.0.144` (was `^7.0.0`), and the optional `@ai-sdk/provider` and `@ai-sdk/provider-utils` peers are raised to the versions that release pins (`^4.0.30` and `^5.0.63`). Decision types in earlier `ai` releases predate `box` and `refusal`, so the model no longer type-checks against them.
+
+- [#630](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/630) [`d9abf2b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d9abf2bf3cae8a0cca426f9856b7a071bbfcde1f) Thanks [@mattapperson](https://github.com/mattapperson)! - Declare `@ai-sdk/provider` and `@ai-sdk/provider-utils` as optional `peerDependencies` (#621). The published type declarations import both, but they were undeclared, so under strict layouts (pnpm with `hoist=false` or the global virtual store) the imports failed with `TS2307` or silently degraded provider types to `any`.
+
+  As optional peers, the type imports now resolve to the exact `@ai-sdk/provider` / `@ai-sdk/provider-utils` copies that your installed `ai` version pins, so `generateText({ model: openrouter.chat(...) })` and friends type-check with `skipLibCheck: false` on every supported `ai` version (`^7.0.0`; checked against 7.0.0, 7.0.103 and latest) under npm, pnpm (isolated, hoisted, global virtual store) and pnpm with `auto-install-peers=false`. You do not need to install either package yourself; `ai` already brings them. The runtime JS still bundles both packages, so runtime behavior is unchanged.
+
+- [#628](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/628) [`7225bf9`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/7225bf9bf36691ac714e73fbd3a92a756c671023) Thanks [@mattapperson](https://github.com/mattapperson)! - Chat and completion models now shallow merge `provider` routing preferences instead of replacing them, matching the image model (#551) and embedding model (#632). Fixes #587.
+
+  Plain-object `provider` values are merged in ascending precedence order (later wins):
+
+  - Chat: `settings.provider` < factory `extraBody.provider` < model `extraBody.provider` < `providerOptions.openrouter.provider`.
+  - Completion: factory `extraBody.provider` < model `extraBody.provider` < `providerOptions.openrouter.provider` (completion settings have no typed `provider` field).
+
+  The merge is shallow: only top-level keys are combined. Nested values are replaced, not merged, so arrays such as `order`, `only` and `ignore` and objects such as `max_price` come from the highest-precedence source that sets them. For example, configured `{ only: ['a', 'b'], ignore: ['c'] }` plus call-time `{ only: ['c'] }` sends `{ only: ['c'], ignore: ['c'] }`. Non-object values (arrays, primitives, and `null` outside of `providerOptions`) are ignored and never sent as `provider`.
+
+  **Behavior change:** a call-time `providerOptions.openrouter.provider` no longer wholesale replaces the configured routing. A model configured with `provider: { order: ['google'], allow_fallbacks: false, sort: 'price' }` and called with `providerOptions.openrouter.provider = { order: ['anthropic'] }` now sends `{ order: ['anthropic'], allow_fallbacks: false, sort: 'price' }`. To change a configured key at call time, set it explicitly (e.g. `allow_fallbacks: true`). To drop all configured routing for one call, pass `providerOptions.openrouter.provider = null`, which omits `provider` from the request entirely.
+
+  **Behavior change (image and embedding):** `providerOptions.openrouter.provider = null` previously was ignored by the image model (since #551) and the embedding model (since #632), keeping the configured routing. It now clears provider routing for that call, consistent with chat and completion. Non-object `extraBody.provider` values are also no longer forwarded by the image model.
+
+- [#553](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/553) [`59fe494`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/59fe4942033bbfe296f47b7a806a72b73b512778) Thanks [@warun7](https://github.com/warun7)! - Implement `rerankingModel` on the provider. `createOpenRouter()` and the default `openrouter` instance now expose `rerankingModel(modelId, settings?)`, which calls the OpenRouter `/rerank` endpoint and works with the AI SDK `rerank()` function. Previously the method existed in the typings but was undefined at runtime.
+
+- [#552](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/552) [`5577361`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/55773610ffb0b6d058edcc05f4c5dab6892c9da5) Thanks [@warun7](https://github.com/warun7)! - Forward image part `providerOptions.openrouter.imageDetail` (`'auto' | 'low' | 'high'`) as `image_url.detail`
+
+- [#584](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/584) [`9a47373`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9a4737333e201df0497cd7aeacc84278fc1e03cd) Thanks [@LukasParke](https://github.com/LukasParke)! - Forward video file parts' `providerOptions.openrouter.videoProcessing` (`'agentic' | 'static'`) as `video_url.processing`
+
+- [#526](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/526) [`d8edda0`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d8edda07b62de696d613ae0115823382465665cd) Thanks [@Leonezz](https://github.com/Leonezz)! - Implement `WORKFLOW_SERIALIZE` / `WORKFLOW_DESERIALIZE` hooks on the chat and completion language models so model instances can be used with `@ai-sdk/workflow` durable execution. Fixes the `WorkflowRuntimeError: Failed to serialize step arguments` thrown when a model is passed as a durable step argument (#525).
+
+  Secrets are never written to workflow storage. Only `modelId`, settings, `baseURL`, `compatibility`, `extraBody` and the `appName` / `appUrl` headers (`X-OpenRouter-Title`, `HTTP-Referer`) are persisted; all other custom headers are dropped and the SDK user agent is re-applied on restore. A restored model re-reads its API key from `OPENROUTER_API_KEY` at request time, and a model created with BYOK `api_keys` throws a clear error at request time instead of silently falling back to OpenRouter credits.
+
+### Patch Changes
+
+- [#585](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/585) [`b76b19b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b76b19b83edfe26d4e4bb3d66baed1cb62d81f76) Thanks [@LukasParke](https://github.com/LukasParke)! - Honour part-level `cacheControl` on assistant text parts instead of silently dropping it, consistent with user messages. When an assistant text part carries cache control, the assistant `content` is sent as an array of text blocks with `cache_control` on that specific block; otherwise the content stays a plain string. Message-level assistant cache control is unchanged (related to #498).
+
+- [#566](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/566) [`b701273`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b7012730f1123d0ecc2a56212796b4a0d7eac3ff) Thanks [@pedro757](https://github.com/pedro757)! - Accept `max` in the reasoning effort type so supported models can use it through typed model settings and provider options without an `extraBody` workaround.
+
+- [#636](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/636) [`9f6ca11`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f6ca117194725fe57f6922ff5377bb5ae839384) Thanks [@mattapperson](https://github.com/mattapperson)! - Throw an `APICallError` when a non-streaming chat response reports a provider failure on the choice (`choices[0].error`, sent with HTTP 200 and `finish_reason: "error"`), the same way a top-level `error` body is already handled. Before, the partial output was returned as a successful result. The error message includes the upstream provider's detail when the API sends it, as for HTTP errors. The error has `statusCode: 200`, the API's error object in `data`, and the full response, including any partial output, in `responseBody`.
+
+- [#577](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/577) [`4013aa7`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/4013aa76cbd5b668d3f9f401d8d8bc46c83b6afb) Thanks [@5h0ov](https://github.com/5h0ov)! - Fix `decisionModel()` / `evaluationModel()` with `ai` 7.0.133 and later, which wrap decision state in typed parts that were forwarded to the Decisions API as-is. Text and json parts are now unwrapped and image file parts are sent as `image_url` entries, while raw state from older `ai@7` releases is passed through unchanged.
+
+- [#629](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/629) [`7c32628`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/7c32628542eb37587f3af2c9a0737fd1bbe507a5) Thanks [@mattapperson](https://github.com/mattapperson)! - Finalize streamed tool calls only once the stream completes. Previously a `tool-call` was emitted as soon as the accumulated arguments happened to parse as JSON, so an upstream that closed the root object early (valid JSON prefix followed by more fragments) produced a silently truncated tool call followed by stray `tool-input-delta` parts. Tool calls are now emitted at the end of the stream with their full arguments, so malformed input reaches the AI SDK's tool-call error handling and `experimental_repairToolCall`. Every tool call is still emitted exactly once, including when the stream ends without a `finish_reason`.
+
+  Timing change: `tool-input-start` / `tool-input-delta` still stream as arguments arrive, but the `tool-input-end` and `tool-call` parts (and therefore a tool's `onInputAvailable` callback and the UI `tool-input-available` state) now fire at the end of the model stream rather than mid-stream. With ai@7, tool execution timing is unchanged, since tools already run after the model call ends.
+
+  Streamed tool-call parsing is also hardened:
+
+  - Tool-call deltas without an `index` are now handled: a delta with a new `id` (or a function name) starts a new tool call, and other deltas continue the most recent one. Previously such tool calls were never emitted.
+  - A delta that reuses an existing `index` with a different `id` starts a new tool call instead of being concatenated onto the previous one.
+  - An identical resend of already complete JSON arguments is ignored instead of producing `{"a":1}{"a":1}`.
+  - Tool calls that are dropped because their arguments are incomplete (e.g. `length` or `error` finish) now get a closing `tool-input-end`, so UI parts do not stay in the input-streaming state.
+
+- [#636](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/636) [`9f6ca11`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f6ca117194725fe57f6922ff5377bb5ae839384) Thanks [@mattapperson](https://github.com/mattapperson)! - Forward the AI SDK `dimensions` call option of `embed` / `embedMany` to the `/embeddings` request. It was dropped, so the model returned its default vector size. `providerOptions.openrouter.dimensions` still takes precedence.
+
+- [#632](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/632) [`087abdf`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/087abdf3ae7f3b8d7e1eb5d07b8f6036f2b43964) Thanks [@mattapperson](https://github.com/mattapperson)! - Forward call-time `providerOptions.openrouter` in the embedding model (`embed` / `embedMany`). Options such as `provider`, `user`, `dimensions` and `input_type` were previously ignored. Provider routing preferences are now shallow merged from model settings, `extraBody` and `providerOptions` (later wins) instead of `extraBody.provider` replacing `settings.provider` (related to #616).
+
+- [#636](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/636) [`9f6ca11`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f6ca117194725fe57f6922ff5377bb5ae839384) Thanks [@mattapperson](https://github.com/mattapperson)! - Map the `error` finish reason to the AI SDK `error` finish reason instead of `other`. A response that ends with `error` and contains tool calls is no longer reported as `tool-calls`, so the AI SDK does not execute those tool calls and a multi-step loop stops at that step.
+
+- [#547](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/547) [`92961e4`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/92961e42dfef9254b73a27bbf96f262d91f34cee) Thanks [@warun7](https://github.com/warun7)! - fix: prevent assigning undefined keys during streaming reasoning_details accumulation (#540)
+
+- [#627](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/627) [`396792a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/396792a0427077909d6c2e6ed1ec5588c0edd065) Thanks [@mattapperson](https://github.com/mattapperson)! - Fix unhandled `AbortError` rejection when a streaming response is cancelled after its source has already errored (e.g. an aborted fetch)
+
+  Also stop reporting a spurious `Controller is already closed` error through the stream error handler when a stream is cancelled while a read is in flight.
+
+- [#575](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/575) [`9ded35b`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9ded35b74ff4a498cd67c80a2bf02ff0534a9b60) Thanks [@cpruijsen](https://github.com/cpruijsen)! - Forward complete-but-invalid streamed tool arguments to the AI SDK instead of replacing them with `'{}'` in the stream flush path. The SDK can now surface the model's real payload via `InvalidToolInputError` and run `experimental_repairToolCall`; `'{}'` is only substituted when nothing was streamed (no-argument tool calls).
+
+- [#548](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/548) [`f54b359`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/f54b359f6f9bea44910b470f28713c50e1d52a08) Thanks [@warun7](https://github.com/warun7)! - Forward tool `strict` setting to function definitions in API requests
+
+- [#636](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/636) [`9f6ca11`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/9f6ca117194725fe57f6922ff5377bb5ae839384) Thanks [@mattapperson](https://github.com/mattapperson)! - Declare `supportsFileInputs: true` and `supportsMaskInputs: false` on the image model, matching what `doGenerate` already does with `files` and `mask`.
+
+- [#586](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/586) [`cd86f5d`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/cd86f5da5cc975a978218358f6b9abbe0b036226) Thanks [@LukasParke](https://github.com/LukasParke)! - Stop re-parsing the whole accumulated tool-call arguments on every streamed delta. A small incremental scanner now only lets the provider attempt a JSON parse once the arguments may be complete, removing quadratic CPU use for large streamed tool inputs. Emitted events are unchanged.
+
+- [#613](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/613) [`713699a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/713699ac9f73ffb1441dca98cbfece043ab9fd51) Thanks [@nihar-pawade](https://github.com/nihar-pawade)! - fix: extract base64 from data URLs without running a regex over the payload, which could throw "Maximum call stack size exceeded" on large generated images. Only the data URL header (before the first comma) is now parsed, which also changes a few edge cases: data URLs with parameters (e.g. `data:image/png;charset=utf-8;base64,...`) are now decoded, payloads containing line breaks are now returned instead of the whole URL, a comma in the media type is no longer accepted, and the media type of a generated image is read from the header only.
+
+- [#551](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/551) [`bacdd1a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/bacdd1afc9f11caebc5708a936d7200a1e0f116a) Thanks [@warun7](https://github.com/warun7)! - Merge runtime provider routing options with configured image model provider preferences
+
+- [#550](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/550) [`a76ca9f`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/a76ca9ff8e2d49dbe24a9e32d92e8098ccaab75e) Thanks [@warun7](https://github.com/warun7)! - Preserve `is_byok` as `isByok` in `providerMetadata.openrouter.usage`
+
+- [#549](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/549) [`d9d01b5`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/d9d01b50f4802feca2ced9876364116315f6cb57) Thanks [@warun7](https://github.com/warun7)! - Declare specificationVersion 'v4' and embeddingModel on provider object returned by createOpenRouter
+
+- [#583](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/583) [`5fe77f6`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/5fe77f6c79d16ff025fc22c3fae228ba256a6659) Thanks [@LukasParke](https://github.com/LukasParke)! - Fix streaming: keep separately signed `reasoning.text` blocks (e.g. multiple Anthropic thinking blocks in one answer) as separate `reasoning_details` entries instead of merging them under the first signature, which made replay fail with "Invalid signature in thinking block".
+
+- [#517](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/517) [`b5f253f`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/b5f253f74b3d158e86f213d0087c4de98d3d3277) Thanks [@noobshow](https://github.com/noobshow)! - Support `cache_control` on a tool's `providerOptions` (`openrouter` or `anthropic` namespace, snake_case or camelCase, same resolution as message-level cache control). It is now attached to that tool's entry in the outgoing `tools` array.
+
+  Tool-level `cache_control` is passed through as-is. OpenRouter does not document it for the OpenAI-format `tools` array; Anthropic supports it on the last tool definition, so place the breakpoint there. `OpenRouterCacheControl` now also types the optional `ttl` (`'5m' | '1h'`), which was already passed through.
+
+- [#536](https://github.com/OpenRouterTeam/ai-sdk-provider/pull/536) [`0ad203a`](https://github.com/OpenRouterTeam/ai-sdk-provider/commit/0ad203a0e50a40a8237f2da0a5a0ea2f619f3404) Thanks [@shoemoney](https://github.com/shoemoney)! - Fix completion model under AI SDK v7: accept the default toolChoice and emit text-start/text-delta/text-end lifecycle events
+
 ## 3.1.0
 
 ### Minor Changes
