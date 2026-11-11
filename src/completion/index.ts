@@ -212,13 +212,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       runtimeProvider,
     );
 
-    const args = {
+    const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
       // Always set so non-object `provider` values from extraBody never leak;
       // `undefined` is dropped from the JSON body.
       provider: providerRouting,
     };
+
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...args } =
+      argsWithSdkOptions as Record<string, unknown>;
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
@@ -334,13 +338,17 @@ export class OpenRouterCompletionLanguageModel implements LanguageModelV4 {
       runtimeProvider,
     );
 
-    const args = {
+    const argsWithSdkOptions = {
       ...this.getArgs(options),
       ...restOpenrouterOptions,
       // Always set so non-object `provider` values from extraBody never leak;
       // `undefined` is dropped from the JSON body.
       provider: providerRouting,
     };
+
+    // `reasoningReplay` is a chat-model SDK option, never sent to the API.
+    const { reasoningReplay: _reasoningReplay, ...args } =
+      argsWithSdkOptions as Record<string, unknown>;
 
     const { value: response, responseHeaders } = await postJsonToApi({
       url: this.config.url({
