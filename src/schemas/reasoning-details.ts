@@ -11,7 +11,10 @@ export enum ReasoningDetailType {
 export const CommonReasoningDetailSchema = z
   .object({
     id: z.string().nullish(),
-    format: z.enum(ReasoningFormat).nullish(),
+    // Known formats are listed in the enum, but any string is accepted so
+    // that details carrying a format added server-side after this release
+    // are preserved for round-trip instead of being dropped at parse time.
+    format: z.union([z.enum(ReasoningFormat), z.string()]).nullish(),
     index: z.number().optional(),
   })
   .loose();
