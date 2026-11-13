@@ -94,6 +94,7 @@ export interface ChatCompletionAssistantMessageParam {
   role: 'assistant';
   content?: string | Array<ChatCompletionContentPartText> | null;
   reasoning?: string | null;
+  reasoning_content?: string | null;
   reasoning_details?: ReasoningDetailUnion[];
   annotations?: FileAnnotation[];
   tool_calls?: Array<ChatCompletionMessageToolCall>;
