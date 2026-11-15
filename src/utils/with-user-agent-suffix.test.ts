@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { withUserAgentSuffix } from './with-user-agent-suffix';
+import {
+  combineHeadersWithUserAgent,
+  withUserAgentSuffix,
+} from './with-user-agent-suffix';
 
 describe('withUserAgentSuffix', () => {
   const SDK_SUFFIX = 'ai-sdk/openrouter/1.0.0';
@@ -129,5 +132,81 @@ describe('withUserAgentSuffix', () => {
       expect(result['Authorization']).toBe('Bearer token');
       expect(result['Content-Type']).toBe('application/json');
     });
+  });
+});
+
+describe('combineHeadersWithUserAgent', () => {
+  const SDK_SUFFIX = 'ai-sdk/openrouter/1.0.0';
+
+  it('appends the provider identifier to the call-level user agent', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { authorization: 'Bearer token', 'user-agent': SDK_SUFFIX },
+        { 'user-agent': 'ai/7.0.0', 'x-call': '1' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({
+      authorization: 'Bearer token',
+      'x-call': '1',
+      'user-agent': `ai/7.0.0 ${SDK_SUFFIX}`,
+    });
+  });
+
+  it('matches the call-level user-agent case-insensitively', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'User-Agent': 'my-app/1.0 ai/7.0.0' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': `my-app/1.0 ai/7.0.0 ${SDK_SUFFIX}` });
+  });
+
+  it('keeps the provider identifier when there is no call-level user agent', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'x-call': '1' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': SDK_SUFFIX, 'x-call': '1' });
+  });
+
+  it('does not duplicate the provider identifier', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'user-agent': `ai/7.0.0 ${SDK_SUFFIX}` },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': `ai/7.0.0 ${SDK_SUFFIX}` });
+  });
+
+  it('uses a call-level user agent without the AI SDK token verbatim', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'user-agent': 'my-app/1.0' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': 'my-app/1.0' });
+    // `ai-sdk/...` and `openai/...` are not the AI SDK's `ai/<version>` token.
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': SDK_SUFFIX },
+        { 'user-agent': 'my-ai-sdk/1.0 openai/2' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': 'my-ai-sdk/1.0 openai/2' });
+  });
+
+  it('does not append the identifier to a user-specified provider User-Agent', () => {
+    expect(
+      combineHeadersWithUserAgent(
+        { 'user-agent': 'my-app/1.0' },
+        { 'user-agent': 'ai/7.0.0' },
+        SDK_SUFFIX,
+      ),
+    ).toStrictEqual({ 'user-agent': 'ai/7.0.0' });
   });
 });

@@ -16,13 +16,13 @@ import {
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
 import {
-  combineHeaders,
   createJsonResponseHandler,
   postJsonToApi,
 } from '@ai-sdk/provider-utils';
 import { buildFileDataUrl } from '../chat/file-url-utils';
 import { openrouterFailedResponseHandler } from '../schemas/error-response';
 import { mergeProviderRouting } from '../utils/merge-provider-routing';
+import { combineHeadersWithUserAgent } from '../utils/with-user-agent-suffix';
 import { OpenRouterImageResponseSchema } from './schemas';
 
 type OpenRouterImageConfig = {
@@ -136,7 +136,7 @@ export class OpenRouterImageModel implements ImageModelV4 {
         path: '/images',
         modelId: this.modelId,
       }),
-      headers: combineHeaders(this.config.headers(), headers),
+      headers: combineHeadersWithUserAgent(this.config.headers(), headers),
       body,
       failedResponseHandler: openrouterFailedResponseHandler,
       successfulResponseHandler: createJsonResponseHandler(
