@@ -191,6 +191,37 @@ describe('OpenRouterTranscriptionModel', () => {
     });
   });
 
+  it('requests verbose_json when diarize or timestamps come from extraBody', async () => {
+    const { fetch, captured } = createCapturingMockFetch(VERBOSE_RESPONSE);
+    const provider = createOpenRouter({
+      apiKey: 'test-key',
+      fetch,
+      extraBody: { diarize: true },
+    });
+    await provider
+      .transcriptionModel('elevenlabs/scribe-v2')
+      .doGenerate({ audio: AUDIO, mediaType: 'audio/wav' });
+    expect(captured.body).toMatchObject({
+      diarize: true,
+      response_format: 'verbose_json',
+    });
+
+    await provider
+      .transcriptionModel('openai/whisper-1', {
+        extraBody: { diarize: false, timestamp_granularities: ['segment'] },
+      })
+      .doGenerate({
+        audio: AUDIO,
+        mediaType: 'audio/wav',
+        timestampGranularities: ['word'],
+      });
+    expect(captured.body).toMatchObject({
+      diarize: false,
+      response_format: 'verbose_json',
+      timestamp_granularities: ['segment'],
+    });
+  });
+
   it('merges settings, extraBody and provider routing', async () => {
     const { fetch, captured } = createCapturingMockFetch({ text: 'hi' });
     const provider = createOpenRouter({

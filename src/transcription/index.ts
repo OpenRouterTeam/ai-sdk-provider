@@ -77,8 +77,14 @@ export class OpenRouterTranscriptionModel implements TranscriptionModelV4 {
       runtimeProvider,
     );
 
+    const bodyOptions: Record<string, unknown> = {
+      ...this.config.extraBody,
+      ...this.settings.extraBody,
+      ...restOpenrouterOptions,
+    };
+
     const requestedGranularities =
-      openrouterOptions.timestamp_granularities === undefined &&
+      bodyOptions.timestamp_granularities === undefined &&
       timestampGranularities !== undefined &&
       timestampGranularities.length > 0
         ? timestampGranularities
@@ -88,8 +94,8 @@ export class OpenRouterTranscriptionModel implements TranscriptionModelV4 {
     // some models reject `verbose_json`, so it is only requested when needed.
     const needsVerboseJson =
       requestedGranularities !== undefined ||
-      openrouterOptions.timestamp_granularities !== undefined ||
-      openrouterOptions.diarize === true;
+      bodyOptions.timestamp_granularities !== undefined ||
+      bodyOptions.diarize === true;
 
     const body: Record<string, unknown> = {
       model: this.modelId,
@@ -103,9 +109,7 @@ export class OpenRouterTranscriptionModel implements TranscriptionModelV4 {
         timestamp_granularities: requestedGranularities,
       }),
       ...(this.settings.user !== undefined && { user: this.settings.user }),
-      ...this.config.extraBody,
-      ...this.settings.extraBody,
-      ...restOpenrouterOptions,
+      ...bodyOptions,
       provider,
     };
 
