@@ -26,10 +26,6 @@ import type {
   OpenRouterRerankingSettings,
 } from './types/openrouter-reranking-settings';
 import type {
-  OpenRouterVideoModelId,
-  OpenRouterVideoSettings,
-} from './types/openrouter-video-settings';
-import type {
   OpenRouterSpeechModelId,
   OpenRouterSpeechSettings,
 } from './types/openrouter-speech-settings';
@@ -37,6 +33,10 @@ import type {
   OpenRouterTranscriptionModelId,
   OpenRouterTranscriptionSettings,
 } from './types/openrouter-transcription-settings';
+import type {
+  OpenRouterVideoModelId,
+  OpenRouterVideoSettings,
+} from './types/openrouter-video-settings';
 
 import { LoadSettingError } from '@ai-sdk/provider';
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils';
