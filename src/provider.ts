@@ -26,6 +26,14 @@ import type {
   OpenRouterRerankingSettings,
 } from './types/openrouter-reranking-settings';
 import type {
+  OpenRouterSpeechModelId,
+  OpenRouterSpeechSettings,
+} from './types/openrouter-speech-settings';
+import type {
+  OpenRouterTranscriptionModelId,
+  OpenRouterTranscriptionSettings,
+} from './types/openrouter-transcription-settings';
+import type {
   OpenRouterVideoModelId,
   OpenRouterVideoSettings,
 } from './types/openrouter-video-settings';
@@ -38,7 +46,9 @@ import { OpenRouterEmbeddingModel } from './embedding';
 import { OpenRouterEvaluationModel } from './evaluation';
 import { OpenRouterImageModel } from './image';
 import { OpenRouterRerankingModel } from './reranking';
+import { OpenRouterSpeechModel } from './speech';
 import { webSearch } from './tool/web-search';
+import { OpenRouterTranscriptionModel } from './transcription';
 import { withUserAgentSuffix } from './utils/with-user-agent-suffix';
 import { VERSION } from './version';
 import { OpenRouterVideoModel } from './video';
@@ -142,6 +152,22 @@ Creates an OpenRouter video model for video generation.
     modelId: OpenRouterVideoModelId,
     settings?: OpenRouterVideoSettings,
   ): OpenRouterVideoModel;
+
+  /**
+Creates an OpenRouter transcription (speech-to-text) model, for use with `transcribe()`.
+   */
+  transcriptionModel(
+    modelId: OpenRouterTranscriptionModelId,
+    settings?: OpenRouterTranscriptionSettings,
+  ): OpenRouterTranscriptionModel;
+
+  /**
+Creates an OpenRouter speech (text-to-speech) model, for use with `generateSpeech()`.
+   */
+  speechModel(
+    modelId: OpenRouterSpeechModelId,
+    settings?: OpenRouterSpeechSettings,
+  ): OpenRouterSpeechModel;
 
   /**
 Creates an OpenRouter decision model backed by the Decisions API, for use with `experimental_evaluate`.
@@ -372,6 +398,30 @@ export function createOpenRouter(
       extraBody: options.extraBody,
     });
 
+  const createTranscriptionModel = (
+    modelId: OpenRouterTranscriptionModelId,
+    settings: OpenRouterTranscriptionSettings = {},
+  ) =>
+    new OpenRouterTranscriptionModel(modelId, settings, {
+      provider: 'openrouter.transcription',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
+  const createSpeechModel = (
+    modelId: OpenRouterSpeechModelId,
+    settings: OpenRouterSpeechSettings = {},
+  ) =>
+    new OpenRouterSpeechModel(modelId, settings, {
+      provider: 'openrouter.speech',
+      url: ({ path }) => `${baseURL}${path}`,
+      headers: getHeaders,
+      fetch: options.fetch,
+      extraBody: options.extraBody,
+    });
+
   const createLanguageModel = (
     modelId: OpenRouterChatModelId | OpenRouterCompletionModelId,
     settings?: OpenRouterChatSettings | OpenRouterCompletionSettings,
@@ -407,6 +457,8 @@ export function createOpenRouter(
   provider.imageModel = createImageModel;
   provider.rerankingModel = createRerankingModel;
   provider.videoModel = createVideoModel;
+  provider.transcriptionModel = createTranscriptionModel;
+  provider.speechModel = createSpeechModel;
   provider.decisionModel = createEvaluationModel;
   provider.evaluationModel = createEvaluationModel;
   provider.tools = {

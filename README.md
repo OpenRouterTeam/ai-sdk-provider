@@ -170,6 +170,54 @@ OpenRouter supports various reranking models including:
 - `cohere/rerank-v3.5`
 - And more available on [OpenRouter](https://openrouter.ai/collections/rerank-models)
 
+## Transcription and Speech
+
+`transcriptionModel()` and `speechModel()` call OpenRouter's `/audio/transcriptions` and `/audio/speech` endpoints and work with the AI SDK `transcribe()` and `generateSpeech()` functions. See the [models page](https://openrouter.ai/models?output_modalities=transcription) for available models.
+
+### Transcription
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { transcribe } from 'ai';
+import { readFile } from 'node:fs/promises';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+
+const { text, segments, language, durationInSeconds } = await transcribe({
+  model: openrouter.transcriptionModel('openai/whisper-1'),
+  audio: await readFile('audio.mp3'),
+  // Requests verbose_json with word and segment timestamps
+  timestampGranularities: ['word', 'segment'],
+  providerOptions: {
+    openrouter: {
+      language: 'en',
+    },
+  },
+});
+```
+
+`providerOptions.openrouter` accepts `language`, `diarize`, `keyterms`, `temperature`, `response_format`, `timestamp_granularities`, `provider` and any other `/audio/transcriptions` body field. Setting `timestampGranularities` or `diarize` requests `verbose_json`; not every model supports it (for example, `openai/gpt-4o-transcribe` only returns `json`). With `diarize: true`, the raw words with speaker labels are in `providerMetadata.openrouter.words`.
+
+### Speech
+
+```typescript
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { generateSpeech } from 'ai';
+
+const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
+
+const { audio } = await generateSpeech({
+  model: openrouter.speechModel('hexgrad/kokoro-82m'),
+  text: 'Hello from OpenRouter!',
+  voice: 'af_heart',
+  outputFormat: 'mp3',
+});
+
+// audio.uint8Array contains the audio bytes
+```
+
+`voice`, `outputFormat` (sent as `response_format`), `instructions` and `speed` map to the request body. Voices are provider-specific, and many models require one.
+
 ## Decisions (Jev with AI SDK through OpenRouter)
 
 `openrouter.decisionModel()` implements the AI SDK decision model contract on top of the [OpenRouter Decisions API](https://openrouter.ai/docs/api/api-reference/alphadecisions/submit-a-decisions-questions-and-answers-request), so `experimental_decide` requests go through OpenRouter instead of the AI SDK's default gateway. `openrouter.evaluationModel()` is the same method under the name the AI SDK expects; the AI SDK calls it when resolving string model IDs through a default provider, so both names share one implementation and either can be passed to `decide()`. The decision model types match `ai@7.0.144`, the first release with `box` questions and refusal answers, which is why it is the minimum `ai` version this package supports. The Decisions API is served from `https://openrouter.ai/api/alpha` and is still in alpha, so its request and response shapes may change ahead of the rest of the OpenRouter API.
