@@ -6,6 +6,8 @@ export * from './openrouter-embedding-settings';
 export * from './openrouter-evaluation-settings';
 export * from './openrouter-image-settings';
 export * from './openrouter-reranking-settings';
+export * from './openrouter-speech-settings';
+export * from './openrouter-transcription-settings';
 export * from './openrouter-video-settings';
 
 export type OpenRouterProviderOptions = {
