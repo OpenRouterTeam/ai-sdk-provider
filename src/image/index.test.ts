@@ -1324,6 +1324,55 @@ describe('OpenRouterImageModel', () => {
       ).rejects.toThrow(APICallError);
     });
 
+    it('should not retry paid generation when signed URL download returns 503', async () => {
+      let generateCalls = 0;
+      const mockFetch = async (url: URL | RequestInfo): Promise<Response> => {
+        if (url.toString() === 'https://openrouter.ai/api/v1/images') {
+          generateCalls += 1;
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [{ url: SIGNED_URL_1 }],
+              expires_at: 1748458800,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+        return new Response('Service Unavailable', {
+          status: 503,
+          statusText: 'Service Unavailable',
+        });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      let thrown: unknown;
+      try {
+        await generateImage({
+          model,
+          prompt: 'A cat',
+          maxRetries: 2,
+          providerOptions: {
+            openrouter: { response_format: 'url' },
+          },
+        });
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(APICallError.isInstance(thrown)).toBe(true);
+      expect((thrown as APICallError).statusCode).toBe(503);
+      expect((thrown as APICallError).isRetryable).toBe(false);
+      expect(generateCalls).toBe(1);
+    });
+
     it('should reject private/loopback image URLs from a different origin', async () => {
       const mockFetch = async (): Promise<Response> =>
         new Response(

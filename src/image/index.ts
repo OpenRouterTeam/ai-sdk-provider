@@ -12,6 +12,7 @@ import type {
 } from '../types/openrouter-image-settings';
 
 import {
+  APICallError,
   NoContentGeneratedError,
   UnsupportedFunctionalityError,
 } from '@ai-sdk/provider';
@@ -225,16 +226,33 @@ export class OpenRouterImageModel implements ImageModelV4 {
             message: 'Image response item missing both b64_json and url',
           });
         }
-        const { value } = await getFromApi({
-          url: item.url,
-          successfulResponseHandler: createBinaryResponseHandler(),
-          failedResponseHandler: createStatusCodeErrorResponseHandler(),
-          abortSignal,
-          fetch: this.config.fetch,
-          validateUrl: true,
-          trustedOrigin,
-        });
-        return value;
+        try {
+          const { value } = await getFromApi({
+            url: item.url,
+            successfulResponseHandler: createBinaryResponseHandler(),
+            failedResponseHandler: createStatusCodeErrorResponseHandler(),
+            abortSignal,
+            fetch: this.config.fetch,
+            validateUrl: true,
+            trustedOrigin,
+          });
+          return value;
+        } catch (error) {
+          if (APICallError.isInstance(error) && error.isRetryable) {
+            throw new APICallError({
+              message: error.message,
+              url: error.url,
+              requestBodyValues: error.requestBodyValues,
+              statusCode: error.statusCode,
+              responseHeaders: error.responseHeaders,
+              responseBody: error.responseBody,
+              cause: error.cause,
+              data: error.data,
+              isRetryable: false,
+            });
+          }
+          throw error;
+        }
       }),
     );
   }
