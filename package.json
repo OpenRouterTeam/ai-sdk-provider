@@ -48,6 +48,9 @@
       "default": "./dist/internal/index.js"
     }
   },
+  "dependencies": {
+    "undici": "^7.29.1"
+  },
   "devDependencies": {
     "@ai-sdk/provider": "4.0.37",
     "@ai-sdk/provider-utils": "5.0.76",
@@ -81,7 +84,7 @@
     }
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22.3.0"
   },
   "publishConfig": {
     "access": "public"
