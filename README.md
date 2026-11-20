@@ -294,7 +294,7 @@ There are 3 ways to pass extra body to OpenRouter:
    import { streamText } from 'ai';
 
    const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   const model = openrouter('anthropic/claude-sonnet-5.5');
    await streamText({
      model,
      messages: [{ role: 'user', content: 'Hello' }],
@@ -315,7 +315,7 @@ There are 3 ways to pass extra body to OpenRouter:
    import { streamText } from 'ai';
 
    const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking', {
+   const model = openrouter('anthropic/claude-sonnet-5.5', {
      extraBody: {
        reasoning: {
          max_tokens: 10,
@@ -342,7 +342,7 @@ There are 3 ways to pass extra body to OpenRouter:
        },
      },
    });
-   const model = openrouter('anthropic/claude-3.7-sonnet:thinking');
+   const model = openrouter('anthropic/claude-sonnet-5.5');
    await streamText({
      model,
      messages: [{ role: 'user', content: 'Hello' }],
@@ -515,7 +515,7 @@ const provider = createOpenRouter({
   },
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 const result = await streamObject({
   model,
@@ -538,7 +538,7 @@ const provider = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 await generateText({
   model,
@@ -573,7 +573,7 @@ const provider = createOpenRouter({
   },
 });
 
-const model = provider.chat('anthropic/claude-sonnet-4');
+const model = provider.chat('anthropic/claude-sonnet-5.5');
 
 const result = await streamObject({
   model,
@@ -650,7 +650,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { streamText } from 'ai';
 
 const openrouter = createOpenRouter({ apiKey: 'your-api-key' });
-const model = openrouter('anthropic/claude-3.5-sonnet', {
+const model = openrouter('anthropic/claude-sonnet-5.5', {
   debug: {
     echo_upstream_body: true,
   },
@@ -677,7 +677,7 @@ The provider supports [OpenRouter usage accounting](https://openrouter.ai/docs/u
 
 ```typescript
 // Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
+const model = openrouter('openai/gpt-6-luna', {
   usage: {
     include: true,
   },
@@ -710,7 +710,7 @@ It also supports BYOK (Bring Your Own Key) [usage accounting](https://openrouter
 // Assuming you have set an OpenAI API key in https://openrouter.ai/settings/integrations
 
 // Enable usage accounting
-const model = openrouter('openai/gpt-3.5-turbo', {
+const model = openrouter('openai/gpt-6-luna', {
   usage: {
     include: true,
   },
