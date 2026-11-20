@@ -32,6 +32,7 @@ import {
 import {
   combineHeaders,
   createJsonResponseHandler,
+  getTopLevelMediaType,
   parseProviderOptions,
   postJsonToApi,
   removeUndefinedEntries,
@@ -301,7 +302,9 @@ function toDecisionsState(
 
 /** The Decisions API takes images in state as chat-style `image_url` entries. */
 function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
-  if (!part.mediaType.startsWith('image/')) {
+  // AI SDK v7 allows a bare `image` (or `image/*`) media type; the subtype is
+  // detected from the bytes when the data URL is built.
+  if (getTopLevelMediaType(part.mediaType) !== 'image') {
     throw new UnsupportedFunctionalityError({
       functionality: `${part.mediaType} files in decision state`,
     });
@@ -309,8 +312,7 @@ function toImageUrlEntry(part: LanguageModelV4FilePart): JSONValue {
   return {
     type: 'image_url',
     image_url: {
-      // mediaType is always set on file parts, so no default ever applies.
-      url: getFileUrl({ part, defaultMediaType: part.mediaType }),
+      url: getFileUrl({ part, defaultMediaType: 'image/jpeg' }),
     },
   };
 }
