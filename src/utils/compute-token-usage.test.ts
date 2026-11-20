@@ -17,7 +17,7 @@ describe('computeTokenUsage', () => {
 
     expect(result.inputTokens).toStrictEqual({
       total: 100,
-      noCache: 80,
+      noCache: 50,
       cacheRead: 20,
       cacheWrite: 30,
     });
@@ -27,6 +27,71 @@ describe('computeTokenUsage', () => {
       reasoning: 10,
     });
     expect(result.raw).toBeDefined();
+  });
+
+  it('should exclude cache read and cache write tokens from noCache', () => {
+    const result = computeTokenUsage({
+      prompt_tokens: 194,
+      completion_tokens: 2,
+      prompt_tokens_details: { cached_tokens: 0, cache_write_tokens: 100 },
+    });
+
+    expect(result.inputTokens).toStrictEqual({
+      total: 194,
+      noCache: 94,
+      cacheRead: 0,
+      cacheWrite: 100,
+    });
+  });
+
+  it('should make noCache + cacheRead + cacheWrite equal to total', () => {
+    const { inputTokens } = computeTokenUsage({
+      prompt_tokens: 1000,
+      completion_tokens: 10,
+      prompt_tokens_details: { cached_tokens: 600, cache_write_tokens: 250 },
+    });
+
+    expect(
+      (inputTokens.noCache ?? 0) +
+        (inputTokens.cacheRead ?? 0) +
+        (inputTokens.cacheWrite ?? 0),
+    ).toBe(inputTokens.total);
+  });
+
+  it('should only subtract cache reads from noCache when cache_write_tokens is absent or null', () => {
+    const withoutWrites = computeTokenUsage({
+      prompt_tokens: 100,
+      completion_tokens: 5,
+      prompt_tokens_details: { cached_tokens: 20 },
+    });
+    expect(withoutWrites.inputTokens).toStrictEqual({
+      total: 100,
+      noCache: 80,
+      cacheRead: 20,
+      cacheWrite: undefined,
+    });
+
+    const withNullWrites = computeTokenUsage({
+      prompt_tokens: 100,
+      completion_tokens: 5,
+      prompt_tokens_details: { cached_tokens: 20, cache_write_tokens: null },
+    });
+    expect(withNullWrites.inputTokens.noCache).toBe(80);
+  });
+
+  it('should not report negative noCache when cache tokens exceed prompt_tokens', () => {
+    const result = computeTokenUsage({
+      prompt_tokens: 100,
+      completion_tokens: 5,
+      prompt_tokens_details: { cached_tokens: 20, cache_write_tokens: 150 },
+    });
+
+    expect(result.inputTokens).toStrictEqual({
+      total: 100,
+      noCache: 0,
+      cacheRead: 20,
+      cacheWrite: 150,
+    });
   });
 
   it('should set noCache equal to total when no detail fields present', () => {
