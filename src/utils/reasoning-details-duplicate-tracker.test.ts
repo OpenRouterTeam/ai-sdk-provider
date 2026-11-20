@@ -194,6 +194,36 @@ describe('ReasoningDetailsDuplicateTracker', () => {
     });
   });
 
+  describe('ServerToolCall type deduplication', () => {
+    it('should deduplicate using tool_call_id when present', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        tool_call_id: 'call_1',
+        arguments: '{}',
+        result: 'first',
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+      expect(tracker.upsert({ ...detail, result: 'second' })).toBe(false);
+    });
+
+    it('should deduplicate using tool_name and arguments when tool_call_id is absent', () => {
+      const tracker = new ReasoningDetailsDuplicateTracker();
+      const detail: ReasoningDetailUnion = {
+        type: ReasoningDetailType.ServerToolCall,
+        tool_name: 'openrouter:fusion',
+        arguments: '{"q":"a"}',
+        result: 'r',
+      };
+
+      expect(tracker.upsert(detail)).toBe(true);
+      expect(tracker.upsert({ ...detail })).toBe(false);
+      expect(tracker.upsert({ ...detail, arguments: '{"q":"b"}' })).toBe(true);
+    });
+  });
+
   describe('cross-type collision behavior (matches API)', () => {
     it('should collide when different types have same field value', () => {
       // This matches the OpenRouter API behavior - keys are not type-prefixed

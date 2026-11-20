@@ -6,6 +6,7 @@ export enum ReasoningDetailType {
   Summary = 'reasoning.summary',
   Encrypted = 'reasoning.encrypted',
   Text = 'reasoning.text',
+  ServerToolCall = 'reasoning.server_tool_call',
 }
 
 export const CommonReasoningDetailSchema = z
@@ -47,10 +48,29 @@ export const ReasoningDetailTextSchema = z
 
 export type ReasoningDetailText = z.infer<typeof ReasoningDetailTextSchema>;
 
+/**
+ * Record of an OpenRouter server-tool invocation (e.g. `openrouter:fusion`),
+ * carried in reasoning_details so a later turn can rehydrate the prior call.
+ */
+export const ReasoningDetailServerToolCallSchema = z
+  .object({
+    type: z.literal(ReasoningDetailType.ServerToolCall),
+    tool_name: z.string(),
+    tool_call_id: z.string().nullish(),
+    arguments: z.string(),
+    result: z.string(),
+  })
+  .extend(CommonReasoningDetailSchema.shape);
+
+export type ReasoningDetailServerToolCall = z.infer<
+  typeof ReasoningDetailServerToolCallSchema
+>;
+
 export const ReasoningDetailUnionSchema = z.union([
   ReasoningDetailSummarySchema,
   ReasoningDetailEncryptedSchema,
   ReasoningDetailTextSchema,
+  ReasoningDetailServerToolCallSchema,
 ]);
 
 export type ReasoningDetailUnion = z.infer<typeof ReasoningDetailUnionSchema>;
