@@ -85,6 +85,46 @@ describe('resolveReasoning', () => {
     ).toEqual({ effort: 'high', exclude: true });
   });
 
+  it.each([
+    'first',
+    'second',
+  ] as const)('ignores call-level reasoning when the %s extraBody sets reasoning_effort', (position) => {
+    const extraBody = { reasoning_effort: 'low' };
+    expect(
+      resolveReasoning({
+        reasoning: 'high',
+        settingsReasoning: { max_tokens: 1000, exclude: true },
+        providerOptions: undefined,
+        extraBodies:
+          position === 'first' ? [extraBody, undefined] : [{}, extraBody],
+      }),
+    ).toStrictEqual({ max_tokens: 1000, exclude: true });
+  });
+
+  it('maps call-level reasoning when a later layer clears reasoning_effort', () => {
+    expect(
+      resolveReasoning({
+        reasoning: 'high',
+        settingsReasoning: undefined,
+        providerOptions: undefined,
+        extraBodies: [
+          { reasoning_effort: 'low' },
+          { reasoning_effort: undefined },
+        ],
+      }),
+    ).toStrictEqual({ effort: 'high' });
+  });
+
+  it('does not emit undefined enabled/exclude keys', () => {
+    expect(
+      resolveReasoning({
+        reasoning: 'high',
+        settingsReasoning: { max_tokens: 100 },
+        providerOptions: undefined,
+      }),
+    ).toStrictEqual({ effort: 'high' });
+  });
+
   it('returns undefined when providerOptions sets reasoning_effort and there are no model settings', () => {
     expect(
       resolveReasoning({
