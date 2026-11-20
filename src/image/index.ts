@@ -215,7 +215,6 @@ export class OpenRouterImageModel implements ImageModelV4 {
       path: '/images',
       modelId: this.modelId,
     });
-    const downloadFetch = getSafeDownloadFetch(this.config.fetch);
 
     return Promise.all(
       data.map(async (item) => {
@@ -233,7 +232,7 @@ export class OpenRouterImageModel implements ImageModelV4 {
             successfulResponseHandler: createBinaryResponseHandler(),
             failedResponseHandler: createStatusCodeErrorResponseHandler(),
             abortSignal,
-            fetch: downloadFetch,
+            fetch: this.config.fetch,
             validateUrl: true,
             trustedOrigin,
           });
@@ -260,32 +259,6 @@ export class OpenRouterImageModel implements ImageModelV4 {
 }
 
 const DEFAULT_IMAGE_MEDIA_TYPE = 'image/png';
-
-function getSafeDownloadFetch(
-  customFetch: typeof fetch | undefined,
-): typeof fetch | undefined {
-  if (customFetch !== undefined && customFetch !== globalThis.fetch) {
-    return customFetch;
-  }
-
-  const runtimeProcess = (
-    globalThis as {
-      process?: {
-        release?: { name?: string };
-        getBuiltinModule?: unknown;
-      };
-    }
-  ).process;
-
-  if (
-    runtimeProcess?.release?.name === 'node' &&
-    typeof runtimeProcess.getBuiltinModule !== 'function'
-  ) {
-    return (input, init) => globalThis.fetch(input, init);
-  }
-
-  return customFetch;
-}
 
 function convertFileToInputReference(
   file: ImageModelV4File,
