@@ -1,6 +1,11 @@
 import type { SharedV4ProviderOptions } from '@ai-sdk/provider';
 
-import { UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import { APICallError, UnsupportedFunctionalityError } from '@ai-sdk/provider';
+import {
+  convertBase64ToUint8Array,
+  DownloadError,
+} from '@ai-sdk/provider-utils';
+import { generateImage } from 'ai';
 import { describe, expect, it } from 'vitest';
 import { createOpenRouter } from '../provider';
 import { OpenRouterImageModel } from './index';
@@ -981,6 +986,366 @@ describe('OpenRouterImageModel', () => {
         sort: 'throughput',
         allow_fallbacks: true,
       });
+    });
+  });
+
+  describe('signed URL responses', () => {
+    const TEST_IMAGE_BYTES = convertBase64ToUint8Array(TEST_IMAGE_BASE64);
+    const SIGNED_URL_1 =
+      'https://storage.googleapis.com/generated-media/v1/image-1.png?X-Goog-Signature=abc123';
+    const SIGNED_URL_2 =
+      'https://storage.googleapis.com/generated-media/v1/image-2.png?X-Goog-Signature=def456';
+
+    it('should parse a signed URL response, download bytes without auth headers, and expose providerMetadata', async () => {
+      const requests: Array<{ url: string; headers: Headers }> = [];
+      let capturedBody: Record<string, unknown> | undefined;
+
+      const mockFetch = async (
+        url: URL | RequestInfo,
+        init?: RequestInit,
+      ): Promise<Response> => {
+        const urlStr = url.toString();
+        requests.push({
+          url: urlStr,
+          headers: new Headers(init?.headers),
+        });
+
+        if (urlStr === 'https://openrouter.ai/api/v1/images') {
+          capturedBody = JSON.parse(init?.body as string);
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [
+                {
+                  url: SIGNED_URL_1,
+                  media_type: 'image/png',
+                },
+              ],
+              expires_at: 1748458800,
+              usage: {
+                prompt_tokens: 10,
+                completion_tokens: 100,
+                total_tokens: 110,
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+
+        if (urlStr === SIGNED_URL_1) {
+          return new Response(TEST_IMAGE_BYTES, {
+            status: 200,
+            headers: { 'content-type': 'image/png' },
+          });
+        }
+
+        return new Response('Not Found', { status: 404 });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'secret-api-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      const result = await generate(model, {
+        openrouter: { response_format: 'url' },
+      });
+
+      expect(capturedBody?.response_format).toBe('url');
+      expect(result.images).toHaveLength(1);
+      expect(result.images[0]).toBeInstanceOf(Uint8Array);
+      expect(result.images[0]).toEqual(TEST_IMAGE_BYTES);
+      expect(result.providerMetadata).toEqual({
+        openrouter: {
+          images: [
+            {
+              url: SIGNED_URL_1,
+              mediaType: 'image/png',
+              expiresAt: 1748458800,
+            },
+          ],
+        },
+      });
+
+      expect(requests).toHaveLength(2);
+      expect(requests[0]?.headers.get('authorization')).toBe(
+        'Bearer secret-api-key',
+      );
+      // Signed URL download must not leak the OpenRouter API key.
+      expect(requests[1]?.url).toBe(SIGNED_URL_1);
+      expect(requests[1]?.headers.get('authorization')).toBeNull();
+    });
+
+    it('should download multiple signed URL images in order', async () => {
+      const secondBytes = new Uint8Array([1, 2, 3, 4]);
+      const mockFetch = async (url: URL | RequestInfo): Promise<Response> => {
+        const urlStr = url.toString();
+        if (urlStr === 'https://openrouter.ai/api/v1/images') {
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [
+                { url: SIGNED_URL_1, media_type: 'image/png' },
+                { url: SIGNED_URL_2, media_type: 'image/webp' },
+              ],
+              expires_at: 1748458800,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+        if (urlStr === SIGNED_URL_1) {
+          return new Response(TEST_IMAGE_BYTES, { status: 200 });
+        }
+        if (urlStr === SIGNED_URL_2) {
+          return new Response(secondBytes, { status: 200 });
+        }
+        return new Response('Not Found', { status: 404 });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      const result = await generate(model, {
+        openrouter: { response_format: 'url' },
+      });
+
+      expect(result.images).toHaveLength(2);
+      expect(result.images[0]).toEqual(TEST_IMAGE_BYTES);
+      expect(result.images[1]).toEqual(secondBytes);
+      expect(result.providerMetadata).toEqual({
+        openrouter: {
+          images: [
+            {
+              url: SIGNED_URL_1,
+              mediaType: 'image/png',
+              expiresAt: 1748458800,
+            },
+            {
+              url: SIGNED_URL_2,
+              mediaType: 'image/webp',
+              expiresAt: 1748458800,
+            },
+          ],
+        },
+      });
+    });
+
+    it('should handle mixed signed URL and b64_json fallback items', async () => {
+      const mockFetch = async (url: URL | RequestInfo): Promise<Response> => {
+        const urlStr = url.toString();
+        if (urlStr === 'https://openrouter.ai/api/v1/images') {
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [
+                { url: SIGNED_URL_1, media_type: 'image/png' },
+                { b64_json: TEST_IMAGE_BASE64, media_type: 'image/png' },
+              ],
+              expires_at: 1748458800,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+        if (urlStr === SIGNED_URL_1) {
+          return new Response(TEST_IMAGE_BYTES, { status: 200 });
+        }
+        return new Response('Not Found', { status: 404 });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      const result = await generate(model, {
+        openrouter: { response_format: 'url' },
+      });
+
+      expect(result.images).toHaveLength(2);
+      expect(result.images[0]).toBeInstanceOf(Uint8Array);
+      expect(result.images[1]).toBeInstanceOf(Uint8Array);
+      expect(result.images[0]).toEqual(TEST_IMAGE_BYTES);
+      expect(result.images[1]).toEqual(TEST_IMAGE_BYTES);
+      expect(result.providerMetadata).toEqual({
+        openrouter: {
+          images: [
+            {
+              url: SIGNED_URL_1,
+              mediaType: 'image/png',
+              expiresAt: 1748458800,
+            },
+            {
+              mediaType: 'image/png',
+            },
+          ],
+        },
+      });
+    });
+
+    it('should work end-to-end with AI SDK generateImage()', async () => {
+      const mockFetch = async (url: URL | RequestInfo): Promise<Response> => {
+        const urlStr = url.toString();
+        if (urlStr === 'https://openrouter.ai/api/v1/images') {
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [{ url: SIGNED_URL_1, media_type: 'image/png' }],
+              expires_at: 1748458800,
+              usage: {
+                prompt_tokens: 5,
+                completion_tokens: 50,
+                total_tokens: 55,
+              },
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+        if (urlStr === SIGNED_URL_1) {
+          return new Response(TEST_IMAGE_BYTES, {
+            status: 200,
+            headers: { 'content-type': 'image/png' },
+          });
+        }
+        return new Response('Not Found', { status: 404 });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+
+      const result = await generateImage({
+        model: provider.imageModel('google/gemini-2.5-flash-image'),
+        prompt: 'A cat',
+        providerOptions: {
+          openrouter: { response_format: 'url' },
+        },
+      });
+
+      expect(result.image.uint8Array).toEqual(TEST_IMAGE_BYTES);
+      expect(result.image.base64).toBe(TEST_IMAGE_BASE64);
+      expect(result.image.mediaType).toBe('image/png');
+      expect(result.image.providerMetadata).toEqual({
+        openrouter: {
+          url: SIGNED_URL_1,
+          mediaType: 'image/png',
+          expiresAt: 1748458800,
+        },
+      });
+      expect(result.providerMetadata).toEqual({
+        openrouter: {
+          images: [
+            {
+              url: SIGNED_URL_1,
+              mediaType: 'image/png',
+              expiresAt: 1748458800,
+            },
+          ],
+        },
+      });
+    });
+
+    it('should omit providerMetadata for plain b64_json responses', async () => {
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: createMockFetch(TEST_IMAGE_BASE64),
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      const result = await generate(model, {});
+      expect(result.providerMetadata).toBeUndefined();
+    });
+
+    it('should reject a response item that has neither b64_json nor url', async () => {
+      const mockFetch = async (): Promise<Response> =>
+        new Response(
+          JSON.stringify({
+            created: 1748372400,
+            data: [{ media_type: 'image/png' }],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await expect(generate(model, {})).rejects.toThrow();
+    });
+
+    it('should throw APICallError when downloading a signed URL fails', async () => {
+      const mockFetch = async (url: URL | RequestInfo): Promise<Response> => {
+        if (url.toString() === 'https://openrouter.ai/api/v1/images') {
+          return new Response(
+            JSON.stringify({
+              created: 1748372400,
+              data: [{ url: SIGNED_URL_1 }],
+              expires_at: 1748458800,
+            }),
+            {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            },
+          );
+        }
+        return new Response('Expired', { status: 403 });
+      };
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await expect(
+        generate(model, { openrouter: { response_format: 'url' } }),
+      ).rejects.toThrow(APICallError);
+    });
+
+    it('should reject private/loopback image URLs from a different origin', async () => {
+      const mockFetch = async (): Promise<Response> =>
+        new Response(
+          JSON.stringify({
+            created: 1748372400,
+            data: [{ url: 'http://127.0.0.1:8080/internal-image.png' }],
+          }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        );
+
+      const provider = createOpenRouter({
+        apiKey: 'test-key',
+        fetch: mockFetch,
+      });
+      const model = provider.imageModel('google/gemini-2.5-flash-image');
+
+      await expect(
+        generate(model, { openrouter: { response_format: 'url' } }),
+      ).rejects.toThrow(DownloadError);
     });
   });
 });
