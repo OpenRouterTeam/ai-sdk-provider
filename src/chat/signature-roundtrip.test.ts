@@ -661,8 +661,9 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
                   {
                     type: ReasoningDetailType.Text,
                     text: 'Step 2.',
-                    signature: FAKE_SIGNATURE,
-                    // Unknown format — should be individually dropped, not kill the array
+                    // A distinct block has its own signature
+                    signature: `${FAKE_SIGNATURE}-2`,
+                    // Unknown format — must not kill the array
                     format: 'some-future-provider-v1' as 'anthropic-claude-v1',
                     index: 1,
                   },
@@ -677,10 +678,12 @@ describe('Issue #423/#439: reasoning signature in multi-turn messages', () => {
 
     const assistantMsg = result.find((m) => m.role === 'assistant');
     expect(assistantMsg).toBeDefined();
-    // The valid Anthropic entry should survive; the unknown-format entry may be dropped
-    // but should NOT cause the entire array to fail
-    expect(assistantMsg!.reasoning_details).toBeDefined();
-    expect(assistantMsg!.reasoning_details!.length).toBeGreaterThanOrEqual(1);
+    // Both entries survive: unknown formats are passed through verbatim
+    expect(assistantMsg!.reasoning_details).toHaveLength(2);
+    expect(assistantMsg!.reasoning_details![1]).toMatchObject({
+      text: 'Step 2.',
+      format: 'some-future-provider-v1',
+    });
     expect(assistantMsg!.reasoning_details![0]).toMatchObject({
       type: ReasoningDetailType.Text,
       text: 'Step 1.',
