@@ -13,7 +13,7 @@ const OpenRouterChatCompletionBaseResponseSchema = z
         prompt_tokens: z.number(),
         prompt_tokens_details: z
           .object({
-            cached_tokens: z.number(),
+            cached_tokens: z.number().nullish(),
             cache_write_tokens: z.number().nullish(),
           })
           .passthrough()
@@ -21,7 +21,7 @@ const OpenRouterChatCompletionBaseResponseSchema = z
         completion_tokens: z.number(),
         completion_tokens_details: z
           .object({
-            reasoning_tokens: z.number(),
+            reasoning_tokens: z.number().nullish(),
           })
           .passthrough()
           .nullish(),

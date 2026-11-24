@@ -4,11 +4,11 @@ interface UsageData {
   prompt_tokens?: number | null;
   completion_tokens?: number | null;
   prompt_tokens_details?: {
-    cached_tokens?: number;
+    cached_tokens?: number | null;
     cache_write_tokens?: number | null;
   } | null;
   completion_tokens_details?: {
-    reasoning_tokens?: number;
+    reasoning_tokens?: number | null;
   } | null;
 }
 

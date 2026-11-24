@@ -38,7 +38,7 @@ export const OpenRouterCompletionChunkSchema = z.union([
           prompt_tokens: z.number(),
           prompt_tokens_details: z
             .object({
-              cached_tokens: z.number(),
+              cached_tokens: z.number().nullish(),
               cache_write_tokens: z.number().nullish(),
             })
             .passthrough()
@@ -46,7 +46,7 @@ export const OpenRouterCompletionChunkSchema = z.union([
           completion_tokens: z.number(),
           completion_tokens_details: z
             .object({
-              reasoning_tokens: z.number(),
+              reasoning_tokens: z.number().nullish(),
             })
             .passthrough()
             .nullish(),
