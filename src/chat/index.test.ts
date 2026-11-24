@@ -8,6 +8,7 @@ import type { JSONSchema7 } from 'json-schema';
 import type { ImageResponse } from '../schemas/image';
 import type { ReasoningDetailUnion } from '../schemas/reasoning-details';
 
+import { NoContentGeneratedError } from '@ai-sdk/provider';
 import { convertReadableStreamToArray } from '@ai-sdk/provider-utils/test';
 import { createTestServer } from '@ai-sdk/test-server';
 import { afterAll, afterEach, beforeAll, vi } from 'vitest';
@@ -1599,6 +1600,48 @@ describe('doGenerate', () => {
 
     expect(toolCalls).toHaveLength(1);
     expect(toolCalls[0]!.toolCallId).toBe('call_abc123');
+  });
+
+  it('should expose usage on the error when choices is empty', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        id: 'chatcmpl-empty',
+        model: 'openai/gpt-4o-mini',
+        provider: 'OpenAI',
+        choices: [],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 2,
+          total_tokens: 12,
+          cost: 0.0001,
+        },
+      },
+    };
+
+    const error = await model
+      .doGenerate({ prompt: TEST_PROMPT })
+      .catch((e: unknown) => e);
+
+    expect(NoContentGeneratedError.isInstance(error)).toBe(true);
+    expect(error).toMatchObject({
+      message: 'No choice in response',
+      usage: {
+        inputTokens: { total: 10 },
+        outputTokens: { total: 2 },
+      },
+      providerMetadata: {
+        openrouter: {
+          provider: 'OpenAI',
+          usage: {
+            promptTokens: 10,
+            completionTokens: 2,
+            totalTokens: 12,
+            cost: 0.0001,
+          },
+        },
+      },
+    });
   });
 });
 
