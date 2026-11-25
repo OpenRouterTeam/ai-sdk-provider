@@ -277,6 +277,46 @@ describe('doGenerate', () => {
     });
   });
 
+  it('should accept usage details without cached_tokens or reasoning_tokens (#644)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'json-value',
+      body: {
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'hello' },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 2,
+          total_tokens: 12,
+          cost: 0.0001,
+          prompt_tokens_details: {},
+          completion_tokens_details: {},
+        },
+      },
+    };
+
+    const { content, usage } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(content[0]).toStrictEqual({ type: 'text', text: 'hello' });
+    expect(usage.inputTokens).toStrictEqual({
+      total: 10,
+      noCache: 10,
+      cacheRead: 0,
+      cacheWrite: undefined,
+    });
+    expect(usage.outputTokens).toStrictEqual({
+      total: 2,
+      text: 2,
+      reasoning: 0,
+    });
+  });
+
   it.each([
     true,
     false,
@@ -3018,6 +3058,45 @@ describe('doStream', () => {
       total: 30,
       text: 25, // 30 - 5 reasoning
       reasoning: 5,
+    });
+  });
+
+  it('should accept usage details without cached_tokens or reasoning_tokens in streaming (#644)', async () => {
+    server.urls['https://openrouter.ai/api/v1/chat/completions']!.response = {
+      type: 'stream-chunks',
+      chunks: [
+        `data: {"id":"chatcmpl-644","object":"chat.completion.chunk","created":1711357598,"model":"openai/gpt-4o-mini",` +
+          `"choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}\n\n`,
+        `data: {"id":"chatcmpl-644","object":"chat.completion.chunk","created":1711357598,"model":"openai/gpt-4o-mini",` +
+          `"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12,"cost":0.0001,` +
+          `"prompt_tokens_details":{},"completion_tokens_details":{}}}\n\n`,
+        'data: [DONE]\n\n',
+      ],
+    };
+
+    const { stream } = await model.doStream({
+      prompt: TEST_PROMPT,
+    });
+
+    const elements = await convertReadableStreamToArray(stream);
+
+    expect(elements.some((el) => el.type === 'error')).toBe(false);
+
+    const finishEvent = elements.find(
+      (el): el is LanguageModelV4StreamPart & { type: 'finish' } =>
+        el.type === 'finish',
+    );
+
+    expect(finishEvent?.usage.inputTokens).toStrictEqual({
+      total: 10,
+      noCache: 10,
+      cacheRead: 0,
+      cacheWrite: undefined,
+    });
+    expect(finishEvent?.usage.outputTokens).toStrictEqual({
+      total: 2,
+      text: 2,
+      reasoning: 0,
     });
   });
 

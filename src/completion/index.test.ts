@@ -82,10 +82,10 @@ describe('doGenerate', () => {
       completion_tokens: number;
       cost?: number;
       prompt_tokens_details?: {
-        cached_tokens: number;
+        cached_tokens?: number;
       };
       completion_tokens_details?: {
-        reasoning_tokens: number;
+        reasoning_tokens?: number;
       };
       cost_details?: {
         upstream_inference_cost: number;
@@ -160,6 +160,37 @@ describe('doGenerate', () => {
         total_tokens: 25,
         completion_tokens: 5,
       },
+    });
+  });
+
+  it('should accept usage details without cached_tokens or reasoning_tokens (#644)', async () => {
+    prepareJsonResponse({
+      content: 'hello',
+      usage: {
+        prompt_tokens: 10,
+        total_tokens: 12,
+        completion_tokens: 2,
+        cost: 0.0001,
+        prompt_tokens_details: {},
+        completion_tokens_details: {},
+      },
+    });
+
+    const { content, usage } = await model.doGenerate({
+      prompt: TEST_PROMPT,
+    });
+
+    expect(content[0]).toStrictEqual({ type: 'text', text: 'hello' });
+    expect(usage.inputTokens).toStrictEqual({
+      total: 10,
+      noCache: 10,
+      cacheRead: 0,
+      cacheWrite: undefined,
+    });
+    expect(usage.outputTokens).toStrictEqual({
+      total: 2,
+      text: 2,
+      reasoning: 0,
     });
   });
 
