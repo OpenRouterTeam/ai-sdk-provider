@@ -364,12 +364,64 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
     // Now TypeScript knows this is the success response
     const response = responseValue;
 
+    const usageInfo: LanguageModelV4Usage = response.usage
+      ? computeTokenUsage(response.usage)
+      : emptyUsage();
+
+    const openrouterUsage = {
+      promptTokens: usageInfo.inputTokens.total ?? 0,
+      completionTokens: usageInfo.outputTokens.total ?? 0,
+      totalTokens:
+        (usageInfo.inputTokens.total ?? 0) +
+        (usageInfo.outputTokens.total ?? 0),
+      ...(response.usage?.cost != null ? { cost: response.usage.cost } : {}),
+      ...(response.usage?.is_byok != null
+        ? { isByok: response.usage.is_byok }
+        : {}),
+      ...(response.usage?.prompt_tokens_details?.cached_tokens != null
+        ? {
+            promptTokensDetails: {
+              cachedTokens: response.usage.prompt_tokens_details.cached_tokens,
+            },
+          }
+        : {}),
+      ...(response.usage?.completion_tokens_details?.reasoning_tokens != null
+        ? {
+            completionTokensDetails: {
+              reasoningTokens:
+                response.usage.completion_tokens_details.reasoning_tokens,
+            },
+          }
+        : {}),
+      ...(response.usage?.cost_details?.upstream_inference_cost != null
+        ? {
+            costDetails: {
+              upstreamInferenceCost:
+                response.usage.cost_details.upstream_inference_cost,
+            },
+          }
+        : {}),
+    };
+
     const choice = response.choices[0];
 
     if (!choice) {
-      throw new NoContentGeneratedError({
-        message: 'No choice in response',
-      });
+      // Expose the usage on the error so the billed tokens and cost of the
+      // call can still be accounted for.
+      throw Object.assign(
+        new NoContentGeneratedError({
+          message: 'No choice in response',
+        }),
+        {
+          usage: usageInfo,
+          providerMetadata: {
+            openrouter: OpenRouterProviderMetadataSchema.parse({
+              provider: response.provider ?? '',
+              usage: openrouterUsage,
+            }),
+          },
+        },
+      );
     }
 
     // A provider failure after generation started arrives as HTTP 200 with
@@ -388,10 +440,6 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
         data: choice.error,
       });
     }
-
-    const usageInfo: LanguageModelV4Usage = response.usage
-      ? computeTokenUsage(response.usage)
-      : emptyUsage();
 
     const reasoningDetails = choice.message.reasoning_details ?? [];
 
@@ -581,44 +629,7 @@ export class OpenRouterChatLanguageModel implements LanguageModelV4 {
             fileAnnotations && fileAnnotations.length > 0
               ? fileAnnotations
               : undefined,
-          usage: {
-            promptTokens: usageInfo.inputTokens.total ?? 0,
-            completionTokens: usageInfo.outputTokens.total ?? 0,
-            totalTokens:
-              (usageInfo.inputTokens.total ?? 0) +
-              (usageInfo.outputTokens.total ?? 0),
-            ...(response.usage?.cost != null
-              ? { cost: response.usage.cost }
-              : {}),
-            ...(response.usage?.is_byok != null
-              ? { isByok: response.usage.is_byok }
-              : {}),
-            ...(response.usage?.prompt_tokens_details?.cached_tokens != null
-              ? {
-                  promptTokensDetails: {
-                    cachedTokens:
-                      response.usage.prompt_tokens_details.cached_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.completion_tokens_details?.reasoning_tokens !=
-            null
-              ? {
-                  completionTokensDetails: {
-                    reasoningTokens:
-                      response.usage.completion_tokens_details.reasoning_tokens,
-                  },
-                }
-              : {}),
-            ...(response.usage?.cost_details?.upstream_inference_cost != null
-              ? {
-                  costDetails: {
-                    upstreamInferenceCost:
-                      response.usage.cost_details.upstream_inference_cost,
-                  },
-                }
-              : {}),
-          },
+          usage: openrouterUsage,
         }),
       },
       request: { body: args },
